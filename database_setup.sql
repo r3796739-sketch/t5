@@ -1,18 +1,19 @@
--- Supabase Setup Script for YoppyChat
--- This script will set up the entire database schema from scratch.
+-- Supabase Setup Script for YoppyChat (Revised & Complete)
+-- This script includes all tables, columns, and functions required by the application code.
 
 -- 1. Enable Necessary Extensions
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- 2. Create Tables
--- We create channels first so communities can reference it for the default_channel_id
+
+-- Channels table (no changes)
 CREATE TABLE public.channels (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     channel_url TEXT UNIQUE NOT NULL,
-    user_id UUID NOT NULL, -- We will add FK after profiles is created
+    user_id UUID NOT NULL, -- FK added later
     status TEXT DEFAULT 'pending' NOT NULL,
     is_shared BOOLEAN DEFAULT false NOT NULL,
-    community_id UUID NULL, -- We will add FK after communities is created
+    community_id UUID NULL, -- FK added later
     channel_name TEXT NULL,
     channel_thumbnail TEXT NULL,
     summary TEXT NULL,
@@ -22,10 +23,11 @@ CREATE TABLE public.channels (
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
+-- Communities table (no changes)
 CREATE TABLE public.communities (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     whop_community_id TEXT UNIQUE NOT NULL,
-    owner_user_id UUID NOT NULL, -- We will add FK after profiles is created
+    owner_user_id UUID NOT NULL, -- FK added later
     plan_id TEXT DEFAULT 'basic_community' NOT NULL,
     query_limit INTEGER DEFAULT 0 NOT NULL,
     queries_used INTEGER DEFAULT 0 NOT NULL,
@@ -35,11 +37,7 @@ CREATE TABLE public.communities (
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
--- Add the FK for channels.community_id now that communities exists
-ALTER TABLE public.channels
-ADD CONSTRAINT fk_channels_community_id
-FOREIGN KEY (community_id) REFERENCES public.communities(id);
-
+-- Profiles table with discord_user_id added
 CREATE TABLE public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     whop_user_id TEXT NULL,
@@ -47,21 +45,19 @@ CREATE TABLE public.profiles (
     avatar_url TEXT NULL,
     email TEXT NOT NULL,
     is_community_owner BOOLEAN DEFAULT false NOT NULL,
-    community_id UUID NULL REFERENCES public.communities(id), -- Owner's link to their community
+    community_id UUID NULL REFERENCES public.communities(id),
     personal_plan_id TEXT NULL,
     direct_subscription_plan TEXT NULL,
+    discord_user_id TEXT UNIQUE NULL, -- ADDED
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
--- Now, add the remaining foreign keys
-ALTER TABLE public.communities
-ADD CONSTRAINT fk_communities_owner_user_id
-FOREIGN KEY (owner_user_id) REFERENCES public.profiles(id);
+-- Add Foreign Keys now that all primary tables exist
+ALTER TABLE public.channels ADD CONSTRAINT fk_channels_user_id FOREIGN KEY (user_id) REFERENCES public.profiles(id);
+ALTER TABLE public.channels ADD CONSTRAINT fk_channels_community_id FOREIGN KEY (community_id) REFERENCES public.communities(id);
+ALTER TABLE public.communities ADD CONSTRAINT fk_communities_owner_user_id FOREIGN KEY (owner_user_id) REFERENCES public.profiles(id);
 
-ALTER TABLE public.channels
-ADD CONSTRAINT fk_channels_user_id
-FOREIGN KEY (user_id) REFERENCES public.profiles(id);
-
+-- Join Tables (no changes)
 CREATE TABLE public.user_channels (
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     channel_id BIGINT NOT NULL REFERENCES public.channels(id) ON DELETE CASCADE,
@@ -74,6 +70,7 @@ CREATE TABLE public.user_communities (
     PRIMARY KEY (user_id, community_id)
 );
 
+-- Usage Stats table (no changes)
 CREATE TABLE public.usage_stats (
     user_id UUID PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
     queries_this_month INTEGER DEFAULT 0 NOT NULL,
@@ -81,6 +78,7 @@ CREATE TABLE public.usage_stats (
     last_reset_date DATE DEFAULT CURRENT_DATE NOT NULL
 );
 
+-- Chat History table (no changes)
 CREATE TABLE public.chat_history (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -91,15 +89,18 @@ CREATE TABLE public.chat_history (
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
+-- Embeddings table with user_id added
 CREATE TABLE public.embeddings (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     channel_id BIGINT NOT NULL REFERENCES public.channels(id) ON DELETE CASCADE,
     video_id TEXT NOT NULL,
     embedding vector(1536),
     metadata JSONB NULL,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL, -- ADDED
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
+-- Telegram Connections table with last_channel_context added
 CREATE TABLE public.telegram_connections (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     app_user_id UUID UNIQUE NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -107,9 +108,11 @@ CREATE TABLE public.telegram_connections (
     connection_code TEXT NOT NULL,
     is_active BOOLEAN DEFAULT false NOT NULL,
     telegram_username TEXT NULL,
+    last_channel_context TEXT NULL, -- ADDED
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
+-- Group Connections table (no changes)
 CREATE TABLE public.group_connections (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     owner_user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -121,16 +124,30 @@ CREATE TABLE public.group_connections (
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
--- 3. Create RPC Functions
-CREATE OR REPLACE FUNCTION public.decrement_channel_count(p_user_id UUID)
-RETURNS VOID AS $$
-BEGIN
-  UPDATE public.usage_stats
-  SET channels_processed = channels_processed - 1
-  WHERE user_id = p_user_id AND channels_processed > 0;
-END;
-$$ LANGUAGE plpgsql;
+-- NEW: Discord Bots table
+CREATE TABLE public.discord_bots (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    bot_token TEXT NOT NULL,
+    youtube_channel_id BIGINT NOT NULL REFERENCES public.channels(id) ON DELETE CASCADE,
+    discord_server_id TEXT NULL,
+    is_active BOOLEAN DEFAULT false NOT NULL,
+    status TEXT DEFAULT 'offline' NOT NULL, -- e.g., offline, connecting, online, error
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
 
+-- NEW: Discord Servers table
+CREATE TABLE public.discord_servers (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    server_id TEXT UNIQUE NOT NULL,
+    linked_channel_id BIGINT NOT NULL REFERENCES public.channels(id) ON DELETE CASCADE,
+    owner_user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+-- 3. Create RPC Functions (Added missing functions)
+
+-- Existing function for community query usage
 CREATE OR REPLACE FUNCTION public.increment_query_usage(p_community_id UUID, p_is_trial BOOLEAN)
 RETURNS VOID AS $$
 BEGIN
@@ -148,17 +165,50 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- NEW: Function for personal query usage
 CREATE OR REPLACE FUNCTION public.increment_personal_query_usage(p_user_id UUID)
 RETURNS VOID AS $$
 BEGIN
-  IF p_user_id IS NOT NULL THEN
-    UPDATE public.usage_stats
-    SET queries_this_month = queries_this_month + 1
-    WHERE user_id = p_user_id;
-  END IF;
+  UPDATE public.usage_stats
+  SET queries_this_month = queries_this_month + 1
+  WHERE user_id = p_user_id;
 END;
 $$ LANGUAGE plpgsql;
 
+-- NEW: Function to increment personal channel count
+CREATE OR REPLACE FUNCTION public.increment_channel_count(p_user_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE public.usage_stats
+  SET channels_processed = channels_processed + 1
+  WHERE user_id = p_user_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- NEW: Function to decrement personal channel count
+CREATE OR REPLACE FUNCTION public.decrement_channel_count(p_user_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE public.usage_stats
+  SET channels_processed = channels_processed - 1
+  WHERE user_id = p_user_id AND channels_processed > 0;
+END;
+$$ LANGUAGE plpgsql;
+
+-- NEW: Function to get channels by discord ID
+CREATE OR REPLACE FUNCTION public.get_channels_by_discord_id(p_discord_id TEXT)
+RETURNS TABLE (id BIGINT, channel_name TEXT) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT c.id, c.channel_name
+  FROM public.channels c
+  JOIN public.user_channels uc ON c.id = uc.channel_id
+  JOIN public.profiles p ON uc.user_id = p.id
+  WHERE p.discord_user_id = p_discord_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Existing function for matching embeddings
 CREATE OR REPLACE FUNCTION match_embeddings (
   query_embedding vector(1536),
   match_threshold float,

@@ -1048,12 +1048,17 @@ def connect_telegram():
     connection_code = secrets.token_hex(8)
     data_to_store = {
         'app_user_id': user_id,
-        'telegram_chat_id': 0,
+        'telegram_chat_id': 0, # Reset chat_id
         'connection_code': connection_code,
         'created_at': datetime.now(timezone.utc).isoformat(),
         'is_active': False
     }
-    supabase_admin.table('telegram_connections').upsert(data_to_store, on_conflict='app_user_id').execute()
+    
+    # Using 'upsert' with 'on_conflict' ensures that if a record for the user
+    # already exists, it will be updated with the new code and timestamp.
+    supabase_admin.table('telegram_connections').upsert(
+        data_to_store, on_conflict='app_user_id'
+    ).execute()
     flash('Connection code generated.', 'success')
     return redirect(url_for('telegram_dashboard', _anchor='telegram-personal'))
 

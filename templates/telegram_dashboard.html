@@ -60,44 +60,48 @@
     <h1>Telegram Integrations</h1>
 
     <div class="integration-section" id="telegram">
-        <div class="integration-card" id="telegram-personal">
-            <h3>Personal Bot</h3>
-            <p>Connect your personal Telegram account to ask questions from any of your channels.</p>
+<div class="integration-card" id="telegram-personal">
+    <h3>Personal Bot</h3>
+    <p>Connect your personal Telegram account to ask questions from any of your channels.</p>
 
-            <div class="form-card" style="text-align: center;">
-                {% if user %}
-                    <p class="page-description">
-                        Link your account to chat with your AI assistant directly from Telegram.
-                    </p>
-                    {% if personal_connection_status == 'not_connected' %}
-                        <p>Click the button below to generate a unique connection code.</p>
-                        <form method="POST" action="{{ url_for('connect_telegram') }}">
-                            <button type="submit" class="btn btn-primary">Generate Connection Code</button>
-                        </form>
-                    {% elif personal_connection_status == 'code_generated' %}
-                        <h3>Your Connection Code</h3>
-                        <p>Open Telegram, find the bot <strong>@{{ bot_username }}</strong>, and send it this exact message:</p>
-                        <div class="code-block">
-                            <code>/connect {{ personal_connection_code }}</code>
-                        </div>
-                        <p class="text-muted">This code is valid for 10 minutes.</p>
-                    {% elif personal_connection_status == 'connected' %}
-                        <h3>Successfully Connected!</h3>
-                        <p>Your account is linked with Telegram user <strong>@{{ telegram_username }}</strong>.</p>
-                        <form method="POST" action="{{ url_for('disconnect_telegram') }}">
-                             <button type="submit" class="btn btn-error">Disconnect Telegram</button>
-                        </form>
-                    {% endif %}
-                {% else %}
-                    <p class="page-description">
-                        You must be logged in to connect your Telegram account.
-                    </p>
-                    <button class="btn btn-primary" onclick="showLoginPopup()">
-                        Login or Sign Up
-                    </button>
-                {% endif %}
-            </div>
-        </div>
+    <div class="form-card" style="text-align: center;">
+        {% if user %}
+            <p class="page-description">
+                Link your account to chat with your AI assistant directly from Telegram.
+            </p>
+            
+            {% if personal_connection_status == 'not_connected' %}
+                <p>Click the button below to generate a unique connection code.</p>
+                <form method="POST" action="{{ url_for('connect_telegram') }}">
+                    <button type="submit" class="btn btn-primary">Generate Connection Code</button>
+                </form>
+            {% elif personal_connection_status == 'code_generated' %}
+                <h3>Your Connection Code</h3>
+                <p>Open Telegram, find the bot <strong>@{{ bot_username }}</strong>, and send it this exact message:</p>
+                <div class="code-block">
+                    <code>/connect {{ personal_connection_code }}</code>
+                </div>
+                <p class="text-muted">This code is valid for 10 minutes.</p>
+                <form method="POST" action="{{ url_for('connect_telegram') }}" style="margin-top: 1rem;">
+                    <button type="submit" class="btn btn-secondary">Generate New Code</button>
+                </form>
+            {% elif personal_connection_status == 'connected' %}
+                <h3>Successfully Connected!</h3>
+                <p>Your account is linked with Telegram user <strong>@{{ telegram_username }}</strong>.</p>
+                <form method="POST" action="{{ url_for('disconnect_telegram') }}">
+                     <button type="submit" class="btn btn-danger">Disconnect Telegram</button>
+                </form>
+            {% endif %}
+            {% else %}
+            <p class="page-description">
+                You must be logged in to connect your Telegram account.
+            </p>
+            <button class="btn btn-primary" onclick="showLoginPopup()">
+                Login or Sign Up
+            </button>
+        {% endif %}
+    </div>
+</div>
         <div class="integration-card" id="telegram-group">
             <h3>Group Bot</h3>
             <p>Add the bot to a Telegram group to answer questions about a specific channel.</p>
