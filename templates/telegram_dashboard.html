@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Telegram Integrations - YoppyChat AI{% endblock %}
+
+{% block page_styles %}
+<style>
+    .integrations-page {
+        padding: 2rem;
+    }
+    .back-link {
+        display: inline-block;
+        margin-bottom: 1.5rem;
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-weight: 500;
+    }
+    .back-link:hover {
+        color: var(--text-primary);
+    }
+    .integration-section {
+        margin-bottom: 2rem;
+    }
+    .integration-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        margin-top: 1rem;
+    }
+    .form-card {
+        margin-top: 1.5rem;
+    }
+    .channel-item-link {
+        display: block;
+        padding: 0.5rem 1rem;
+        background: var(--surface-medium);
+        border-radius: var(--radius-md);
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+        text-decoration: none;
+        transition: background-color 0.2s ease;
+    }
+    .channel-item-link:hover {
+        background-color: var(--surface-dark);
+    }
+    .code-block {
+        background: var(--surface-dark);
+        padding: 20px;
+        border-radius: var(--radius-md);
+        margin: 20px 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="integrations-page">
+    <a href="{{ url_for('integrations') }}" class="back-link">← Back to All Integrations</a>
+    <h1>Telegram Integrations</h1>
+
+    <div class="integration-section" id="telegram">
+        <div class="integration-card" id="telegram-personal">
+            <h3>Personal Bot</h3>
+            <p>Connect your personal Telegram account to ask questions from any of your channels.</p>
+
+            <div class="form-card" style="text-align: center;">
+                {% if user %}
+                    <p class="page-description">
+                        Link your account to chat with your AI assistant directly from Telegram.
+                    </p>
+                    {% if personal_connection_status == 'not_connected' %}
+                        <p>Click the button below to generate a unique connection code.</p>
+                        <form method="POST" action="{{ url_for('connect_telegram') }}">
+                            <button type="submit" class="btn btn-primary">Generate Connection Code</button>
+                        </form>
+                    {% elif personal_connection_status == 'code_generated' %}
+                        <h3>Your Connection Code</h3>
+                        <p>Open Telegram, find the bot <strong>@{{ bot_username }}</strong>, and send it this exact message:</p>
+                        <div class="code-block">
+                            <code>/connect {{ personal_connection_code }}</code>
+                        </div>
+                        <p class="text-muted">This code is valid for 10 minutes.</p>
+                    {% elif personal_connection_status == 'connected' %}
+                        <h3>Successfully Connected!</h3>
+                        <p>Your account is linked with Telegram user <strong>@{{ telegram_username }}</strong>.</p>
+                        <form method="POST" action="{{ url_for('disconnect_telegram') }}">
+                             <button type="submit" class="btn btn-error">Disconnect Telegram</button>
+                        </form>
+                    {% endif %}
+                {% else %}
+                    <p class="page-description">
+                        You must be logged in to connect your Telegram account.
+                    </p>
+                    <button class="btn btn-primary" onclick="showLoginPopup()">
+                        Login or Sign Up
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+        <div class="integration-card" id="telegram-group">
+            <h3>Group Bot</h3>
+            <p>Add the bot to a Telegram group to answer questions about a specific channel.</p>
+
+            <div class="form-card" style="text-align: center;">
+                {% if group_channel %}
+                    <h4>Connect group for '{{ group_channel.channel_name }}'</h4>
+                    {% if group_connection_status == 'connected' %}
+                        <h3>Group Connected</h3>
+                        <p class="page-description">
+                            This channel is currently linked to the Telegram group: <br>
+                            <strong>{{ group_details.group_title or 'Unnamed Group' }}</strong>
+                        </p>
+                        <form method="POST" action="{{ url_for('disconnect_group', channel_id=group_channel.id) }}" onsubmit="return confirm('Are you sure you want to disconnect this group?');">
+                            <button type="submit" class="btn btn-error">Disconnect Group</button>
+                        </form>
+                    {% else %}
+                        {% if group_connection_status == 'code_generated' %}
+                            <h3>2. Link Your Group</h3>
+                            <p class="page-description">
+                                Then, send this exact command message in your Telegram group chat to link it to this channel.
+                            </p>
+                            <div class="code-block">
+                                <code>/link_channel {{ group_connection_code }}</code>
+                            </div>
+                            <p class="text-muted">This code is valid for 10 minutes.</p>
+                        {% else %}
+                            <h3>1. Add Bot to Your Group</h3>
+                            <p class="page-description">
+                                First, add the <strong>@{{ bot_username }}</strong> bot to your Telegram group as an administrator.
+                            </p>
+                            <form method="POST" action="{{ url_for('connect_group') }}">
+                                <input type="hidden" name="channel_id" value="{{ group_channel.id }}">
+                                <button type="submit" class="btn btn-primary">Generate Group Connection Code</button>
+                            </form>
+                        {% endif %}
+                    {% endif %}
+                {% else %}
+                    {% if channel_id %}
+                        <div class="alert alert-warning" style="margin-bottom: 1rem;">
+                            <strong>Channel not linked:</strong> The selected channel is not linked to your account. Please select a valid channel or add the bot to your channel first.
+                        </div>
+                    {% endif %}
+                    <p>To connect a group, first select a channel from the sidebar, then come back here or click on a channel below.</p>
+                    <div class="channel-list" style="margin-top: 1rem;">
+                        {% for name, channel in saved_channels.items() %}
+                            <a href="{{ url_for('telegram_dashboard', channel_id=channel.id, _anchor='telegram-group') }}" class="channel-item-link">
+                                {{ name }}
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+{# No page-specific JavaScript needed for this page #}
+{% endblock %}

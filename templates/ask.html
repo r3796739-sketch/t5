@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}Ask Questions - YoppyChat AI{% endblock %}
+
+{% block page_styles %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ask.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<div class="mobile-header">
+    <div class="mobile-header-left">
+        <button class="hamburger" id="hamburgerBtnMobile" aria-label="Toggle Sidebar">
+            <span></span><span></span><span></span>
+        </button>
+
+        {% if channel_name and current_channel %}
+        <div class="mobile-header-channel channel-info-banner" role="banner">
+            <img src="{{ current_channel.channel_thumbnail }}" alt="{{ channel_name }}" class="mobile-channel-avatar">
+
+            <div class="mobile-channel-text-details">
+                <span class="mobile-channel-title">{{ channel_name }}</span>
+                {% if saved_channels.get(channel_name, {}).subscriber_count %}
+                    <span class="channel-subscribers">
+                        {{ saved_channels[channel_name].subscriber_count | format_subscribers }} Subscribers
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <div class="mobile-header-channel">
+            <span class="mobile-channel-title">General Q&A</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="header-actions">
+        <button id="kebab-menu-btn-mobile" class="kebab-menu-button" aria-label="More options">
+            <svg class="icon-default" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+        </button>
+        <div id="dropdown-menu-mobile" class="dropdown-menu">
+            {% if channel_name %}
+                <a href="#" onclick="refreshChannel('{{ saved_channels[channel_name].id }}', this); return false;">Refresh Channel</a>
+                <a href="#" onclick="clearChat('{{ channel_name }}'); return false;">Clear Chat</a>
+                {% if not session.get('active_community_id') %}
+                <a href="{{ url_for('integrations', channel_id=saved_channels[channel_name].id) }}">Add Bot to Telegram Group</a>
+                <hr>
+                <a href="{{ saved_channels.get(channel_name, {}).get('channel_url', '#') }}" target="_blank" rel="noopener noreferrer">View on YouTube</a>
+                {% endif %}{% else %}
+                <a href="#" onclick="clearChat('general'); return false;">Clear Chat</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+
+<div
+    class="desktop-chat-layout"
+    id="chat-page-data"
+    data-channel-name="{{ channel_name or '' }}"
+    data-channel-thumbnail="{{ current_channel.channel_thumbnail if current_channel else '' }}"
+>
+    <div class="chat-column">
+        <div class="chat-wrapper">
+
+            <div id="conversation-history" class="chat-container" role="log" aria-live="polite">
+                    {% if not history %}
+                    <div class="example-questions-container">
+                        <div class="example-question" onclick="askExample(this)">What are your most popular videos about?</div>
+                        <div class="example-question" onclick="askExample(this)">Summarize your latest video for me.</div>
+                        <div class="example-question" onclick="askExample(this)">What tools do you recommend for beginners?</div>
+                    </div>
+                    {% endif %}
+
+                {% for qa in history %}
+                <div class="qna-pair">
+                    <div class="question-box">
+                        <div class="question-content">{{ qa.question }}</div>
+                    </div>
+
+                    <div class="answer-box">
+                        <div class="answer-header">
+                            {% if channel_name and saved_channels.get(channel_name) and saved_channels[channel_name].channel_thumbnail %}
+                                <div class="answer-avatar-container avatar-container">
+                                    <img src="{{ saved_channels[channel_name].channel_thumbnail }}" alt="{{ channel_name }}" class="answer-avatar">
+                                    <span class="ai-badge">AI</span>
+                                </div>
+                            {% else %}
+                                <div class="answer-avatar-container avatar-container">
+                                    <div class="answer-avatar-placeholder">🤖</div>
+                                    <span class="ai-badge">AI</span>
+                                </div>
+                            {% endif %}
+                            <span class="answer-label">
+                                {% if channel_name %}{{ channel_name }}{% else %}Answer{% endif %}
+                            </span>
+                        </div>
+                        <div class="answer-content">{{ qa.answer|markdown }}</div>
+
+                        <div class="typing-container">
+                            <div class="typing-indicator">
+                                <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+                            </div>
+                        </div>
+
+                        <div class="sources-section">
+                            <div class="source-buttons">
+                                {% if qa.sources %}
+                                    <button class="toggle-sources-btn" onclick="toggleSources(this)">
+                                        <svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M4,6H2V20a2,2 0 0,0 2,2H18V18H4V6M20,2H8A2,2 0 0,0 6,4V16a2,2 0 0,0 2,2H20a2,2 0 0,0 2-2V4a2,2 0 0,0-2-2Z"></path></svg>
+                                        Sources ({{ qa.sources|length }})
+                                        <span class="toggle-indicator">▼</span>
+                                    </button>
+                                {% endif %}
+                                {% if loop.last %}
+                                    <button class="toggle-sources-btn regenerate-btn-js" onclick="regenerateAnswer(this)">
+                                        <svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                                        Regenerate
+                                    </button>
+                                {% endif %}
+                            </div>
+                            {% if qa.sources %}
+                                <div class="sources-list" style="display: none;">
+                                    {% for source in qa.sources %}
+                                    <div class="source-item">
+                                        <a href="{{ source.url }}" target="_blank" class="source-link">
+                                            <span class="source-title">{{ source.title }}</span>
+                                        </a>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <form id="questionForm" class="question-form" role="form">
+                <div class="form-group">
+                    <div class="profile-setting">
+                        <h3 class="setting-title">Response Tone</h3>
+                            <div class="tone-selector" id="tone-selector">
+                                <button class="tone-option active" data-tone="Casual">Casual</button>
+                                <button class="tone-option" data-tone="Factual">Factual</button>
+                            </div>
+                    </div>
+                    <div class="textarea-wrapper">
+                        <textarea
+                            name="question"
+                            id="questionText"
+                            class="question-textarea"
+                            rows="1"
+                            placeholder="Ask a question..."
+                            required
+                            maxlength="1000"
+                        ></textarea>
+                        <div class="textarea-actions">
+                            <span class="char-count">0/1000</span>
+                            <button type="submit" id="submitBtn" class="submit-btn" disabled>
+                                <svg class="submit-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M2,21L23,12L2,3V10L17,12L2,14V21Z" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <aside class="chat-sidebar-right">
+        {% if channel_name and current_channel %}
+        <div class="channel-profile-card">
+            <div class="profile-header">
+                <div class="profile-avatar">
+                    <img src="{{ current_channel.channel_thumbnail }}" alt="{{ channel_name }}">
+                    <span class="ai-badge">AI</span>
+                </div>
+                <div class="profile-info">
+                    <h2 class="profile-name">{{ channel_name }}</h2>
+                        <p class="profile-description">
+                            {% if current_channel.summary %}
+                                {{ current_channel.summary }}
+                            {% else %}
+                                AI assistant powered by the content of the {{ channel_name }} YouTube channel.
+                            {% endif %}
+                        </p>
+                </div>
+            </div>
+
+            <div class="profile-actions">
+                <a href="#" onclick="refreshChannel('{{ current_channel.id }}', this); return false;" class="action-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+                    <span>Refresh</span>
+                </a>
+                <a href="#" onclick="clearChat('{{ channel_name }}'); return false;" class="action-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    <span>Clear Chat</span>
+                </a>
+
+                {% if not session.get('active_community_id') %}
+                <a href="{{ url_for('integrations', channel_id=current_channel.id) }}" class="action-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="14" x2="21" y2="3"></line><path d="M21 3L14.5 21l-7-3.5L2 11.5z"></path></svg>
+                    <span>Telegram Bot</span>
+                </a>
+                <a href="{{ current_channel.get('channel_url', '#') }}" target="_blank" rel="noopener noreferrer" class="action-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.42a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .54 5.33A2.78 2.78 0 0 0 3.46 19c1.72.42 8.6.42 8.6.42s6.88 0 8.6-.42a2.78 2.78 0 0 0 1.94-2A29 29 0 0 0 23 11.75a29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>
+                    <span>View on YouTube</span>
+                </a>
+                {% endif %}
+            </div>
+
+            {# --- NEW: Channel Privacy Toggle for Admins --- #}
+            {% if user_status.is_active_community_owner and current_channel.community_id == user_status.active_community_id and current_channel.user_id == user.id %}
+            <div class="admin-channel-settings">
+                <div class="setting-row">
+                    <div class="setting-label">
+                        <label for="shareToggle">Share with Community</label>
+                        <p>When shared, all community members can see and chat with this channel.</p>
+                    </div>
+                    <label class="theme-switch large-switch">
+                        <input type="checkbox" id="shareToggle" {% if current_channel.is_shared %}checked{% endif %} onchange="toggleChannelPrivacy('{{ current_channel.id }}', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if current_channel.topics %}
+            <div class="profile-topics">
+                <h3 class="topics-title">Popular Topics</h3>
+                <div class="topics-tags">
+                    {% for topic in current_channel.topics %}
+                    <span class="tag">{{ topic }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="general-qa-header" role="banner">
+            <div class="qa-header-content">
+                <div class="qa-header-main">
+                    <h1 class="qa-title">General Q&A</h1>
+                </div>
+                <button onclick="clearChat('general')" class="clear-chat-btn">
+                    <span class="reset-icon">🔄</span>
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </aside>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="{{ url_for('static', filename='js/ask.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Authenticating...</title>
+</head>
+<body>
+    <p>Please wait, you are being authenticated...</p>
+    <script>
+        // This function correctly parses the access token from the URL fragment
+        function getUrlParameter(name) {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            return params.get(name);
+        }
+
+        const accessToken = getUrlParameter('access_token');
+        const refreshToken = getUrlParameter('refresh_token');
+        const expiresIn = getUrlParameter('expires_in');
+
+        if (accessToken && refreshToken && expiresIn) {
+            const expiresAt = Date.now() / 1000 + parseInt(expiresIn, 10);
+
+            fetch('/auth/set-cookie', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                    expires_at: expiresAt
+                }),
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Redirect to the channel page on successful login
+                    window.location.href = "{{ url_for('channel') }}";
+                } else {
+                    throw new Error('Server failed to set auth cookie.');
+                }
+            })
+            .catch(error => {
+                console.error('Authentication sync failed:', error);
+                alert('Login failed. Please try again.');
+                window.location.href = "{{ url_for('home') }}";
+            });
+        } else {
+            console.error("Supabase tokens not found in URL fragment.");
+            alert("Authentication error. Could not complete login.");
+            window.location.href = "{{ url_for('home') }}";
+        }
+    </script>
+</body>
+</html>

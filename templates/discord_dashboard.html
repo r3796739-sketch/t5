@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_bot_card %}
+
+{% block title %}Discord Integrations - YoppyChat AI{% endblock %}
+
+{% block page_styles %}
+<style>
+    .integrations-page { padding: 2rem; }
+    .back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--text-secondary); text-decoration: none; font-weight: 500; }
+    .back-link:hover { color: var(--text-primary); }
+    .integration-section { margin-bottom: 2rem; }
+    .bot-dashboard .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
+    .bot-card { background: var(--surface-light); border: 1px solid var(--neutral-200); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; transition: all 0.2s ease-in-out; }
+    .bot-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+    .bot-card-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+    .bot-avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; background-color: var(--surface-medium); }
+    .bot-info .name { font-weight: 600; font-size: 1.1rem; }
+    .bot-info .link { font-size: 0.9rem; color: var(--text-secondary); }
+    .bot-card-body { flex-grow: 1; }
+    .status-indicator { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; font-weight: 500; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .status-dot.online { background-color: #2ECC71; }
+    .status-dot.offline { background-color: #95A5A6; }
+    .status-dot.connecting { background-color: #F39C12; animation: pulse 1.5s infinite; }
+    .status-dot.error { background-color: #E74C3C; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+    .bot-card-footer {
+        margin-top: 1.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .btn-secondary {
+        background-color: var(--surface-medium);
+        color: var(--text-primary);
+        border: 1px solid var(--neutral-200);
+    }
+    .btn-danger {
+        background-color: var(--accent-error);
+        color: var(--text-white);
+        border: 1px solid var(--accent-error);
+        margin-left: auto;
+    }
+    .btn-danger:hover { opacity: 0.9; }
+    .create-bot-card { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; cursor: pointer; border-style: dashed; }
+    .create-bot-card .plus-icon { font-size: 2rem; color: var(--text-secondary); }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: var(--surface-light); padding: 2rem; border-radius: var(--radius-lg); width: 90%; max-width: 500px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="integrations-page">
+    <a href="{{ url_for('integrations') }}" class="back-link">← Back to All Integrations</a>
+    <h1>Discord Integrations</h1>
+
+    {% if discord_account_linked %}
+        {# --- THIS CONTENT SHOWS IF THE USER'S ACCOUNT IS LINKED --- #}
+        <div class="integration-section bot-dashboard">
+            <h2>Your Branded Bots</h2>
+            <p>Create and manage your own white-labeled bots with custom names and profile pictures.</p>
+            <div class="grid">
+                {% for bot in branded_bots %}
+                    {{ render_bot_card(bot) }}
+                {% endfor %}
+                <div class="bot-card create-bot-card" onclick="openCreateBotModal()">
+                    <div class="plus-icon">+</div>
+                    <p>Create New Branded Bot</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="integration-section">
+            <h2>Shared Community Bot</h2>
+            <p>The easiest way to get started. Add the official YoppyChat bot to your server and link a channel for instant Q&A.</p>
+            <a href="{{ discord_invite_link }}" target="_blank" class="btn btn-primary" style="margin-top: 1rem;">Add to Discord</a>
+        </div>
+    
+    {% else %}
+        {# --- THIS CONTENT SHOWS IF THE USER'S ACCOUNT IS NOT LINKED --- #}
+        <div class="integration-section">
+            <h2>Step 1: Link Your Account</h2>
+            <div class="integration-card">
+                <h3>Connect to Discord</h3>
+                <p>To get started, connect your YoppyChat account to your Discord account. This is a required first step before you can add bots or link channels to a server.</p>
+                <div class="form-card">
+                    <a href="{{ url_for('discord_auth') }}" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;"><path d="M20.317 4.36981C18.2769 3.29233 16.1262 2.75361 13.9292 2.75361C11.7322 2.75361 9.58155 3.29233 7.54144 4.36981C7.54144 4.36981 -3.06431 15.2331 1.14371 21.2464C1.14371 21.2464 4.88813 19.3131 6.33159 18.2931C6.33159 18.2931 5.61869 16.4839 5.08639 15.2869C5.08639 15.2869 7.42394 16.0331 9.61019 16.9414C10.963 16.4368 12.4416 16.1956 13.9292 16.1956C15.4168 16.1956 16.8954 16.4368 18.2482 16.9414C20.4345 16.0331 22.772 15.2869 22.772 15.2869C22.2397 16.4839 21.5268 18.2931 21.5268 18.2931C22.9703 19.3131 26.7147 21.2464 26.7147 21.2464C30.9227 15.2331 20.317 4.36981 20.317 4.36981ZM13.9292 13.3831C12.6356 13.3831 11.5996 12.2881 11.5996 10.9339C11.5996 9.57968 12.6074 8.48468 13.9292 8.48468C15.251 8.48468 16.287 9.57968 16.2588 10.9339C16.2588 12.2881 15.251 13.3831 13.9292 13.3831ZM18.2199 13.3831C16.9264 13.3831 15.8904 12.2881 15.8904 10.9339C15.8904 9.57968 16.8982 8.48468 18.2199 8.48468C19.5417 8.48468 20.5777 9.57968 20.5495 10.9339C20.5495 12.2881 19.5417 13.3831 18.2199 13.3831Z"/></svg>
+                        Connect Discord Account
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<div id="createBotModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Create a Branded Bot</h2>
+            <button class="modal-close" onclick="closeCreateBotModal()">&times;</button>
+        </div>
+        <form id="createBotForm">
+            <div class="form-group">
+                <label for="discord_bot_token">Your Discord Bot Token</label>
+                <input type="password" id="discord_bot_token" name="discord_bot_token" class="form-control" required>
+            </div>
+            <div class="form-group" style="margin-top: 1rem;">
+                <label for="youtube_channel_url">YouTube Channel URL</label>
+                <input type="url" id="youtube_channel_url" name="youtube_channel_url" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-top: 1.5rem;">Create Bot</button>
+        </form>
+    </div>
+</div>
+
+<div id="editBotModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Edit Branded Bot</h2>
+            <button class="modal-close" onclick="closeEditBotModal()">&times;</button>
+        </div>
+        <form id="editBotForm">
+            <input type="hidden" id="edit_bot_id" name="bot_id">
+            <div class="form-group">
+                <label for="edit_discord_bot_token">Discord Bot Token</label>
+                <input type="password" id="edit_discord_bot_token" class="form-control" value="••••••••••••••••" disabled>
+            </div>
+            <div class="form-group" style="margin-top: 1rem;">
+                <label for="edit_youtube_channel_url">New YouTube Channel URL</label>
+                <input type="url" id="edit_youtube_channel_url" name="youtube_channel_url" class="form-control" placeholder="https://youtube.com/@newchannel">
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-top: 1.5rem;">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<div id="shareBotModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="shareBotModalTitle">Share Bot</h2>
+            <button class="modal-close" onclick="closeShareModal()">&times;</button>
+        </div>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;">Use this link to invite your bot to any Discord server where you have administrator permissions.</p>
+        <div class="form-group" style="display: flex; gap: 0.5rem;">
+            <input type="text" id="shareLinkInput" class="form-control" readonly style="flex-grow: 1;">
+            <button class="btn btn-primary" onclick="copyShareLink()">Copy</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+// --- Modal Controls ---
+function openCreateBotModal() { document.getElementById('createBotModal').style.display = 'flex'; }
+function closeCreateBotModal() { document.getElementById('createBotModal').style.display = 'none'; }
+function openEditBotModal(botId) {
+    document.getElementById('edit_bot_id').value = botId;
+    document.getElementById('editBotModal').style.display = 'flex';
+}
+function closeEditBotModal() { document.getElementById('editBotModal').style.display = 'none'; }
+function openShareModal(inviteLink, botName) {
+    document.getElementById('shareBotModalTitle').textContent = `Invite "${botName}"`;
+    document.getElementById('shareLinkInput').value = inviteLink;
+    document.getElementById('shareBotModal').style.display = 'flex';
+}
+function closeShareModal() {
+    document.getElementById('shareBotModal').style.display = 'none';
+}
+function copyShareLink() {
+    const input = document.getElementById('shareLinkInput');
+    input.select();
+    navigator.clipboard.writeText(input.value).then(() => {
+        showNotification('Invite link copied!', 'success');
+    }, () => {
+        showNotification('Failed to copy link.', 'error');
+    });
+}
+
+// --- Form Submission Logic ---
+if (document.getElementById('createBotForm')) {
+    document.getElementById('createBotForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+        const createBtn = form.querySelector('button[type="submit"]');
+        createBtn.disabled = true;
+        createBtn.textContent = 'Creating...';
+
+        fetch("{{ url_for('create_discord_bot') }}", {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showNotification('Bot creation started! It will appear shortly.', 'success');
+                closeCreateBotModal();
+                form.reset();
+                pollBotStatuses(); 
+            } else {
+                throw new Error(data.message);
+            }
+        })
+        .catch(err => showNotification(`Error: ${err.message}`, 'error'))
+        .finally(() => {
+            createBtn.disabled = false;
+            createBtn.textContent = 'Create Bot';
+        });
+    });
+}
+
+if(document.getElementById('editBotForm')) {
+    document.getElementById('editBotForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+        const botId = document.getElementById('edit_bot_id').value;
+        const editBtn = form.querySelector('button[type="submit"]');
+        editBtn.disabled = true;
+        editBtn.textContent = 'Saving...';
+
+        fetch(`/integrations/discord/update/${botId}`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showNotification('Bot updated successfully! It will restart shortly.', 'success');
+                closeEditBotModal();
+                form.reset();
+            } else {
+                throw new Error(data.message);
+            }
+        })
+        .catch(err => showNotification(`Error: ${err.message}`, 'error'))
+        .finally(() => {
+            editBtn.disabled = false;
+            editBtn.textContent = 'Save Changes';
+        });
+    });
+}
+
+
+// --- Bot Action and Polling Logic ---
+function toggleBot(botId, buttonEl) {
+    buttonEl.disabled = true;
+    const isActivating = buttonEl.textContent.trim().toLowerCase() === 'activate';
+    buttonEl.textContent = isActivating ? 'Activating...' : 'Deactivating...';
+    
+    const card = document.querySelector(`.bot-card[data-bot-id='${botId}']`);
+    if (card && isActivating) {
+        updateCardStatus(card, 'connecting');
+    }
+
+    fetch(`/integrations/discord/toggle_bot/${botId}`, { method: 'POST' })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showNotification(data.message, 'info');
+        } else {
+            throw new Error(data.message);
+        }
+    })
+    .catch(err => {
+        showNotification(`Error: ${err.message}`, 'error');
+        if (card) {
+            const originalStatus = isActivating ? 'offline' : 'online';
+            updateCardStatus(card, originalStatus);
+        }
+    });
+}
+
+function updateCardStatus(card, status) {
+    card.dataset.status = status;
+    const dot = card.querySelector('.status-dot');
+    const text = card.querySelector('.status-text');
+    const button = card.querySelector('.action-btn');
+
+    if (dot) dot.className = 'status-dot ' + status;
+    if (text) text.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    
+    if (button) {
+        button.disabled = (status === 'connecting');
+        if (status === 'online') {
+            button.textContent = 'Deactivate';
+        } else {
+            button.textContent = 'Activate';
+        }
+    }
+}
+
+function pollBotStatuses() {
+    // Only run polling if the main dashboard is visible
+    if (!document.querySelector('.bot-dashboard')) return;
+
+    fetch("{{ url_for('get_discord_bots_status') }}")
+        .then(res => res.json())
+        .then(bots => {
+            const grid = document.querySelector('.bot-dashboard .grid');
+            const createCard = document.querySelector('.create-bot-card');
+            if (!grid || !createCard) return;
+
+            const existingBotIds = new Set([...grid.querySelectorAll('.bot-card[data-bot-id]')].map(el => el.dataset.botId));
+            const incomingBotIds = new Set(bots.map(bot => bot.id.toString()));
+
+            bots.forEach(bot => {
+                let card = grid.querySelector(`.bot-card[data-bot-id='${bot.id}']`);
+                if (card) {
+                    if (card.dataset.status !== bot.status) {
+                        updateCardStatus(card, bot.status);
+                    }
+                } else {
+                    const newCardHTML = renderBotCardHTML(bot);
+                    createCard.insertAdjacentHTML('beforebegin', newCardHTML);
+                }
+            });
+
+            existingBotIds.forEach(id => {
+                if (!incomingBotIds.has(id)) {
+                    const cardToRemove = grid.querySelector(`.bot-card[data-bot-id='${id}']`);
+                    if (cardToRemove) cardToRemove.remove();
+                }
+            });
+        })
+        .catch(err => console.error("Polling error:", err));
+}
+
+function renderBotCardHTML(bot) {
+    const channelThumbnail = bot.channel ? bot.channel.channel_thumbnail : "{{ url_for('static', filename='images/default_avatar.png') }}";
+    const channelName = bot.channel ? bot.channel.channel_name.replace(/'/g, "\\'") : 'Branded Bot';
+    const status = bot.status || 'offline';
+    const capitalizedStatus = status.charAt(0).toUpperCase() + status.slice(1);
+    const buttonText = (status === 'online') ? 'Deactivate' : 'Activate';
+    const isConnecting = status === 'connecting';
+    const inviteLink = bot.invite_link || '#';
+
+    return `
+        <div class="bot-card" data-bot-id="${bot.id}" data-status="${status}">
+            <div class="bot-card-header">
+                <img src="${channelThumbnail}" alt="Bot Avatar" class="bot-avatar">
+                <div class="bot-info">
+                    <div class="name">${channelName}</div>
+                    <div class="link">Linked to ${channelName}</div>
+                </div>
+            </div>
+            <div class="bot-card-body">
+                <div class="status-indicator">
+                    <div class="status-dot ${status}"></div>
+                    <span class="status-text">${capitalizedStatus}</span>
+                </div>
+            </div>
+            <div class="bot-card-footer">
+                <button class="btn action-btn" onclick="toggleBot('${bot.id}', this)" ${isConnecting ? 'disabled' : ''}>
+                    ${buttonText}
+                </button>
+                <button class="btn btn-secondary" onclick="openShareModal('${inviteLink}', '${channelName}')">Share</button>
+                <button class="btn btn-secondary" onclick="openEditBotModal('${bot.id}')">Edit</button>
+                <button class="btn btn-danger" onclick="confirmDeleteBot('${bot.id}', '${channelName}', this)">Delete</button>
+            </div>
+        </div>
+    `;
+}
+
+function confirmDeleteBot(botId, botName, buttonEl) {
+    if (!confirm(`Are you sure you want to permanently delete the bot "${botName}"? This action cannot be undone.`)) {
+        return;
+    }
+    deleteBot(botId, buttonEl);
+}
+
+function deleteBot(botId, buttonEl) {
+    buttonEl.disabled = true;
+    buttonEl.textContent = 'Deleting...';
+
+    fetch(`/integrations/discord/delete/${botId}`, {
+        method: 'POST'
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showNotification(data.message, 'success');
+            const card = document.querySelector(`.bot-card[data-bot-id='${botId}']`);
+            if (card) {
+                card.remove();
+            }
+        } else {
+            throw new Error(data.message);
+        }
+    })
+    .catch(err => {
+        showNotification(`Error: ${err.message}`, 'error');
+        buttonEl.disabled = false;
+        buttonEl.textContent = 'Delete';
+    });
+}
+
+// Start polling when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // We only start polling if the user is authenticated and sees the dashboard
+    if (document.querySelector('.bot-dashboard')) {
+        pollBotStatuses(); 
+        const pollingInterval = setInterval(pollBotStatuses, 5000);
+    }
+});
+</script>
+{% endblock %}
