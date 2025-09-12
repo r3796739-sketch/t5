@@ -593,11 +593,16 @@ def ask(channel_name):
         if not current_channel:
              supabase_admin = get_supabase_admin_client()
              channel_res = supabase_admin.table('channels').select('*').eq('channel_name', channel_name).maybe_single().execute()
-             if channel_res.data:
+             
+             # --- START: THE FIX ---
+             # Check if the query returned any data before trying to access it.
+             if channel_res and channel_res.data:
                  current_channel = channel_res.data
              else:
-                flash(f"Channel '{channel_name}' not found.", 'error')
+                # If no data is found, the channel doesn't exist. Redirect with a message.
+                flash(f"The channel '{channel_name}' could not be found.", 'error')
                 return redirect(url_for('channel'))
+             # --- END: THE FIX ---
 
         # Only fetch history if the user is logged in
         if user_id:
@@ -644,12 +649,14 @@ def stream_answer():
     access_token = session.get('access_token')
     active_community_id = session.get('active_community_id')
     is_owner_in_trial = False
+
     if active_community_id:
         user_status = get_user_status(user_id, active_community_id)
         if user_status.get('is_active_community_owner'):
             community_status = get_community_status(active_community_id)
             if community_status and community_status['usage']['trial_queries_used'] < community_status['limits']['owner_trial_limit']:
                 is_owner_in_trial = True
+
     def on_complete_callback():
         user_status = get_user_status(user_id, active_community_id)
         if user_status.get('has_personal_plan'):
@@ -659,16 +666,20 @@ def stream_answer():
             db_utils.increment_personal_query_usage(user_id)
         else:
             db_utils.increment_personal_query_usage(user_id)
+        
         if hasattr(db_utils, 'get_profile') and hasattr(db_utils.get_profile, 'cache_clear'):
             db_utils.get_profile.cache_clear()
+        
         if redis_client:
             user_cache_key = f"user_status:{user_id}:community:{active_community_id or 'none'}"
             redis_client.delete(user_cache_key)
             if active_community_id:
                 community_cache_key = f"community_status:{active_community_id}"
                 redis_client.delete(community_cache_key)
+        
         fresh_user_status = get_user_status(user_id, active_community_id)
         fresh_community_status = get_community_status(active_community_id) if active_community_id else None
+        
         query_string = ""
         if fresh_user_status and (fresh_user_status.get('has_personal_plan') or not fresh_user_status.get('is_whop_user')):
             max_queries = fresh_user_status['limits'].get('max_queries_per_month', 0)
@@ -683,30 +694,68 @@ def stream_answer():
             queries_used = fresh_community_status['usage'].get('queries_used', 0)
             remaining = int(max_queries - queries_used)
             query_string = f"The community has <strong>{remaining}</strong> shared queries remaining."
+            
         return query_string
+
     MAX_CHAT_MESSAGES = 20
     current_channel_name_for_history = channel_name or 'general'
+    is_regenerating = request.form.get('is_regenerating') == 'true'
     history = get_chat_history(user_id, current_channel_name_for_history, access_token=access_token)
+    
     if len(history) >= MAX_CHAT_MESSAGES:
         def limit_exceeded_stream():
             error_data = {'error': 'QUERY_LIMIT_REACHED', 'message': f"You have reached the chat limit of {MAX_CHAT_MESSAGES} messages. Please use the 'Clear Chat' button to start a new conversation."}
             yield f"data: {json.dumps(error_data)}\n\n"
             yield "data: [DONE]\n\n"
         return Response(limit_exceeded_stream(), mimetype='text/event-stream')
+    
+    # --- START: MODIFIED LOGIC ---
+    # Decide which part of the history to use for building the prompt context.
+    history_for_prompt = history
+    if is_regenerating and history:
+        # If the user is regenerating, exclude the last (unhelpful) Q&A pair.
+        history_for_prompt = history[:-1]
+    
     chat_history_for_prompt = ''
-    for qa in history[-5:]:
+    # Use the (potentially shorter) history_for_prompt list to build the context.
+    for qa in history_for_prompt[-5:]:
         chat_history_for_prompt += f"Human: {qa['question']}\nAI: {qa['answer']}\n\n"
+
+    
     final_question_with_history = question
     if chat_history_for_prompt:
         final_question_with_history = (f"Given the following conversation history:\n{chat_history_for_prompt}--- End History ---\n\nNow, answer this new question, considering the history as context:\n{question}")
+
     channel_data = None
     video_ids = None
     if channel_name:
         all_user_channels = get_user_channels()
         channel_data = all_user_channels.get(channel_name)
+
+        # --- START: THE FIX ---
+        # If the channel is not in the user's saved list, it might be a temporary
+        # public session. Fetch its data directly as a fallback.
+        if not channel_data:
+            logging.info(f"Channel '{channel_name}' not in user's list. Attempting public fetch for temporary session.")
+            supabase_admin = get_supabase_admin_client()
+            public_channel_res = supabase_admin.table('channels').select('*').eq('channel_name', channel_name).maybe_single().execute()
+            if public_channel_res.data:
+                channel_data = public_channel_res.data
+        # --- END: THE FIX ---
+
         if channel_data:
             video_ids = {v['video_id'] for v in channel_data.get('videos', [])}
-    stream = answer_question_stream(question_for_prompt=final_question_with_history, question_for_search=question, channel_data=channel_data, video_ids=video_ids, user_id=user_id, access_token=access_token, tone=tone, on_complete=on_complete_callback)
+            
+    stream = answer_question_stream(
+        question_for_prompt=final_question_with_history, 
+        question_for_search=question, 
+        channel_data=channel_data, 
+        video_ids=video_ids, 
+        user_id=user_id, 
+        access_token=access_token, 
+        tone=tone, 
+        on_complete=on_complete_callback
+    )
     return Response(stream, mimetype='text/event-stream')
 
 @app.route('/delete_channel/<int:channel_id>', methods=['POST'])
@@ -796,9 +845,9 @@ def logout():
     session.clear()
     return redirect(url_for('home'))
 
-@app.route('/integrations')
+@app.route('/dashboard')
 @login_required
-def integrations():
+def dashboard():
     """
     Renders the main integrations hub and provides the status of each integration.
     """
@@ -834,7 +883,7 @@ def integrations():
     creator_links_is_active = bool(user_creator_channels)
 
     return render_template(
-        'integrations.html',
+        'dashboard.html',
         discord_is_active=discord_is_active,
         telegram_is_active=telegram_is_active,
         creator_links_is_active=creator_links_is_active,
@@ -995,12 +1044,12 @@ def toggle_channel_privacy(channel_id):
     user_id = session['user']['id']
     supabase_admin = get_supabase_admin_client()
     try:
-        channel_res = supabase_admin.table('channels').select('community_id, is_shared, user_id').eq('id', channel_id).single().execute()
+        channel_res = supabase_admin.table('channels').select('community_id, is_shared, creator_id').eq('id', channel_id).single().execute()
         if not channel_res.data:
             return jsonify({'status': 'error', 'message': 'Channel not found.'}), 404
         channel_data = channel_res.data
         community_id = channel_data.get('community_id')
-        if not community_id or str(channel_data.get('user_id')) != str(user_id):
+        if not community_id or str(channel_data.get('creator_id')) != str(user_id):
              return jsonify({'status': 'error', 'message': 'This action is not allowed for this channel.'}), 403
         community_res = supabase_admin.table('communities').select('owner_user_id').eq('id', community_id).single().execute()
         if not community_res.data or str(community_res.data.get('owner_user_id')) != str(user_id):

@@ -311,6 +311,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const includeHistoryToggle = document.getElementById('includeHistoryToggle');
     const shareLinkInput = document.getElementById('shareLinkInput');
 
+    // --- START: NEW LOGIC for handling actions after login ---
+    // Check if the user is now logged in and if there's a pending question.
+    if (typeof IS_USER_LOGGED_IN !== 'undefined' && IS_USER_LOGGED_IN && localStorage.getItem('pending_question')) {
+        const pendingQuestion = localStorage.getItem('pending_question');
+        localStorage.removeItem('pending_question'); // Clear it so it doesn't run again
+
+        // If we found a question, populate the form and submit it automatically.
+        if (questionText && questionForm && pendingQuestion) {
+            questionText.value = pendingQuestion;
+            // We need to dispatch events to make sure the UI (like the submit button state) updates.
+            questionText.dispatchEvent(new Event('input', { bubbles: true }));
+            // Dispatching the submit event is cleaner than calling the function directly.
+            questionForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        }
+    }
+    // --- END: NEW LOGIC ---
+
     // --- B. Helper Functions ---
     const adjustTextareaHeight = () => {
         if (!questionText) return;
@@ -384,9 +401,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- C. Core Logic: Form Submission & Streaming ---
     const handleFormSubmit = (event) => {
+        event.preventDefault();
+
+        // --- START: NEW LOGIN CHECK ---
+        // If the user isn't logged in, intercept the submission.
+        if (typeof IS_USER_LOGGED_IN !== 'undefined' && !IS_USER_LOGGED_IN) {
+            const question = questionText.value.trim();
+            // Save the question only if there is one.
+            if (question) {
+                localStorage.setItem('pending_question', question);
+            }
+            // Show the login popup and stop here.
+            showLoginPopup();
+            return;
+        }
+        // --- END: NEW LOGIN CHECK ---
+
         const pageData = document.getElementById('chat-page-data').dataset;
         const channelName = pageData.channelName;
-        event.preventDefault();
         document.querySelectorAll('.regenerate-btn-js').forEach(btn => btn.remove());
         const selectedToneButton = document.querySelector('#tone-selector .tone-option.active');
         const selectedTone = selectedToneButton ? selectedToneButton.dataset.tone : 'Casual';
@@ -406,6 +438,7 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('question', question);
         formData.append('channel_name', channelName);
         formData.append('tone', selectedTone);
+        formData.append('is_regenerating', 'true');
         fetch('/stream_answer', { method: 'POST', body: formData })
             .then(response => {
                 if (!response.ok) {

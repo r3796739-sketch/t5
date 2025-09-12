@@ -5,6 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}YouTube Channel QA{% endblock %}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo/favicon.png') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/logo/favicon.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main-purged.css') }}">
@@ -46,7 +51,6 @@
                             {% if user_status.is_active_community_owner %}
                                 {# This part requires fetching community status, which might be complex here.
                                    Assuming a simple check for now, but a more robust solution might need a dedicated function.
-                                   Let's rely on the backend to enforce the limit and focus on the UI state.
                                    For simplicity, we'll just check if they are an owner. #}
                                 {% set can_add_shared = True %}
                             {% endif %}
@@ -69,9 +73,9 @@
 
             {% if user and not session.get('active_community_id') %}
             <div class="sidebar-actions-section">
-                <a href="{{ url_for('integrations') }}" class="sidebar-action-item">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-link"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg>
-                    <span>Integrations</span>
+                <a href="{{ url_for('dashboard') }}" class="sidebar-action-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-layout"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                    <span>Dashboard</span>
                 </a>
             </div>
             {% endif %}
@@ -103,7 +107,7 @@
                             </div>
                         {% else %}
                             <a href="#" onclick="showLoginPopup()" class="login-prompt-btn">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points=" १० १७ १५ १२ १० ७"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
                                 <span>Login or Sign Up</span>
                             </a>
                         {% endif %}
@@ -157,7 +161,7 @@
 
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-        <main class="main-content {% if request.endpoint in ['ask', 'ask_channel'] %}has-mobile-nav{% endif %}">
+        <main class="main-content {% if request.endpoint in ['ask', 'public_chat_page'] %}has-mobile-nav{% endif %}">
             <div class="card">
                 {% block content %}{% endblock %}
             </div>
@@ -247,6 +251,10 @@
             const googleLoginBtn = document.getElementById('google-login-btn');
             if (googleLoginBtn && !googleLoginBtn.dataset.listenerAttached) {
                 googleLoginBtn.addEventListener('click', () => {
+                    // --- START: NEW REDIRECT LOGIC ---
+                    // Save the current URL to localStorage before redirecting to Google
+                    localStorage.setItem('login_redirect_url', window.location.href);
+                    // --- END: NEW REDIRECT LOGIC ---
                     window.supabaseClient.auth.signInWithOAuth({
                         provider: 'google',
                         options: { redirectTo: "{{ url_for('auth_callback', _external=True) }}" }

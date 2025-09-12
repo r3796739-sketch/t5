@@ -32,8 +32,19 @@
             })
             .then(response => {
                 if (response.ok) {
-                    // Redirect to the channel page on successful login
-                    window.location.href = "{{ url_for('channel') }}";
+                    // --- START: MODIFIED REDIRECT LOGIC ---
+                    // Check if a redirect URL was saved before login
+                    const redirectUrl = localStorage.getItem('login_redirect_url');
+                    
+                    if (redirectUrl) {
+                        // If we found a URL, clear it from storage and redirect there
+                        localStorage.removeItem('login_redirect_url');
+                        window.location.href = redirectUrl;
+                    } else {
+                        // Otherwise, redirect to the default channel page
+                        window.location.href = "{{ url_for('channel') }}";
+                    }
+                    // --- END: MODIFIED REDIRECT LOGIC ---
                 } else {
                     throw new Error('Server failed to set auth cookie.');
                 }

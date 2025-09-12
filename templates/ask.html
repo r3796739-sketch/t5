@@ -47,7 +47,7 @@
                     <a href="#" onclick="refreshChannel('{{ current_channel.id }}', this); return false;">Refresh Channel</a>
                     <a href="#" onclick="clearChat('{{ channel_name }}'); return false;">Clear Chat</a>
                     {% if not session.get('active_community_id') %}
-                    <a href="{{ url_for('integrations', channel_id=current_channel.id) }}">Add Bot to Telegram Group</a>
+                    <a href="#" onclick="openShareModal(); return false;">Share</a>
                     <hr>
                     {# FIX: Use current_channel.channel_url directly #}
                     <a href="{{ current_channel.channel_url }}" target="_blank" rel="noopener noreferrer">View on YouTube</a>
@@ -271,17 +271,15 @@
 
 {% block page_scripts %}
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="{{ url_for('static', filename='js/ask.js') }}"></script>
 
-{# FIX: Add automatic login popup script #}
+{# --- START: MODIFIED SCRIPT BLOCK --- #}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // If the user is not logged in, show the login popup immediately.
-        {% if not user %}
-            showLoginPopup();
-        {% endif %}
-    });
+    // Pass the user's login status from the server to our JavaScript
+    const IS_USER_LOGGED_IN = {{ 'true' if user else 'false' }};
 </script>
+<script src="{{ url_for('static', filename='js/ask.js') }}"></script>
+{# --- END: MODIFIED SCRIPT BLOCK --- #}
+
 <div id="shareModal" class="login-popup-overlay">
     <div class="login-popup-content" style="max-width: 500px;">
         <button class="login-popup-close-btn" onclick="closeShareModal()">&times;</button>
