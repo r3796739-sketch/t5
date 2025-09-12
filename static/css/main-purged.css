@@ -225,9 +225,6 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
 }
 
 @media (max-width: 768px) {
-    .sidebar-logo-img {
-        margin-left: 62%;
-    }
     .sidebar {
         transform: translateX(-100%);
     }
@@ -446,10 +443,6 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
     .delete-channel-btn svg {
         width: 18px;
         height: 18px;
-    }
-    .question-box, .answer-box {
-    margin-left: 0%;
-    margin-right: 0%;
     }
 }
 
@@ -789,7 +782,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
 .channel-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 350px));
     gap: var(--spacing-lg);
 }
 
@@ -1230,14 +1223,9 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 /* Add this inside the <style> tag at the top of base.html */
 .sidebar-logo-img {
     height: 70px; /* Controls the height of the logo */
-    margin: -20px;
-    margin-left: 10%;
     width: auto;  /* Lets the width adjust automatically */
 }
 @media (max-width: 768px) {
-    .sidebar-logo-img {
-        margin-left: 22%;
-    }
     /* Adjusted margins for elements within the card on mobile */
     .page-header {
         margin-top: var(--spacing-lg); /* Consistent top margin for mobile */
@@ -1359,10 +1347,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     .delete-channel-btn svg {
         width: 16px; /* Smaller delete icon on mobile */
         height: 16px;
-    }
-    .question-box, .answer-box {
-    margin-left: 0%;
-    margin-right: 0%;
     }
 }
 

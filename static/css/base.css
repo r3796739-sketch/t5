@@ -49,10 +49,10 @@
 }
 
 .sidebar-logo-link {
-    /* This rule can remain, but the text-specific ones are no longer needed */
     display: flex;
     align-items: center;
     text-decoration: none;
+    justify-content: center;
 }
 
 /* Redesigned Sidebar Footer */
