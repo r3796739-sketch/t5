@@ -78,14 +78,25 @@ def _create_groq_embedding(texts: List[str], model: str, api_key: str) -> Option
 
 def _create_gemini_embedding(texts: List[str], model: str, api_key: str) -> Optional[List[Optional[np.ndarray]]]:
     """
-    Uses Google Gemini embed_content. Normalizes output to a list aligned with inputs.
+    Uses Google Gemini embed_content with configurable output dimensions.
+    Normalizes output to a list aligned with inputs.
     """
     try:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
         model_name = f"models/{model}" if not model.startswith('models/') else model
+        
+        # Get the desired output dimension from environment variable, default to 768
+        output_dimensions = int(os.environ.get('GEMINI_EMBED_DIMENSIONS', '768'))
+        
         # Gemini batching: prefer sending the whole list if supported
-        result = genai.embed_content(model=model_name, content=texts, task_type="retrieval_document")
+        result = genai.embed_content(
+            model=model_name, 
+            content=texts, 
+            task_type="retrieval_document",
+            output_dimensionality=output_dimensions  # This is the key parameter!
+        )
+        
         # result may contain 'embedding' as a list-of-lists or single list. Normalize it.
         embeddings = []
         if isinstance(result, dict) and 'embedding' in result:
@@ -104,6 +115,7 @@ def _create_gemini_embedding(texts: List[str], model: str, api_key: str) -> Opti
         else:
             logging.error("Unexpected Gemini response format when creating embeddings.")
             return [None] * len(texts)
+            
         # Ensure alignment with input length
         if len(embeddings) != len(texts):
             # pad or truncate to match
@@ -193,7 +205,7 @@ def get_routed_context(question: str, channel_data: Optional[dict], user_id: str
     question_lower = question.lower()
     
     # --- Intent 1: Direct request for the latest video ---
-    if any(phrase in question_lower for phrase in ['latest video', 'newest video', 'most recent']):
+    if any(phrase in question_lower for phrase in ['latest video', 'newest video', 'recent video', 'most recent video', 'your last video', 'new video']):
         print("Query routed to: get_latest_video_summary")
         if channel_data and channel_data.get('videos'):
             videos = channel_data['videos']
@@ -487,10 +499,17 @@ def count_tokens(text: str, model: str = "gpt-4") -> int:
 
 def answer_question_stream(question_for_prompt: str, question_for_search: str, channel_data: dict = None, video_ids: set = None, user_id: str = None, access_token: str = None, tone: str = 'Casual', on_complete: callable = None, conversation_id: str = None) -> Iterator[str]:
     """
-    Finds relevant context from documents and streams an answer to the user's question.
-    Includes a 'conversation_id' for flexible history tracking.
+    Finds relevant context and streams an answer. Now deducts bot queries synchronously.
     """
     from tasks import post_answer_processing_task
+    from . import db_utils 
+
+    # --- START: NEW DEDUCTION LOGIC FOR BOTS ---
+    # We check if 'on_complete' is None. This is true ONLY for requests from bots.
+    if on_complete is None and user_id:
+        # If it's a bot, deduct the query immediately before doing any work.
+        db_utils.record_bot_query_usage(user_id)
+    # --- END: NEW DEDUCTION LOGIC FOR BOTS ---
     
     total_request_start_time = time.perf_counter()
 
@@ -646,6 +665,7 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
     
     total_request_end_time = time.perf_counter()
     print(f"[TIME_LOG] Total answer_question_stream request (end-to-end) took {total_request_end_time - total_request_start_time:.4f} seconds.")
+
     
 def _get_openai_answer_non_stream(prompt: str, model: str, api_key: str, **kwargs):
     """Gets a single, non-streamed response from an OpenAI-compatible API."""

@@ -81,8 +81,23 @@
                     <div class="user-profile-section" id="user-profile-trigger" style="cursor: pointer;">
                         {% if session.user %}
                             <div class="user-avatar">
-                                <img src="{{ session.user.user_metadata.avatar_url or url_for('static', filename='images/default_avatar.png') }}" alt="User Avatar">
+                                {# --- START: MODIFIED AVATAR LOGIC --- #}
+                                {# Get the user's name or fallback to their email to create an initial #}
+                                {% set user_name = session.user.user_metadata.full_name or session.user.email %}
+                                
+                                {# Check if an avatar URL is provided #}
+                                {% if session.user.user_metadata.avatar_url %}
+                                    <img src="{{ session.user.user_metadata.avatar_url }}" 
+                                         alt="User Avatar" 
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <span class="avatar-initial" style="display: none;">{{ user_name[0] | upper if user_name }}</span>
+                                {% else %}
+                                    {# If no avatar URL, just show the initial #}
+                                    <span class="avatar-initial">{{ user_name[0] | upper if user_name }}</span>
+                                {% endif %}
+                                {# --- END: MODIFIED AVATAR LOGIC --- #}
                             </div>
+                        
                             <div class="user-details">
                                 <span class="user-name">{{ session.user.user_metadata.full_name or session.user.email }}</span>
                             </div>
@@ -192,9 +207,12 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 
-    <script>
-        // All JavaScript functions (showNotification, showLoginPopup, etc.) remain the same
-        // ...
+<script>
+    /**
+     * ===================================================================
+     * 1. GLOBALLY ACCESSIBLE FUNCTIONS
+     * ===================================================================
+     */
 
     function showNotification(message, type = 'info') {
         const container = document.getElementById('notification-container');
@@ -210,31 +228,54 @@
         }, 5000);
     }
 
-    /** Displays the login modal. */
     function showLoginPopup() {
         const modal = document.getElementById('login-popup-modal');
-        if (modal) modal.style.display = 'flex';
+        if (modal) {
+            modal.style.display = 'flex';
+        }
+
+        // --- START: CORE FIX ---
+        // This logic now runs every time the popup is shown, guaranteeing the button works.
+        const supabaseUrl = "{{ SUPABASE_URL or '' }}";
+        const supabaseAnonKey = "{{ SUPABASE_ANON_KEY or '' }}";
+
+        if (supabaseUrl && supabaseAnonKey && window.supabase) {
+            if (!window.supabaseClient) {
+                window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+            }
+            
+            const googleLoginBtn = document.getElementById('google-login-btn');
+            if (googleLoginBtn && !googleLoginBtn.dataset.listenerAttached) {
+                googleLoginBtn.addEventListener('click', () => {
+                    window.supabaseClient.auth.signInWithOAuth({
+                        provider: 'google',
+                        options: { redirectTo: "{{ url_for('auth_callback', _external=True) }}" }
+                    });
+                });
+                // Mark the button so we don't attach the listener more than once.
+                googleLoginBtn.dataset.listenerAttached = 'true';
+            }
+        } else {
+            console.warn("Supabase credentials not found. Auth features will be disabled.");
+        }
+        // --- END: CORE FIX ---
     }
 
-    /** Closes the login modal. */
     function closeLoginPopup() {
         const modal = document.getElementById('login-popup-modal');
         if (modal) modal.style.display = 'none';
     }
 
-    /** Displays the pricing modal. */
     function showPricingModal() {
         const modal = document.getElementById('pricing-modal-overlay');
         if (modal) modal.style.display = 'flex';
     }
 
-    /** Closes the pricing modal. */
     function closePricingModal() {
         const modal = document.getElementById('pricing-modal-overlay');
         if (modal) modal.style.display = 'none';
     }
 
-    /** Signs the user out. */
     async function handleLogout(event) {
         event.preventDefault();
         if (window.supabaseClient) {
@@ -243,15 +284,11 @@
         window.location.href = "{{ url_for('logout') }}";
     }
 
-    /** Hides the channel deletion confirmation dialog. */
     function cancelDeleteChannel() {
         const dialog = document.getElementById('confirmDeleteDialog');
         if (dialog) dialog.style.display = 'none';
     }
 
-    /**
-     * Displays the channel deletion confirmation dialog.
-     */
     function confirmDeleteChannel(id, name, buttonElement) {
         const dialog = document.getElementById('confirmDeleteDialog');
         if (!dialog) return;
@@ -261,22 +298,17 @@
         dialog.style.display = 'flex';
     }
 
-    /**
-     * Sends the delete request and handles removing ALL related channel elements from the UI.
-     */
     function deleteChannel(id, buttonElement) {
         if (!id || !buttonElement) {
             console.error("Delete function called without ID or button reference.");
             return;
         }
         cancelDeleteChannel();
-
         buttonElement.disabled = true;
         const spinner = document.createElement('div');
         spinner.className = 'inline-spinner';
         buttonElement.innerHTML = '';
         buttonElement.appendChild(spinner);
-
         fetch(`/delete_channel/${id}`, { method: 'POST' })
             .then(res => {
                 if (!res.ok) return res.json().then(err => Promise.reject(err.message || 'Server error'));
@@ -304,131 +336,14 @@
             .catch(err => {
                 showNotification(err.toString(), 'error');
                 buttonElement.disabled = false;
-                buttonElement.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-</svg>`;
+                buttonElement.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-l-1h-5l-1 1H5v2h14V4z"/></svg>`;
             });
     }
 
-    // ===================================================================
-    //  2. CORE SITE LOGIC (RUNS AFTER DOM IS READY)
-    // ===================================================================
-    document.addEventListener('DOMContentLoaded', function() {
-        const themeToggle = document.getElementById('profile-theme-toggle');
-
-        const updateThemeUI = (theme) => {
-            if (theme === 'dark') {
-                document.documentElement.setAttribute('data-theme', 'dark');
-                if (themeToggle) themeToggle.checked = true;
-            } else {
-                document.documentElement.removeAttribute('data-theme');
-                if (themeToggle) themeToggle.checked = false;
-            }
-        };
-
-        const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        updateThemeUI(currentTheme);
-
-        if (themeToggle) {
-            themeToggle.addEventListener('change', () => {
-                const newTheme = themeToggle.checked ? 'dark' : 'light';
-                localStorage.setItem('theme', newTheme);
-                updateThemeUI(newTheme);
-            });
-        }
-        /** Hamburger Menu Toggle **/
-        const hamburgerBtn = document.getElementById('hamburgerBtn');
-        const sidebar = document.getElementById('sidebar');
-        const sidebarOverlay = document.getElementById('sidebarOverlay');
-
-        if (hamburgerBtn && sidebar && sidebarOverlay) {
-            const toggleSidebar = () => {
-                sidebar.classList.toggle('open');
-                sidebarOverlay.classList.toggle('show');
-                hamburgerBtn.classList.toggle('active');
-            };
-            hamburgerBtn.addEventListener('click', toggleSidebar);
-            sidebarOverlay.addEventListener('click', toggleSidebar);
-        }
-
-        /** Login Popup Logic **/
-        const loginModal = document.getElementById('login-popup-modal');
-        const loginTriggers = document.querySelectorAll('.show-login-popup');
-        const loginCloseBtn = document.querySelector('.login-popup-close-btn');
-
-        loginTriggers.forEach(btn => btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            showLoginPopup();
-        }));
-
-        if(loginCloseBtn) loginCloseBtn.addEventListener('click', closeLoginPopup);
-
-        // This is new: closes the modal if you click the background overlay
-        if(loginModal) {
-            loginModal.addEventListener('click', (event) => {
-                if (event.target === loginModal) {
-                    closeLoginPopup();
-                }
-            });
-        }
-
-        /** Supabase Client Initialization and Auth Listener **/
-        const supabaseUrl = "{{ SUPABASE_URL or '' }}";
-        const supabaseAnonKey = "{{ SUPABASE_ANON_KEY or '' }}";
-
-        if (supabaseUrl && supabaseAnonKey && window.supabase) {
-            const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-            window.supabaseClient = supabase;
-
-            const googleLoginBtn = document.getElementById('google-login-btn');
-            if (googleLoginBtn) {
-                // **THE FIX IS HERE**
-                // We add the 'event' parameter and event.stopPropagation()
-                googleLoginBtn.addEventListener('click', (event) => {
-                    // This is the critical line that fixes the bug.
-                    event.stopPropagation();
-
-                    // Now, the original Supabase logic runs without closing the modal.
-                    supabase.auth.signInWithOAuth({
-                        provider: 'google',
-                        options: { redirectTo: "{{ url_for('auth_callback', _external=True) }}" }
-                    });
-                });
-            }
-        } else {
-            console.warn("Supabase credentials not found. Auth features will be disabled.");
-        }
-            // All the core site logic (theme toggle, hamburger, etc.) remains the same
-            // ...
-
-            // --- JAVASCRIPT FOR PROFILE MENU (CLICK VERSION) ---
-            const profileTrigger = document.getElementById('user-profile-trigger');
-            const profileMenu = document.getElementById('user-profile-menu');
-
-            if (profileTrigger && profileMenu) {
-                profileTrigger.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    profileMenu.classList.toggle('show');
-                });
-
-                window.addEventListener('click', () => {
-                    if (profileMenu.classList.contains('show')) {
-                        profileMenu.classList.remove('show');
-                    }
-                });
-            }
-        });
-
-    /**
-     * Displays a customized upgrade popup.
-     * @param {string} message - The message to display in the popup.
-     */
     function showUpgradePopup(message) {
         const modal = document.getElementById('pricing-modal-overlay');
         const modalContent = modal ? modal.querySelector('.login-popup-content > div') : null;
-
         if (modal && modalContent) {
-            // Set the content for the upgrade message
             modalContent.innerHTML = `
                 <div style="text-align: center; padding: 1rem 2rem;">
                     <h3 style="font-size: 1.5rem; color: var(--text-primary); margin-bottom: 0.75rem;">Upgrade Required</h3>
@@ -441,10 +356,105 @@
                     </a>
                 </div>
             `;
-            modal.style.display = 'flex'; // Show the modal
+            modal.style.display = 'flex';
         }
     }
-    </script>
+
+    /**
+     * Initializes the Supabase client and Google Login button.
+     */
+    function initializeAuth() {
+        const supabaseUrl = "{{ SUPABASE_URL or '' }}";
+        const supabaseAnonKey = "{{ SUPABASE_ANON_KEY or '' }}";
+        const loginModal = document.getElementById('login-popup-modal');
+
+        if (supabaseUrl && supabaseAnonKey && window.supabase) {
+            if (!window.supabaseClient) {
+                window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+            }
+            
+            const googleLoginBtn = document.getElementById('google-login-btn');
+            if (googleLoginBtn) {
+                googleLoginBtn.addEventListener('click', () => {
+                    window.supabaseClient.auth.signInWithOAuth({
+                        provider: 'google',
+                        options: { redirectTo: "{{ url_for('auth_callback', _external=True) }}" }
+                    });
+                });
+            }
+
+            if(loginModal) {
+                loginModal.addEventListener('click', (event) => {
+                    if (event.target === loginModal) {
+                        closeLoginPopup();
+                    }
+                });
+            }
+        } else {
+            console.warn("Supabase credentials not found. Auth features will be disabled.");
+        }
+    }
+
+    /**
+     * ===================================================================
+     * 2. CORE SITE LOGIC (RUNS AFTER DOM IS READY)
+     * ===================================================================
+     */
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize authentication logic on every page load.
+        initializeAuth();
+
+        // --- Theme Toggle Logic ---
+        const themeToggle = document.getElementById('profile-theme-toggle');
+        const updateThemeUI = (theme) => {
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                if (themeToggle) themeToggle.checked = true;
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                if (themeToggle) themeToggle.checked = false;
+            }
+        };
+        const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        updateThemeUI(currentTheme);
+        if (themeToggle) {
+            themeToggle.addEventListener('change', () => {
+                const newTheme = themeToggle.checked ? 'dark' : 'light';
+                localStorage.setItem('theme', newTheme);
+                updateThemeUI(newTheme);
+            });
+        }
+
+        // --- Hamburger Menu Toggle ---
+        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        if (hamburgerBtn && sidebar && sidebarOverlay) {
+            const toggleSidebar = () => {
+                sidebar.classList.toggle('open');
+                sidebarOverlay.classList.toggle('show');
+                hamburgerBtn.classList.toggle('active');
+            };
+            hamburgerBtn.addEventListener('click', toggleSidebar);
+            sidebarOverlay.addEventListener('click', toggleSidebar);
+        }
+
+        // --- Profile Menu Toggle ---
+        const profileTrigger = document.getElementById('user-profile-trigger');
+        const profileMenu = document.getElementById('user-profile-menu');
+        if (profileTrigger && profileMenu) {
+            profileTrigger.addEventListener('click', (event) => {
+                event.stopPropagation();
+                profileMenu.classList.toggle('show');
+            });
+            window.addEventListener('click', () => {
+                if (profileMenu.classList.contains('show')) {
+                    profileMenu.classList.remove('show');
+                }
+            });
+        }
+    });
+</script>
 
 
 

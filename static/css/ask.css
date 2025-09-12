@@ -68,6 +68,7 @@
     scroll-behavior: smooth;
     scrollbar-width: thin;
     scrollbar-color: var(--neutral-300) transparent;
+    min-height: 10%;
 }
 
 .chat-container::-webkit-scrollbar { width: 6px; }
@@ -77,9 +78,9 @@
 
 .question-form {
     flex-shrink: 0;
-    background: var(--surface-light);
-    border-top: 1px solid var(--neutral-200);
-    padding: var(--spacing-md);
+    background: none;
+    border-top: none;
+    padding: var(--spacing-sm);
 }
 
 .chat-sidebar-right {
@@ -131,9 +132,9 @@
     .header-actions {
         flex-shrink: 0;
     }
-    .main-content.has-mobile-nav {
+    /* .main-content.has-mobile-nav {
         padding-top: 60px;
-    }
+    } */
     .chat-sidebar-right {
         display: none;
     }
@@ -327,7 +328,6 @@
     30% { transform: translateY(-4px); }
 }
 
-
 /* =================================================================
    4. FORM & INPUT STYLES
 ================================================================== */
@@ -370,7 +370,7 @@
     flex-shrink: 0;
 }
 
-.char-count { font-size: 0.75rem; color: var(--text-secondary); }
+.char-count { font-size: 0.75rem; color: #5a4a324a; }
 .char-count.near-limit { color: var(--error-color); }
 
 .submit-btn {

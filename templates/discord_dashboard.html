@@ -6,55 +6,275 @@
 {% block page_styles %}
 <style>
     .integrations-page { padding: 2rem; }
-    .back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--text-secondary); text-decoration: none; font-weight: 500; }
+
+    /* --- Navigation Back Link --- */
+    .back-link { 
+        display: inline-block; 
+        margin-bottom: 1.5rem; 
+        color: var(--text-secondary); 
+        text-decoration: none; 
+        font-weight: 500; 
+    }
     .back-link:hover { color: var(--text-primary); }
-    .integration-section { margin-bottom: 2rem; }
-    .bot-dashboard .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
-    .bot-card { background: var(--surface-light); border: 1px solid var(--neutral-200); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; transition: all 0.2s ease-in-out; }
-    .bot-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
-    .bot-card-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
-    .bot-avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; background-color: var(--surface-medium); }
+
+    /* --- Section Styling --- */
+    .integration-section { 
+        margin-bottom: 3rem; 
+        padding-bottom: 2rem; 
+        border-bottom: 1px solid var(--neutral-200);
+    }
+    .integration-section:last-child { border-bottom: none; }
+
+    /* --- Grid Layout --- */
+    .bot-dashboard .grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
+        gap: 1.5rem; 
+    }
+
+    /* --- Bot Card --- */
+    .bot-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        transition: all 0.25s ease;
+        box-shadow: var(--shadow-sm);
+    }
+    .bot-card:hover {
+        transform: translateY(-6px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .bot-card-header { 
+        display: flex; 
+        align-items: center; 
+        gap: 1rem; 
+        margin-bottom: 1rem; 
+    }
+
+    .bot-avatar { 
+        width: 56px; 
+        height: 56px; 
+        border-radius: 50%; 
+        border: 2px solid var(--neutral-200);
+        object-fit: cover; 
+        background-color: var(--surface-medium);
+    }
+
     .bot-info .name { font-weight: 600; font-size: 1.1rem; }
     .bot-info .link { font-size: 0.9rem; color: var(--text-secondary); }
+
     .bot-card-body { flex-grow: 1; }
-    .status-indicator { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; font-weight: 500; }
-    .status-dot { width: 10px; height: 10px; border-radius: 50%; }
-    .status-dot.online { background-color: #2ECC71; }
-    .status-dot.offline { background-color: #95A5A6; }
-    .status-dot.connecting { background-color: #F39C12; animation: pulse 1.5s infinite; }
-    .status-dot.error { background-color: #E74C3C; }
-    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-    .bot-card-footer {
-        margin-top: 1.5rem;
+
+    /* --- Status Indicators --- */
+    .status-indicator { 
+        display: inline-flex; 
+        align-items: center; 
+        gap: 0.4rem; 
+        font-weight: 500; 
+        margin-top: 0.5rem;
+    }
+    .status-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+        color: #fff;
+    }
+    .status-badge.online { background: #2ECC71; }
+    .status-badge.offline { background: #95A5A6; }
+    .status-badge.connecting { background: #F39C12; animation: pulse 1.5s infinite; }
+    .status-badge.error { background: #E74C3C; }
+
+    @keyframes pulse { 
+        0% { opacity: 1; } 
+        50% { opacity: 0.4; } 
+        100% { opacity: 1; } 
+    }
+
+    /* --- Bot Card Footer Buttons --- */
+    .bot-card-footer { 
+        margin-top: 1.2rem; 
+        display: flex; 
+        justify-content: space-between; 
+        flex-wrap: wrap; 
+        gap: 0.6rem; 
+    }
+    .bot-card-footer .btn { 
+        flex: 1; 
+        min-width: 100px; 
+        text-align: center; 
         display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
     }
-    .btn-secondary {
-        background-color: var(--surface-medium);
-        color: var(--text-primary);
-        border: 1px solid var(--neutral-200);
+
+    /* --- Button Variants --- */
+    .btn-secondary { 
+        background-color: var(--surface-medium); 
+        color: var(--text-primary); 
+        border: 1px solid var(--neutral-200); 
+        color: white;
     }
-    .btn-danger {
-        background-color: var(--accent-error);
-        color: var(--text-white);
-        border: 1px solid var(--accent-error);
-        margin-left: auto;
+    .btn-danger { 
+        background-color: var(--accent-error); 
+        color: var(--text-white); 
+        border: 1px solid var(--accent-error); 
     }
     .btn-danger:hover { opacity: 0.9; }
-    .create-bot-card { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; cursor: pointer; border-style: dashed; }
-    .create-bot-card .plus-icon { font-size: 2rem; color: var(--text-secondary); }
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: var(--surface-light); padding: 2rem; border-radius: var(--radius-lg); width: 90%; max-width: 500px; }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+
+    /* --- Create Bot Card (Empty State) --- */
+    .create-bot-card.empty-state { 
+        border-style: dashed; 
+        cursor: pointer; 
+        background-color: var(--surface-medium); 
+        text-align: center;
+    }
+    .empty-state-icon { margin-bottom: 1rem; color: var(--text-muted); }
+    .empty-state-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .empty-state-text { font-size: 0.9rem; color: var(--text-secondary); }
+
+    .create-bot-card-compact { 
+        display: flex; 
+        flex-direction: column;
+        justify-content: center; 
+        align-items: center; 
+        border: 2px dashed var(--neutral-200); 
+        color: var(--text-muted); 
+        cursor: pointer; 
+        min-height: 150px; 
+        border-radius: var(--radius-lg); 
+        transition: all 0.2s ease-in-out; 
+        font-size: 0.95rem;
+    }
+    .create-bot-card-compact:hover { 
+        border-color: var(--accent-primary); 
+        color: var(--accent-primary); 
+        background-color: var(--surface-medium); 
+        box-shadow: var(--shadow-md);
+        transform: translateY(-2px);
+    }
+    .plus-icon-compact { font-size: 2.2rem; margin-bottom: 0.3rem; }
+
+    /* --- Connecting Card Animation --- */
+    .bot-card.is-connecting { 
+        animation: pulse-bg 2s infinite; 
+        border-color: #F39C12; 
+    }
+    @keyframes pulse-bg { 
+        0% { background-color: var(--surface-light); } 
+        50% { background-color: #fefcf5; } 
+        100% { background-color: var(--surface-light); } 
+    }
+    html[data-theme='dark'] .bot-card.is-connecting { animation-name: pulse-bg-dark; }
+    @keyframes pulse-bg-dark { 
+        0% { background-color: var(--surface-light); } 
+        50% { background-color: #3a362d; } 
+        100% { background-color: var(--surface-light); } 
+    }
+
+    /* --- Modal Styling --- */
+    .modal-overlay { 
+        position: fixed; 
+        top: 0; left: 0; 
+        width: 100%; height: 100%; 
+        background: rgba(0,0,0,0.5); 
+        display: none; 
+        justify-content: center; 
+        align-items: center; 
+        z-index: 1000; 
+        backdrop-filter: blur(4px);
+    }
+    .modal-content { 
+        background: var(--surface-light); 
+        padding: 2rem; 
+        border-radius: var(--radius-lg); 
+        width: 90%; 
+        max-width: 500px; 
+        box-shadow: var(--shadow-lg); 
+        animation: slideUp 0.3s ease;
+    }
+    .modal-header { 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        margin-bottom: 1.5rem; 
+    }
+    .modal-close { 
+        background: none; 
+        border: none; 
+        font-size: 1.5rem; 
+        cursor: pointer; 
+        color: black; 
+    }
+    @keyframes slideUp { 
+        from { transform: translateY(20px); opacity: 0; } 
+        to { transform: translateY(0); opacity: 1; } 
+    }
+
+    /* --- Official Bot Card --- */
+    .official-bot-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-left: 4px solid var(--accent-primary);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        max-width: 400px;
+        margin-top: 1.5rem;
+        box-shadow: var(--shadow-sm);
+        position: relative;
+    }
+    .official-bot-card::before {
+        content: "Recommended";
+        position: absolute;
+        top: -10px;
+        right: 10px;
+        background: var(--accent-primary);
+        color: white;
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        border-radius: 6px;
+    }
+    .official-bot-card .card-description {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        line-height: 1.6;
+        margin: 1rem 0;
+        flex-grow: 1;
+    }
+    .official-bot-card .card-description code {
+        background-color: var(--surface-medium);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: monospace;
+        color: var(--text-primary);
+    }
+    .official-bot-card .bot-card-footer { margin-top: auto; }
+    .official-bot-card .btn-primary { width: 100%; }
+
+    /* --- Mobile Responsiveness --- */
+    @media (max-width: 768px) {
+        .bot-card-footer { flex-direction: column; }
+        .bot-card-footer .btn { width: 100%; }
+    }
 </style>
+
 {% endblock %}
 
 {% block content %}
 <div class="integrations-page">
     <a href="{{ url_for('integrations') }}" class="back-link">← Back to All Integrations</a>
-    <h1>Discord Integrations</h1>
+<h1>
+    <img src="{{ url_for('static', filename='images/logo/discord-icon.svg') }}" 
+         alt="Discord Logo" class="card-icon" style="vertical-align: middle; margin-right: 0.5rem; width: 40px;">
+    Discord Integrations
+</h1>
 
     {% if discord_account_linked %}
         {# --- THIS CONTENT SHOWS IF THE USER'S ACCOUNT IS LINKED --- #}
@@ -62,23 +282,48 @@
             <h2>Your Branded Bots</h2>
             <p>Create and manage your own white-labeled bots with custom names and profile pictures.</p>
             <div class="grid">
-                {% for bot in branded_bots %}
-                    {{ render_bot_card(bot) }}
-                {% endfor %}
-                <div class="bot-card create-bot-card" onclick="openCreateBotModal()">
-                    <div class="plus-icon">+</div>
-                    <p>Create New Branded Bot</p>
-                </div>
+                {% if not branded_bots %}
+                    <div class="bot-card create-bot-card empty-state" onclick="openCreateBotModal()">
+                        <div class="empty-state-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg>
+                        </div>
+                        <h3 class="empty-state-title">Create Your First Branded Bot</h3>
+                        <p class="empty-state-text">Give your community a custom-named AI assistant with its own profile picture.</p>
+                    </div>
+                {% else %}
+                    {% for bot in branded_bots %}
+                        {{ render_bot_card(bot) }}
+                    {% endfor %}
+                    <div class="bot-card create-bot-card-compact" onclick="openCreateBotModal()" title="Create New Branded Bot">
+                        <div class="plus-icon-compact">+</div>
+                    </div>
+                {% endif %}
             </div>
         </div>
         
         <div class="integration-section">
-            <h2>Shared Community Bot</h2>
-            <p>The easiest way to get started. Add the official YoppyChat bot to your server and link a channel for instant Q&A.</p>
-            <a href="{{ discord_invite_link }}" target="_blank" class="btn btn-primary" style="margin-top: 1rem;">Add to Discord</a>
+            <h2>Official YoppyChat Bot</h2>
+            <p>The easiest way to get started. Invite our official bot and link it to your channel's knowledge.</p>
+            
+            <div class="official-bot-card">
+                <div class="bot-card-header">
+                    <img src="{{ url_for('static', filename='images/logo/favicon.png') }}" alt="YoppyChat Bot" class="bot-avatar">
+                    <div class="bot-info">
+                        <div class="name">YoppyChat Bot</div>
+                        <div class="link">Official Shared Bot</div>
+                    </div>
+                </div>
+                <div class="bot-card-body">
+                    <p class="card-description">
+                        Invite the official bot to your server, then use the <code>/link_channel</code> command to connect it to any of your processed YouTube channels. Perfect for a quick setup.
+                    </p>
+                </div>
+                <div class="bot-card-footer">
+                    <a href="{{ discord_invite_link }}" target="_blank" class="btn btn-primary">Invite to Server</a>
+                </div>
+            </div>
         </div>
-    
-    {% else %}
+        {% else %}
         {# --- THIS CONTENT SHOWS IF THE USER'S ACCOUNT IS NOT LINKED --- #}
         <div class="integration-section">
             <h2>Step 1: Link Your Account</h2>
@@ -146,8 +391,11 @@
         <p style="color: var(--text-secondary); margin-bottom: 1rem;">Use this link to invite your bot to any Discord server where you have administrator permissions.</p>
         <div class="form-group" style="display: flex; gap: 0.5rem;">
             <input type="text" id="shareLinkInput" class="form-control" readonly style="flex-grow: 1;">
-            <button class="btn btn-primary" onclick="copyShareLink()">Copy</button>
+            <button class="btn btn-secondary" onclick="copyShareLink()">Copy</button>
         </div>
+        <a href="#" id="inviteLinkBtn" target="_blank" class="btn btn-primary" style="width: 100%; margin-top: 1rem; text-align: center;">
+            Invite to Server
+        </a>
     </div>
 </div>
 {% endblock %}
@@ -165,6 +413,8 @@ function closeEditBotModal() { document.getElementById('editBotModal').style.dis
 function openShareModal(inviteLink, botName) {
     document.getElementById('shareBotModalTitle').textContent = `Invite "${botName}"`;
     document.getElementById('shareLinkInput').value = inviteLink;
+    // NEW LINE: Set the href for the direct invite button
+    document.getElementById('inviteLinkBtn').href = inviteLink;
     document.getElementById('shareBotModal').style.display = 'flex';
 }
 function closeShareModal() {
@@ -302,7 +552,7 @@ function pollBotStatuses() {
         .then(res => res.json())
         .then(bots => {
             const grid = document.querySelector('.bot-dashboard .grid');
-            const createCard = document.querySelector('.create-bot-card');
+            const createCard = document.querySelector('.create-bot-card, .create-bot-card-compact');
             if (!grid || !createCard) return;
 
             const existingBotIds = new Set([...grid.querySelectorAll('.bot-card[data-bot-id]')].map(el => el.dataset.botId));
@@ -338,9 +588,10 @@ function renderBotCardHTML(bot) {
     const buttonText = (status === 'online') ? 'Deactivate' : 'Activate';
     const isConnecting = status === 'connecting';
     const inviteLink = bot.invite_link || '#';
+    const isConnectingClass = isConnecting ? 'is-connecting' : '';
 
     return `
-        <div class="bot-card" data-bot-id="${bot.id}" data-status="${status}">
+        <div class="bot-card ${isConnectingClass}" data-bot-id="${bot.id}" data-status="${status}">
             <div class="bot-card-header">
                 <img src="${channelThumbnail}" alt="Bot Avatar" class="bot-avatar">
                 <div class="bot-info">

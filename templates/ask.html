@@ -20,9 +20,10 @@
 
             <div class="mobile-channel-text-details">
                 <span class="mobile-channel-title">{{ channel_name }}</span>
-                {% if saved_channels.get(channel_name, {}).subscriber_count %}
+                {# FIX: Use current_channel for subscriber count #}
+                {% if current_channel.subscriber_count %}
                     <span class="channel-subscribers">
-                        {{ saved_channels[channel_name].subscriber_count | format_subscribers }} Subscribers
+                        {{ current_channel.subscriber_count | format_subscribers }} Subscribers
                     </span>
                 {% endif %}
             </div>
@@ -35,21 +36,27 @@
     </div>
 
     <div class="header-actions">
-        <button id="kebab-menu-btn-mobile" class="kebab-menu-button" aria-label="More options">
-            <svg class="icon-default" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
-        </button>
-        <div id="dropdown-menu-mobile" class="dropdown-menu">
-            {% if channel_name %}
-                <a href="#" onclick="refreshChannel('{{ saved_channels[channel_name].id }}', this); return false;">Refresh Channel</a>
-                <a href="#" onclick="clearChat('{{ channel_name }}'); return false;">Clear Chat</a>
-                {% if not session.get('active_community_id') %}
-                <a href="{{ url_for('integrations', channel_id=saved_channels[channel_name].id) }}">Add Bot to Telegram Group</a>
-                <hr>
-                <a href="{{ saved_channels.get(channel_name, {}).get('channel_url', '#') }}" target="_blank" rel="noopener noreferrer">View on YouTube</a>
-                {% endif %}{% else %}
-                <a href="#" onclick="clearChat('general'); return false;">Clear Chat</a>
-            {% endif %}
-        </div>
+        {# FIX: Only show the kebab menu if the user is logged in #}
+        {% if user %}
+            <button id="kebab-menu-btn-mobile" class="kebab-menu-button" aria-label="More options">
+                <svg class="icon-default" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+            </button>
+            <div id="dropdown-menu-mobile" class="dropdown-menu">
+                {% if channel_name and current_channel %}
+                    {# FIX: Use current_channel.id directly #}
+                    <a href="#" onclick="refreshChannel('{{ current_channel.id }}', this); return false;">Refresh Channel</a>
+                    <a href="#" onclick="clearChat('{{ channel_name }}'); return false;">Clear Chat</a>
+                    {% if not session.get('active_community_id') %}
+                    <a href="{{ url_for('integrations', channel_id=current_channel.id) }}">Add Bot to Telegram Group</a>
+                    <hr>
+                    {# FIX: Use current_channel.channel_url directly #}
+                    <a href="{{ current_channel.channel_url }}" target="_blank" rel="noopener noreferrer">View on YouTube</a>
+                    {% endif %}
+                {% else %}
+                    <a href="#" onclick="clearChat('general'); return false;">Clear Chat</a>
+                {% endif %}
+            </div>
+        {% endif %}
     </div>
 </div>
 
@@ -63,14 +70,16 @@
     <div class="chat-column">
         <div class="chat-wrapper">
 
-            <div id="conversation-history" class="chat-container" role="log" aria-live="polite">
-                    {% if not history %}
+            <div id="conversation-history" class="chat-container {% if not history %}is-empty{% endif %}" role="log" aria-live="polite">
+
+                {# Show example questions only if there is no history AND the user is logged out #}
+                {% if not history or not user %}
                     <div class="example-questions-container">
                         <div class="example-question" onclick="askExample(this)">What are your most popular videos about?</div>
                         <div class="example-question" onclick="askExample(this)">Summarize your latest video for me.</div>
                         <div class="example-question" onclick="askExample(this)">What tools do you recommend for beginners?</div>
                     </div>
-                    {% endif %}
+                {% endif %}
 
                 {% for qa in history %}
                 <div class="qna-pair">
@@ -80,9 +89,10 @@
 
                     <div class="answer-box">
                         <div class="answer-header">
-                            {% if channel_name and saved_channels.get(channel_name) and saved_channels[channel_name].channel_thumbnail %}
+                            {# FIX: Use current_channel for the avatar #}
+                            {% if channel_name and current_channel and current_channel.channel_thumbnail %}
                                 <div class="answer-avatar-container avatar-container">
-                                    <img src="{{ saved_channels[channel_name].channel_thumbnail }}" alt="{{ channel_name }}" class="answer-avatar">
+                                    <img src="{{ current_channel.channel_thumbnail }}" alt="{{ channel_name }}" class="answer-avatar">
                                     <span class="ai-badge">AI</span>
                                 </div>
                             {% else %}
@@ -187,6 +197,8 @@
                 </div>
             </div>
 
+
+
             <div class="profile-actions">
                 <a href="#" onclick="refreshChannel('{{ current_channel.id }}', this); return false;" class="action-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
@@ -198,19 +210,20 @@
                 </a>
 
                 {% if not session.get('active_community_id') %}
-                <a href="{{ url_for('integrations', channel_id=current_channel.id) }}" class="action-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="14" x2="21" y2="3"></line><path d="M21 3L14.5 21l-7-3.5L2 11.5z"></path></svg>
-                    <span>Telegram Bot</span>
-                </a>
-                <a href="{{ current_channel.get('channel_url', '#') }}" target="_blank" rel="noopener noreferrer" class="action-btn">
+                <button onclick="openShareModal()" class="action-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                    <span>Share</span>
+                </button>
+                <a href="{{ current_channel.channel_url }}" target="_blank" rel="noopener noreferrer" class="action-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.42a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .54 5.33A2.78 2.78 0 0 0 3.46 19c1.72.42 8.6.42 8.6.42s6.88 0 8.6-.42a2.78 2.78 0 0 0 1.94-2A29 29 0 0 0 23 11.75a29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>
                     <span>View on YouTube</span>
                 </a>
                 {% endif %}
             </div>
 
-            {# --- NEW: Channel Privacy Toggle for Admins --- #}
-            {% if user_status.is_active_community_owner and current_channel.community_id == user_status.active_community_id and current_channel.user_id == user.id %}
+
+            {# This admin toggle logic is already safe #}
+            {% if user_status.is_active_community_owner and current_channel.community_id == user_status.active_community_id and current_channel.creator_id == user.id %}
             <div class="admin-channel-settings">
                 <div class="setting-row">
                     <div class="setting-label">
@@ -235,6 +248,7 @@
                 </div>
             </div>
             {% endif %}
+
         </div>
         {% else %}
         <div class="general-qa-header" role="banner">
@@ -242,9 +256,12 @@
                 <div class="qa-header-main">
                     <h1 class="qa-title">General Q&A</h1>
                 </div>
+                {# FIX: Only show clear chat button if logged in #}
+                {% if user %}
                 <button onclick="clearChat('general')" class="clear-chat-btn">
                     <span class="reset-icon">🔄</span>
                 </button>
+                {% endif %}
             </div>
         </div>
         {% endif %}
@@ -255,4 +272,36 @@
 {% block page_scripts %}
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="{{ url_for('static', filename='js/ask.js') }}"></script>
+
+{# FIX: Add automatic login popup script #}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // If the user is not logged in, show the login popup immediately.
+        {% if not user %}
+            showLoginPopup();
+        {% endif %}
+    });
+</script>
+<div id="shareModal" class="login-popup-overlay">
+    <div class="login-popup-content" style="max-width: 500px;">
+        <button class="login-popup-close-btn" onclick="closeShareModal()">&times;</button>
+        <h3 class="login-popup-title">Share Conversation</h3>
+        <p class="login-popup-subtitle">Anyone with the link can view this chat.</p>
+
+        <div class="form-group" style="display: flex; gap: 0.5rem;">
+            <input type="text" id="shareLinkInput" class="form-control" readonly style="flex-grow: 1; background-color: var(--surface-medium);">
+            <button class="btn btn-secondary" onclick="copyShareLink()">Copy Link</button>
+        </div>
+
+        <div class="setting-row" style="margin-top: 1.5rem; justify-content: flex-start; align-items: center;">
+            <label class="theme-switch">
+                <input type="checkbox" id="includeHistoryToggle">
+                <span class="slider"></span>
+            </label>
+            <div class="setting-label" style="margin-left: 0.75rem;">
+                <label for="includeHistoryToggle" style="margin-bottom: 0; cursor: pointer;">Include chat history</label>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

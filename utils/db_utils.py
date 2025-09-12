@@ -136,7 +136,10 @@ def increment_personal_query_usage(user_id: str):
     """
     try:
         params = {'p_user_id': user_id}
-        supabase.rpc('increment_query_counts', params).execute()
+        # --- THIS IS THE FIX ---
+        # The RPC function name has been corrected to match the database schema.
+        supabase.rpc('increment_personal_query_usage', params).execute()
+        # --- END FIX ---
     except Exception as e:
         log.error(f"Error incrementing personal query usage for user {user_id}: {e}")
 
@@ -296,3 +299,49 @@ def delete_discord_bot_for_user(bot_id: int, user_id: str):
     except Exception as e:
         log.error(f"Error deleting discord bot {bot_id} for user {user_id}: {e}")
         return False
+    
+def record_bot_query_usage(user_id: str):
+    """
+    Records a query for a bot interaction, deducting from the personal pool
+    and invalidating the necessary cache.
+    """
+    try:
+        log.info(f"Recording bot query for user {user_id} against PERSONAL pool.")
+        # 1. Call the function to deduct the query from the database
+        increment_personal_query_usage(user_id)
+
+        # 2. Invalidate the user's status cache to ensure the UI updates
+        from .subscription_utils import redis_client # Local import to avoid circular dependency
+        if redis_client:
+            # For integrations, a non-Whop user's community context is 'none'
+            user_cache_key = f"user_status:{user_id}:community:none"
+            redis_client.delete(user_cache_key)
+            log.info(f"Invalidated cache key via bot usage: {user_cache_key}")
+    except Exception as e:
+        log.error(f"Failed to record bot query usage for user {user_id}: {e}")
+
+def create_channel(channel_url: str, user_id: str, is_shared: bool = False, community_id: str = None):
+    """Adds a new channel to the master list with a 'pending' status."""
+    try:
+        channel_payload = {
+            'channel_url': channel_url,
+            'creator_id': user_id, # Changed from 'user_id' to 'creator_id'
+            'status': 'pending',
+            'is_shared': is_shared,
+            'community_id': community_id
+        }
+        response = supabase.table('channels').insert(channel_payload).execute()
+        return response.data[0] if response.data else None
+    except Exception as e:
+        log.error(f"Error creating channel for URL {channel_url}: {e}")
+        return None
+    
+def get_channels_created_by_user(user_id: str):
+    """Fetches all channels where the given user is the creator."""
+    try:
+        # This query specifically selects channels where the creator_id matches the user's ID
+        response = supabase.table('channels').select('*').eq('creator_id', user_id).execute()
+        return {ch['channel_name']: ch for ch in response.data if ch.get('channel_name')} if response.data else {}
+    except Exception as e:
+        log.error(f"Error getting creator channels for user {user_id}: {e}")
+        return {}

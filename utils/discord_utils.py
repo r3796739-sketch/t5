@@ -36,9 +36,20 @@ class YoppyBot(commands.Bot):
                 return
             
             supabase_admin: Client = create_client(url, key)
-            response = supabase_admin.table('discord_bots').select('status').eq('id', self.bot_db_id).single().execute()
+            
+            # --- START: THE FIX ---
+            # Use maybe_single() to gracefully handle cases where the bot has been deleted.
+            response = supabase_admin.table('discord_bots').select('status').eq('id', self.bot_db_id).maybe_single().execute()
 
-            db_status = response.data.get('status') if response.data else "No Data"
+            # If response.data is None, it means the bot was deleted from the DB.
+            if not response.data:
+                log.warning(f"Bot ID {self.bot_db_id} not found in DB (likely deleted). Shutting down task.")
+                await self.close()
+                self.check_status_periodically.stop()
+                return # Exit the function to prevent further processing
+            # --- END: THE FIX ---
+
+            db_status = response.data.get('status')
             log.info(f"Bot ID {self.bot_db_id} periodic status check. Status in DB: '{db_status}'")
 
             if db_status == 'offline':

@@ -69,12 +69,14 @@ def get_chat_history_for_service(user_id: str, channel_name: str, limit: int = 5
     try:
         supabase = get_supabase_admin_client()
         
+        # --- THIS IS THE FIX ---
         response = supabase.table('chat_history').select('question, answer') \
             .eq('user_id', user_id) \
             .eq('channel_name', channel_name) \
             .order('created_at', desc=True) \
             .limit(limit) \
             .execute()
+        # --- END FIX ---
             
         # The history is fetched in reverse chronological order, so we reverse it back
         return list(reversed(response.data)) if response.data else []

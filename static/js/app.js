@@ -219,3 +219,39 @@ const escapeHtml = (text) => {
     p.textContent = text;
     return p.innerHTML;
 };
+
+function openShareModal(channelName) {
+    const modal = document.getElementById('shareModal');
+    const input = document.getElementById('shareLinkInput');
+    if (modal && input && channelName) {
+        // Construct the full, shareable URL
+        const shareUrl = `${window.location.origin}/ask/channel/${encodeURIComponent(channelName)}`;
+        input.value = shareUrl;
+        modal.style.display = 'flex';
+    }
+}
+
+function closeShareModal() {
+    const modal = document.getElementById('shareModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function copyShareLink() {
+    const input = document.getElementById('shareLinkInput');
+    input.select();
+    input.setSelectionRange(0, 99999); // For mobile device compatibility
+
+    navigator.clipboard.writeText(input.value).then(() => {
+        // Use the existing notification function from your app
+        if (window.showNotification) {
+            window.showNotification('Link copied to clipboard!', 'success');
+        }
+    }).catch(err => {
+        if (window.showNotification) {
+            window.showNotification('Failed to copy link.', 'error');
+        }
+        console.error('Failed to copy link: ', err);
+    });
+}

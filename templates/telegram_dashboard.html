@@ -27,29 +27,97 @@
         padding: 1.5rem;
         margin-top: 1rem;
     }
-    .form-card {
+    .wizard-steps {
         margin-top: 1.5rem;
+        border-top: 1px solid var(--neutral-200);
     }
-    .channel-item-link {
-        display: block;
-        padding: 0.5rem 1rem;
+    .step {
+        display: flex;
+        align-items: flex-start;
+        gap: 1.5rem;
+        padding: 1.5rem 0;
+        border-bottom: 1px solid var(--neutral-200);
+        opacity: 0.6;
+        transition: opacity 0.3s ease;
+    }
+    .step:last-child {
+        border-bottom: none;
+    }
+    .step.active, .step.completed {
+        opacity: 1;
+    }
+    .step-number {
+        flex-shrink: 0;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
         background: var(--surface-medium);
-        border-radius: var(--radius-md);
-        margin-bottom: 0.5rem;
-        color: var(--text-primary);
-        text-decoration: none;
-        transition: background-color 0.2s ease;
-    }
-    .channel-item-link:hover {
-        background-color: var(--surface-dark);
-    }
-    .code-block {
-        background: var(--surface-dark);
-        padding: 20px;
-        border-radius: var(--radius-md);
-        margin: 20px 0;
-        font-size: 1.1rem;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
         font-weight: 600;
+        font-size: 1.1rem;
+        border: 1px solid var(--neutral-200);
+    }
+    .step.completed .step-number {
+        background: var(--accent-success);
+        color: white;
+        border-color: var(--accent-success);
+    }
+    .step.active .step-number {
+        border-color: var(--accent-primary);
+        color: var(--accent-primary);
+    }
+    .step-content p {
+        margin: 0 0 1rem 0;
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+    .step-content .text-muted {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+    .code-block-wrapper {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    .code-block-input {
+        font-family: monospace;
+        background: var(--surface-medium);
+        border: 1px solid var(--neutral-200);
+        padding: 0.75rem;
+        border-radius: var(--radius-sm);
+        flex-grow: 1;
+        font-size: 0.9rem;
+    }
+    .copy-btn {
+        padding: 0.5rem 1rem;
+        flex-shrink: 0;
+    }
+    .channel-selector {
+        width: 100%;
+        max-width: 350px;
+        padding: 0.75rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--neutral-300);
+        background-color: var(--surface-light);
+    }
+    .connected-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background-color: #e8f5e9; /* Light green */
+        color: #2e7d32; /* Dark green */
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-full);
+        font-weight: 500;
+    }
+    html[data-theme='dark'] .connected-badge {
+        background-color: #1c3b1e;
+        color: #a5d6a7;
     }
 </style>
 {% endblock %}
@@ -57,102 +125,131 @@
 {% block content %}
 <div class="integrations-page">
     <a href="{{ url_for('integrations') }}" class="back-link">← Back to All Integrations</a>
-    <h1>Telegram Integrations</h1>
+    <h1>
+    <img src="{{ url_for('static', filename='images/logo/telegram.svg') }}" 
+         alt="Telegram Logo" class="card-icon" style="vertical-align: middle; margin-right: 0.5rem; width: 40px;">
+    Telegram Integrations</h1>
 
-    <div class="integration-section" id="telegram">
-<div class="integration-card" id="telegram-personal">
-    <h3>Personal Bot</h3>
-    <p>Connect your personal Telegram account to ask questions from any of your channels.</p>
 
-    <div class="form-card" style="text-align: center;">
-        {% if user %}
-            <p class="page-description">
-                Link your account to chat with your AI assistant directly from Telegram.
-            </p>
-            
-            {% if personal_connection_status == 'not_connected' %}
-                <p>Click the button below to generate a unique connection code.</p>
-                <form method="POST" action="{{ url_for('connect_telegram') }}">
-                    <button type="submit" class="btn btn-primary">Generate Connection Code</button>
-                </form>
-            {% elif personal_connection_status == 'code_generated' %}
-                <h3>Your Connection Code</h3>
-                <p>Open Telegram, find the bot <strong>@{{ bot_username }}</strong>, and send it this exact message:</p>
-                <div class="code-block">
-                    <code>/connect {{ personal_connection_code }}</code>
+    <div class="integration-section" id="telegram-personal">
+        <div class="integration-card">
+            <h3>Personal Bot</h3>
+            <p>Connect your personal Telegram account to ask questions from any of your channels.</p>
+            <div class="wizard-steps">
+                <div class="step {% if personal_connection_status != 'not_connected' %}completed{% else %}active{% endif %}">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <p>Generate a unique code to link your account.</p>
+                        {% if personal_connection_status == 'not_connected' %}
+                            <form method="POST" action="{{ url_for('connect_telegram') }}">
+                                <button type="submit" class="btn btn-primary">Generate Connection Code</button>
+                            </form>
+                        {% else %}
+                            <p class="text-muted">Code generated.</p>
+                        {% endif %}
+                    </div>
                 </div>
-                <p class="text-muted">This code is valid for 10 minutes.</p>
-                <form method="POST" action="{{ url_for('connect_telegram') }}" style="margin-top: 1rem;">
-                    <button type="submit" class="btn btn-secondary">Generate New Code</button>
-                </form>
-            {% elif personal_connection_status == 'connected' %}
-                <h3>Successfully Connected!</h3>
-                <p>Your account is linked with Telegram user <strong>@{{ telegram_username }}</strong>.</p>
-                <form method="POST" action="{{ url_for('disconnect_telegram') }}">
-                     <button type="submit" class="btn btn-danger">Disconnect Telegram</button>
-                </form>
-            {% endif %}
-            {% else %}
-            <p class="page-description">
-                You must be logged in to connect your Telegram account.
-            </p>
-            <button class="btn btn-primary" onclick="showLoginPopup()">
-                Login or Sign Up
-            </button>
-        {% endif %}
+
+                <div class="step {% if personal_connection_status == 'code_generated' %}active{% elif personal_connection_status == 'connected' %}completed{% endif %}">
+                    <div class="step-number">{% if personal_connection_status == 'connected' %}✓{% else %}2{% endif %}</div>
+                    <div class="step-content">
+                        <p>Open Telegram, find <strong>{{ bot_username }}</strong>, and send it this exact message:</p>
+                        {% if personal_connection_status == 'code_generated' %}
+                            <div class="code-block-wrapper">
+                                <input type="text" class="code-block-input" value="/connect {{ personal_connection_code }}" readonly>
+                                <button class="btn btn-secondary copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                            <p class="text-muted">This code is valid for 10 minutes. Waiting for connection...</p>
+                        {% elif personal_connection_status == 'connected' %}
+                            <div class="connected-badge">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                <span>Connected as @{{ telegram_username }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if personal_connection_status == 'connected' %}
+                <div class="step completed">
+                    <div class="step-number">✓</div>
+                    <div class="step-content">
+                         <p>Your account is linked. You can now chat with your AI assistant on Telegram.</p>
+                        <form method="POST" action="{{ url_for('disconnect_telegram') }}">
+                             <button type="submit" class="btn btn-danger">Disconnect Telegram</button>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
-</div>
-        <div class="integration-card" id="telegram-group">
+
+    <div class="integration-section" id="telegram-group">
+        <div class="integration-card">
             <h3>Group Bot</h3>
             <p>Add the bot to a Telegram group to answer questions about a specific channel.</p>
-
-            <div class="form-card" style="text-align: center;">
-                {% if group_channel %}
-                    <h4>Connect group for '{{ group_channel.channel_name }}'</h4>
-                    {% if group_connection_status == 'connected' %}
-                        <h3>Group Connected</h3>
-                        <p class="page-description">
-                            This channel is currently linked to the Telegram group: <br>
-                            <strong>{{ group_details.group_title or 'Unnamed Group' }}</strong>
-                        </p>
-                        <form method="POST" action="{{ url_for('disconnect_group', channel_id=group_channel.id) }}" onsubmit="return confirm('Are you sure you want to disconnect this group?');">
-                            <button type="submit" class="btn btn-error">Disconnect Group</button>
+            <div class="wizard-steps">
+                <div class="step {% if group_channel %}completed{% else %}active{% endif %}">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <p>To connect a group, first select which of your channels you want the bot to use for knowledge.</p>
+                        <form method="GET" action="{{ url_for('telegram_dashboard') }}">
+                            <select name="channel_id" onchange="this.form.submit()" class="channel-selector">
+                                <option value="">Select a Channel...</option>
+                                {% for name, channel in saved_channels.items() %}
+                                    <option value="{{ channel.id }}" {% if channel.id == channel_id %}selected{% endif %}>
+                                        {{ name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
                         </form>
-                    {% else %}
-                        {% if group_connection_status == 'code_generated' %}
-                            <h3>2. Link Your Group</h3>
-                            <p class="page-description">
-                                Then, send this exact command message in your Telegram group chat to link it to this channel.
-                            </p>
-                            <div class="code-block">
-                                <code>/link_channel {{ group_connection_code }}</code>
-                            </div>
-                            <p class="text-muted">This code is valid for 10 minutes.</p>
-                        {% else %}
-                            <h3>1. Add Bot to Your Group</h3>
-                            <p class="page-description">
-                                First, add the <strong>@{{ bot_username }}</strong> bot to your Telegram group as an administrator.
-                            </p>
+                         {% if group_channel %}
+                            <p class="text-muted" style="margin-top: 0.5rem;">Selected: <strong>{{ group_channel.channel_name }}</strong></p>
+                         {% endif %}
+                    </div>
+                </div>
+
+                {% if group_channel %}
+                <div class="step {% if group_connection_status != 'not_connected' %}completed{% else %}active{% endif %}">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <p>Add the <strong>@{{ bot_username }}</strong> bot to your Telegram group as an administrator, then generate your connection code.</p>
+                        {% if group_connection_status == 'not_connected' %}
                             <form method="POST" action="{{ url_for('connect_group') }}">
                                 <input type="hidden" name="channel_id" value="{{ group_channel.id }}">
-                                <button type="submit" class="btn btn-primary">Generate Group Connection Code</button>
+                                <button type="submit" class="btn btn-primary">Generate Group Code</button>
                             </form>
+                        {% else %}
+                             <p class="text-muted">Code generated.</p>
                         {% endif %}
-                    {% endif %}
-                {% else %}
-                    {% if channel_id %}
-                        <div class="alert alert-warning" style="margin-bottom: 1rem;">
-                            <strong>Channel not linked:</strong> The selected channel is not linked to your account. Please select a valid channel or add the bot to your channel first.
-                        </div>
-                    {% endif %}
-                    <p>To connect a group, first select a channel from the sidebar, then come back here or click on a channel below.</p>
-                    <div class="channel-list" style="margin-top: 1rem;">
-                        {% for name, channel in saved_channels.items() %}
-                            <a href="{{ url_for('telegram_dashboard', channel_id=channel.id, _anchor='telegram-group') }}" class="channel-item-link">
-                                {{ name }}
-                            </a>
-                        {% endfor %}
                     </div>
+                </div>
+                {% endif %}
+
+                {% if group_connection_status == 'code_generated' %}
+                <div class="step active">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <p>Send this exact command message in your Telegram group chat to link it to <strong>{{ group_channel.channel_name }}</strong>.</p>
+                        <div class="code-block-wrapper">
+                            <input type="text" class="code-block-input" value="/link_channel {{ group_connection_code }}" readonly>
+                            <button class="btn btn-secondary copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <p class="text-muted">This code is valid for 10 minutes. Waiting for connection...</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if group_connection_status == 'connected' %}
+                <div class="step completed">
+                    <div class="step-number">✓</div>
+                    <div class="step-content">
+                        <p><strong>Group Connected!</strong><br>The channel <strong>{{ group_channel.channel_name }}</strong> is linked to the Telegram group: <strong>{{ group_details.group_title or 'Unnamed Group' }}</strong></p>
+                        <form method="POST" action="{{ url_for('disconnect_group', channel_id=group_channel.id) }}" onsubmit="return confirm('Are you sure you want to disconnect this group?');">
+                            <button type="submit" class="btn btn-danger">Disconnect Group</button>
+                        </form>
+                    </div>
+                </div>
                 {% endif %}
             </div>
         </div>
@@ -161,5 +258,17 @@
 {% endblock %}
 
 {% block page_scripts %}
-{# No page-specific JavaScript needed for this page #}
+<script>
+function copyCode(buttonEl) {
+    const input = buttonEl.previousElementSibling;
+    if (input) {
+        input.select();
+        navigator.clipboard.writeText(input.value).then(() => {
+            showNotification('Copied to clipboard!', 'success');
+        }).catch(() => {
+            showNotification('Failed to copy.', 'error');
+        });
+    }
+}
+</script>
 {% endblock %}

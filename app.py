@@ -6,7 +6,7 @@ import os
 import json
 import secrets
 from datetime import datetime, timezone
-from tasks import huey, process_channel_task, sync_channel_task, process_telegram_update_task, delete_channel_task,run_discord_bot_task
+from tasks import huey, process_channel_task, sync_channel_task, process_telegram_update_task, delete_channel_task
 from utils.qa_utils import answer_question_stream
 from utils.supabase_client import get_supabase_client, get_supabase_admin_client, refresh_supabase_session
 from utils.history_utils import get_chat_history
@@ -31,7 +31,9 @@ import hmac
 import hashlib
 import base64
 from utils.subscription_utils import PLANS, COMMUNITY_PLANS
-
+from datetime import datetime, timezone, timedelta
+from dateutil.parser import isoparse
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +77,7 @@ def inject_user_status():
 
 def get_user_channels():
     """
-    Return all channels visible to the logged-in user.
-    This includes their personal channels and any shared channels from their active community.
+    Return all channels visible to the logged-in user using a single RPC call.
     """
     if 'user' not in session:
         return {}
@@ -84,8 +85,8 @@ def get_user_channels():
     user_id = session['user']['id']
     active_community_id = session.get('active_community_id')
 
+    # Caching logic remains the same
     cache_key = f"user_visible_channels:{user_id}:community:{active_community_id or 'none'}"
-
     if redis_client:
         try:
             cached_data = redis_client.get(cache_key)
@@ -95,35 +96,25 @@ def get_user_channels():
             logging.error(f"Redis GET error: {e}")
 
     supabase = get_supabase_admin_client()
-    all_channels = {}
-
+    all_channels_list = []
     try:
-        personal_channels_resp = supabase.table('user_channels').select('channels(*)').eq('user_id', user_id).execute()
-        if personal_channels_resp.data:
-            for item in personal_channels_resp.data:
-                channel = item.get('channels')
-                if channel and channel.get('channel_name'):
-                    all_channels[channel['channel_name']] = channel
-
-        if active_community_id:
-            shared_channels_resp = supabase.table('channels').select('*').eq('is_shared', True).eq('community_id', active_community_id).execute()
-            if shared_channels_resp.data:
-                for channel in shared_channels_resp.data:
-                    if channel and channel.get('channel_name'):
-                        all_channels[channel['channel_name']] = channel
+        # Call the new RPC function
+        params = {'p_user_id': user_id, 'p_community_id': active_community_id}
+        response = supabase.rpc('get_visible_channels', params).execute()
+        if response.data:
+            all_channels_list = response.data
 
     except APIError as e:
-        logging.error(f"Supabase error in get_user_channels: {e.message}")
+        logging.error(f"Supabase RPC error in get_user_channels: {e.message}")
         if 'JWT expired' in e.message:
             session.clear()
-    except Exception as e:
-        logging.error(f"Unexpected error in get_user_channels: {e}")
+
+    # Deduplicate and format the results
+    all_channels = {ch['channel_name']: ch for ch in all_channels_list if ch.get('channel_name')}
 
     if redis_client and all_channels:
-        try:
-            redis_client.setex(cache_key, 15, json.dumps(all_channels))
-        except Exception as e:
-            logging.error(f"Redis SET error: {e}")
+        # Increase cache time for better performance
+        redis_client.setex(cache_key, 60, json.dumps(all_channels))
 
     return all_channels
 
@@ -429,16 +420,28 @@ def set_auth_cookie():
         user_response = supabase.auth.get_user()
         if not user_response or not hasattr(user_response, 'user') or not user_response.user:
             return jsonify({'status': 'error', 'message': 'Invalid authentication token.'}), 401
+
         user = user_response.user
         profile = db_utils.get_profile(user.id)
+
+        # --- START: NEW REFERRAL LOGIC ---
+        profile_payload = {
+            'id': user.id,
+            'email': user.email,
+            'full_name': user.user_metadata.get('full_name'),
+            'avatar_url': user.user_metadata.get('avatar_url')
+        }
+
+        # If this is a new user AND they were referred, tag them!
+        if not profile and 'referred_by_channel_id' in session:
+            profile_payload['referred_by_channel_id'] = session.pop('referred_by_channel_id', None)
+            print(f"New user {user.email} was referred by channel ID: {profile_payload['referred_by_channel_id']}")
+        # --- END: NEW REFERRAL LOGIC ---
+
         if not profile:
-            db_utils.create_or_update_profile({
-                'id': user.id,
-                'email': user.email,
-                'full_name': user.user_metadata.get('full_name'),
-                'avatar_url': user.user_metadata.get('avatar_url')
-            })
+            db_utils.create_or_update_profile(profile_payload)
             db_utils.create_initial_usage_stats(user.id)
+
         session['user'] = user.model_dump()
         session['access_token'] = access_token
         session['refresh_token'] = refresh_token
@@ -507,9 +510,14 @@ def channel():
                     community_id_for_channel = None
                     if user_status.get('is_active_community_owner'):
                         community_id_for_channel = active_community_id
+                    
+                    # This call is now correct. The user_id is passed to create_channel,
+                    # which internally assigns it to the `creator_id` field.
                     new_channel = db_utils.create_channel(cleaned_url, user_id, is_shared=False, community_id=community_id_for_channel)
+                    
                     if not new_channel:
                         return jsonify({'status': 'error', 'message': 'Could not create channel record.'}), 500
+                    
                     db_utils.link_user_to_channel(user_id, new_channel['id'])
                     db_utils.increment_channels_processed(user_id)
                     task = process_channel_task.schedule(args=(new_channel['id'],), delay=1)
@@ -565,26 +573,47 @@ def set_default_channel(channel_id):
 
 @app.route('/ask', defaults={'channel_name': None})
 @app.route('/ask/channel/<path:channel_name>')
-@login_required
 def ask(channel_name):
-    user_id = session['user']['id']
+    user_id = session.get('user', {}).get('id')
     access_token = session.get('access_token')
-    all_user_channels = get_user_channels()
+
+    # Start with an empty list for channels
+    all_user_channels = {}
+    if user_id:
+        all_user_channels = get_user_channels()
+    
+    current_channel = None
+    history = []
+
     if channel_name:
         current_channel = all_user_channels.get(channel_name)
+        
+        # If the channel isn't in the user's list (or the user is logged out),
+        # fetch its public data to display the page correctly.
         if not current_channel:
-            flash(f"Channel '{channel_name}' not found.", 'error')
-            return redirect(url_for('ask'))
-        history = get_chat_history(user_id, channel_name, access_token)
-    else:
-        current_channel = None
+             supabase_admin = get_supabase_admin_client()
+             channel_res = supabase_admin.table('channels').select('*').eq('channel_name', channel_name).maybe_single().execute()
+             if channel_res.data:
+                 current_channel = channel_res.data
+             else:
+                flash(f"Channel '{channel_name}' not found.", 'error')
+                return redirect(url_for('channel'))
+
+        # Only fetch history if the user is logged in
+        if user_id:
+            history = get_chat_history(user_id, channel_name, access_token)
+
+    elif user_id: # Only fetch general history if logged in
         history = get_chat_history(user_id, 'general', access_token)
+
     return render_template(
         'ask.html',
         history=history,
         channel_name=channel_name,
         current_channel=current_channel,
-        saved_channels=all_user_channels
+        saved_channels=all_user_channels, # This will be empty for logged-out users
+        SUPABASE_URL=os.environ.get('SUPABASE_URL'),
+        SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
     )
 
 @app.route('/api/channel_details/<path:channel_name>')
@@ -771,10 +800,46 @@ def logout():
 @login_required
 def integrations():
     """
-    Renders the main integrations hub page, which links to the dedicated
-    Discord and Telegram dashboards.
+    Renders the main integrations hub and provides the status of each integration.
     """
-    return render_template('integrations.html')
+    user_id = session['user']['id']
+    supabase_admin = get_supabase_admin_client()
+    
+    # --- Check Discord Status ---
+    discord_is_active = False
+    # 1. Check if their Discord account is linked to their profile
+    profile = db_utils.get_profile(user_id)
+    if profile and profile.get('discord_user_id'):
+        discord_is_active = True
+    else:
+        # 2. As a fallback, check if they own any branded bots
+        bots_res = supabase_admin.table('discord_bots').select('id', count='exact').eq('user_id', user_id).execute()
+        if bots_res.count > 0:
+            discord_is_active = True
+
+    # --- Check Telegram Status ---
+    telegram_is_active = False
+    # 1. Check for an active personal connection
+    personal_conn = supabase_admin.table('telegram_connections').select('id', count='exact').eq('app_user_id', user_id).eq('is_active', True).execute()
+    if personal_conn.count > 0:
+        telegram_is_active = True
+    else:
+        # 2. Check for any active group connections they own
+        group_conn = supabase_admin.table('group_connections').select('id', count='exact').eq('owner_user_id', user_id).eq('is_active', True).execute()
+        if group_conn.count > 0:
+            telegram_is_active = True
+
+    # --- Check Creator Links Status ---
+    user_creator_channels = db_utils.get_channels_created_by_user(user_id)
+    creator_links_is_active = bool(user_creator_channels)
+
+    return render_template(
+        'integrations.html',
+        discord_is_active=discord_is_active,
+        telegram_is_active=telegram_is_active,
+        creator_links_is_active=creator_links_is_active,
+        saved_channels=user_creator_channels
+    )
 
 @app.route('/integrations/discord')
 @login_required
@@ -782,29 +847,37 @@ def discord_dashboard():
     user_id = session['user']['id']
     supabase_admin = get_supabase_admin_client()
 
-    # --- NEW: Check if the user's Discord account is linked ---
+    # --- Check if the user's Discord account is linked (no change here) ---
     profile = db_utils.get_profile(user_id)
     discord_account_linked = profile and profile.get('discord_user_id') is not None
-    # --- END NEW ---
 
-    # Fetch all branded bots owned by the current user
-    bots_res = supabase_admin.table('discord_bots').select('*, channel:youtube_channel_id(channel_name, channel_thumbnail)') \
-        .eq('user_id', user_id).execute()
-    branded_bots = bots_res.data if bots_res.data else []
+    # --- START: MODIFIED LOGIC ---
+    # 1. Fetch only the channels this user has created
+    creator_channels = db_utils.get_channels_created_by_user(user_id)
+    creator_channel_ids = [c['id'] for c in creator_channels.values()]
 
-    # ... (the code to generate invite links remains the same) ...
+    # 2. Fetch branded bots that belong to those specific channels
+    branded_bots = []
+    if creator_channel_ids:
+        bots_res = supabase_admin.table('discord_bots').select('*, client_id, channel:youtube_channel_id(channel_name, channel_thumbnail)') \
+            .in_('youtube_channel_id', creator_channel_ids) \
+            .eq('user_id', user_id) \
+            .execute()
+        branded_bots = bots_res.data if bots_res.data else []
+    # --- END: MODIFIED LOG-IC ---
+
+    # --- MODIFIED LINK GENERATION: Use the reliable client_id from the database (no change here) ---
     for bot in branded_bots:
-        try:
-            token = bot.get('bot_token', '')
-            client_id_bytes = base64.b64decode(token.split('.')[0] + '==')
-            client_id = client_id_bytes.decode('utf-8')
-            permissions = "328565073920"
+        client_id = bot.get('client_id')
+        if client_id:
+            permissions = "328565073920"  # A common permission set for Q&A bots
             bot['invite_link'] = f"https://discord.com/api/oauth2/authorize?client_id={client_id}&permissions={permissions}&scope=bot"
-        except Exception as e:
-            print(f"Could not generate invite link for bot ID {bot.get('id')}: {e}")
+        else:
+            # Fallback in case the client_id is missing (e.g., for older bots)
             bot['invite_link'] = '#'
+            logging.warning(f"Could not generate invite link for bot ID {bot.get('id')} because client_id is missing.")
 
-    # Logic for the shared bot invite link
+    # --- Logic for the shared bot invite link (no change here) ---
     DISCORD_CLIENT_ID = os.environ.get("DISCORD_SHARED_CLIENT_ID")
     discord_invite_link = "#"
     if DISCORD_CLIENT_ID:
@@ -815,8 +888,8 @@ def discord_dashboard():
         'discord_dashboard.html',
         branded_bots=branded_bots,
         discord_invite_link=discord_invite_link,
-        discord_account_linked=discord_account_linked, # Pass the new flag here
-        saved_channels=get_user_channels()
+        discord_account_linked=discord_account_linked,
+        saved_channels=creator_channels  # Pass the filtered list of creator channels
     )
 
 @app.route('/integrations/telegram')
@@ -829,21 +902,36 @@ def telegram_dashboard():
     user_id = session['user']['id']
     supabase_admin = get_supabase_admin_client()
 
-    # --- Personal Bot Data ---
+    # --- Personal Bot Data (no change here) ---
     personal_connection_status = 'not_connected'
     telegram_username = None
     personal_connection_code = None
 
-    personal_conn = supabase_admin.table('telegram_connections').select('*').eq('app_user_id', user_id).limit(1).execute()
-    if personal_conn.data:
-        if personal_conn.data[0]['is_active']:
+    personal_conn_res = supabase_admin.table('telegram_connections').select('*').eq('app_user_id', user_id).limit(1).execute()
+    
+    if personal_conn_res.data:
+        connection_data = personal_conn_res.data[0]
+        if connection_data['is_active']:
             personal_connection_status = 'connected'
-            telegram_username = personal_conn.data[0].get('telegram_username', 'N/A')
+            telegram_username = connection_data.get('telegram_username', 'N/A')
         else:
-            personal_connection_status = 'code_generated'
-            personal_connection_code = personal_conn.data[0]['connection_code']
+            created_at_str = connection_data.get('created_at')
+            created_at_dt = isoparse(created_at_str)
+            
+            ten_minutes_ago = datetime.now(timezone.utc) - timedelta(minutes=10)
+            
+            if created_at_dt < ten_minutes_ago:
+                personal_connection_status = 'not_connected'
+            else:
+                personal_connection_status = 'code_generated'
+                personal_connection_code = connection_data['connection_code']
 
-    # --- Group Bot Data ---
+    # --- START: MODIFIED LOGIC ---
+    # 1. Fetch only the channels this user has created
+    creator_channels = db_utils.get_channels_created_by_user(user_id)
+    # --- END: MODIFIED LOGIC ---
+
+    # --- Group Bot Data (no change here) ---
     group_connection_status = 'not_connected'
     group_channel = None
     group_details = None
@@ -851,11 +939,14 @@ def telegram_dashboard():
 
     channel_id = request.args.get('channel_id', type=int)
     if channel_id:
-        supabase = get_supabase_client(session.get('access_token'))
-        try:
-            link_check = supabase.table('user_channels').select('channels(id, channel_name)').eq('user_id', user_id).eq('channel_id', channel_id).maybe_single().execute()
-            if link_check.data and link_check.data.get('channels'):
-                group_channel = link_check.data['channels']
+        # Check if the requested channel_id is one the user actually created
+        if any(c['id'] == channel_id for c in creator_channels.values()):
+            try:
+                # Since we already confirmed ownership, we can proceed
+                # This logic is simplified as we no longer need the complex join
+                group_channel_data = supabase_admin.table('channels').select('id, channel_name').eq('id', channel_id).single().execute()
+                group_channel = group_channel_data.data if group_channel_data.data else None
+
                 group_conn = supabase_admin.table('group_connections').select('*').eq('linked_channel_id', channel_id).limit(1).execute()
                 if group_conn.data:
                     if group_conn.data[0]['is_active']:
@@ -864,16 +955,16 @@ def telegram_dashboard():
                     else:
                         group_connection_status = 'code_generated'
                         group_connection_code = group_conn.data[0]['connection_code']
-        except Exception as e:
-            logging.error(f"Error fetching group connections for user {user_id}, channel {channel_id}: {e}")
-            group_channel = None
+            except Exception as e:
+                logging.error(f"Error fetching group connections for user {user_id}, channel {channel_id}: {e}")
+                group_channel = None
     
     token, _ = get_bot_token_and_url()
-    bot_username = token.split(':')[0] if token else 'YourBot'
+    bot_username = os.environ.get("TELEGRAM_BOT_USERNAME")
 
     return render_template(
         'telegram_dashboard.html',
-        saved_channels=get_user_channels(),
+        saved_channels=creator_channels, # Pass the filtered list
         personal_connection_status=personal_connection_status,
         telegram_username=telegram_username,
         personal_connection_code=personal_connection_code,
@@ -1130,12 +1221,10 @@ def update_discord_bot(bot_id):
 
     try:
         supabase_admin = get_supabase_admin_client()
-        # Verify the bot belongs to the user and get its token
-        bot_res = supabase_admin.table('discord_bots').select('bot_token').eq('id', bot_id).eq('user_id', user_id).single().execute()
+        # Verify the bot belongs to the user
+        bot_res = supabase_admin.table('discord_bots').select('id').eq('id', bot_id).eq('user_id', user_id).single().execute()
         if not bot_res.data:
             return jsonify({'status': 'error', 'message': 'Bot not found or permission denied.'}), 404
-        
-        bot_token = bot_res.data['bot_token']
 
         # Find or create the new channel
         cleaned_url = clean_youtube_url(channel_url)
@@ -1150,16 +1239,20 @@ def update_discord_bot(bot_id):
             channel_id = new_channel['id']
             db_utils.link_user_to_channel(user_id, channel_id)
             process_channel_task.schedule(args=(channel_id,), delay=1)
-        
-        # Update the bot's linked channel and restart it
-        supabase_admin.table('discord_bots').update({'youtube_channel_id': channel_id, 'status': 'connecting'}).eq('id', bot_id).execute()
-        run_discord_bot_task(bot_token, bot_id) # Relaunch the bot task
 
-        return jsonify({'status': 'success', 'message': 'Bot updated and is restarting.'})
+        # Update the bot's linked channel and set status to 'online'
+        # The service will detect this and restart the bot with the new channel info.
+        supabase_admin.table('discord_bots').update({
+            'youtube_channel_id': channel_id, 
+            'status': 'online'
+        }).eq('id', bot_id).execute()
+
+        return jsonify({'status': 'success', 'message': 'Bot updated. The service will restart it with the new settings shortly.'})
 
     except Exception as e:
         logging.error(f"Error updating bot {bot_id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'An unexpected error occurred.'}), 500
+    
 
 @app.route('/integrations/discord/create', methods=['POST'])
 @login_required
@@ -1172,14 +1265,26 @@ def create_discord_bot():
         return jsonify({'status': 'error', 'message': 'Bot token and YouTube channel URL are required.'}), 400
 
     try:
+        # Verify the token and get the bot's Client ID from Discord's API
+        try:
+            headers = {'Authorization': f'Bot {bot_token}'}
+            user_res = requests.get('https://discord.com/api/v10/users/@me', headers=headers)
+            user_res.raise_for_status()
+            client_id = user_res.json()['id']
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 401:
+                return jsonify({'status': 'error', 'message': 'The provided Discord Bot Token is invalid.'}), 400
+            else:
+                return jsonify({'status': 'error', 'message': f'Discord API error: {e.response.text}'}), 500
+        except Exception as e:
+             logging.error(f"Failed to verify bot token: {e}", exc_info=True)
+             return jsonify({'status': 'error', 'message': 'Could not verify the bot token with Discord.'}), 500
+
         supabase_admin = get_supabase_admin_client()
         existing_bot = supabase_admin.table('discord_bots').select('id').eq('user_id', user_id).eq('bot_token', bot_token).maybe_single().execute()
 
-        # --- THIS IS THE FIX ---
-        # First, check if the existing_bot object exists before trying to access its .data attribute.
         if existing_bot and existing_bot.data:
-            return jsonify({'status': 'error', 'message': 'This bot token is already in use. Please edit the existing bot or use a new token.'}), 409
-        # --- END FIX ---
+            return jsonify({'status': 'error', 'message': 'This bot token is already in use.'}), 409
 
         cleaned_url = clean_youtube_url(channel_url)
         existing_channel = db_utils.find_channel_by_url(cleaned_url)
@@ -1198,18 +1303,17 @@ def create_discord_bot():
         bot_data = {
             'user_id': user_id,
             'bot_token': bot_token,
+            'client_id': client_id,
             'youtube_channel_id': channel_id,
             'is_active': True,
-            'status': 'connecting'
+            'status': 'online'  # Set status directly to 'online'
         }
         new_bot = db_utils.create_discord_bot(bot_data)
         if not new_bot:
             return jsonify({'status': 'error', 'message': 'Failed to save bot to database.'}), 500
 
-        bot_db_id = new_bot['id']
-        run_discord_bot_task(bot_token, bot_db_id)
-        
-        return jsonify({'status': 'success', 'message': 'Bot creation process started!'})
+        # The service will pick up this new 'online' bot on its next sync.
+        return jsonify({'status': 'success', 'message': 'Bot created! The service will bring it online shortly.'})
 
     except Exception as e:
         logging.error(f"Error in create_discord_bot: {e}", exc_info=True)
@@ -1220,22 +1324,16 @@ def create_discord_bot():
 def start_discord_bot(bot_id):
     user_id = session['user']['id']
     supabase_admin = get_supabase_admin_client()
-    
-    bot_res = supabase_admin.table('discord_bots').select('bot_token').eq('id', bot_id).eq('user_id', user_id).single().execute()
+
+    # Verify the user owns the bot
+    bot_res = supabase_admin.table('discord_bots').select('id').eq('id', bot_id).eq('user_id', user_id).single().execute()
     if not bot_res.data:
         return jsonify({'status': 'error', 'message': 'Bot not found or permission denied.'}), 404
-        
-    bot_token = bot_res.data['bot_token']
-    
-    supabase_admin.table('discord_bots').update({'status': 'connecting'}).eq('id', bot_id).execute()
-    
-    # --- ADD THIS LOGGING LINE ---
-    print(f"SCHEDULING TASK: run_discord_bot_task for bot_id {bot_id}")
-    # --- END LOGGING ---
-    
-    run_discord_bot_task(bot_token, bot_id)
-    
-    return jsonify({'status': 'success', 'message': 'Bot start-up has been initiated.'})
+
+    # Set status to 'online'. The service will handle the rest.
+    supabase_admin.table('discord_bots').update({'status': 'online'}).eq('id', bot_id).execute()
+
+    return jsonify({'status': 'success', 'message': 'Bot activation signal sent. The service will bring it online shortly.'})
 
 
 @app.route('/integrations/discord/delete/<int:bot_id>', methods=['POST'])
@@ -1312,29 +1410,7 @@ def discord_auth_callback():
     return redirect(url_for('discord_dashboard'))
 
 # --- NEW: Function to restart bots on server startup ---
-def restart_active_bots_on_startup():
-    """Queries the DB for 'online' bots and queues a restart task for them."""
-    print("--- [STARTUP] Checking for active bots to restart... ---")
-    supabase_admin = get_supabase_admin_client()
-    
-    # Find bots that were left in an 'online' or 'connecting' state
-    response = supabase_admin.table('discord_bots').select('id, bot_token').in_('status', ['online', 'connecting']).execute()
 
-    if response.data:
-        bots_to_restart = response.data
-        print(f"--- [STARTUP] Found {len(bots_to_restart)} bot(s) that need restarting. ---")
-        for bot in bots_to_restart:
-            bot_id = bot['id']
-            bot_token = bot['bot_token']
-            print(f"--- [STARTUP] Queueing restart for bot ID: {bot_id} ---")
-            
-            # Set status to 'connecting' to provide immediate UI feedback
-            supabase_admin.table('discord_bots').update({'status': 'connecting'}).eq('id', bot_id).execute()
-            
-            # Schedule the bot to run via Huey, adding a small delay
-            run_discord_bot_task.schedule(args=(bot_token, bot_id), delay=2)
-    else:
-        print("--- [STARTUP] No active bots found that need a restart. ---")
 
 
 @app.route('/integrations/discord/toggle_bot/<int:bot_id>', methods=['POST'])
@@ -1342,31 +1418,128 @@ def restart_active_bots_on_startup():
 def toggle_discord_bot(bot_id):
     user_id = session['user']['id']
     supabase_admin = get_supabase_admin_client()
-    
-    bot_res = supabase_admin.table('discord_bots').select('bot_token, status').eq('id', bot_id).eq('user_id', user_id).single().execute()
-    
+
+    bot_res = supabase_admin.table('discord_bots').select('status').eq('id', bot_id).eq('user_id', user_id).single().execute()
+
     if not bot_res.data:
         return jsonify({'status': 'error', 'message': 'Bot not found or permission denied.'}), 404
-        
-    bot_token = bot_res.data['bot_token']
+
     current_status = bot_res.data['status']
+
+    # Determine the new status
+    new_status = 'offline' if current_status == 'online' else 'online'
+
+    # Update the status in the database
+    supabase_admin.table('discord_bots').update({'status': new_status}).eq('id', bot_id).execute()
+
+    message = f"Signal sent. The bot will be brought {new_status} by the service shortly."
+    return jsonify({'status': 'success', 'message': message})
+
+@app.route('/integrations/creator_links')
+@login_required
+def creator_links():
+    """
+    Renders the page that displays the public shareable links for each of the user's channels.
+    """
+    return render_template('creator_links.html', saved_channels=get_user_channels())
+
+
+@app.route('/c/<path:channel_name>')
+def public_chat_page(channel_name):
+    """
+    Public-facing page for a creator's AI persona.
+    - For logged-out users, it shows the page and prompts login.
+    - For logged-in users, it adds the channel if they have space,
+      or provides a temporary session if they are at their plan limit.
+    """
+    supabase_admin = get_supabase_admin_client()
+    channel_response = supabase_admin.table('channels').select('*').eq('channel_name', channel_name).maybe_single().execute()
+
+    if not channel_response.data:
+        return render_template('error.html', error_message="This AI persona could not be found."), 404
+
+    channel = channel_response.data
     
-    if current_status in ['online', 'connecting']:
-        # Deactivate the bot
-        supabase_admin.table('discord_bots').update({'status': 'offline'}).eq('id', bot_id).execute()
-        # --- MODIFIED MESSAGE ---
-        return jsonify({'status': 'success', 'message': 'Deactivation signal sent. Bot will go offline within seconds.'})
-    else:
-        # Activate the bot
-        supabase_admin.table('discord_bots').update({'status': 'connecting'}).eq('id', bot_id).execute()
-        run_discord_bot_task.schedule(args=(bot_token, bot_id), delay=1)
-        return jsonify({'status': 'success', 'message': 'Bot activation has been initiated.'})
+    # --- START: NEW FEATURE LOGIC ---
+    if 'user' in session:
+        user_id = session['user']['id']
+        channel_id = channel['id']
+        
+        # Check if the user is already linked to this channel
+        link_check = supabase_admin.table('user_channels').select('user_id').eq('user_id', user_id).eq('channel_id', channel_id).execute()
 
-# --- NEW: Call the startup function ---
-# This code runs once when the Flask application process starts.
-with app.app_context():
-    restart_active_bots_on_startup()
+        if link_check.data:
+            # User already has this channel, just redirect them
+            return redirect(url_for('ask', channel_name=channel['channel_name']))
 
+        # This is a new channel for the user, so we must check their limits
+        user_status = get_user_status(user_id)
+        max_channels = user_status['limits'].get('max_channels', 0)
+        current_channels = user_status['usage'].get('channels_processed', 0)
+
+        if current_channels < max_channels:
+            # The user has space, so add the channel permanently
+            db_utils.link_user_to_channel(user_id, channel_id)
+            db_utils.increment_channels_processed(user_id)
+            flash(f"'{channel['channel_name']}' has been added to your channels.", "success")
+            return redirect(url_for('ask', channel_name=channel['channel_name']))
+        else:
+            # The user is at their limit, provide a temporary session
+            flash(f"You have reached your channel limit. You can view this channel for this session only.", "info")
+            
+            # Render the page directly instead of redirecting.
+            # The channel will not be saved to their sidebar.
+            return render_template(
+                'ask.html', 
+                history=[],
+                channel_name=channel['channel_name'], 
+                current_channel=channel,
+                saved_channels=get_user_channels(), # This shows their actual saved channels
+                SUPABASE_URL=os.environ.get('SUPABASE_URL'),
+                SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
+            )
+    # --- END: NEW FEATURE LOGIC ---
+
+    # This part remains the same for logged-out users
+    shared_history = []
+    history_id = request.args.get('history_id')
+    if history_id and redis_client:
+        try:
+            history_json = redis_client.get(f"shared_chat:{history_id}")
+            if history_json:
+                shared_history = json.loads(history_json)
+        except Exception as e:
+            logging.error(f"Error retrieving shared chat {history_id} from Redis: {e}")
+
+    session['referred_by_channel_id'] = channel['id']
+
+    return render_template('ask.html', 
+        history=shared_history,
+        channel_name=channel['channel_name'], 
+        current_channel=channel,
+        saved_channels={}, # Sidebar is empty for logged-out users
+        SUPABASE_URL=os.environ.get('SUPABASE_URL'),
+        SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
+    )
+
+@app.route('/api/share_chat', methods=['POST'])
+@login_required
+def share_chat_history():
+    """
+    Saves a chat history to Redis for temporary sharing and returns a unique ID.
+    """
+    if not redis_client:
+        return jsonify({'status': 'error', 'message': 'Sharing feature is not configured.'}), 500
+
+    history_data = request.json.get('history')
+    if not history_data:
+        return jsonify({'status': 'error', 'message': 'No history provided.'}), 400
+
+    history_id = str(uuid.uuid4())
+    # Store the history in Redis for 24 hours (86400 seconds)
+    redis_client.setex(f"shared_chat:{history_id}", 86400, json.dumps(history_data))
+    
+    return jsonify({'status': 'success', 'history_id': history_id})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

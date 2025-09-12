@@ -1,233 +1,168 @@
-import discord
-from discord import app_commands
-from discord.ext import commands
+# In discord_service.py
+
+import asyncio
 import os
-from dotenv import load_dotenv
 import logging
-from typing import List
-import json
-from utils.qa_utils import answer_question_stream
-# utils imports
-from utils import db_utils
-from utils.history_utils import get_chat_history_for_service
+from dotenv import load_dotenv
+import discord
+from discord.ext import commands, tasks
+from typing import Dict, List
+
+# --- Local Utils ---
+from utils.supabase_client import get_supabase_admin_client
+from utils.discord_utils import YoppyBot # This is the class for Branded Bots
+from discord_service_shared_bot import SharedYoppyBot # Import the Shared Bot class
+
 # --- Setup ---
 load_dotenv()
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
 
 # --- Configuration ---
 SHARED_BOT_TOKEN = os.environ.get("DISCORD_SHARED_BOT_TOKEN")
-if not SHARED_BOT_TOKEN:
-    log.error("DISCORD_SHARED_BOT_TOKEN not found. Bot cannot start.")
-    exit()
+SYNC_INTERVAL_SECONDS = 20 # How often to check the database for changes
 
-intents = discord.Intents.default()
-intents.message_content = True
+class BotManager:
+    """
+    Manages the lifecycle of all Discord bots (shared and branded)
+    as a single, standalone, asynchronous service.
+    """
+    def __init__(self):
+        self.supabase = get_supabase_admin_client()
+        # A dictionary to keep track of running branded bots: {bot_id: asyncio.Task}
+        self.running_branded_bots: Dict[int, asyncio.Task] = {}
+        self.shared_bot_task: asyncio.Task = None
 
-# =============================================================================
-# === UI View for the 'Sources' Button ===
-# =============================================================================
-class SourcesView(discord.ui.View):
-    def __init__(self, *, sources: List[dict]):
-        super().__init__(timeout=300)  # Button will be active for 5 minutes
-        self.sources = sources
-
-    @discord.ui.button(label="Sources", style=discord.ButtonStyle.secondary, emoji="📚")
-    async def show_sources_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not self.sources:
-            await interaction.response.send_message("No sources were found for this answer.", ephemeral=True)
+    async def start_branded_bot(self, bot_id: int, token: str):
+        """Creates, runs, and stores a task for a single branded bot."""
+        if bot_id in self.running_branded_bots:
+            log.warning(f"Bot {bot_id} is already running. Skipping start.")
             return
 
-        source_links = "\n".join([f"- [{s['title']}]({s['url']})" for s in self.sources])
-        embed = discord.Embed(
-            title="Sources",
-            description=source_links,
-            color=discord.Color.blue()
+        log.info(f"Starting branded bot with ID: {bot_id}")
+        try:
+            # Create a task that runs the bot.
+            # The YoppyBot class from discord_utils is used here.
+            task = asyncio.create_task(self._run_bot_instance(YoppyBot, token, bot_id))
+            self.running_branded_bots[bot_id] = task
+        except Exception as e:
+            log.error(f"Failed to start branded bot {bot_id}: {e}", exc_info=True)
+
+    async def stop_branded_bot(self, bot_id: int):
+        """Stops a running branded bot task and removes it from tracking."""
+        if bot_id not in self.running_branded_bots:
+            log.warning(f"Bot {bot_id} is not running. Skipping stop.")
+            return
+
+        log.info(f"Stopping branded bot with ID: {bot_id}")
+        task = self.running_branded_bots.pop(bot_id)
+        if task and not task.done():
+            task.cancel()
+        log.info(f"Bot {bot_id} has been stopped.")
+
+    async def _run_bot_instance(self, bot_class, token: str, db_id: int = None):
+        """Internal helper to run a bot instance and handle cleanup."""
+        intents = discord.Intents.default()
+        intents.message_content = True
+        intents.messages = True
+        
+        bot_instance = bot_class(
+            command_prefix="!unused", 
+            intents=intents, 
+            bot_token=token, 
+            bot_db_id=db_id
         )
-        
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-        
-        button.disabled = True
-        await interaction.message.edit(view=self)
+        try:
+            await bot_instance.start(token)
+        except discord.LoginFailure:
+            log.error(f"Login failed for bot ID {db_id}. The token is likely invalid.")
+            # Set the bot's status to error in the DB so it's not picked up again
+            if db_id:
+                self.supabase.table('discord_bots').update({'status': 'error'}).eq('id', db_id).execute()
+        except asyncio.CancelledError:
+            log.info(f"Bot ID {db_id or 'Shared Bot'} task was cancelled. Closing connection.")
+        except Exception as e:
+            log.error(f"Bot ID {db_id or 'Shared Bot'} crashed with an unexpected error: {e}", exc_info=True)
+        finally:
+            if not bot_instance.is_closed():
+                await bot_instance.close()
+            log.info(f"Bot ID {db_id or 'Shared Bot'} has been shut down.")
 
-# =============================================================================
-# === Main Bot Class ===
-# =============================================================================
-class SharedYoppyBot(commands.Bot):
-    def __init__(self, *, intents: discord.Intents):
-        super().__init__(command_prefix="!unused", intents=intents)
-        self.history_cache = {}
+    @tasks.loop(seconds=SYNC_INTERVAL_SECONDS)
+    async def sync_bots_with_db(self):
+        """The main sync loop to keep running bots in sync with the database."""
+        log.info("--- Syncing bots with database... ---")
+        try:
+            response = self.supabase.table('discord_bots').select('id, bot_token, status').execute()
+            if not response.data:
+                db_bots = []
+            else:
+                db_bots = response.data
 
-    async def setup_hook(self):
-        self.tree.add_command(link_channel_command)
-        await self.tree.sync()
-        log.info("Slash commands registered and synced in setup_hook.")
+            # Create a set of bot IDs that should be online according to the database
+            db_online_bots = {bot['id']: bot['bot_token'] for bot in db_bots if bot['status'] == 'online'}
+            
+            # Create a set of bot IDs that are currently running in our manager
+            running_bot_ids = set(self.running_branded_bots.keys())
 
-    async def on_ready(self):
-        log.info(f'Shared Bot Logged in as {self.user} (ID: {self.user.id})')
+            # --- Start new bots ---
+            # Find bots that are in the DB as 'online' but not in our running set
+            bots_to_start = db_online_bots.keys() - running_bot_ids
+            for bot_id in bots_to_start:
+                token = db_online_bots[bot_id]
+                await self.start_branded_bot(bot_id, token)
 
-    async def on_message(self, message: discord.Message):
-        if message.author == self.user:
+            # --- Stop old bots ---
+            # Find bots that are running but are no longer 'online' in the DB
+            bots_to_stop = running_bot_ids - db_online_bots.keys()
+            for bot_id in bots_to_stop:
+                await self.stop_branded_bot(bot_id)
+
+            log.info(f"Sync complete. Running branded bots: {len(self.running_branded_bots)}")
+
+        except Exception as e:
+            log.error(f"CRITICAL ERROR during bot sync loop: {e}", exc_info=True)
+
+    @sync_bots_with_db.before_loop
+    async def before_sync_loop(self):
+        log.info("Waiting for shared bot to be ready before starting sync loop...")
+        if self.shared_bot_task:
+            # This assumes the shared bot instance is accessible and has a 'wait_until_ready'
+            # In a real scenario, you'd need a more robust way to check readiness.
+            # For now, a simple sleep is sufficient to allow login.
+            await asyncio.sleep(5)
+        log.info("Sync loop is starting.")
+
+    async def start_shared_bot(self):
+        """Starts the main shared YoppyChat bot."""
+        if not SHARED_BOT_TOKEN:
+            log.warning("SHARED_BOT_TOKEN not set. Cannot start the shared bot.")
             return
 
-        if self.user.mentioned_in(message):
-            await message.channel.typing()
-            server_id = message.guild.id
-            log.info(f"Bot mentioned in server {server_id}")
-
-            server_link = db_utils.get_discord_server_link(server_id)
-            if not server_link:
-                await message.reply("This server isn't linked to a YouTube channel yet. An admin can link one using the `/link_channel` command.")
-                return
-
-            channel_id = server_link.get('linked_channel_id')
-            channel_data = db_utils.get_channel_by_id(channel_id)
-            if not channel_data:
-                await message.reply("I can't seem to find the data for the linked YouTube channel. Please try linking it again.")
-                return
-
-            question = message.content.replace(f'<@{self.user.id}>', '').strip()
-            owner_user_id = server_link.get('owner_user_id')
-
-            # --- UPGRADED MEMORY LOGIC WITH CACHE ---
-            conversation_id = f"discord_{message.channel.id}"
-            
-            db_history = get_chat_history_for_service(
-                user_id=owner_user_id, 
-                channel_name=conversation_id, 
-                limit=20
+        log.info("Starting the SHARED YoppyChat bot...")
+        try:
+            # We use the same helper to run the instance of the Shared Bot
+            self.shared_bot_task = asyncio.create_task(
+                self._run_bot_instance(SharedYoppyBot, SHARED_BOT_TOKEN)
             )
-            cache_history = self.history_cache.get(conversation_id, [])
-            
-            combined_history = {f"{qa['question']}_{qa['answer']}": qa for qa in db_history}
-            combined_history.update({f"{qa['question']}_{qa['answer']}": qa for qa in cache_history})
-            
-            history = list(combined_history.values())
-            history = sorted(history, key=lambda qa: qa.get('created_at', ''))[-20:]
-            
-            chat_history_for_prompt = ""
-            if history:
-                log.info(f"Found {len(history)} combined messages for conversation {conversation_id}.")
-                for qa in history:
-                    chat_history_for_prompt += f"Human: {qa['question']}\nAI: {qa['answer']}\n\n"
+        except Exception as e:
+            log.error(f"Failed to start the shared bot: {e}", exc_info=True)
 
-            final_question_with_history = question
-            if chat_history_for_prompt:
-                final_question_with_history = (
-                    f"Given the following conversation history:\n{chat_history_for_prompt}"
-                    f"--- End History ---\n\n"
-                    f"Now, answer this new question, considering the history as context:\n{question}"
-                )
-            
-            full_answer = ""
-            sources = []
-            
-            try:
-                stream = answer_question_stream(
-                    question_for_prompt=final_question_with_history,
-                    question_for_search=question,
-                    channel_data=channel_data,
-                    user_id=owner_user_id,
-                    access_token=None,
-                    conversation_id=conversation_id
-                )
-
-                for chunk in stream:
-                    if chunk.startswith('data: '):
-                        data_str = chunk.replace('data: ', '').strip()
-                        if data_str == "[DONE]":
-                            break
-                        try:
-                            data = json.loads(data_str)
-                            if data.get('answer'):
-                                full_answer += data['answer']
-                            if data.get('sources'):
-                                sources = data['sources']
-                        except json.JSONDecodeError:
-                            continue
-                
-                if full_answer:
-                    if conversation_id not in self.history_cache:
-                        self.history_cache[conversation_id] = []
-                    
-                    self.history_cache[conversation_id].append({'question': question, 'answer': full_answer})
-                    self.history_cache[conversation_id] = self.history_cache[conversation_id][-20:]
-                    log.info(f"Updated in-memory cache for {conversation_id}. Cache size: {len(self.history_cache[conversation_id])}")
-
-                if not full_answer:
-                    full_answer = "I couldn't find an answer to that in the channel's videos."
-
-                # --- NEW BUTTON LOGIC ---
-                view = SourcesView(sources=sources) if sources else None
-
-                if len(full_answer) > 2000:
-                    await message.reply(full_answer[:1990] + "...", view=view)
-                else:
-                    await message.reply(full_answer, view=view)
-
-            except Exception as e:
-                log.error(f"Error getting AI answer for server {server_id}: {e}", exc_info=True)
-                await message.reply("Sorry, an error occurred while trying to find an answer.")
-
-# =============================================================================
-# === Slash Command Definitions ===
-# =============================================================================
-async def channel_autocomplete(interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
-    """
-    Provides autocomplete suggestions for the 'channel' option in the /link_channel command.
-    """
-    user_channels = db_utils.get_user_channels_by_discord_id(interaction.user.id)
-    if not user_channels:
-        return []
-    choices = [
-        app_commands.Choice(name=ch['channel_name'], value=str(ch['id']))
-        for ch in user_channels 
-        if current.lower() in ch['channel_name'].lower() and ch.get('channel_name')
-    ]
-    return choices[:25]
-
-@app_commands.command(name="link_channel", description="Link this server to one of your YoppyChat channels.")
-@app_commands.autocomplete(channel=channel_autocomplete)
-@app_commands.describe(channel="The name of the channel you want to link from your account.")
-@app_commands.checks.has_permissions(administrator=True)
-async def link_channel_command(interaction: discord.Interaction, channel: str):
-    """
-    The command that an admin runs to link a Discord server to a YouTube channel.
-    """
-    await interaction.response.defer(ephemeral=True)
-    try:
-        channel_id = int(channel)
-        app_user = db_utils.find_app_user_by_discord_id(interaction.user.id)
-        if not app_user:
-            await interaction.followup.send("Your Discord account isn't linked to a YoppyChat account. Please link it on the website first.")
-            return
-
-        db_utils.link_discord_server_to_channel(interaction.guild.id, channel_id, app_user['id'])
+    async def run(self):
+        """The main entry point to start the manager and all bot services."""
+        await self.start_shared_bot()
+        self.sync_bots_with_db.start()
         
-        channel_details = db_utils.get_channel_by_id(channel_id)
-        channel_name = channel_details.get('channel_name', 'your selected channel') if channel_details else 'your selected channel'
-
-        await interaction.followup.send(f"✅ Success! This server is now linked to **{channel_name}**.")
-
-    except ValueError:
-        await interaction.followup.send("❌ Invalid channel selected. Please choose one from the list.")
-    except Exception as e:
-        log.error(f"Error in /link_channel command: {e}", exc_info=True)
-        await interaction.followup.send("❌ An unexpected error occurred. Please try again.")
-# --- END: SLASH COMMAND DEFINITION ---
-
-
-import asyncio
+        # Keep the main manager task alive
+        await asyncio.gather(
+            self.shared_bot_task,
+            *self.running_branded_bots.values(),
+            return_exceptions=True
+        )
 
 if __name__ == "__main__":
-    bot = SharedYoppyBot(intents=intents)
+    manager = BotManager()
     try:
-        bot.run(SHARED_BOT_TOKEN)
-    finally:
-        # Workaround for 'Event loop is closed' RuntimeError on Windows
-        try:
-            loop = asyncio.get_event_loop()
-            if not loop.is_closed():
-                loop.close()
-        except Exception:
-            pass
+        asyncio.run(manager.run())
+    except KeyboardInterrupt:
+        log.info("Manager service shutting down by request.")

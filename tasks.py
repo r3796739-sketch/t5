@@ -20,7 +20,8 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import logging
 from utils.history_utils import save_chat_history
-
+from utils.history_utils import get_chat_history_for_service
+from utils import db_utils
 logger = logging.getLogger(__name__)
 
 # Load environment variables from .env if present
@@ -218,14 +219,39 @@ def sync_channel_task(channel_id, task=None):
 
 def consume_answer_stream(question, config, channel_data, video_ids, user_id, access_token):
     """
-    This is the corrected helper function.
+    This is the corrected helper function that now includes chat history.
     """
     full_answer = ""
     sources = []
-    # This now correctly passes the question argument to the underlying stream function.
+
+    # --- THIS IS THE FIX ---
+    # 1. Determine the channel name for history lookup
+    channel_name_for_history = channel_data.get('channel_name', 'general') if channel_data else 'general'
+    
+    # 2. Fetch the last 5 messages for context
+    history = get_chat_history_for_service(user_id, channel_name_for_history, limit=5)
+    
+    # 3. Build the chat history prompt string
+    chat_history_for_prompt = ''
+    for qa in history:
+        chat_history_for_prompt += f"Human: {qa['question']}\nAI: {qa['answer']}\n\n"
+
+    # 4. Prepend the history to the new question
+    final_question_with_history = question
+    if chat_history_for_prompt:
+        final_question_with_history = (
+            "Given the following conversation history:\n"
+            f"{chat_history_for_prompt}"
+            "--- End History ---\n\n"
+            "Now, answer this new question, considering the history as context:\n"
+            f"{question}"
+        )
+    # --- END FIX ---
+
+    # This now correctly passes the question with context to the underlying stream function.
     stream = answer_question_stream(
-        question_for_prompt=question,
-        question_for_search=question,
+        question_for_prompt=final_question_with_history, # Use the question with history
+        question_for_search=question, # Use the original question for searching
         channel_data=channel_data,
         video_ids=video_ids,
         user_id=user_id,
@@ -374,11 +400,14 @@ def process_group_message(message: dict):
         conn_resp = supabase_admin.table('group_connections').select('*').eq('connection_code', code).limit(1).execute()
 
         if conn_resp.data:
+            # --- THIS IS THE FIX ---
+            # The column names have been corrected to match your database schema.
             supabase_admin.table('group_connections').update({
                 'is_active': True,
-                'group_chat_id': chat_id,
-                'group_title': chat_title
+                'telegram_group_id': chat_id,
+                'telegram_group_name': chat_title
             }).eq('connection_code', code).execute()
+            # --- END FIX ---
             send_message(chat_id, "✅ This group is now successfully linked! Community members can now ask questions by mentioning the bot.")
         else:
             print(f"[Group Chat] Invalid connection code received: {code}")
@@ -398,7 +427,10 @@ def process_group_message(message: dict):
         print(f"Ignoring group message as it does not mention '{bot_username}'.")
         return
 
-    group_conn_resp = supabase_admin.table('group_connections').select('*, channels(*)').eq('group_chat_id', chat_id).eq('is_active', True).limit(1).execute()
+    # --- THIS IS THE FIX ---
+    # The query now correctly looks for `telegram_group_id` instead of `group_chat_id`.
+    group_conn_resp = supabase_admin.table('group_connections').select('*, channels(*)').eq('telegram_group_id', chat_id).eq('is_active', True).limit(1).execute()
+    # --- END FIX ---
 
     if not group_conn_resp.data:
         send_message(chat_id, "This group is not linked to a YouTube channel.")
@@ -527,19 +559,12 @@ def delete_channel_task(channel_id: int, user_id: str):
 @huey.task()
 def post_answer_processing_task(user_id, channel_name, question, answer, sources):
     """
-    Handles background database operations after an answer is streamed.
+    Handles saving chat history after an answer is streamed.
+    Query deduction is now handled synchronously before the stream starts.
     """
     try:
-        # Get a fresh admin client for background tasks
+        logger.info(f"TASK: Saving chat history for user {user_id}")
         admin_supabase = get_supabase_admin_client()
-
-        # 1. Increment the user's query count
-        print(f"Incrementing query count for user {user_id}")
-        admin_supabase.rpc('increment_personal_query_usage', {'p_user_id': user_id}).execute()
-
-        # 2. Save the chat history
-        # Note: We use the admin client here for reliability in background tasks
-        print(f"Saving chat history for user {user_id}")
         save_chat_history(
             supabase_client=admin_supabase,
             user_id=user_id,
@@ -551,20 +576,4 @@ def post_answer_processing_task(user_id, channel_name, question, answer, sources
     except Exception as e:
         logger.error(f"Error in post-answer processing for user {user_id}: {e}", exc_info=True)
 
-from utils.discord_utils import run_bot
 
-@huey.task()
-def run_discord_bot_task(bot_token: str, bot_db_id: int):
-    """
-    Background task to run a Discord bot and update its status.
-    """
-    supabase_admin = get_supabase_admin_client()
-    try:
-        print(f"--- [DISCORD BOT TASK STARTED] Running bot with ID: {bot_db_id} ---")
-        run_bot(bot_token, bot_db_id)
-        # --- NEW LOG MESSAGE ---
-        print(f"--- [DISCORD BOT TASK ENDED] Bot process for ID {bot_db_id} has shut down gracefully. ---")
-    except Exception as e:
-        print(f"--- [DISCORD BOT TASK FAILED] Bot ID {bot_db_id} crashed: {e} ---")
-        supabase_admin.table('discord_bots').update({'status': 'error'}).eq('id', bot_db_id).execute()
-        raise

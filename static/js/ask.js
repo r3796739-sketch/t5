@@ -3,6 +3,20 @@
 // =================================================================
 
 /**
+ * START: ADDED FIX
+ * Helper function to safely escape HTML special characters from text.
+ */
+const escapeHtml = (text) => {
+    if (typeof text !== 'string') return '';
+    const p = document.createElement('p');
+    p.textContent = text;
+    return p.innerHTML;
+};
+/**
+ * END: ADDED FIX
+ */
+
+/**
  * Displays a custom confirmation dialog.
  * @param {string} title - The dialog title.
  * @param {string} message - The confirmation message.
@@ -12,7 +26,6 @@
 window.showCustomConfirm = function(title, message, confirmText, onConfirm) {
     const dialog = document.createElement('div');
     dialog.className = 'confirm-dialog';
-    // This line is the fix. It correctly hides the dialog initially.
     dialog.style.display = 'none';
     dialog.innerHTML = `
         <div class="confirm-content">
@@ -24,16 +37,11 @@ window.showCustomConfirm = function(title, message, confirmText, onConfirm) {
             </div>
         </div>
     `;
-
     document.body.appendChild(dialog);
-
-    // We now show the dialog by changing its display property.
     dialog.style.display = 'flex';
-
     const confirmBtn = dialog.querySelector('.confirm-btn');
     const cancelBtn = dialog.querySelector('.cancel-btn');
     const closeDialog = () => document.body.removeChild(dialog);
-
     cancelBtn.onclick = closeDialog;
     confirmBtn.onclick = () => {
         onConfirm();
@@ -77,11 +85,9 @@ window.clearChat = function(channel) {
  */
 window.setDefaultChannel = function(channelId, buttonElement) {
     if (!buttonElement || buttonElement.disabled) return;
-
     const originalContent = buttonElement.innerHTML;
     buttonElement.disabled = true;
     buttonElement.innerHTML = `<div class="button-spinner" style="width:16px;height:16px;border-width:2px;"></div><span>Setting...</span>`;
-
     fetch(`/set-default-channel/${channelId}`, { method: 'POST' })
         .then(res => {
             if (!res.ok) return res.json().then(err => Promise.reject(err));
@@ -102,7 +108,6 @@ window.setDefaultChannel = function(channelId, buttonElement) {
         });
 }
 
-
 /**
  * Toggles a channel's privacy between personal and shared for community admins.
  * @param {string} channelId - The ID of the channel to toggle.
@@ -111,7 +116,6 @@ window.setDefaultChannel = function(channelId, buttonElement) {
 window.toggleChannelPrivacy = function(channelId, isShared) {
     const toggle = document.getElementById('shareToggle');
     if(toggle) toggle.disabled = true;
-
     fetch(`/api/toggle_channel_privacy/${channelId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -126,18 +130,15 @@ window.toggleChannelPrivacy = function(channelId, isShared) {
         if (window.showNotification) {
             window.showNotification(data.message, 'success');
         }
-        // A page reload is the simplest way to reflect the change everywhere (sidebar, etc.)
         setTimeout(() => window.location.reload(), 1500);
     })
     .catch(err => {
         if (window.showNotification) {
             window.showNotification(err.message || 'An error occurred.', 'error');
         }
-        // Revert the toggle state on failure
         if(toggle) toggle.checked = !isShared;
     })
     .finally(() => {
-        // Keep it disabled on success because the page will reload
         if(toggle && !document.querySelector('.notification.success')) {
             toggle.disabled = false;
         }
@@ -151,13 +152,10 @@ window.toggleChannelPrivacy = function(channelId, isShared) {
 window.toggleSources = function(btn) {
     const sourcesSection = btn.closest('.sources-section');
     if (!sourcesSection) return;
-
     const list = sourcesSection.querySelector('.sources-list');
     if (!list) return;
-
     const indicator = btn.querySelector('.toggle-indicator');
     const isExpanded = list.style.display === 'block';
-
     list.style.display = isExpanded ? 'none' : 'block';
     if (indicator) {
         indicator.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
@@ -171,17 +169,14 @@ window.toggleSources = function(btn) {
  */
 window.refreshChannel = function(channelId, buttonElement) {
     if (!buttonElement || buttonElement.disabled) return;
-
     const originalContent = buttonElement.innerHTML;
     buttonElement.disabled = true;
     const spinnerSize = buttonElement.classList.contains('action-btn') ? '20px' : '16px';
     buttonElement.innerHTML = `<div class="button-spinner" style="width:${spinnerSize};height:${spinnerSize};border-width:2px;"></div><span>Refreshing...</span>`;
-
     const dropdownMenuMobile = document.getElementById('dropdown-menu-mobile');
     if (dropdownMenuMobile?.classList.contains('show')) {
         dropdownMenuMobile.classList.remove('show');
     }
-
     fetch(`/refresh_channel/${channelId}`, { method: 'POST' })
         .then(response => response.ok ? response.json() : response.json().then(err => Promise.reject(err)))
         .then(data => {
@@ -242,13 +237,65 @@ function restoreButton(button, originalHTML, finalStateClass) {
     button.innerHTML = originalHTML;
     button.classList.remove('state-loading');
     if (finalStateClass) button.classList.add(finalStateClass);
-
     setTimeout(() => {
         button.disabled = false;
         if (finalStateClass) button.classList.remove(finalStateClass);
     }, 3000);
 }
 
+let shareHistoryId = null; // Variable to store the current shared history ID
+
+/**
+ * Closes the share modal.
+ */
+function closeShareModal() {
+    const modal = document.getElementById('shareModal');
+    if (modal) modal.style.display = 'none';
+}
+
+/**
+ * Opens and prepares the share modal.
+ */
+function openShareModal() {
+    const channelName = document.getElementById('chat-page-data').dataset.channelName;
+    if (!channelName) {
+        showNotification('Cannot share from this page.', 'error');
+        return;
+    }
+    const modal = document.getElementById('shareModal');
+    const input = document.getElementById('shareLinkInput');
+    const toggle = document.getElementById('includeHistoryToggle');
+    const baseUrl = `${window.location.origin}/c/${encodeURIComponent(channelName)}`;
+    
+    // Reset state when opening
+    toggle.checked = false;
+    shareHistoryId = null;
+    input.value = baseUrl;
+    
+    modal.style.display = 'flex';
+}
+
+/**
+ * Copies the generated share link to the clipboard.
+ */
+function copyShareLink() {
+    const input = document.getElementById('shareLinkInput');
+    navigator.clipboard.writeText(input.value).then(() => {
+        showNotification('Share link copied!', 'success');
+    }).catch(() => {
+        showNotification('Failed to copy link.', 'error');
+    });
+}
+
+function askExample(element) {
+    const questionText = document.getElementById('questionText');
+    const questionForm = document.getElementById('questionForm');
+    if (questionText && questionForm) {
+        questionText.value = element.textContent;
+        questionText.dispatchEvent(new Event('input', { bubbles: true }));
+        questionForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    }
+}
 
 // =================================================================
 // 2. SCRIPT INITIALIZATION
@@ -256,13 +303,13 @@ function restoreButton(button, originalHTML, finalStateClass) {
 document.addEventListener('DOMContentLoaded', function() {
 
     // --- A. Element Selectors & Page Data ---
-    const toggleRightSidebarBtn = document.getElementById('toggle-right-sidebar-btn');
-    const desktopChatLayout = document.querySelector('.desktop-chat-layout');
     const questionForm = document.getElementById('questionForm');
     const questionText = document.getElementById('questionText');
     const submitBtn = document.getElementById('submitBtn');
     const conversationHistory = document.getElementById('conversation-history');
     const charCount = document.querySelector('.char-count');
+    const includeHistoryToggle = document.getElementById('includeHistoryToggle');
+    const shareLinkInput = document.getElementById('shareLinkInput');
 
     // --- B. Helper Functions ---
     const adjustTextareaHeight = () => {
@@ -279,13 +326,6 @@ document.addEventListener('DOMContentLoaded', function() {
         charCount.classList.toggle('near-limit', count > 800);
     };
 
-    const escapeHtml = (text) => {
-        if (typeof text !== 'string') return '';
-        return text.replace(/[&<>'"]/g, tag => ({
-            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
-        }[tag]));
-    };
-
     const addMessageToChat = (role, text) => {
         const pageData = document.getElementById('chat-page-data').dataset;
         const channelName = pageData.channelName;
@@ -295,31 +335,17 @@ document.addEventListener('DOMContentLoaded', function() {
         let html = '';
 
         if (role === 'user') {
-            html = `
-                <div class="question-box">
-                    <div class="question-content">${escapeHtml(text)}</div>
-                </div>
-            `;
+            html = `<div class="question-box"><div class="question-content">${escapeHtml(text)}</div></div>`;
         } else {
             const avatarHtml = channelThumbnail
-                ? `<div class="answer-avatar-container avatar-container">
-                        <img src="${channelThumbnail}" alt="Avatar" class="answer-avatar">
-                        <span class="ai-badge">AI</span>
-                    </div>`
-                : `<div class="answer-avatar-container avatar-container">
-                        <div class="answer-avatar-placeholder">🤖</div>
-                        <span class="ai-badge">AI</span>
-                    </div>`;
+                ? `<div class="answer-avatar-container avatar-container"><img src="${channelThumbnail}" alt="Avatar" class="answer-avatar"><span class="ai-badge">AI</span></div>`
+                : `<div class="answer-avatar-container avatar-container"><div class="answer-avatar-placeholder">🤖</div><span class="ai-badge">AI</span></div>`;
             const label = channelName ? `${escapeHtml(channelName)}` : 'Answer';
             html = `
                 <div class="answer-box">
                     <div class="answer-header">${avatarHtml}<span class="answer-label">${label}</span></div>
                     <div class="answer-content"></div>
-                    <div class="typing-container">
-                        <div class="typing-indicator">
-                            <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
-                        </div>
-                    </div>
+                    <div class="typing-container"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>
                     <div class="sources-section"></div>
                 </div>
             `;
@@ -328,19 +354,15 @@ document.addEventListener('DOMContentLoaded', function() {
         qnaPair.innerHTML = html;
         conversationHistory.appendChild(qnaPair);
         conversationHistory.scrollTop = conversationHistory.scrollHeight;
-
         return role === 'ai' ? qnaPair.querySelector('.answer-box') : null;
     };
 
     const renderSources = (sources, answerBoxElement) => {
         if (!answerBoxElement) return;
-
         let sourcesSection = answerBoxElement.querySelector('.sources-section');
         sourcesSection.innerHTML = '';
-
         let buttonsHTML = '';
         let listHTML = '';
-
         if (sources && sources.length > 0) {
             buttonsHTML += `
                 <button class="toggle-sources-btn" onclick="toggleSources(this)">
@@ -352,13 +374,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const sourceLinks = sources.map(s => `<div class="source-item"><a href="${escapeHtml(s.url)}" target="_blank" class="source-link">${escapeHtml(s.title)}</a></div>`).join('');
             listHTML = `<div class="sources-list" style="display: none;">${sourceLinks}</div>`;
         }
-
         buttonsHTML += `
             <button class="toggle-sources-btn regenerate-btn-js" onclick="regenerateAnswer(this)">
                 <svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
                 Regenerate
             </button>`;
-
         sourcesSection.innerHTML = `<div class="source-buttons">${buttonsHTML}</div>${listHTML}`;
     };
 
@@ -367,33 +387,25 @@ document.addEventListener('DOMContentLoaded', function() {
         const pageData = document.getElementById('chat-page-data').dataset;
         const channelName = pageData.channelName;
         event.preventDefault();
-
         document.querySelectorAll('.regenerate-btn-js').forEach(btn => btn.remove());
-
-        // --- Get the selected tone ---
         const selectedToneButton = document.querySelector('#tone-selector .tone-option.active');
         const selectedTone = selectedToneButton ? selectedToneButton.dataset.tone : 'Casual';
-
         const question = questionText.value.trim();
         if (!question) return;
-
         submitBtn.disabled = true;
         submitBtn.classList.remove('active');
         questionText.value = '';
         adjustTextareaHeight();
         updateCharCount();
-
         addMessageToChat('user', question);
         const aiAnswerBox = addMessageToChat('ai', '');
         const answerContent = aiAnswerBox.querySelector('.answer-content');
         const typingContainer = aiAnswerBox.querySelector('.typing-container');
         typingContainer.classList.add('active');
-
         const formData = new FormData();
         formData.append('question', question);
         formData.append('channel_name', channelName);
-        formData.append('tone', selectedTone); // Send the tone to the backend
-
+        formData.append('tone', selectedTone);
         fetch('/stream_answer', { method: 'POST', body: formData })
             .then(response => {
                 if (!response.ok) {
@@ -424,7 +436,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const decoder = new TextDecoder();
         let fullAnswerText = '';
         let foundSources = [];
-
         const push = () => {
             reader.read().then(({ done, value }) => {
                 if (done) { return; }
@@ -476,40 +487,31 @@ document.addEventListener('DOMContentLoaded', function() {
         if (btn.disabled) return;
         btn.disabled = true;
         btn.innerHTML = 'Regenerating...';
-
         document.querySelectorAll('.regenerate-btn-js').forEach(b => {
             if (b !== btn) b.remove();
         });
-
         const lastQnaPair = btn.closest('.qna-pair');
         if (!lastQnaPair) {
             btn.innerHTML = 'Regenerate';
             btn.disabled = false;
             return;
         }
-
         const questionContent = lastQnaPair.previousElementSibling?.querySelector('.question-content');
         const answerBox = btn.closest('.answer-box');
-
         if (!questionContent || !answerBox) return;
-
         const lastQuestion = questionContent.textContent;
         const answerContent = answerBox.querySelector('.answer-content');
         const sourcesSection = answerBox.querySelector('.sources-section');
         const typingContainer = answerBox.querySelector('.typing-container');
-
         answerContent.innerHTML = '';
         if (sourcesSection) sourcesSection.innerHTML = '';
         if (typingContainer) typingContainer.classList.add('active');
-
         const selectedToneButton = document.querySelector('#tone-selector .tone-option.active');
         const selectedTone = selectedToneButton ? selectedToneButton.dataset.tone : 'Casual';
-
         const formData = new FormData();
         formData.append('question', lastQuestion);
         formData.append('channel_name', document.getElementById('chat-page-data').dataset.channelName);
-        formData.append('tone', selectedTone); // Also send tone on regeneration
-
+        formData.append('tone', selectedTone);
         fetch('/stream_answer', { method: 'POST', body: formData })
             .then(response => {
                 if (!response.ok) return response.json().then(err => Promise.reject(err));
@@ -549,7 +551,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Tone selector click handler
     const toneSelector = document.getElementById('tone-selector');
     if (toneSelector) {
         toneSelector.addEventListener('click', (event) => {
@@ -580,23 +581,44 @@ document.addEventListener('DOMContentLoaded', function() {
         hamburgerBtnMobile.addEventListener('click', () => mainHamburger.click());
     }
 
-    // --- E. Sidebar Toggle Logic ---
-    if (toggleRightSidebarBtn && desktopChatLayout) {
-        const sidebarStateKey = 'rightSidebarCollapsed';
-
-        const applySidebarState = () => {
-            if (localStorage.getItem(sidebarStateKey) === 'true') {
-                desktopChatLayout.classList.add('right-sidebar-collapsed');
+    if (includeHistoryToggle && shareLinkInput) {
+        includeHistoryToggle.addEventListener('change', async (event) => {
+            const channelName = document.getElementById('chat-page-data').dataset.channelName;
+            const baseUrl = `${window.location.origin}/c/${encodeURIComponent(channelName)}`;
+            if (event.target.checked) {
+                const qnaPairs = Array.from(document.querySelectorAll('#conversation-history .qna-pair'));
+                const history = qnaPairs.map(pair => {
+                    const question = pair.querySelector('.question-content')?.textContent || '';
+                    const answer = pair.querySelector('.answer-content')?.innerHTML || '';
+                    const sources = Array.from(pair.querySelectorAll('.source-link')).map(s => ({ title: s.textContent, url: s.href }));
+                    return { question, answer, sources };
+                }).filter(qa => qa.question && qa.answer);
+                if (history.length === 0) {
+                    showNotification('There is no chat history to share.', 'info');
+                    event.target.checked = false;
+                    return;
+                }
+                try {
+                    const response = await fetch('/api/share_chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ history })
+                    });
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        shareHistoryId = data.history_id;
+                        shareLinkInput.value = `${baseUrl}?history_id=${shareHistoryId}`;
+                    } else {
+                        throw new Error(data.message);
+                    }
+                } catch (error) {
+                    showNotification(error.message || 'Could not create share link.', 'error');
+                    event.target.checked = false;
+                }
             } else {
-                desktopChatLayout.classList.remove('right-sidebar-collapsed');
+                shareLinkInput.value = baseUrl;
+                shareHistoryId = null;
             }
-        };
-
-        applySidebarState(); // Apply state on initial load
-
-        toggleRightSidebarBtn.addEventListener('click', () => {
-            const isCollapsed = desktopChatLayout.classList.toggle('right-sidebar-collapsed');
-            localStorage.setItem(sidebarStateKey, isCollapsed);
         });
     }
 
@@ -613,15 +635,3 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     init();
 });
-
-function askExample(element) {
-    const questionText = document.getElementById('questionText');
-    const questionForm = document.getElementById('questionForm');
-    if (questionText && questionForm) {
-        questionText.value = element.textContent;
-        // Correctly dispatch an input event first to enable the button
-        questionText.dispatchEvent(new Event('input', { bubbles: true }));
-        // Then dispatch the submit event
-        questionForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    }
-}

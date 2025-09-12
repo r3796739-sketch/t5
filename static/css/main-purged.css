@@ -91,10 +91,10 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
 }
 /* --- Layout --- */
 .app-layout { display: flex; min-height: 100vh; position: relative; }
-.main-content {
+/* .main-content {
     flex: 1; margin-left: var(--sidebar-width); min-height: 100vh;
     padding: var(--spacing-sm --spacing-sm); transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
+} */
 .card {
     background: var(--surface-light); border-radius: var(--radius-xl);
     /* box-shadow: var(--shadow-lg); border: 1px solid var(--neutral-200); */
@@ -271,16 +271,16 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
          /* Space for the fixed mobile header */
     }
 
-    .main-content.has-mobile-nav .card {
+    /* .main-content.has-mobile-nav .card {
         padding: 0;
         border-radius: 0;
         box-shadow: none;
         border: none;
         background: transparent;
-        height: calc(100vh - (var(--spacing-xl) * 2)); /* Full height minus fixed mobile header */
+        height: calc(100vh - (var(--spacing-xl) * 2));
         display: flex;
         flex-direction: column;
-    }
+    } */
     .main-content.has-mobile-nav .chat-wrapper {
         flex-grow: 1;
         /* This is a flexbox trick to prevent overflow issues when children grow */
@@ -644,7 +644,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     }
 
     .char-count {
-        background: var(--surface-medium);
+        background: #fef7f000;
         padding: 2px 6px;
         border-radius: var(--radius-sm);
     }
@@ -1585,3 +1585,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
+/* Add this to your main-purged.css file */
+
+/* Fix for public pages when user is not logged in */

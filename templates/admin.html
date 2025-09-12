@@ -130,6 +130,20 @@
         </table>
     </div>
 </div>
+<div id="shareModal" class="login-popup-overlay">
+        <div class="login-popup-content" style="max-width: 500px;">
+            <button class="login-popup-close-btn" onclick="closeShareModal()">&times;</button>
+            <h3 class="login-popup-title">Share Channel</h3>
+            <p class="login-popup-subtitle">Anyone with the link can chat with this channel's AI.</p>
+            <div class="form-group" style="display: flex; gap: 0.5rem;">
+                <input type="text" id="shareLinkInput" class="form-control" readonly style="flex-grow: 1; background-color: var(--surface-medium);">
+                <button class="btn btn-secondary" onclick="copyShareLink()">Copy</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 {% endblock %}
 
 {% block page_scripts %}

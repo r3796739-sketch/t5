@@ -63,21 +63,32 @@ def create_and_store_embeddings(transcripts, _unused_config, user_id, progress_c
         
         text_batches = [all_chunks_for_embedding[i:i + batch_size] for i in range(0, len(all_chunks_for_embedding), batch_size)]
 
-        def embed_batch(batch):
-            """Worker function to embed a single batch of texts."""
-            if embed_provider == 'ollama':
-                return embedding_function(batch, embed_model, ollama_url)
-            else:
-                return embedding_function(batch, embed_model, embed_api_key)
+        def embed_batch_with_retry(batch, max_retries=3):
+            """
+            NEW: Worker function with exponential backoff retry logic.
+            It will attempt to process a batch up to `max_retries` times.
+            """
+            for attempt in range(max_retries):
+                try:
+                    # Attempt to get the embeddings
+                    if embed_provider == 'ollama':
+                        return embedding_function(batch, embed_model, ollama_url)
+                    else:
+                        return embedding_function(batch, embed_model, embed_api_key)
+                except Exception as e:
+                    # Check if the error is a rate limit error (customize this check if needed)
+                    if "rate limit" in str(e).lower() and attempt < max_retries - 1:
+                        wait_time = 2 ** attempt  # Exponentially increase wait time (1, 2, 4 seconds)
+                        logging.warning(f"Rate limit hit. Retrying batch in {wait_time} seconds...")
+                        time.sleep(wait_time)
+                    else:
+                        # If it's not a rate limit error or the last retry, raise the exception
+                        logging.error(f"Final attempt failed for a batch: {e}")
+                        raise e # Re-raise the final exception to be caught by the main loop
+            return None # Should not be reached if an exception is always raised on failure
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            # --- START: MODIFICATION FOR RATE LIMITING ---
-            # Instead of submitting all jobs at once, we submit them in a loop with a delay.
-            future_to_batch = {}
-            for batch in text_batches:
-                future_to_batch[executor.submit(embed_batch, batch)] = batch
-                time.sleep(1) # Wait 1 second between submitting each batch job
-            # --- END: MODIFICATION FOR RATE LIMITING ---
+            future_to_batch = {executor.submit(embed_batch_with_retry, batch): batch for batch in text_batches}
 
             for future in concurrent.futures.as_completed(future_to_batch):
                 try:
@@ -85,12 +96,12 @@ def create_and_store_embeddings(transcripts, _unused_config, user_id, progress_c
                     if batch_embeddings:
                         all_embeddings.extend(batch_embeddings)
                 except Exception as exc:
-                    # Log the error, but continue processing other batches
-                    logging.error(f'A batch generated an exception during embedding: {exc}')
+                    # Log the error, but crucially, the application continues to process other batches
+                    logging.error(f'A batch failed after all retries and was skipped: {exc}')
 
         if not all_embeddings or len(all_embeddings) != len(all_chunks_for_embedding):
-             logging.error(f"Embedding creation failed or produced incorrect count. Expected {len(all_chunks_for_embedding)}, got {len(all_embeddings)}. This may be due to rate limiting.")
-             return False # Return False to indicate failure
+             logging.error(f"Embedding creation failed or produced incorrect count. Expected {len(all_chunks_for_embedding)}, got {len(all_embeddings)}. Some batches may have been skipped after multiple failures.")
+             return False
 
         logging.info(f"Successfully created {len(all_embeddings)} embeddings. Now preparing to save to Supabase.")
 
@@ -98,6 +109,7 @@ def create_and_store_embeddings(transcripts, _unused_config, user_id, progress_c
         
         vectors_to_insert = []
         for i, embedding in enumerate(all_embeddings):
+            if embedding is None: continue # Ensure we don't process failed embeddings
             meta = all_metadata[i]
             vectors_to_insert.append({
                 'user_id': user_id,
@@ -107,7 +119,7 @@ def create_and_store_embeddings(transcripts, _unused_config, user_id, progress_c
             })
 
         if not vectors_to_insert:
-            logging.warning("No vectors to insert. Skipping database operation.")
+            logging.warning("No valid vectors to insert. Skipping database operation.")
             return True
         
         insert_batch_size = 100
