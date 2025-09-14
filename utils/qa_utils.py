@@ -577,12 +577,9 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
     if channel_data:
         creator_name = channel_data.get('creator_name', channel_data.get('channel_name', 'the creator'))
         
-        if tone == 'Factual':
-            prompt_template = prompts.FACTUAL_PERSONA_PROMPT
-            print("Using Factual Persona Prompt")
-        else:
-            prompt_template = prompts.CASUAL_PERSONA_PROMPT
-            print("Using Casual Persona Prompt")
+        # We now ALWAYS use the new HYBRID_PERSONA_PROMPT
+        prompt_template = prompts.HYBRID_PERSONA_PROMPT
+        print("Using HYBRID Persona Prompt")
 
         prompt = prompt_template.format(
             creator_name=creator_name, 

@@ -103,7 +103,7 @@ def add_community(community_data: dict):
 def count_channels_for_user(user_id: str) -> int:
     """Counts the total number of channels (personal or shared) created by a specific user."""
     try:
-        response = supabase.table('channels').select('id', count='exact').eq('user_id', user_id).execute()
+        response = supabase.table('channels').select('id', count='exact').eq('creator_id', user_id).execute()
         return response.count or 0
     except Exception as e:
         log.error(f"Error counting channels for user {user_id}: {e}")
@@ -345,3 +345,171 @@ def get_channels_created_by_user(user_id: str):
     except Exception as e:
         log.error(f"Error getting creator channels for user {user_id}: {e}")
         return {}
+    
+def get_creator_dashboard_stats(creator_user_id: str):
+    """
+    Gathers key statistics for a creator's channels, including total referrals,
+    paid referrals, MRR, and current user adds.
+    """
+    supabase = get_supabase_admin_client()
+    stats = {}
+    
+    from .subscription_utils import PLANS
+
+    try:
+        # 1. Get all channels created by this user
+        creator_channels_res = supabase.table('channels').select('id').eq('creator_id', creator_user_id).execute()
+        if not (creator_channels_res.data):
+            return {}
+
+        channel_ids = [c['id'] for c in creator_channels_res.data]
+        for cid in channel_ids:
+            stats[cid] = {
+                'referrals': 0, 
+                'paid_referrals': 0, # <-- Initialize new stat
+                'creator_mrr': 0.0, 
+                'current_adds': 0, 
+                'referred_user_plans': []
+            }
+
+        # 2. Get the "Current Adds" for each channel
+        if channel_ids:
+            params = {'p_channel_ids': channel_ids}
+            current_adds_res = supabase.rpc('get_channel_add_counts', params).execute()
+            if current_adds_res.data:
+                for row in current_adds_res.data:
+                    if row['channel_id'] in stats:
+                        stats[row['channel_id']]['current_adds'] = row['add_count']
+
+        # 3. Get all referred users and their plans
+        referred_users_res = supabase.table('profiles').select('referred_by_channel_id, direct_subscription_plan').in_('referred_by_channel_id', channel_ids).execute()
+        if referred_users_res.data:
+            for user in referred_users_res.data:
+                channel_id = user['referred_by_channel_id']
+                if channel_id in stats:
+                    stats[channel_id]['referrals'] += 1
+                    
+                    # --- START: THE FIX ---
+                    # Check if the user has a subscription plan that is not 'free'
+                    plan = user.get('direct_subscription_plan')
+                    if plan and plan != 'free':
+                        stats[channel_id]['paid_referrals'] += 1
+                        stats[channel_id]['referred_user_plans'].append(plan)
+                    # --- END: THE FIX ---
+        
+        # 4. Calculate MRR
+        for channel_id, channel_stats in stats.items():
+            mrr = 0
+            for plan_id in channel_stats['referred_user_plans']:
+                plan_details = PLANS.get(plan_id, {})
+                price = plan_details.get('price_usd', 0)
+                commission_rate = plan_details.get('commission_rate', 0)
+                mrr += price * commission_rate
+            channel_stats['creator_mrr'] = round(mrr, 2)
+            del channel_stats['referred_user_plans']
+
+        return stats
+
+    except Exception as e:
+        log.error(f"Error getting creator dashboard stats for user {creator_user_id}: {e}")
+        return {}
+def record_creator_earning(referred_user_id: str, plan_id: str):
+    """
+    Records a commission earning for a creator when their referred user subscribes.
+    """
+    from .subscription_utils import PLANS
+    supabase = get_supabase_admin_client()
+    try:
+        # Find who referred this user
+        profile_res = supabase.table('profiles').select('referred_by_channel_id').eq('id', referred_user_id).single().execute()
+        if not (profile_res.data and profile_res.data.get('referred_by_channel_id')):
+            log.info(f"User {referred_user_id} was not referred. No commission recorded.")
+            return
+
+        channel_id = profile_res.data['referred_by_channel_id']
+
+        # Find the creator of that channel
+        channel_res = supabase.table('channels').select('creator_id').eq('id', channel_id).single().execute()
+        if not (channel_res.data and channel_res.data.get('creator_id')):
+            return
+
+        creator_id = channel_res.data['creator_id']
+
+        # Calculate the commission
+        plan_details = PLANS.get(plan_id, {})
+        price = plan_details.get('price_usd', 0)
+        commission_rate = plan_details.get('commission_rate', 0)
+        earning_amount = round(price * commission_rate, 2)
+
+        if earning_amount > 0:
+            supabase.table('creator_earnings').insert({
+                'creator_id': creator_id,
+                'referred_user_id': referred_user_id,
+                'channel_id': channel_id,
+                'amount_usd': earning_amount,
+                'plan_id': plan_id
+            }).execute()
+            log.info(f"Recorded ${earning_amount} earning for creator {creator_id} from referred user {referred_user_id}.")
+
+    except Exception as e:
+        log.error(f"Error recording creator earning for referred user {referred_user_id}: {e}")
+
+def get_creator_balance_and_history(creator_id: str):
+    """
+    Refactored to correctly calculate balances based on earnings and payout statuses.
+    """
+    supabase = get_supabase_admin_client()
+    try:
+        # 1. Calculate the total amount the creator has ever earned.
+        earnings_res = supabase.table('creator_earnings').select('amount_usd').eq('creator_id', creator_id).execute()
+        total_earned = sum(item['amount_usd'] for item in earnings_res.data) if earnings_res.data else 0.0
+
+        # 2. Get all payouts and categorize them by status.
+        history_res = supabase.table('creator_payouts').select('*').eq('creator_id', creator_id).order('requested_at', desc=True).execute()
+        history = history_res.data or []
+        
+        pending_payouts = sum(p['amount_usd'] for p in history if p['status'] in ['pending', 'processing'])
+        total_paid = sum(p['amount_usd'] for p in history if p['status'] == 'paid')
+
+        # 3. The withdrawable balance is what's left over.
+        withdrawable_balance = total_earned - pending_payouts - total_paid
+        
+        return {
+            'withdrawable_balance': round(withdrawable_balance, 2),
+            'pending_payouts': round(pending_payouts, 2),
+            'total_earned': round(total_earned, 2),
+            'history': history
+        }
+
+    except Exception as e:
+        log.error(f"Error getting creator balance for {creator_id}: {e}")
+        return {'withdrawable_balance': 0.0, 'pending_payouts': 0.0, 'total_earned': 0.0, 'history': []}
+
+
+def create_payout_request(creator_id: str, amount: float, method_details: dict):
+    """
+    Refactored to be much simpler. It now only creates a 'pending' payout
+    request without touching the original earnings records.
+    """
+    supabase = get_supabase_admin_client()
+    try:
+        # Step 1: Get the current, accurate withdrawable balance.
+        current_balances = get_creator_balance_and_history(creator_id)
+        withdrawable_balance = current_balances.get('withdrawable_balance', 0.0)
+
+        if amount > withdrawable_balance:
+            return None, "Withdrawal amount cannot exceed your available balance."
+
+        # Step 2: Simply create the new payout record with 'pending' status.
+        # We no longer link individual earnings at this stage.
+        new_payout = supabase.table('creator_payouts').insert({
+            'creator_id': creator_id,
+            'amount_usd': amount,
+            'status': 'pending',
+            'payout_method_details': method_details
+        }).execute().data[0]
+
+        return new_payout, "Payout requested successfully. It will be reviewed by an admin."
+    except Exception as e:
+        log.error(f"Error creating payout request for creator {creator_id}: {e}")
+        return None, "An internal error occurred."

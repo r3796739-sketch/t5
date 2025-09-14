@@ -11,7 +11,11 @@ from .qa_utils import EMBEDDING_PROVIDER_MAP
 # Load environment variables from .env if present
 load_dotenv()
 
+# --- START: THE FIX ---
+# The function signature is updated to accept user_id.
+# The _unused_config parameter is kept for compatibility with the sync task.
 def create_and_store_embeddings(transcripts, _unused_config, user_id, progress_callback=None):
+# --- END: THE FIX ---
     """Create embeddings for transcript chunks in parallel and upsert to the vector store."""
     try:
         embed_provider = os.environ.get('EMBED_PROVIDER', 'openai')
@@ -111,12 +115,15 @@ def create_and_store_embeddings(transcripts, _unused_config, user_id, progress_c
         for i, embedding in enumerate(all_embeddings):
             if embedding is None: continue # Ensure we don't process failed embeddings
             meta = all_metadata[i]
+            # --- START: THE FIX ---
+            # The user_id is now correctly included in the data to be inserted.
             vectors_to_insert.append({
                 'user_id': user_id,
                 'video_id': meta['video_id'],
                 'embedding': embedding.tolist(),
                 'metadata': meta
             })
+            # --- END: THE FIX ---
 
         if not vectors_to_insert:
             logging.warning("No valid vectors to insert. Skipping database operation.")
