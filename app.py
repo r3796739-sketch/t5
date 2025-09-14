@@ -34,7 +34,7 @@ from utils.subscription_utils import PLANS, COMMUNITY_PLANS
 from datetime import datetime, timezone, timedelta
 from dateutil.parser import isoparse
 import uuid
-
+from supabase_auth.errors import AuthApiError
 logger = logging.getLogger(__name__)
 
 load_dotenv()
@@ -392,12 +392,19 @@ def whop_community_plan_update_webhook():
 def check_token_expiry():
     if 'user' in session and session.get('expires_at') and session.get('refresh_token'):
         if session['expires_at'] < (time.time() + 60):
-            new_session = refresh_supabase_session(session.get('refresh_token'))
-            if new_session:
-                session['access_token'] = new_session.get('access_token')
-                session['refresh_token'] = new_session.get('refresh_token')
-                session['expires_at'] = new_session.get('expires_at')
-            else:
+            try:
+                new_session = refresh_supabase_session(session.get('refresh_token'))
+                if new_session:
+                    session['access_token'] = new_session.get('access_token')
+                    session['refresh_token'] = new_session.get('refresh_token')
+                    session['expires_at'] = new_session.get('expires_at')
+                else:
+                    # If refresh fails for a generic reason, clear the session
+                    session.clear()
+            except AuthApiError as e:
+                # If the token was already used, it's a sign of a stale session.
+                # Clear the session to force a fresh login.
+                logger.warning(f"Handled an AuthApiError during token refresh: {e}. Clearing session.")
                 session.clear()
 
 @app.route('/auth/callback')
@@ -413,18 +420,20 @@ def set_auth_cookie():
         expires_at = data.get('expires_at')
         if not all([access_token, refresh_token, expires_at]):
             return jsonify({'status': 'error', 'message': 'Incomplete session data provided.'}), 400
+
         supabase = get_supabase_client()
         if not supabase:
             return jsonify({'status': 'error', 'message': 'Server configuration error.'}), 500
+
         supabase.auth.set_session(access_token, refresh_token)
         user_response = supabase.auth.get_user()
+
         if not user_response or not hasattr(user_response, 'user') or not user_response.user:
             return jsonify({'status': 'error', 'message': 'Invalid authentication token.'}), 401
 
         user = user_response.user
         profile = db_utils.get_profile(user.id)
 
-        # --- START: NEW REFERRAL LOGIC ---
         profile_payload = {
             'id': user.id,
             'email': user.email,
@@ -432,14 +441,25 @@ def set_auth_cookie():
             'avatar_url': user.user_metadata.get('avatar_url')
         }
 
-        # If this is a new user AND they were referred, tag them!
-        if not profile and 'referred_by_channel_id' in session:
-            profile_payload['referred_by_channel_id'] = session.pop('referred_by_channel_id', None)
-            print(f"New user {user.email} was referred by channel ID: {profile_payload['referred_by_channel_id']}")
-        # --- END: NEW REFERRAL LOGIC ---
+        # --- START: MODIFIED REFERRAL LOGIC ---
+        # Always check for a referral ID in the session.
+        if 'referred_by_channel_id' in session:
+            # Only apply the referral ID if the user's profile doesn't already have one.
+            # This prevents existing users from being re-assigned if they click another referral link.
+            if not profile or not profile.get('referred_by_channel_id'):
+                profile_payload['referred_by_channel_id'] = session.pop('referred_by_channel_id', None)
+                print(f"Applying referral from channel ID {profile_payload.get('referred_by_channel_id')} to user {user.email}")
+            else:
+                # If they already have a referral ID, just clear the session variable.
+                session.pop('referred_by_channel_id', None)
+        # --- END: MODIFIED REFERRAL LOGIC ---
 
+        # The create_or_update_profile function uses 'upsert', so it's safe to call every time.
+        # It will correctly add the referral_id if it's in the payload.
+        db_utils.create_or_update_profile(profile_payload)
+
+        # Only create initial stats if the user was genuinely new (no profile existed before).
         if not profile:
-            db_utils.create_or_update_profile(profile_payload)
             db_utils.create_initial_usage_stats(user.id)
 
         session['user'] = user.model_dump()
@@ -447,6 +467,7 @@ def set_auth_cookie():
         session['refresh_token'] = refresh_token
         session['expires_at'] = expires_at
         return jsonify({'status': 'success', 'message': 'Session set successfully.'})
+
     except Exception as e:
         logging.error(f"Error in set-cookie: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'An internal error occurred.'}), 500
@@ -593,11 +614,16 @@ def ask(channel_name):
         if not current_channel:
              supabase_admin = get_supabase_admin_client()
              channel_res = supabase_admin.table('channels').select('*').eq('channel_name', channel_name).maybe_single().execute()
-             if channel_res.data:
+             
+             # --- START: THE FIX ---
+             # Check if the query returned any data before trying to access it.
+             if channel_res and channel_res.data:
                  current_channel = channel_res.data
              else:
-                flash(f"Channel '{channel_name}' not found.", 'error')
+                # If no data is found, the channel doesn't exist. Redirect with a message.
+                flash(f"The channel '{channel_name}' could not be found.", 'error')
                 return redirect(url_for('channel'))
+             # --- END: THE FIX ---
 
         # Only fetch history if the user is logged in
         if user_id:
@@ -640,16 +666,18 @@ def stream_answer():
     user_id = session['user']['id']
     question = request.form.get('question', '').strip()
     channel_name = request.form.get('channel_name')
-    tone = request.form.get('tone', 'Casual')
+
     access_token = session.get('access_token')
     active_community_id = session.get('active_community_id')
     is_owner_in_trial = False
+
     if active_community_id:
         user_status = get_user_status(user_id, active_community_id)
         if user_status.get('is_active_community_owner'):
             community_status = get_community_status(active_community_id)
             if community_status and community_status['usage']['trial_queries_used'] < community_status['limits']['owner_trial_limit']:
                 is_owner_in_trial = True
+
     def on_complete_callback():
         user_status = get_user_status(user_id, active_community_id)
         if user_status.get('has_personal_plan'):
@@ -659,16 +687,20 @@ def stream_answer():
             db_utils.increment_personal_query_usage(user_id)
         else:
             db_utils.increment_personal_query_usage(user_id)
+        
         if hasattr(db_utils, 'get_profile') and hasattr(db_utils.get_profile, 'cache_clear'):
             db_utils.get_profile.cache_clear()
+        
         if redis_client:
             user_cache_key = f"user_status:{user_id}:community:{active_community_id or 'none'}"
             redis_client.delete(user_cache_key)
             if active_community_id:
                 community_cache_key = f"community_status:{active_community_id}"
                 redis_client.delete(community_cache_key)
+        
         fresh_user_status = get_user_status(user_id, active_community_id)
         fresh_community_status = get_community_status(active_community_id) if active_community_id else None
+        
         query_string = ""
         if fresh_user_status and (fresh_user_status.get('has_personal_plan') or not fresh_user_status.get('is_whop_user')):
             max_queries = fresh_user_status['limits'].get('max_queries_per_month', 0)
@@ -683,30 +715,67 @@ def stream_answer():
             queries_used = fresh_community_status['usage'].get('queries_used', 0)
             remaining = int(max_queries - queries_used)
             query_string = f"The community has <strong>{remaining}</strong> shared queries remaining."
+            
         return query_string
+
     MAX_CHAT_MESSAGES = 20
     current_channel_name_for_history = channel_name or 'general'
+    is_regenerating = request.form.get('is_regenerating') == 'true'
     history = get_chat_history(user_id, current_channel_name_for_history, access_token=access_token)
+    
     if len(history) >= MAX_CHAT_MESSAGES:
         def limit_exceeded_stream():
             error_data = {'error': 'QUERY_LIMIT_REACHED', 'message': f"You have reached the chat limit of {MAX_CHAT_MESSAGES} messages. Please use the 'Clear Chat' button to start a new conversation."}
             yield f"data: {json.dumps(error_data)}\n\n"
             yield "data: [DONE]\n\n"
         return Response(limit_exceeded_stream(), mimetype='text/event-stream')
+    
+    # --- START: MODIFIED LOGIC ---
+    # Decide which part of the history to use for building the prompt context.
+    history_for_prompt = history
+    if is_regenerating and history:
+        # If the user is regenerating, exclude the last (unhelpful) Q&A pair.
+        history_for_prompt = history[:-1]
+    
     chat_history_for_prompt = ''
-    for qa in history[-5:]:
+    # Use the (potentially shorter) history_for_prompt list to build the context.
+    for qa in history_for_prompt[-5:]:
         chat_history_for_prompt += f"Human: {qa['question']}\nAI: {qa['answer']}\n\n"
+
+    
     final_question_with_history = question
     if chat_history_for_prompt:
         final_question_with_history = (f"Given the following conversation history:\n{chat_history_for_prompt}--- End History ---\n\nNow, answer this new question, considering the history as context:\n{question}")
+
     channel_data = None
     video_ids = None
     if channel_name:
         all_user_channels = get_user_channels()
         channel_data = all_user_channels.get(channel_name)
+
+        # --- START: THE FIX ---
+        # If the channel is not in the user's saved list, it might be a temporary
+        # public session. Fetch its data directly as a fallback.
+        if not channel_data:
+            logging.info(f"Channel '{channel_name}' not in user's list. Attempting public fetch for temporary session.")
+            supabase_admin = get_supabase_admin_client()
+            public_channel_res = supabase_admin.table('channels').select('*').eq('channel_name', channel_name).maybe_single().execute()
+            if public_channel_res.data:
+                channel_data = public_channel_res.data
+        # --- END: THE FIX ---
+
         if channel_data:
             video_ids = {v['video_id'] for v in channel_data.get('videos', [])}
-    stream = answer_question_stream(question_for_prompt=final_question_with_history, question_for_search=question, channel_data=channel_data, video_ids=video_ids, user_id=user_id, access_token=access_token, tone=tone, on_complete=on_complete_callback)
+            
+    stream = answer_question_stream(
+        question_for_prompt=final_question_with_history, 
+        question_for_search=question, 
+        channel_data=channel_data, 
+        video_ids=video_ids, 
+        user_id=user_id, 
+        access_token=access_token, 
+        on_complete=on_complete_callback
+    )
     return Response(stream, mimetype='text/event-stream')
 
 @app.route('/delete_channel/<int:channel_id>', methods=['POST'])
@@ -796,48 +865,55 @@ def logout():
     session.clear()
     return redirect(url_for('home'))
 
-@app.route('/integrations')
+@app.route('/dashboard')
 @login_required
-def integrations():
+def dashboard():
     """
-    Renders the main integrations hub and provides the status of each integration.
+    Renders the main dashboard hub and provides the status of each integration.
     """
     user_id = session['user']['id']
     supabase_admin = get_supabase_admin_client()
     
     # --- Check Discord Status ---
     discord_is_active = False
-    # 1. Check if their Discord account is linked to their profile
     profile = db_utils.get_profile(user_id)
     if profile and profile.get('discord_user_id'):
         discord_is_active = True
     else:
-        # 2. As a fallback, check if they own any branded bots
         bots_res = supabase_admin.table('discord_bots').select('id', count='exact').eq('user_id', user_id).execute()
         if bots_res.count > 0:
             discord_is_active = True
 
     # --- Check Telegram Status ---
     telegram_is_active = False
-    # 1. Check for an active personal connection
     personal_conn = supabase_admin.table('telegram_connections').select('id', count='exact').eq('app_user_id', user_id).eq('is_active', True).execute()
     if personal_conn.count > 0:
         telegram_is_active = True
     else:
-        # 2. Check for any active group connections they own
         group_conn = supabase_admin.table('group_connections').select('id', count='exact').eq('owner_user_id', user_id).eq('is_active', True).execute()
         if group_conn.count > 0:
             telegram_is_active = True
 
-    # --- Check Creator Links Status ---
+    # --- Get Creator Channels and Their Stats ---
     user_creator_channels = db_utils.get_channels_created_by_user(user_id)
-    creator_links_is_active = bool(user_creator_channels)
+    creator_stats = db_utils.get_creator_dashboard_stats(user_id)
+
+    # Merge stats into the channel data before sending to the template
+    for channel_data in user_creator_channels.values():
+        channel_stats = creator_stats.get(channel_data.get('id'), {})
+        # --- START: THE FIX ---
+        channel_data['stats'] = {
+            'referrals': channel_stats.get('referrals', 0),
+            'paid_referrals': channel_stats.get('paid_referrals', 0), # <-- This line was missing
+            'creator_mrr': channel_stats.get('creator_mrr', 0.0),
+            'current_adds': channel_stats.get('current_adds', 0)
+        }
+        # --- END: THE FIX ---
 
     return render_template(
-        'integrations.html',
+        'dashboard.html',
         discord_is_active=discord_is_active,
         telegram_is_active=telegram_is_active,
-        creator_links_is_active=creator_links_is_active,
         saved_channels=user_creator_channels
     )
 
@@ -995,12 +1071,12 @@ def toggle_channel_privacy(channel_id):
     user_id = session['user']['id']
     supabase_admin = get_supabase_admin_client()
     try:
-        channel_res = supabase_admin.table('channels').select('community_id, is_shared, user_id').eq('id', channel_id).single().execute()
+        channel_res = supabase_admin.table('channels').select('community_id, is_shared, creator_id').eq('id', channel_id).single().execute()
         if not channel_res.data:
             return jsonify({'status': 'error', 'message': 'Channel not found.'}), 404
         channel_data = channel_res.data
         community_id = channel_data.get('community_id')
-        if not community_id or str(channel_data.get('user_id')) != str(user_id):
+        if not community_id or str(channel_data.get('creator_id')) != str(user_id):
              return jsonify({'status': 'error', 'message': 'This action is not allowed for this channel.'}), 403
         community_res = supabase_admin.table('communities').select('owner_user_id').eq('id', community_id).single().execute()
         if not community_res.data or str(community_res.data.get('owner_user_id')) != str(user_id):
@@ -1048,11 +1124,42 @@ def admin_dashboard():
     supabase_admin = get_supabase_admin_client()
     communities_res = supabase_admin.table('communities').select('*, owner:owner_user_id(full_name, email)').execute()
     communities = communities_res.data if communities_res.data else []
-    non_whop_users_res = supabase_admin.table('profiles').select('*, usage:usage_stats(*)').is_('whop_user_id', None).execute()
-    non_whop_users = non_whop_users_res.data if non_whop_users_res.data else []
-    saved_channels = get_user_channels() 
-    return render_template('admin.html', communities=communities, non_whop_users=non_whop_users, all_plans=PLANS, COMMUNITY_PLANS=COMMUNITY_PLANS, saved_channels=saved_channels)
 
+    non_whop_users_res = supabase_admin.table('profiles').select('*, usage:usage_stats!inner(*)').is_('whop_user_id', None).execute()
+    non_whop_users = non_whop_users_res.data if non_whop_users_res.data else []
+
+    # --- START: NEW LOGIC ---
+    # Fetch all creator payouts and join with the creator's profile info
+    payouts_res = supabase_admin.table('creator_payouts').select('*, creator:creator_id(email, full_name)').order('requested_at', desc=True).execute()
+    payouts = payouts_res.data if payouts_res.data else []
+    # --- END: NEW LOGIC ---
+
+    saved_channels = get_user_channels() 
+    return render_template('admin.html', 
+                           communities=communities, 
+                           non_whop_users=non_whop_users, 
+                           all_plans=PLANS, 
+                           COMMUNITY_PLANS=COMMUNITY_PLANS, 
+                           saved_channels=saved_channels,
+                           payouts=payouts) # Pass payouts to the template
+
+@app.route('/api/admin/complete_payout/<payout_id>', methods=['POST'])
+@admin_required
+def api_admin_complete_payout(payout_id):
+    """
+    Updates a payout's status from 'pending' to 'paid'.
+    """
+    try:
+        supabase_admin = get_supabase_admin_client()
+        supabase_admin.table('creator_payouts').update({
+            'status': 'paid',
+            'paid_at': datetime.now(timezone.utc).isoformat()
+        }).eq('id', payout_id).execute()
+        return jsonify({'status': 'success', 'message': 'Payout marked as paid.'})
+    except Exception as e:
+        logger.error(f"Error completing payout {payout_id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
+    
 @app.route('/api/admin/create_plan', methods=['POST'])
 @admin_required
 def api_admin_create_plan():
@@ -1107,6 +1214,7 @@ def api_admin_set_current_plan():
             if plan_id not in PLANS:
                 return jsonify({'status': 'error', 'message': 'Invalid user plan ID.'}), 400
             supabase_admin.table('profiles').update({'direct_subscription_plan': plan_id}).eq('id', target_id).execute()
+            db_utils.record_creator_earning(referred_user_id=target_id, plan_id=plan_id)
         return jsonify({'status': 'success', 'message': 'Plan updated successfully.'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -1130,6 +1238,70 @@ def api_admin_remove_plan():
         return jsonify({'status': 'success', 'message': 'Plan removed successfully.'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/admin/delete_user/<user_id>', methods=['POST'])
+@admin_required
+def api_admin_delete_user(user_id):
+    """
+    Permanently deletes a user and all their associated data.
+    """
+    if not user_id:
+        return jsonify({'status': 'error', 'message': 'User ID is required.'}), 400
+
+    try:
+        supabase_admin = get_supabase_admin_client()
+        
+        # Step 1: Manually delete channels created by the user.
+        supabase_admin.table('channels').delete().eq('creator_id', user_id).execute()
+
+        # --- START: THE FIX ---
+        # Step 2: Explicitly delete the user's profile first.
+        # This ensures that if they sign up again, our app's logic will
+        # correctly see them as a new user and apply referral benefits.
+        # The CASCADE rule on the profiles table will handle deleting their
+        # chat history, usage stats, etc.
+        supabase_admin.table('profiles').delete().eq('id', user_id).execute()
+        # --- END: THE FIX ---
+
+        # Step 3: Delete the user from the main authentication system.
+        supabase_admin.auth.admin.delete_user(user_id)
+        
+        return jsonify({'status': 'success', 'message': f'Successfully deleted user {user_id}.'})
+    except Exception as e:
+        logger.error(f"Error deleting user {user_id}: {e}", exc_info=True)
+        if 'User not found' in str(e):
+            return jsonify({'status': 'error', 'message': 'User not found. They may have already been deleted.'}), 404
+        return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
+
+@app.route('/earnings')
+@login_required
+def earnings_page():
+    creator_id = session['user']['id']
+    earnings_data = db_utils.get_creator_balance_and_history(creator_id)
+    return render_template('earnings.html', earnings_data=earnings_data, saved_channels=get_user_channels())
+
+@app.route('/api/request_payout', methods=['POST'])
+@login_required
+def request_payout():
+    creator_id = session['user']['id']
+    amount = request.json.get('amount')
+
+    try:
+        amount_float = float(amount)
+        if amount_float <= 0:
+            return jsonify({'status': 'error', 'message': 'Please enter a valid amount.'}), 400
+    except (ValueError, TypeError):
+        return jsonify({'status': 'error', 'message': 'Invalid amount specified.'}), 400
+
+    # For simulation, we'll just store a mock detail.
+    mock_details = {"method": "Simulated Bank Transfer", "account_ending": "XX1234"}
+
+    payout, message = db_utils.create_payout_request(creator_id, amount_float, mock_details)
+
+    if payout:
+        return jsonify({'status': 'success', 'message': message})
+    else:
+        return jsonify({'status': 'error', 'message': message}), 400
 
 @app.route('/integrations/telegram/connect_personal', methods=['POST'])
 @login_required

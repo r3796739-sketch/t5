@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Earnings Dashboard{% endblock %}
+
+{% block page_styles %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/earnings.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="earnings-container">
+    <div class="page-header">
+        <h1 class="page-title">Earnings</h1>
+        <p class="page-subtitle">Track your commissions and manage your payouts.</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3 class="stat-title">Withdrawable Balance</h3>
+            <p class="stat-value">${{ "%.2f"|format(earnings_data.withdrawable_balance) }}</p>
+            <p class="stat-description">Earnings ready for the next payout.</p>
+        </div>
+        <div class="stat-card">
+            <h3 class="stat-title">Pending Payouts</h3>
+            <p class="stat-value">${{ "%.2f"|format(earnings_data.pending_payouts) }}</p>
+            <p class="stat-description">Requested payouts being processed.</p>
+        </div>
+        <div class="stat-card">
+            <h3 class="stat-title">Total Earned</h3>
+            <p class="stat-value">${{ "%.2f"|format(earnings_data.total_earned) }}</p>
+            <p class="stat-description">All-time earnings from referrals.</p>
+        </div>
+    </div>
+
+    <div class="payout-action-section">
+        <button id="requestPayoutBtn" class="btn btn-primary" {% if earnings_data.withdrawable_balance <= 0 %}disabled{% endif %}>
+            Request Withdrawal
+        </button>
+    </div>
+
+    <div class="history-section">
+        <h2 class="section-title">Payout History</h2>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date Requested</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Transaction ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payout in earnings_data.history %}
+                    <tr>
+                        <td>{{ payout.requested_at.split('T')[0] }}</td>
+                        <td>${{ "%.2f"|format(payout.amount_usd) }}</td>
+                        <td><span class="status-badge status-{{ payout.status }}">{{ payout.status|title }}</span></td>
+                        <td class="id-cell">{{ payout.id[:8] }}...</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="empty-row">You have no payout history yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="payoutModal" class="modal-overlay">
+    <div class="modal-content">
+        <button class="modal-close-btn" id="closeModalBtn">&times;</button>
+        <h3>Request a Withdrawal</h3>
+        <p>Enter the amount you wish to withdraw from your available balance.</p>
+        <div class="balance-display">
+            Available to withdraw: <strong>${{ "%.2f"|format(earnings_data.withdrawable_balance) }}</strong>
+        </div>
+        <form id="payoutForm">
+            <div class="form-group">
+                <label for="payoutAmount">Amount (USD)</label>
+                <input type="number" id="payoutAmount" name="amount" step="0.01" min="1.00" max="{{ earnings_data.withdrawable_balance }}" required placeholder="e.g., 50.00">
+            </div>
+            <p class="payout-note">For this simulation, payouts will be marked as 'pending' and processed manually. In a real system, you would connect a Stripe account here.</p>
+            <button type="submit" class="btn btn-primary">Submit Request</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+    <script src="{{ url_for('static', filename='js/earnings.js') }}"></script>
+{% endblock %}

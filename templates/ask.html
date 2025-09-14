@@ -15,14 +15,12 @@
         </button>
 
         {% if channel_name and current_channel %}
-        <div class="mobile-header-channel channel-info-banner" role="banner">
+        <div class="mobile-header-channel">
             <img src="{{ current_channel.channel_thumbnail }}" alt="{{ channel_name }}" class="mobile-channel-avatar">
-
             <div class="mobile-channel-text-details">
                 <span class="mobile-channel-title">{{ channel_name }}</span>
-                {# FIX: Use current_channel for subscriber count #}
                 {% if current_channel.subscriber_count %}
-                    <span class="channel-subscribers">
+                    <span class="mobile-channel-subscribers">
                         {{ current_channel.subscriber_count | format_subscribers }} Subscribers
                     </span>
                 {% endif %}
@@ -36,20 +34,17 @@
     </div>
 
     <div class="header-actions">
-        {# FIX: Only show the kebab menu if the user is logged in #}
         {% if user %}
             <button id="kebab-menu-btn-mobile" class="kebab-menu-button" aria-label="More options">
                 <svg class="icon-default" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
             </button>
             <div id="dropdown-menu-mobile" class="dropdown-menu">
                 {% if channel_name and current_channel %}
-                    {# FIX: Use current_channel.id directly #}
                     <a href="#" onclick="refreshChannel('{{ current_channel.id }}', this); return false;">Refresh Channel</a>
                     <a href="#" onclick="clearChat('{{ channel_name }}'); return false;">Clear Chat</a>
                     {% if not session.get('active_community_id') %}
-                    <a href="{{ url_for('integrations', channel_id=current_channel.id) }}">Add Bot to Telegram Group</a>
+                    <a href="#" onclick="openShareModal(); return false;">Share</a>
                     <hr>
-                    {# FIX: Use current_channel.channel_url directly #}
                     <a href="{{ current_channel.channel_url }}" target="_blank" rel="noopener noreferrer">View on YouTube</a>
                     {% endif %}
                 {% else %}
@@ -88,23 +83,23 @@
                     </div>
 
                     <div class="answer-box">
-                        <div class="answer-header">
-                            {# FIX: Use current_channel for the avatar #}
-                            {% if channel_name and current_channel and current_channel.channel_thumbnail %}
-                                <div class="answer-avatar-container avatar-container">
-                                    <img src="{{ current_channel.channel_thumbnail }}" alt="{{ channel_name }}" class="answer-avatar">
-                                    <span class="ai-badge">AI</span>
-                                </div>
-                            {% else %}
-                                <div class="answer-avatar-container avatar-container">
-                                    <div class="answer-avatar-placeholder">🤖</div>
-                                    <span class="ai-badge">AI</span>
-                                </div>
-                            {% endif %}
-                            <span class="answer-label">
-                                {% if channel_name %}{{ channel_name }}{% else %}Answer{% endif %}
-                            </span>
-                        </div>
+<div class="answer-header">
+    {% if channel_name and current_channel and current_channel.channel_thumbnail %}
+        <div class="answer-avatar-container avatar-container">
+            <img src="{{ current_channel.channel_thumbnail }}" alt="{{ channel_name }}" class="answer-avatar">
+            <span class="ai-badge">AI</span>
+        </div>
+    {% else %}
+        <div class="answer-avatar-container avatar-container">
+            <div class="answer-avatar-placeholder">🤖</div>
+            <span class="ai-badge">AI</span>
+        </div>
+    {% endif %}
+    <span class="answer-label">
+        {% if channel_name %}{{ channel_name }}{% else %}Answer{% endif %}
+    </span>
+    
+</div>
                         <div class="answer-content">{{ qa.answer|markdown }}</div>
 
                         <div class="typing-container">
@@ -127,6 +122,10 @@
                                         <svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
                                         Regenerate
                                     </button>
+<button class="copy-answer-btn" onclick="copyAnswer(this)" data-tooltip="Copy answer">
+    <svg class="icon-copy-default" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+    <svg class="icon-copy-check" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+</button>
                                 {% endif %}
                             </div>
                             {% if qa.sources %}
@@ -148,13 +147,7 @@
 
             <form id="questionForm" class="question-form" role="form">
                 <div class="form-group">
-                    <div class="profile-setting">
-                        <h3 class="setting-title">Response Tone</h3>
-                            <div class="tone-selector" id="tone-selector">
-                                <button class="tone-option active" data-tone="Casual">Casual</button>
-                                <button class="tone-option" data-tone="Factual">Factual</button>
-                            </div>
-                    </div>
+
                     <div class="textarea-wrapper">
                         <textarea
                             name="question"
@@ -199,26 +192,24 @@
 
 
 
-            <div class="profile-actions">
-                <a href="#" onclick="refreshChannel('{{ current_channel.id }}', this); return false;" class="action-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
-                    <span>Refresh</span>
-                </a>
-                <a href="#" onclick="clearChat('{{ channel_name }}'); return false;" class="action-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    <span>Clear Chat</span>
-                </a>
-
+            <div class="profile-actions-new">
                 {% if not session.get('active_community_id') %}
-                <button onclick="openShareModal()" class="action-btn">
+                <button onclick="openShareModal()" class="action-btn-primary">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
                     <span>Share</span>
                 </button>
-                <a href="{{ current_channel.channel_url }}" target="_blank" rel="noopener noreferrer" class="action-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.42a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .54 5.33A2.78 2.78 0 0 0 3.46 19c1.72.42 8.6.42 8.6.42s6.88 0 8.6-.42a2.78 2.78 0 0 0 1.94-2A29 29 0 0 0 23 11.75a29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>
-                    <span>View on YouTube</span>
-                </a>
                 {% endif %}
+                <div class="secondary-actions">
+                    <a href="{{ current_channel.channel_url }}" target="_blank" rel="noopener noreferrer" class="action-btn-secondary" data-tooltip="View on YouTube">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.42a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .54 5.33A2.78 2.78 0 0 0 3.46 19c1.72.42 8.6.42 8.6.42s6.88 0 8.6-.42a2.78 2.78 0 0 0 1.94-2A29 29 0 0 0 23 11.75a29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>
+                    </a>
+                    <button onclick="refreshChannel('{{ current_channel.id }}', this);" class="action-btn-secondary" data-tooltip="Refresh">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+                    </button>
+                    <button onclick="clearChat('{{ channel_name }}');" class="action-btn-secondary" data-tooltip="Clear Chat">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                </div>
             </div>
 
 
@@ -271,37 +262,41 @@
 
 {% block page_scripts %}
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="{{ url_for('static', filename='js/ask.js') }}"></script>
 
-{# FIX: Add automatic login popup script #}
+{# --- START: MODIFIED SCRIPT BLOCK --- #}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // If the user is not logged in, show the login popup immediately.
-        {% if not user %}
-            showLoginPopup();
-        {% endif %}
-    });
+    // Pass the user's login status from the server to our JavaScript
+    const IS_USER_LOGGED_IN = {{ 'true' if user else 'false' }};
 </script>
+<script src="{{ url_for('static', filename='js/ask.js') }}"></script>
+{# --- END: MODIFIED SCRIPT BLOCK --- #}
+
 <div id="shareModal" class="login-popup-overlay">
     <div class="login-popup-content" style="max-width: 500px;">
         <button class="login-popup-close-btn" onclick="closeShareModal()">&times;</button>
         <h3 class="login-popup-title">Share Conversation</h3>
-        <p class="login-popup-subtitle">Anyone with the link can view this chat.</p>
+        <p class="login-popup-subtitle" id="shareModalSubtitle">Share a link to this AI assistant.</p>
 
-        <div class="form-group" style="display: flex; gap: 0.5rem;">
-            <input type="text" id="shareLinkInput" class="form-control" readonly style="flex-grow: 1; background-color: var(--surface-medium);">
-            <button class="btn btn-secondary" onclick="copyShareLink()">Copy Link</button>
+        <div class="link-copy-wrapper" id="linkCopyWrapper" onclick="copyShareLinkFromModal(this)">
+            <input type="text" id="shareLinkInput" readonly>
+            <div class="copy-action">
+                <span class="copy-text">Copy</span>
+                <svg class="icon-copy-default" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <svg class="icon-copy-check" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
         </div>
+        <hr class="modal-divider">
 
-        <div class="setting-row" style="margin-top: 1.5rem; justify-content: flex-start; align-items: center;">
-            <label class="theme-switch">
+        <div class="setting-row">
+            <div class="setting-label">
+                <label for="includeHistoryToggle">Include chat history</label>
+                <p>Generates a new link that includes a snapshot of the current conversation.</p>
+            </div>
+            <label class="theme-switch large-switch">
                 <input type="checkbox" id="includeHistoryToggle">
                 <span class="slider"></span>
             </label>
-            <div class="setting-label" style="margin-left: 0.75rem;">
-                <label for="includeHistoryToggle" style="margin-bottom: 0; cursor: pointer;">Include chat history</label>
-            </div>
         </div>
-    </div>
+        </div>
 </div>
 {% endblock %}
