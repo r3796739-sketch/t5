@@ -63,16 +63,17 @@ def process_channel_task(channel_id, task=None):
     """
     task_id = task.id if task else None
     supabase_admin = get_supabase_admin_client()
-
+    logger.info(f"Clearing any previous data for channel_id: {channel_id}")
+    supabase_admin.table('embeddings').delete().eq('channel_id', channel_id).execute()
     try:
         update_task_progress(task_id, 'processing', 5, 'Fetching channel details...')
-        channel_resp = supabase_admin.table('channels').select('channel_url, user_id').eq('id', channel_id).single().execute()
+        channel_resp = supabase_admin.table('channels').select('channel_url, creator_id').eq('id', channel_id).single().execute()
         
         if not channel_resp.data:
             raise ValueError(f"Channel with ID {channel_id} not found.")
 
         channel_url = channel_resp.data['channel_url']
-        user_id_who_submitted = channel_resp.data['user_id']
+        user_id_who_submitted = channel_resp.data['creator_id']
         
         print(f"--- [TASK STARTED] Processing NEW channel ID: {channel_id} ({channel_url}) ---")
         supabase_admin.table('channels').update({'status': 'processing'}).eq('id', channel_id).execute()
@@ -82,14 +83,19 @@ def process_channel_task(channel_id, task=None):
         transcripts, thumbnail, subs = get_transcripts_from_channel(
             youtube_api, 
             channel_url, 
-            target_video_count=50 # Target this many long-form videos
+            target_video_count=300 # Target this many long-form videos
         )
         if not transcripts:
             raise ValueError("Could not find any long-form videos with transcripts.")
         # --- END OF CORRECTION ---
 
         update_task_progress(task_id, 'processing', 75, 'Building AI knowledge base...')
-        create_and_store_embeddings(transcripts, channel_id, user_id_who_submitted)
+        
+        # --- START: THE FIX ---
+        # Pass the user_id_who_submitted to the embedding function.
+        # The second argument (_unused_config) is kept as a placeholder.
+        create_and_store_embeddings(transcripts, None, user_id_who_submitted)
+        # --- END: THE FIX ---
         
         text_sample = " ".join([t['transcript'] for t in transcripts[:5]])[:10000]
         update_task_progress(task_id, 'processing', 90, 'Identifying topics...')
@@ -137,12 +143,12 @@ def sync_channel_task(channel_id, task=None):
         print(f"--- [SYNC TASK STARTED] Syncing channel_id: {channel_id} ---")
         update_task_progress(task_id, 'syncing', 5, 'Checking for new content...')
 
-        channel_resp = supabase_admin.table('channels').select('channel_url, videos, user_id').eq('id', channel_id).single().execute()
+        channel_resp = supabase_admin.table('channels').select('channel_url, videos, creator_id').eq('id', channel_id).single().execute()
         if not channel_resp.data:
             raise ValueError("Channel not found.")
         
         channel_url = channel_resp.data['channel_url']
-        user_id = channel_resp.data['user_id']
+        user_id = channel_resp.data['creator_id']
         existing_videos = {v['video_id'] for v in channel_resp.data.get('videos', [])}
         print(f"Found {len(existing_videos)} existing videos for channel {channel_id}.")
 
@@ -165,7 +171,7 @@ def sync_channel_task(channel_id, task=None):
         latest_video_ids = []
         next_page_token = None
         # We scan up to 250 recent videos to check for new ones
-        for _ in range(5): # 5 pages * 50 results = 250 videos
+        for _ in range(8): # 5 pages * 50 results = 250 videos
             playlist_resp = youtube_api.playlistItems().list(
                 part="contentDetails", playlistId=uploads_id, maxResults=50, pageToken=next_page_token
             ).execute()
@@ -194,7 +200,7 @@ def sync_channel_task(channel_id, task=None):
             return "No new long-form content to add."
         
         update_task_progress(task_id, 'syncing', 70, 'Updating the AI knowledge base...')
-        create_and_store_embeddings(new_transcripts, channel_id, user_id)
+        create_and_store_embeddings(new_transcripts, None, user_id)
         
         update_task_progress(task_id, 'syncing', 95, 'Finalizing...')
         new_video_data = [
@@ -575,5 +581,3 @@ def post_answer_processing_task(user_id, channel_name, question, answer, sources
         )
     except Exception as e:
         logger.error(f"Error in post-answer processing for user {user_id}: {e}", exc_info=True)
-
-
