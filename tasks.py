@@ -63,7 +63,8 @@ def process_channel_task(channel_id, task=None):
     """
     task_id = task.id if task else None
     supabase_admin = get_supabase_admin_client()
-
+    logger.info(f"Clearing any previous data for channel_id: {channel_id}")
+    supabase_admin.table('embeddings').delete().eq('channel_id', channel_id).execute()
     try:
         update_task_progress(task_id, 'processing', 5, 'Fetching channel details...')
         channel_resp = supabase_admin.table('channels').select('channel_url, creator_id').eq('id', channel_id).single().execute()

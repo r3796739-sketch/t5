@@ -18,7 +18,7 @@
 }
 .login-popup-icon { margin-bottom: var(--spacing-lg); }
 .login-popup-title {
-    font-size: 1.75rem; font-weight: 700; color: var(--text-primary);
+    font-size: 1.5rem; font-weight: 700; color: var(--text-primary);
     margin-bottom: var(--spacing-sm);
 }
 .login-popup-subtitle { color: var(--text-secondary); margin-bottom: var(--spacing-xl); }

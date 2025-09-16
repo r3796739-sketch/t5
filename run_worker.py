@@ -1,5 +1,3 @@
-# In run_worker.py
-
 import sys
 from huey.bin.huey_consumer import consumer_main
 

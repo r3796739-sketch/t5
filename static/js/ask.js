@@ -3,7 +3,6 @@
 // =================================================================
 
 /**
- * START: ADDED FIX
  * Helper function to safely escape HTML special characters from text.
  */
 const escapeHtml = (text) => {
@@ -12,9 +11,43 @@ const escapeHtml = (text) => {
     p.textContent = text;
     return p.innerHTML;
 };
+
 /**
- * END: ADDED FIX
+ * Copies the text content of an AI answer to the clipboard.
+ * @param {HTMLElement} buttonElement - The copy button that was clicked.
  */
+window.copyAnswer = function(buttonElement) {
+    const answerBox = buttonElement.closest('.answer-box');
+    if (!answerBox) return;
+
+    const answerContent = answerBox.querySelector('.answer-content');
+    if (!answerContent) return;
+
+    const textToCopy = answerContent.innerText;
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        const iconCopy = buttonElement.querySelector('.icon-copy-default');
+        const iconCheck = buttonElement.querySelector('.icon-copy-check');
+        
+        if(iconCopy) iconCopy.style.display = 'none';
+        if(iconCheck) iconCheck.style.display = 'inline-block';
+
+        if (window.showNotification) {
+            window.showNotification('Answer copied to clipboard!', 'success');
+        }
+
+        setTimeout(() => {
+            if(iconCopy) iconCopy.style.display = 'inline-block';
+            if(iconCheck) iconCheck.style.display = 'none';
+        }, 2000);
+
+    }).catch(err => {
+        console.error('Failed to copy text: ', err);
+        if (window.showNotification) {
+            window.showNotification('Failed to copy text.', 'error');
+        }
+    });
+}
 
 /**
  * Displays a custom confirmation dialog.
@@ -243,7 +276,7 @@ function restoreButton(button, originalHTML, finalStateClass) {
     }, 3000);
 }
 
-let shareHistoryId = null; // Variable to store the current shared history ID
+let shareHistoryId = null;
 
 /**
  * Closes the share modal.
@@ -254,36 +287,70 @@ function closeShareModal() {
 }
 
 /**
- * Opens and prepares the share modal.
+ * Opens and prepares the new share modal.
  */
 function openShareModal() {
     const channelName = document.getElementById('chat-page-data').dataset.channelName;
     if (!channelName) {
-        showNotification('Cannot share from this page.', 'error');
+        if(window.showNotification) showNotification('Cannot share from this page.', 'error');
         return;
     }
     const modal = document.getElementById('shareModal');
     const input = document.getElementById('shareLinkInput');
     const toggle = document.getElementById('includeHistoryToggle');
+    const wrapper = document.getElementById('linkCopyWrapper');
+    const subtitle = document.getElementById('shareModalSubtitle');
+
+    if (!modal || !input || !toggle || !wrapper || !subtitle) return;
+
     const baseUrl = `${window.location.origin}/c/${encodeURIComponent(channelName)}`;
-    
-    // Reset state when opening
     toggle.checked = false;
     shareHistoryId = null;
     input.value = baseUrl;
+
+    wrapper.classList.remove('copied');
+    wrapper.querySelector('.copy-text').textContent = 'Copy';
+    wrapper.querySelector('.icon-copy-default').style.display = 'block';
+    wrapper.querySelector('.icon-copy-check').style.display = 'none';
+    
+    subtitle.textContent = 'Share a link to this AI assistant.';
     
     modal.style.display = 'flex';
 }
 
 /**
- * Copies the generated share link to the clipboard.
+ * Copies the share link and provides instant visual feedback inside the modal.
+ * @param {HTMLElement} wrapperElement - The link-copy-wrapper element that was clicked.
  */
-function copyShareLink() {
-    const input = document.getElementById('shareLinkInput');
+window.copyShareLinkFromModal = function(wrapperElement) {
+    const input = wrapperElement.querySelector('#shareLinkInput');
+    const copyText = wrapperElement.querySelector('.copy-text');
+    const iconDefault = wrapperElement.querySelector('.icon-copy-default');
+    const iconCheck = wrapperElement.querySelector('.icon-copy-check');
+
+    if (!input || !copyText || !iconDefault || !iconCheck) return;
+
+    if (wrapperElement.classList.contains('copied')) return;
+
+    input.select();
     navigator.clipboard.writeText(input.value).then(() => {
-        showNotification('Share link copied!', 'success');
-    }).catch(() => {
-        showNotification('Failed to copy link.', 'error');
+        wrapperElement.classList.add('copied');
+        copyText.textContent = 'Copied!';
+        iconDefault.style.display = 'none';
+        iconCheck.style.display = 'block';
+
+        setTimeout(() => {
+            copyText.textContent = 'Copy';
+            iconDefault.style.display = 'block';
+            iconCheck.style.display = 'none';
+            wrapperElement.classList.remove('copied');
+        }, 2000);
+
+    }).catch(err => {
+        console.error('Failed to copy text: ', err);
+        if (window.showNotification) {
+            window.showNotification('Failed to copy link.', 'error');
+        }
     });
 }
 
@@ -297,12 +364,29 @@ function askExample(element) {
     }
 }
 
+/**
+ * Takes a topic from a tag, formats it as a question, and submits it.
+ * @param {HTMLElement} element - The topic tag that was clicked.
+ */
+window.askTopic = function(element) {
+    const topic = element.textContent;
+    const question = `Tell me more about ${topic}`;
+    
+    const questionText = document.getElementById('questionText');
+    const questionForm = document.getElementById('questionForm');
+    
+    if (questionText && questionForm) {
+        questionText.value = question;
+        questionText.dispatchEvent(new Event('input', { bubbles: true }));
+        questionForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    }
+}
+
 // =================================================================
 // 2. SCRIPT INITIALIZATION
 // =================================================================
 document.addEventListener('DOMContentLoaded', function() {
 
-    // --- A. Element Selectors & Page Data ---
     const questionForm = document.getElementById('questionForm');
     const questionText = document.getElementById('questionText');
     const submitBtn = document.getElementById('submitBtn');
@@ -310,25 +394,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const charCount = document.querySelector('.char-count');
     const includeHistoryToggle = document.getElementById('includeHistoryToggle');
     const shareLinkInput = document.getElementById('shareLinkInput');
+    const shareModal = document.getElementById('shareModal'); // Define shareModal here
 
-    // --- START: NEW LOGIC for handling actions after login ---
-    // Check if the user is now logged in and if there's a pending question.
     if (typeof IS_USER_LOGGED_IN !== 'undefined' && IS_USER_LOGGED_IN && localStorage.getItem('pending_question')) {
         const pendingQuestion = localStorage.getItem('pending_question');
-        localStorage.removeItem('pending_question'); // Clear it so it doesn't run again
+        localStorage.removeItem('pending_question'); 
 
-        // If we found a question, populate the form and submit it automatically.
         if (questionText && questionForm && pendingQuestion) {
             questionText.value = pendingQuestion;
-            // We need to dispatch events to make sure the UI (like the submit button state) updates.
             questionText.dispatchEvent(new Event('input', { bubbles: true }));
-            // Dispatching the submit event is cleaner than calling the function directly.
             questionForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
         }
     }
-    // --- END: NEW LOGIC ---
 
-    // --- B. Helper Functions ---
     const adjustTextareaHeight = () => {
         if (!questionText) return;
         questionText.style.height = 'auto';
@@ -360,7 +438,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const label = channelName ? `${escapeHtml(channelName)}` : 'Answer';
             html = `
                 <div class="answer-box">
-                    <div class="answer-header">${avatarHtml}<span class="answer-label">${label}</span></div>
+                    <div class="answer-header">
+                        ${avatarHtml}
+                        <span class="answer-label">${label}</span>
+                    </div>
                     <div class="answer-content"></div>
                     <div class="typing-container"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>
                     <div class="sources-section"></div>
@@ -378,10 +459,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!answerBoxElement) return;
         let sourcesSection = answerBoxElement.querySelector('.sources-section');
         sourcesSection.innerHTML = '';
-        let buttonsHTML = '';
+        
+        let sourcesButtonHTML = '';
         let listHTML = '';
+
         if (sources && sources.length > 0) {
-            buttonsHTML += `
+            sourcesButtonHTML = `
                 <button class="toggle-sources-btn" onclick="toggleSources(this)">
                     <svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M4,6H2V20a2,2 0 0,0 2,2H18V18H4V6M20,2H8A2,2 0 0,0 6,4V16a2,2 0 0,0 2,2H20a2,2 0 0,0 2-2V4a2,2 0 0,0-2-2Z"></path></svg>
                     Sources (${sources.length})
@@ -391,37 +474,31 @@ document.addEventListener('DOMContentLoaded', function() {
             const sourceLinks = sources.map(s => `<div class="source-item"><a href="${escapeHtml(s.url)}" target="_blank" class="source-link">${escapeHtml(s.title)}</a></div>`).join('');
             listHTML = `<div class="sources-list" style="display: none;">${sourceLinks}</div>`;
         }
-        buttonsHTML += `
+        
+        const regenerateButtonHTML = `
             <button class="toggle-sources-btn regenerate-btn-js" onclick="regenerateAnswer(this)">
                 <svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
                 Regenerate
             </button>`;
-        sourcesSection.innerHTML = `<div class="source-buttons">${buttonsHTML}</div>${listHTML}`;
+            
+        sourcesSection.innerHTML = `<div class="source-buttons">${sourcesButtonHTML}${regenerateButtonHTML}</div>${listHTML}`;
     };
 
-    // --- C. Core Logic: Form Submission & Streaming ---
     const handleFormSubmit = (event) => {
         event.preventDefault();
 
-        // --- START: NEW LOGIN CHECK ---
-        // If the user isn't logged in, intercept the submission.
         if (typeof IS_USER_LOGGED_IN !== 'undefined' && !IS_USER_LOGGED_IN) {
             const question = questionText.value.trim();
-            // Save the question only if there is one.
             if (question) {
                 localStorage.setItem('pending_question', question);
             }
-            // Show the login popup and stop here.
             showLoginPopup();
             return;
         }
-        // --- END: NEW LOGIN CHECK ---
 
         const pageData = document.getElementById('chat-page-data').dataset;
         const channelName = pageData.channelName;
         document.querySelectorAll('.regenerate-btn-js').forEach(btn => btn.remove());
-        const selectedToneButton = document.querySelector('#tone-selector .tone-option.active');
-        const selectedTone = selectedToneButton ? selectedToneButton.dataset.tone : 'Casual';
         const question = questionText.value.trim();
         if (!question) return;
         submitBtn.disabled = true;
@@ -437,7 +514,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData();
         formData.append('question', question);
         formData.append('channel_name', channelName);
-        formData.append('tone', selectedTone);
         formData.append('is_regenerating', 'true');
         fetch('/stream_answer', { method: 'POST', body: formData })
             .then(response => {
@@ -539,12 +615,9 @@ document.addEventListener('DOMContentLoaded', function() {
         answerContent.innerHTML = '';
         if (sourcesSection) sourcesSection.innerHTML = '';
         if (typingContainer) typingContainer.classList.add('active');
-        const selectedToneButton = document.querySelector('#tone-selector .tone-option.active');
-        const selectedTone = selectedToneButton ? selectedToneButton.dataset.tone : 'Casual';
         const formData = new FormData();
         formData.append('question', lastQuestion);
         formData.append('channel_name', document.getElementById('chat-page-data').dataset.channelName);
-        formData.append('tone', selectedTone);
         fetch('/stream_answer', { method: 'POST', body: formData })
             .then(response => {
                 if (!response.ok) return response.json().then(err => Promise.reject(err));
@@ -561,7 +634,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // --- D. Event Listeners ---
     if (questionForm) {
         questionForm.addEventListener('submit', handleFormSubmit);
     }
@@ -580,16 +652,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!submitBtn.disabled) {
                     questionForm.requestSubmit();
                 }
-            }
-        });
-    }
-
-    const toneSelector = document.getElementById('tone-selector');
-    if (toneSelector) {
-        toneSelector.addEventListener('click', (event) => {
-            if (event.target.classList.contains('tone-option')) {
-                toneSelector.querySelectorAll('.tone-option').forEach(btn => btn.classList.remove('active'));
-                event.target.classList.add('active');
             }
         });
     }
@@ -615,9 +677,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (includeHistoryToggle && shareLinkInput) {
+        const subtitle = document.getElementById('shareModalSubtitle'); 
+
         includeHistoryToggle.addEventListener('change', async (event) => {
             const channelName = document.getElementById('chat-page-data').dataset.channelName;
             const baseUrl = `${window.location.origin}/c/${encodeURIComponent(channelName)}`;
+            
+            if (subtitle) {
+                if (event.target.checked) {
+                    subtitle.textContent = 'Anyone with the link can view this chat.';
+                } else {
+                    subtitle.textContent = 'Share a link to this AI assistant.';
+                }
+            }
+
             if (event.target.checked) {
                 const qnaPairs = Array.from(document.querySelectorAll('#conversation-history .qna-pair'));
                 const history = qnaPairs.map(pair => {
@@ -626,11 +699,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     const sources = Array.from(pair.querySelectorAll('.source-link')).map(s => ({ title: s.textContent, url: s.href }));
                     return { question, answer, sources };
                 }).filter(qa => qa.question && qa.answer);
+
                 if (history.length === 0) {
                     showNotification('There is no chat history to share.', 'info');
                     event.target.checked = false;
+                    if (subtitle) {
+                        subtitle.textContent = 'Share a link to this AI assistant.';
+                    }
                     return;
                 }
+
                 try {
                     const response = await fetch('/api/share_chat', {
                         method: 'POST',
@@ -647,6 +725,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 } catch (error) {
                     showNotification(error.message || 'Could not create share link.', 'error');
                     event.target.checked = false;
+                    if (subtitle) {
+                        subtitle.textContent = 'Share a link to this AI assistant.';
+                    }
                 }
             } else {
                 shareLinkInput.value = baseUrl;
@@ -655,7 +736,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- F. Initial Page Setup ---
+    // --- START: New "Click Outside to Close" Logic for Share Modal ---
+    if (shareModal) {
+        shareModal.addEventListener('click', function(event) {
+            // Check if the clicked element is the overlay itself (the parent)
+            // and not the content area (which has a class of .login-popup-content).
+            if (event.target === shareModal) {
+                closeShareModal();
+            }
+        });
+    }
+    // --- END: New Logic ---
+
     const init = () => {
         if (questionText) {
             questionText.focus();

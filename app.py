@@ -34,7 +34,8 @@ from utils.subscription_utils import PLANS, COMMUNITY_PLANS
 from datetime import datetime, timezone, timedelta
 from dateutil.parser import isoparse
 import uuid
-
+from utils.razorpay_client import get_razorpay_client
+from supabase_auth.errors import AuthApiError
 logger = logging.getLogger(__name__)
 
 load_dotenv()
@@ -392,12 +393,19 @@ def whop_community_plan_update_webhook():
 def check_token_expiry():
     if 'user' in session and session.get('expires_at') and session.get('refresh_token'):
         if session['expires_at'] < (time.time() + 60):
-            new_session = refresh_supabase_session(session.get('refresh_token'))
-            if new_session:
-                session['access_token'] = new_session.get('access_token')
-                session['refresh_token'] = new_session.get('refresh_token')
-                session['expires_at'] = new_session.get('expires_at')
-            else:
+            try:
+                new_session = refresh_supabase_session(session.get('refresh_token'))
+                if new_session:
+                    session['access_token'] = new_session.get('access_token')
+                    session['refresh_token'] = new_session.get('refresh_token')
+                    session['expires_at'] = new_session.get('expires_at')
+                else:
+                    # If refresh fails for a generic reason, clear the session
+                    session.clear()
+            except AuthApiError as e:
+                # If the token was already used, it's a sign of a stale session.
+                # Clear the session to force a fresh login.
+                logger.warning(f"Handled an AuthApiError during token refresh: {e}. Clearing session.")
                 session.clear()
 
 @app.route('/auth/callback')
@@ -413,18 +421,20 @@ def set_auth_cookie():
         expires_at = data.get('expires_at')
         if not all([access_token, refresh_token, expires_at]):
             return jsonify({'status': 'error', 'message': 'Incomplete session data provided.'}), 400
+
         supabase = get_supabase_client()
         if not supabase:
             return jsonify({'status': 'error', 'message': 'Server configuration error.'}), 500
+
         supabase.auth.set_session(access_token, refresh_token)
         user_response = supabase.auth.get_user()
+
         if not user_response or not hasattr(user_response, 'user') or not user_response.user:
             return jsonify({'status': 'error', 'message': 'Invalid authentication token.'}), 401
 
         user = user_response.user
         profile = db_utils.get_profile(user.id)
 
-        # --- START: NEW REFERRAL LOGIC ---
         profile_payload = {
             'id': user.id,
             'email': user.email,
@@ -432,14 +442,25 @@ def set_auth_cookie():
             'avatar_url': user.user_metadata.get('avatar_url')
         }
 
-        # If this is a new user AND they were referred, tag them!
-        if not profile and 'referred_by_channel_id' in session:
-            profile_payload['referred_by_channel_id'] = session.pop('referred_by_channel_id', None)
-            print(f"New user {user.email} was referred by channel ID: {profile_payload['referred_by_channel_id']}")
-        # --- END: NEW REFERRAL LOGIC ---
+        # --- START: MODIFIED REFERRAL LOGIC ---
+        # Always check for a referral ID in the session.
+        if 'referred_by_channel_id' in session:
+            # Only apply the referral ID if the user's profile doesn't already have one.
+            # This prevents existing users from being re-assigned if they click another referral link.
+            if not profile or not profile.get('referred_by_channel_id'):
+                profile_payload['referred_by_channel_id'] = session.pop('referred_by_channel_id', None)
+                print(f"Applying referral from channel ID {profile_payload.get('referred_by_channel_id')} to user {user.email}")
+            else:
+                # If they already have a referral ID, just clear the session variable.
+                session.pop('referred_by_channel_id', None)
+        # --- END: MODIFIED REFERRAL LOGIC ---
 
+        # The create_or_update_profile function uses 'upsert', so it's safe to call every time.
+        # It will correctly add the referral_id if it's in the payload.
+        db_utils.create_or_update_profile(profile_payload)
+
+        # Only create initial stats if the user was genuinely new (no profile existed before).
         if not profile:
-            db_utils.create_or_update_profile(profile_payload)
             db_utils.create_initial_usage_stats(user.id)
 
         session['user'] = user.model_dump()
@@ -447,15 +468,33 @@ def set_auth_cookie():
         session['refresh_token'] = refresh_token
         session['expires_at'] = expires_at
         return jsonify({'status': 'success', 'message': 'Session set successfully.'})
+
     except Exception as e:
         logging.error(f"Error in set-cookie: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'An internal error occurred.'}), 500
+@app.route('/shipping-policy')
+def shipping_policy():
+    return render_template('shipping_policy.html', saved_channels=get_user_channels())
 
+@app.route('/contact')
+def contact():
+    return render_template('contact.html', saved_channels=get_user_channels())
+
+@app.route('/refund-policy')
+def refund_policy():
+    return render_template('refund_policy.html', saved_channels=get_user_channels())
 @app.route('/')
 def home():
     if 'user' in session:
         return redirect(url_for('channel'))
-    return render_template('landing.html')
+    else:
+        personal_plan_id = os.environ.get('RAZORPAY_PLAN_ID_PERSONAL')
+        creator_plan_id = os.environ.get('RAZORPAY_PLAN_ID_CREATOR')
+        return render_template(
+            'landing.html',
+            razorpay_plan_id_personal=personal_plan_id,
+            razorpay_plan_id_creator=creator_plan_id
+        )
 
 # --- All other routes like /channel, /ask, /stream_answer, etc. remain unchanged ---
 # ... (The rest of your app.py file from /channel downwards remains the same)
@@ -524,12 +563,15 @@ def channel():
                     if redis_client: redis_client.delete(f"user_channels:{user_id}")
                     return jsonify({'status': 'processing', 'task_id': task.id})
             return guarded_personal_channel_add()
-
+        personal_plan_id = os.environ.get('RAZORPAY_PLAN_ID_PERSONAL')
+        creator_plan_id = os.environ.get('RAZORPAY_PLAN_ID_CREATOR')
         return render_template(
             'channel.html',
             saved_channels=get_user_channels(),
             SUPABASE_URL=os.environ.get('SUPABASE_URL'),
-            SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
+            SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY'),
+            razorpay_plan_id_personal=personal_plan_id,
+            razorpay_plan_id_creator=creator_plan_id
         )
     except Exception as e:
         logging.error(f"Error in /channel: {e}", exc_info=True)
@@ -645,7 +687,7 @@ def stream_answer():
     user_id = session['user']['id']
     question = request.form.get('question', '').strip()
     channel_name = request.form.get('channel_name')
-    tone = request.form.get('tone', 'Casual')
+
     access_token = session.get('access_token')
     active_community_id = session.get('active_community_id')
     is_owner_in_trial = False
@@ -753,7 +795,6 @@ def stream_answer():
         video_ids=video_ids, 
         user_id=user_id, 
         access_token=access_token, 
-        tone=tone, 
         on_complete=on_complete_callback
     )
     return Response(stream, mimetype='text/event-stream')
@@ -849,44 +890,51 @@ def logout():
 @login_required
 def dashboard():
     """
-    Renders the main integrations hub and provides the status of each integration.
+    Renders the main dashboard hub and provides the status of each integration.
     """
     user_id = session['user']['id']
     supabase_admin = get_supabase_admin_client()
     
     # --- Check Discord Status ---
     discord_is_active = False
-    # 1. Check if their Discord account is linked to their profile
     profile = db_utils.get_profile(user_id)
     if profile and profile.get('discord_user_id'):
         discord_is_active = True
     else:
-        # 2. As a fallback, check if they own any branded bots
         bots_res = supabase_admin.table('discord_bots').select('id', count='exact').eq('user_id', user_id).execute()
         if bots_res.count > 0:
             discord_is_active = True
 
     # --- Check Telegram Status ---
     telegram_is_active = False
-    # 1. Check for an active personal connection
     personal_conn = supabase_admin.table('telegram_connections').select('id', count='exact').eq('app_user_id', user_id).eq('is_active', True).execute()
     if personal_conn.count > 0:
         telegram_is_active = True
     else:
-        # 2. Check for any active group connections they own
         group_conn = supabase_admin.table('group_connections').select('id', count='exact').eq('owner_user_id', user_id).eq('is_active', True).execute()
         if group_conn.count > 0:
             telegram_is_active = True
 
-    # --- Check Creator Links Status ---
+    # --- Get Creator Channels and Their Stats ---
     user_creator_channels = db_utils.get_channels_created_by_user(user_id)
-    creator_links_is_active = bool(user_creator_channels)
+    creator_stats = db_utils.get_creator_dashboard_stats(user_id)
+
+    # Merge stats into the channel data before sending to the template
+    for channel_data in user_creator_channels.values():
+        channel_stats = creator_stats.get(channel_data.get('id'), {})
+        # --- START: THE FIX ---
+        channel_data['stats'] = {
+            'referrals': channel_stats.get('referrals', 0),
+            'paid_referrals': channel_stats.get('paid_referrals', 0), # <-- This line was missing
+            'creator_mrr': channel_stats.get('creator_mrr', 0.0),
+            'current_adds': channel_stats.get('current_adds', 0)
+        }
+        # --- END: THE FIX ---
 
     return render_template(
         'dashboard.html',
         discord_is_active=discord_is_active,
         telegram_is_active=telegram_is_active,
-        creator_links_is_active=creator_links_is_active,
         saved_channels=user_creator_channels
     )
 
@@ -1097,11 +1145,42 @@ def admin_dashboard():
     supabase_admin = get_supabase_admin_client()
     communities_res = supabase_admin.table('communities').select('*, owner:owner_user_id(full_name, email)').execute()
     communities = communities_res.data if communities_res.data else []
-    non_whop_users_res = supabase_admin.table('profiles').select('*, usage:usage_stats(*)').is_('whop_user_id', None).execute()
-    non_whop_users = non_whop_users_res.data if non_whop_users_res.data else []
-    saved_channels = get_user_channels() 
-    return render_template('admin.html', communities=communities, non_whop_users=non_whop_users, all_plans=PLANS, COMMUNITY_PLANS=COMMUNITY_PLANS, saved_channels=saved_channels)
 
+    non_whop_users_res = supabase_admin.table('profiles').select('*, usage:usage_stats!inner(*)').is_('whop_user_id', None).execute()
+    non_whop_users = non_whop_users_res.data if non_whop_users_res.data else []
+
+    # --- START OF MODIFICATION ---
+    # Fetch all creator payouts and join with the creator's profile info, including payout_details
+    payouts_res = supabase_admin.table('creator_payouts').select('*, creator:creator_id(email, full_name, payout_details)').order('requested_at', desc=True).execute()
+    payouts = payouts_res.data if payouts_res.data else []
+    # --- END OF MODIFICATION ---
+
+    saved_channels = get_user_channels() 
+    return render_template('admin.html', 
+                           communities=communities, 
+                           non_whop_users=non_whop_users, 
+                           all_plans=PLANS, 
+                           COMMUNITY_PLANS=COMMUNITY_PLANS, 
+                           saved_channels=saved_channels,
+                           payouts=payouts) # Pass payouts to the template
+
+@app.route('/api/admin/complete_payout/<payout_id>', methods=['POST'])
+@admin_required
+def api_admin_complete_payout(payout_id):
+    """
+    Updates a payout's status from 'pending' to 'paid'.
+    """
+    try:
+        supabase_admin = get_supabase_admin_client()
+        supabase_admin.table('creator_payouts').update({
+            'status': 'paid',
+            'paid_at': datetime.now(timezone.utc).isoformat()
+        }).eq('id', payout_id).execute()
+        return jsonify({'status': 'success', 'message': 'Payout marked as paid.'})
+    except Exception as e:
+        logger.error(f"Error completing payout {payout_id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
+    
 @app.route('/api/admin/create_plan', methods=['POST'])
 @admin_required
 def api_admin_create_plan():
@@ -1156,6 +1235,7 @@ def api_admin_set_current_plan():
             if plan_id not in PLANS:
                 return jsonify({'status': 'error', 'message': 'Invalid user plan ID.'}), 400
             supabase_admin.table('profiles').update({'direct_subscription_plan': plan_id}).eq('id', target_id).execute()
+            db_utils.record_creator_earning(referred_user_id=target_id, plan_id=plan_id)
         return jsonify({'status': 'success', 'message': 'Plan updated successfully.'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -1179,6 +1259,70 @@ def api_admin_remove_plan():
         return jsonify({'status': 'success', 'message': 'Plan removed successfully.'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/admin/delete_user/<user_id>', methods=['POST'])
+@admin_required
+def api_admin_delete_user(user_id):
+    """
+    Permanently deletes a user and all their associated data.
+    """
+    if not user_id:
+        return jsonify({'status': 'error', 'message': 'User ID is required.'}), 400
+
+    try:
+        supabase_admin = get_supabase_admin_client()
+        
+        # Step 1: Manually delete channels created by the user.
+        supabase_admin.table('channels').delete().eq('creator_id', user_id).execute()
+
+        # --- START: THE FIX ---
+        # Step 2: Explicitly delete the user's profile first.
+        # This ensures that if they sign up again, our app's logic will
+        # correctly see them as a new user and apply referral benefits.
+        # The CASCADE rule on the profiles table will handle deleting their
+        # chat history, usage stats, etc.
+        supabase_admin.table('profiles').delete().eq('id', user_id).execute()
+        # --- END: THE FIX ---
+
+        # Step 3: Delete the user from the main authentication system.
+        supabase_admin.auth.admin.delete_user(user_id)
+        
+        return jsonify({'status': 'success', 'message': f'Successfully deleted user {user_id}.'})
+    except Exception as e:
+        logger.error(f"Error deleting user {user_id}: {e}", exc_info=True)
+        if 'User not found' in str(e):
+            return jsonify({'status': 'error', 'message': 'User not found. They may have already been deleted.'}), 404
+        return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
+
+
+
+@app.route('/api/request_payout', methods=['POST'])
+@login_required
+def request_payout():
+    creator_id = session['user']['id']
+    amount = request.json.get('amount')
+    profile = db_utils.get_profile(creator_id)
+
+    if not profile or not profile.get('payout_details'):
+        return jsonify({'status': 'error', 'message': 'You must save your payout details before requesting a withdrawal.'}), 400
+
+    try:
+        amount_float = float(amount)
+        if amount_float <= 0:
+            return jsonify({'status': 'error', 'message': 'Please enter a valid amount.'}), 400
+    except (ValueError, TypeError):
+        return jsonify({'status': 'error', 'message': 'Invalid amount specified.'}), 400
+
+    # --- START OF THE FIX ---
+    # We now pass the creator's CURRENT bank details to the database function
+    current_payout_details = profile.get('payout_details')
+    payout, message = db_utils.create_payout_request(creator_id, amount_float, current_payout_details)
+    # --- END OF THE FIX ---
+
+    if payout:
+        return jsonify({'status': 'success', 'message': message})
+    else:
+        return jsonify({'status': 'error', 'message': message}), 400
 
 @app.route('/integrations/telegram/connect_personal', methods=['POST'])
 @login_required
@@ -1589,6 +1733,260 @@ def share_chat_history():
     redis_client.setex(f"shared_chat:{history_id}", 86400, json.dumps(history_data))
     
     return jsonify({'status': 'success', 'history_id': history_id})
+
+
+
+#payment system
+
+@app.route('/razorpay_webhook', methods=['POST'])
+def razorpay_webhook():
+    webhook_secret = os.environ.get('RAZORPAY_WEBHOOK_SECRET')
+    webhook_body = request.get_data()
+    received_signature = request.headers.get('X-Razorpay-Signature')
+
+    razorpay_client = get_razorpay_client()
+    if not razorpay_client:
+        return jsonify({'status': 'error', 'message': 'Razorpay client not configured'}), 500
+
+    try:
+        # This part remains the same, it verifies the request is from Razorpay
+        razorpay_client.utility.verify_webhook_signature(webhook_body, received_signature, webhook_secret)
+    except Exception as e:
+        logging.error(f"Razorpay webhook signature verification failed: {e}")
+        return jsonify({'status': 'error', 'message': 'Invalid signature'}), 400
+
+    event = request.get_json()
+    
+    # --- START OF THE FIX ---
+    # We now listen for 'invoice.paid' instead of 'subscription.charged'
+    if event['event'] == 'invoice.paid':
+        try:
+            invoice_data = event['payload']['invoice']['entity']
+            customer_id = invoice_data.get('customer_id')
+            subscription_id = invoice_data.get('subscription_id')
+
+            if not customer_id or not subscription_id:
+                logging.warning("Webhook for 'invoice.paid' received without customer_id or subscription_id.")
+                return jsonify({'status': 'ok', 'message': 'Ignoring event with missing data.'})
+
+            # Fetch the subscription to get the plan_id
+            subscription_details = razorpay_client.subscription.fetch(subscription_id)
+            plan_id = subscription_details.get('plan_id')
+
+            # Find the user in our database using their Razorpay customer ID
+            user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
+            
+            if user_id and plan_id:
+                logging.info(f"Processing successful subscription payment for user {user_id} on plan {plan_id}.")
+                
+                # Update the user's plan in your 'profiles' table
+                db_utils.create_or_update_profile({'id': user_id, 'direct_subscription_plan': plan_id})
+
+                # Update the subscription status and dates in your 'razorpay_subscriptions' table
+                db_utils.update_razorpay_subscription(user_id, subscription_details)
+
+                # Record the earning for the creator who referred this user
+                db_utils.record_creator_earning(referred_user_id=user_id, plan_id=plan_id)
+
+            else:
+                logging.error(f"Could not find user for customer_id {customer_id} or plan_id from webhook.")
+
+        except Exception as e:
+            logging.error(f"Error processing 'invoice.paid' webhook: {e}", exc_info=True)
+            return jsonify({'status': 'error', 'message': 'Internal processing error'}), 500
+    # --- END OF THE FIX ---
+
+    return jsonify({'status': 'ok'})
+
+@app.route('/create_razorpay_subscription', methods=['POST'])
+@login_required
+def create_razorpay_subscription():
+    plan_id = request.json.get('plan_id')
+    user_id = session['user']['id']
+    profile = db_utils.get_profile(user_id)
+    
+    razorpay_client = get_razorpay_client()
+    if not razorpay_client:
+        return jsonify({'status': 'error', 'message': 'Razorpay is not configured.'}), 500
+
+    plan_details = PLANS.get(plan_id)
+    if not plan_details:
+        return jsonify({'status': 'error', 'message': 'Invalid plan selected.'}), 400
+
+    customer_id = profile.get('razorpay_customer_id')
+
+    # If the user doesn't have a Razorpay customer ID yet
+    if not customer_id:
+        # --- START OF THE FIX ---
+        # Get user data from the session as a reliable fallback
+        user_session_data = session.get('user', {})
+        user_email = profile.get('email') or user_session_data.get('email')
+        user_name = profile.get('full_name') or user_session_data.get('user_metadata', {}).get('full_name')
+
+        if not user_email:
+            return jsonify({'status': 'error', 'message': 'User email not found. Cannot create customer.'}), 400
+
+        try:
+            customer = razorpay_client.customer.create({
+                "name": user_name,
+                "email": user_email,
+            })
+            customer_id = customer['id']
+            # Now, update the profile with the new customer ID
+            db_utils.create_or_update_profile({'id': user_id, 'razorpay_customer_id': customer_id, 'email': user_email})
+        except Exception as e:
+            # Handle the case where the customer might already exist on Razorpay due to a previous failure
+            if 'already exists' in str(e):
+                customers = razorpay_client.customer.all({'email': user_email})
+                if customers['count'] > 0:
+                    customer_id = customers['items'][0]['id']
+                    db_utils.create_or_update_profile({'id': user_id, 'razorpay_customer_id': customer_id, 'email': user_email})
+                else:
+                    return jsonify({'status': 'error', 'message': f"Razorpay conflict error: {e}"}), 500
+            else:
+                return jsonify({'status': 'error', 'message': f"Razorpay error: {e}"}), 500
+        # --- END OF THE FIX ---
+
+    # Create the subscription
+    try:
+        subscription = razorpay_client.subscription.create({
+            "plan_id": plan_id,
+            "customer_id": customer_id,
+            "total_count": 12, # Billed monthly for 12 installments (1 year)
+            "quantity": 1,
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Could not create subscription: {e}'}), 500
+
+
+    return jsonify({
+        'status': 'success',
+        'subscription_id': subscription['id'],
+        'razorpay_key_id': os.environ.get('RAZORPAY_KEY_ID'),
+        'plan_name': plan_details.get('name'),
+        'user_name': profile.get('full_name'),
+        'user_email': profile.get('email') or session.get('user', {}).get('email')
+    })
+
+@app.route('/admin/payouts/initiate_razorpay_payout', methods=['POST'])
+@admin_required
+def initiate_razorpay_payout():
+    payout_id = request.json.get('payout_id')
+    creator_id = request.json.get('creator_id')
+    amount = request.json.get('amount')
+
+    razorpay_client = get_razorpay_client()
+    if not razorpay_client:
+        return jsonify({'status': 'error', 'message': 'Razorpay is not configured.'}), 500
+
+    creator_profile = db_utils.get_profile(creator_id)
+    if not creator_profile:
+        return jsonify({'status': 'error', 'message': 'Creator not found.'}), 404
+
+    # --- Create Razorpay Contact ---
+    contact_id = creator_profile.get('razorpay_contact_id')
+    if not contact_id:
+        try:
+            contact = razorpay_client.contact.create({
+                "name": creator_profile.get('full_name'),
+                "email": creator_profile.get('email'),
+            })
+            contact_id = contact['id']
+            db_utils.create_or_update_profile({'id': creator_id, 'razorpay_contact_id': contact_id})
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': f'Razorpay Contact Error: {e}'}), 500
+            
+    # --- Create Razorpay Fund Account using stored details ---
+    fund_account_id = creator_profile.get('razorpay_fund_account_id')
+    if not fund_account_id:
+        payout_details = creator_profile.get('payout_details')
+        if not (payout_details and payout_details.get('account_number') and payout_details.get('ifsc')):
+            return jsonify({'status': 'error', 'message': 'Creator has not set up their payout details. Cannot create fund account.'}), 400
+
+        try:
+            fund_account = razorpay_client.fund_account.create({
+                "contact_id": contact_id,
+                "account_type": "bank_account",
+                "bank_account": {
+                    "name": payout_details.get('name'),
+                    "account_number": payout_details.get('account_number'),
+                    "ifsc": payout_details.get('ifsc')
+                }
+            })
+            fund_account_id = fund_account['id']
+            db_utils.create_or_update_profile({'id': creator_id, 'razorpay_fund_account_id': fund_account_id})
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': f'Razorpay Fund Account Error: {e}'}), 500
+
+    # --- Initiate the Payout ---
+    try:
+        razorpay_client.payout.create({
+            "account_number": os.environ.get("RAZORPAYX_ACCOUNT_NUMBER"),
+            "fund_account_id": fund_account_id,
+            "amount": int(float(amount) * 100), # Amount in paise
+            "currency": "INR",
+            "mode": "IMPS",
+            "purpose": "payout",
+            "queue_if_low_balance": True
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Razorpay Payout Error: {e}'}), 500
+
+    # --- Update Payout Status in Local DB ---
+    db_utils.update_payout_status(payout_id, 'processing')
+
+    return jsonify({'status': 'success', 'message': 'Payout initiated successfully via RazorpayX.'})
+
+
+@app.route('/earnings')
+@login_required
+def earnings_page():
+    creator_id = session['user']['id']
+    earnings_data = db_utils.get_creator_balance_and_history(creator_id)
+    
+    # This part is crucial: it fetches the profile and gets the payout_details
+    profile = db_utils.get_profile(creator_id)
+    payout_details = profile.get('payout_details') if profile else None
+    
+    # This passes the details to the HTML template
+    return render_template(
+        'earnings.html', 
+        earnings_data=earnings_data, 
+        payout_details=payout_details,
+        saved_channels=get_user_channels()
+    )
+
+@app.route('/api/save_payout_details', methods=['POST'])
+@login_required
+def save_payout_details():
+    creator_id = session['user']['id']
+    data = request.json
+    
+    # Basic validation
+    if not all(k in data for k in ['name', 'account_number', 'ifsc']):
+        return jsonify({'status': 'error', 'message': 'All fields are required.'}), 400
+
+    # Get the user's email from the session to ensure the NOT NULL constraint is met
+    user_email = session.get('user', {}).get('email')
+    if not user_email:
+         return jsonify({'status': 'error', 'message': 'User session is invalid. Please log in again.'}), 401
+
+    # Combine the two previous database calls into a single, efficient update
+    profile_update_payload = {
+        'id': creator_id,
+        'email': user_email, # This is the crucial line that fixes the error
+        'payout_details': {
+            'name': data['name'],
+            'account_number': data['account_number'],
+            'ifsc': data['ifsc']
+        },
+        'razorpay_fund_account_id': None # Also invalidate any existing fund account
+    }
+    
+    # Call the database update function once with all the data
+    db_utils.create_or_update_profile(profile_update_payload)
+    
+    return jsonify({'status': 'success', 'message': 'Payout details saved successfully.'})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

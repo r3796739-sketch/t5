@@ -56,9 +56,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
         });
     }
-
+    
     // Run the function to attach the event listener
     initializeSpaNavigation();
+
+    // --- THIS IS THE NEWLY ADDED BLOCK ---
+    // This part handles resuming an action after a user logs in
+    if (typeof IS_USER_LOGGED_IN !== 'undefined' && IS_USER_LOGGED_IN) {
+        const pendingActionJSON = localStorage.getItem('action_after_login');
+        if (pendingActionJSON) {
+            const pendingAction = JSON.parse(pendingActionJSON);
+            localStorage.removeItem('action_after_login'); // Clear the action
+
+            // Check if the pending action was to buy a subscription
+            if (pendingAction.type === 'buy_subscription' && pendingAction.planId) {
+                // If so, call the buySubscription function immediately
+                buySubscription(pendingAction.planId);
+            }
+            // You can add more 'else if' blocks here for other actions in the future
+        }
+    }
+    // --- END OF NEW BLOCK ---
 });
 
 /**
@@ -134,8 +152,19 @@ function updateChannelShell(data) {
     // Show loading indicator in chat
     const chatContainer = document.getElementById('conversation-history');
     if (chatContainer) {
-        chatContainer.innerHTML = `<div class="typing-indicator" style="display: flex; margin: 20px; justify-content: center;"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
-    }
+        chatContainer.innerHTML = `
+    <div class="qna-pair">
+        <div class="question-box skeleton" style="width: 60%;"><div class="skeleton-line"></div></div>
+        <div class="answer-box">
+            <div class="answer-header">
+                <div class="skeleton-avatar skeleton"></div>
+                <div class="skeleton-line skeleton" style="width: 100px;"></div>
+            </div>
+            <div class="skeleton-line skeleton" style="width: 90%;"></div>
+            <div class="skeleton-line skeleton" style="width: 80%; margin-top: 8px;"></div>
+        </div>
+    </div>
+`;}
 
     const pageDataContainer = document.getElementById('chat-page-data');
     if (pageDataContainer) {
@@ -192,10 +221,21 @@ function renderChatHistory(history) {
                 `;
             }
 
+            const copyButtonHtml = `
+                <button class="copy-answer-btn" onclick="copyAnswer(this)" data-tooltip="Copy answer">
+                    <svg class="icon-copy-default" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    <svg class="icon-copy-check" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </button>
+            `;
+
             qnaPair.innerHTML = `
                 <div class="question-box"><div class="question-content">${escapeHtml(qa.question)}</div></div>
                 <div class="answer-box">
-                    <div class="answer-header">${avatarHtml}<span class="answer-label">${answerLabel}</span></div>
+                    <div class="answer-header">
+                        ${avatarHtml}
+                        <span class="answer-label">${answerLabel}</span>
+                        ${copyButtonHtml}
+                    </div>
                     <div class="answer-content">${window.marked ? window.marked.parse(qa.answer || '') : qa.answer}</div>
                     <div class="typing-container"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>
                     <div class="sources-section">
@@ -253,5 +293,76 @@ function copyShareLink() {
             window.showNotification('Failed to copy link.', 'error');
         }
         console.error('Failed to copy link: ', err);
+    });
+}
+function copyShareLink(buttonEl) {
+    // This function finds the <input> element that comes just before the button.
+    const input = buttonEl.previousElementSibling;
+    if (input && typeof input.select === 'function') {
+        input.select();
+        navigator.clipboard.writeText(input.value).then(() => {
+            // Use the global showNotification function from base.html
+            if (window.showNotification) {
+                showNotification('Link copied to clipboard!', 'success');
+            }
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+            if (window.showNotification) {
+                showNotification('Failed to copy link.', 'error');
+            }
+        });
+    } else {
+        console.error('Could not find an input field to copy from.');
+    }
+}
+function buySubscription(planId) {
+    if (!IS_USER_LOGGED_IN) {
+        localStorage.setItem('action_after_login', JSON.stringify({
+            type: 'buy_subscription',
+            planId: planId
+        }));
+        showLoginPopup();
+        return;
+    }
+
+    fetch('/create_razorpay_subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_id: planId })
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.json().then(err => Promise.reject(err));
+        }
+        return res.json();
+    })
+    .then(data => {
+        if (data.status === 'success') {
+            const options = {
+                key: data.razorpay_key_id,
+                subscription_id: data.subscription_id,
+                name: 'YoppyChat AI',
+                description: `Subscription for ${data.plan_name} plan`,
+                handler: function (response) {
+                    showNotification('Payment successful! Your plan has been updated.', 'success');
+                    setTimeout(() => window.location.reload(), 2000);
+                },
+                prefill: {
+                    name: data.user_name || "",
+                    email: data.user_email || "",
+                    method: "upi" // <-- Prioritizes the UPI payment method
+                },
+                theme: {
+                    color: "#ff9a56"
+                }
+            };
+            const rzp = new Razorpay(options);
+            rzp.open();
+        } else {
+            throw new Error(data.message);
+        }
+    })
+    .catch(error => {
+        showNotification(error.message || 'An error occurred.', 'error');
     });
 }

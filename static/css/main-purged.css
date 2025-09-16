@@ -5,7 +5,7 @@
 :root {
     --primary-bg: #fdf8f3;
     --secondary-bg: #ffffff;
-    --surface-light: #ffffff;
+    --surface-light: #FFFFFF;
     --surface-medium: #fef7f0;
     --surface-dark: #f4ede4;
     --neutral-50: #fdf8f3;
@@ -30,10 +30,10 @@
     --text-muted: #7d6847;
     --text-white: #ffffff;
     --shadow-xs: 0 1px 3px 0 rgba(160, 134, 96, 0.08);
-    --shadow-sm: 0 2px 6px 0 rgba(160, 134, 96, 0.12), 0 2px 4px 0 rgba(160, 134, 96, 0.06);
-    --shadow-md: 0 4px 12px 0 rgba(160, 134, 96, 0.15), 0 2px 6px 0 rgba(160, 134, 96, 0.08);
-    --shadow-lg: 0 8px 20px 0 rgba(160, 134, 96, 0.18), 0 4px 12px 0 rgba(160, 134, 96, 0.10);
-    --shadow-xl: 0 12px 28px 0 rgba(160, 134, 96, 0.20), 0 6px 16px 0 rgba(160, 134, 96, 0.12);
+    --shadow-sm: 0 2px 6px 0 rgba(160, 134, 96, 0.12);
+    --shadow-md: 0 4px 12px 0 rgba(160, 134, 96, 0.15);
+    --shadow-lg: 0 8px 20px 0 rgba(160, 134, 96, 0.18);
+    --shadow-xl: 0 12px 28px 0 rgba(160, 134, 96, 0.20);
     --spacing-xs: 0.25rem;
     --spacing-sm: 0.5rem;
     --spacing-md: 1rem;
@@ -65,58 +65,141 @@ html[data-theme='dark'] {
     --shadow-xs: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
     --shadow-sm: 0 2px 6px 0 rgba(0, 0, 0, 0.35);
     --shadow-md: 0 4px 12px 0 rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 20px 0 rgba(0, 0, 0, 0.45);
-    --shadow-xl: 0 12px 28px 0 rgba(0, 0, 0, 0.5);
 }
-
-/* Dark mode specific adjustments for chat bubbles */
 html[data-theme='dark'] .question-box {
-    background: #36425E; /* A subtle blue for dark mode */
+    background: #36425E;
     color: #E0E0E0;
 }
-/* Reset and Base Styles */
-* { padding: 0; box-sizing: border-box; }
-html, body { overflow-x: hidden; } /* Prevent horizontal scroll */
+
+/* =================================================================
+   BASE & LAYOUT
+================================================================== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { overflow-x: hidden; }
 
 body {
-    font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: 'Poppins', sans-serif;
     line-height: 1.6;
     color: var(--text-primary);
     background: var(--primary-bg);
     min-height: 100vh;
-    /* --- Consistent Headings --- */
 }
 h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-title {
-    font-family: 'Onest', sans-serif;
+    font-family: 'Poppins', sans-serif;
 }
-/* --- Layout --- */
 .app-layout { display: flex; min-height: 100vh; position: relative; }
 .main-content {
-    flex: 1; margin-left: var(--sidebar-width); min-height: 100vh;
-    padding: var(--spacing-sm --spacing-sm); transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex: 1; 
+    margin-left: var(--sidebar-width); 
+    min-height: 100vh;
+    padding: var(--spacing-sm); 
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .card {
-    background: var(--surface-light); border-radius: var(--radius-xl);
-    /* box-shadow: var(--shadow-lg); border: 1px solid var(--neutral-200); */
-    /* padding: var(--spacing-md); */
+    background: var(--surface-light); 
+    border-radius: var(--radius-xl);
 }
 
-/* --- Sidebar --- */
-.sidebar { width: var(--sidebar-width); background: var(--surface-light); border-right: 1px solid var(--neutral-200); position: fixed; left: 0; top: 0; height: 100%; z-index: 1002; display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; box-shadow: var(--shadow-sm); }
-.sidebar-header { padding: var(--spacing-xl) var(--spacing-lg); background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%); color: var(--text-white); border-bottom: 1px solid var(--neutral-200); }
-.sidebar-header h1 { font-size: 1.25rem; font-weight: 600; color: var(--text-white); margin: 0; text-align: center; }
-.sidebar-content { flex: 1; padding: var(--spacing-lg); overflow-y: auto; }
-.sidebar-footer { padding: var(--spacing-lg); border-top: 1px solid var(--neutral-200); }
-.channel-section-title { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--spacing-md); padding: 0 var(--spacing-sm); }
-.channel-list { display: flex; flex-direction: column; gap: var(--spacing-xs); }
-.channel-item-wrapper { display: flex; justify-content: space-between; align-items: center; padding: var(--spacing-md); background: var(--surface-medium); border-radius: var(--radius-md); transition: all 0.3s ease; border: 1px solid transparent; }
-.channel-item-wrapper:hover { background: var(--neutral-100); border-color: var(--neutral-300); }
+/* =================================================================
+   LEFT SIDEBAR
+================================================================== */
+.sidebar { 
+    width: var(--sidebar-width); 
+    background: var(--surface-light); 
+    border-right: 1px solid var(--neutral-200); 
+    position: fixed; 
+    left: 0; 
+    top: 0; 
+    height: 100%; 
+    z-index: 1002; 
+    display: flex; 
+    flex-direction: column; 
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+    overflow: hidden; 
+    box-shadow: var(--shadow-sm); 
+}
+.sidebar-header { 
+    padding: var(--spacing-md);
+    background: var(--surface-light);
+    border-bottom: 1px solid var(--neutral-200);
+}
+.sidebar-content { 
+    flex: 1; 
+    padding: var(--spacing-lg); 
+    overflow-y: auto; 
+}
+.sidebar-footer { 
+    padding: var(--spacing-lg); 
+    border-top: 1px solid var(--neutral-200); 
+}
+
+/* --- START: Improved Sidebar Channel List --- */
+.channel-section-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: none;
+    letter-spacing: 0.02em;
+    margin-bottom: var(--spacing-sm);
+    padding: 0 var(--spacing-sm);
+}
+.add-channel-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-sm);
+    background: transparent;
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+.add-channel-btn:hover {
+    background: var(--surface-medium);
+    color: var(--text-primary);
+    border-color: var(--neutral-300);
+}
+.channel-list { 
+    display: flex; 
+    flex-direction: column; 
+    gap: var(--spacing-xs); 
+}
+.channel-item-wrapper {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: transparent;
+    border-radius: var(--radius-md);
+    transition: background-color 0.2s ease;
+    border: 1px solid transparent;
+}
+.channel-item-wrapper:hover {
+    background: var(--surface-medium);
+}
 .channel-item-wrapper.active {
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    color: var(--text-white);
-    border-color: transparent;
-    transform: translateY(-2px) scale(1.02);
-    box-shadow: var(--shadow-md);
+    background: var(--surface-medium);
+    color: var(--text-primary);
+}
+.channel-item-wrapper.active .channel-name {
+    font-weight: 600;
+}
+.channel-item-wrapper.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 20%;
+    height: 60%;
+    width: 3px;
+    background-color: var(--accent-primary);
+    border-radius: 0 4px 4px 0;
 }
 .channel-link {
     display: flex;
@@ -127,53 +210,46 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
     font-size: 0.875rem;
     flex-grow: 1;
     min-width: 0;
-
-    /* ADD these 3 lines here */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.channel-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 8px; flex-shrink: 0; }
-.channel-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.channel-avatar { 
+    width: 32px;
+    height: 32px; 
+    border-radius: 50%; 
+    object-fit: cover; 
+    margin-right: 12px; 
+    flex-shrink: 0; 
+}
+.channel-name { 
+    flex-grow: 1; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+}
 .delete-btn {
-    margin-left: auto; /* Pushes the button to the far right */
     background-color: transparent;
-    color: var(--text-muted);
-    opacity: 0.5; /* Keep it subtle */
-    width: 32px;  /* Explicit width */
-    height: 32px; /* Explicit height */
-    padding: 0;   /* Remove extra padding */
+    color: #FFFFFF;
+    opacity: 0;
+    transform: scale(0.9);
+    width: 30px;
+    height: 30px;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%; /* Make it a circle */
+    border-radius: 50%;
     transition: all 0.2s ease-in-out;
 }
-
-/* Show and style the delete button on hover */
 .channel-item-wrapper:hover .delete-btn {
     opacity: 1;
-    background-color: var(--surface-dark); /* Use a subtle background on hover */
-    color: var(--accent-error); /* Change icon color to red */
+    transform: scale(1);
 }
-.add-channel-btn {
-    margin-bottom: 50px;
-    padding: var(--spacing-md);
-    background: var(--surface-medium);
-    border: 2px dashed var(--neutral-300);
-    border-radius: var(--radius-md);
-    color: var(--text-secondary);
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s;
-    font-weight: 500;
-    font-size: 0.875rem;
+.delete-btn:hover {
+    background-color: var(--accent-error);
+    color: var(--text-white);
 }
-.add-channel-btn:hover { background: var(--accent-primary); color: var(--text-white); border-color: var(--accent-primary); border-style: solid; }
-.setup-nav { padding: var(--spacing-md); background: var(--surface-medium); border-radius: var(--radius-md); text-decoration: none; color: var(--text-primary); display: flex; align-items: center; gap: var(--spacing-sm); font-weight: 500; transition: all 0.3s ease; margin-bottom: var(--spacing-xs); }
-.setup-nav:hover { background: var(--neutral-100); color: var(--accent-primary); }
-.setup-nav.active { background: var(--accent-primary); color: var(--text-white); }
-
 
 /* --- Mobile & Responsive --- */
 .hamburger { display: none; position: fixed; top: var(--spacing-lg); left: var(--spacing-lg); z-index: 1003; width: 44px; height: 44px; background: var(--surface-light); border-radius: var(--radius-md); border: 1px solid var(--neutral-200); cursor: pointer; flex-direction: column; align-items: center; justify-content: center; gap: 4px; box-shadow: var(--shadow-sm); }
@@ -185,29 +261,29 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
 .sidebar-overlay.show { display: block; }
 
 .clear-chat-btn {
-    position: static; /* Make it flow with the header content */
+    position: static;
     bottom: auto;
     right: auto;
-    background: none; /* Remove background */
-    color: var(--accent-primary); /* Change to primary accent color for restart */
+    background: none;
+    color: var(--accent-primary);
     border: none;
     border-radius: var(--radius-full);
-    padding: var(--spacing-xs); /* Smaller padding for icon-only button */
+    padding: var(--spacing-xs);
     font-size: 0.875rem;
-    box-shadow: none; /* Remove shadow */
-    z-index: auto; /* Remove explicit z-index */
+    box-shadow: none;
+    z-index: auto;
     display: flex;
     align-items: center;
-    justify-content: center; /* Center the icon */
-    width: 48px; /* Increased width for icon-only button */
-    height: 48px; /* Increased height for icon-only button */
-    flex-shrink: 0; /* Prevent it from shrinking */
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
 }
 
 .clear-chat-btn .reset-icon {
-    font-size: 1.85rem; /* Increased icon size */
-    transform: rotate(0deg); /* Initial rotation */
-    transition: transform 0.3s ease; /* Smooth rotation transition */
+    font-size: 1.85rem;
+    transform: rotate(0deg);
+    transition: transform 0.3s ease;
 }
 
 .clear-chat-btn:hover {
@@ -217,7 +293,7 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
 }
 
 .clear-chat-btn:hover .reset-icon {
-    transform: rotate(180deg); /* Rotate icon on hover */
+    transform: rotate(180deg);
 }
 
 .clear-chat-btn:active {
@@ -226,7 +302,8 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
 
 @media (max-width: 768px) {
     .sidebar-logo-img {
-        margin-left: 62%;
+        margin-left: 22%;
+        padding-top: 3%;
     }
     .sidebar {
         transform: translateX(-100%);
@@ -239,20 +316,17 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
         position: fixed;
         top: var(--spacing-sm);
         left: var(--spacing-sm);
-        z-index: 1003; /* Ensure hamburger is on top */
-        background: var(--surface-light); /* Ensure it has a background */
+        z-index: 1003;
+        background: var(--surface-light);
     }
 
-    /* Make channel info banner and general QA header fixed and visible on mobile */
-
-
     .channel-info-content, .qa-header-content {
-        flex-grow: 0; /* Don't grow to fill space */
+        flex-grow: 0;
         display: flex;
         align-items: center;
         gap: 100px;
-        min-width: 0; /* Allow content to shrink */
-        justify-content: flex-end; /* Push inner content to the right */
+        min-width: 0;
+        justify-content: flex-end;
     }
 
     .channel-header,
@@ -260,15 +334,14 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
         display: flex;
         align-items: center;
         gap: var(--spacing-md);
-        flex-grow: 0; /* Don't grow to fill space */
-        min-width: 0; /* Allow text to truncate */
-        flex-shrink: 1; /* Allow content to shrink if needed */
+        flex-grow: 0;
+        min-width: 0;
+        flex-shrink: 1;
     }
 
     .main-content {
         margin-left: 0;
-        padding: 0; /* Remove default padding */
-         /* Space for the fixed mobile header */
+        padding: 0;
     }
 
     .main-content.has-mobile-nav .card {
@@ -277,17 +350,16 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
         box-shadow: none;
         border: none;
         background: transparent;
-        height: calc(100vh - (var(--spacing-xl) * 2)); /* Full height minus fixed mobile header */
+        height: calc(100vh - (var(--spacing-xl) * 2));
         display: flex;
         flex-direction: column;
     }
     .main-content.has-mobile-nav .chat-wrapper {
         flex-grow: 1;
-        /* This is a flexbox trick to prevent overflow issues when children grow */
         min-height: 0;
       }
 
-    .channel-avatar { /* This was merged from .mobile-channel-avatar */
+    .channel-avatar {
         width: 36px;
         height: 36px;
         font-size: 1.3rem;
@@ -295,7 +367,7 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
         border: none;
         background: var(--surface-medium);
     }
- /* Merged from .channel-title */
+
     .qa-title {
         font-size: 1.0rem;
         margin: 0;
@@ -305,7 +377,7 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
         flex-shrink: 1;
     }
 
-    .qa-description { /* Merged from .channel-stats */
+    .qa-description {
         font-size: 0.75rem;
         display: none;
     }
@@ -345,8 +417,6 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
         display: flex;
         flex-direction: column;
     }
-
-
 
     .question-form {
         flex-shrink: 0;
@@ -461,11 +531,8 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
         justify-content: space-between;
         align-items: center;
         background:#feedd900;
-        /* border: 1px solid var(--neutral-200);
-        border-radius: var(--radius-lg); */
         padding: var(--spacing-lg);
         margin-bottom: var(--spacing-xl);
-        /* box-shadow: var(--shadow-lg); */
     }
 
     .channel-info-content, .qa-header-content {
@@ -476,30 +543,30 @@ h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-tit
     }
 
     .clear-chat-btn {
-        position: static; /* Reset position for desktop */
-        background: var(--surface-medium); /* Restore desktop background */
-        color: var(--accent-primary); /* Change to primary accent color for restart */
-        box-shadow: none; /* Remove shadow for desktop */
-        border: 1px solid var(--neutral-300); /* Restore desktop border */
-        padding: var(--spacing-sm); /* Adjusted padding for icon only */
+        position: static;
+        background: var(--surface-medium);
+        color: var(--accent-primary);
+        box-shadow: none;
+        border: 1px solid var(--neutral-300);
+        padding: var(--spacing-sm);
         font-size: 0.875rem;
         z-index: auto;
-        width: 56px; /* Increased width for desktop icon-only button */
-        height: 56px; /* Increased height for desktop icon-only button */
-        border-radius: 50%; /* Make it circular on desktop */
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
     }
 
     .clear-chat-btn .reset-icon {
-        font-size: 2.5rem; /* Increased icon size for desktop */
-        transform: rotate(0deg); /* Initial rotation */
-        transition: transform 0.3s ease; /* Smooth rotation transition */
+        font-size: 2.5rem;
+        transform: rotate(0deg);
+        transition: transform 0.3s ease;
     }
 
     .clear-chat-btn:hover .reset-icon {
-        transform: rotate(180deg); /* Rotate icon on hover */
+        transform: rotate(180deg);
     }
 }
 
@@ -525,7 +592,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .clear-chat-btn:hover { background: var(--accent-error); color: var(--text-white); border-color: var(--accent-error); }
 .reset-icon { transition: transform 0.2s ease; }
 .clear-chat-btn:hover .reset-icon { transform: scale(1.1); }
-
 
 .char-count { font-size: 0.75rem; color: var(--text-secondary); transition: color 0.2s ease; }
 .char-count.near-limit { color: var(--accent-warning); }
@@ -576,7 +642,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 2100;  /* <-- UPDATED VALUE */
+    z-index: 2100;
     animation: fadeIn 0.2s ease;
 }
 .confirm-content { background: var(--surface-light); border-radius: var(--radius-lg); padding: var(--spacing-xl); max-width: 400px; width: 90%; box-shadow: var(--shadow-xl); animation: slideUp 0.3s ease; }
@@ -600,7 +666,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     .general-qa-header {
         margin-bottom: var(--spacing-md);
     }
-
 
     .question-box, .answer-box {
         padding: var(--spacing-md);
@@ -653,9 +718,9 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 /* --- Channel Page Specific Styles --- */
 .page-header {
     text-align: center;
-    margin-top: var(--spacing-lg); /* Increased top margin for better spacing within the card */
-    margin-bottom: var(--spacing-2xl); /* Consistent spacing below the header */
-    padding: 0 var(--spacing-lg); /* Add horizontal padding for header text */
+    margin-top: var(--spacing-lg);
+    margin-bottom: var(--spacing-2xl);
+    padding: 0 var(--spacing-lg);
 }
 
 .page-title {
@@ -663,7 +728,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     align-items: center;
     justify-content: center;
     gap: var(--spacing-md);
-    font-size: 2.2rem; /* Slightly larger title for impact */
+    font-size: 2.2rem;
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: var(--spacing-sm);
@@ -672,16 +737,16 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .page-title svg {
     color: var(--accent-primary);
     flex-shrink: 0;
-    width: 32px; /* Larger icon */
-    height: 32px; /* Larger icon */
+    width: 32px;
+    height: 32px;
 }
 
 .page-description {
-    font-size: 1.1rem; /* Slightly larger and more readable description */
+    font-size: 1.1rem;
     color: var(--text-secondary);
     margin-bottom: var(--spacing-2xl);
     line-height: 1.8;
-    max-width: 700px; /* Wider for more content */
+    max-width: 700px;
     margin-left: auto;
     margin-right: auto;
 }
@@ -689,7 +754,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .form-card {
     background: var(--surface-medium);
     border-radius: var(--radius-lg);
-    padding: var(--spacing-2xl); /* More generous padding */
+    padding: var(--spacing-2xl);
     border: 1px solid var(--neutral-200);
     box-shadow: var(--shadow-sm);
     margin-top: 0;
@@ -707,14 +772,14 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 }
 
 .input-with-icon input {
-    padding: var(--spacing-md) var(--spacing-lg); /* Consistent padding */
-    padding-right: 48px; /* Room for icon */
+    padding: var(--spacing-md) var(--spacing-lg);
+    padding-right: 48px;
     border: 1px solid var(--neutral-300);
-    border-radius: var(--radius-md); /* Consistent border-radius */
+    border-radius: var(--radius-md);
     font-size: 1rem;
     background: var(--surface-light);
     color: var(--text-primary);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease; /* Smooth transition */
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .input-with-icon input:focus {
@@ -728,8 +793,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     right: var(--spacing-md);
     color: var(--neutral-400);
     pointer-events: none;
-    width: 20px; /* Consistent icon size */
-    height: 20px; /* Consistent icon size */
+    width: 20px;
+    height: 20px;
 }
 
 .btn.btn-primary {
@@ -737,15 +802,15 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     align-items: center;
     justify-content: center;
     gap: var(--spacing-sm);
-    padding: var(--spacing-md) var(--spacing-2xl); /* More padding for a bolder button */
-    font-size: 1.05rem; /* Slightly larger text */
+    padding: var(--spacing-md) var(--spacing-2xl);
+    font-size: 1.05rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.08em; /* Slightly increased letter spacing */
+    letter-spacing: 0.08em;
     border-radius: var(--radius-md);
     transition: all 0.3s ease;
-    box-shadow: var(--shadow-sm); /* Keep shadow */
-    height: 50px; /* Fixed height for better consistency */
+    box-shadow: var(--shadow-sm);
+    height: 50px;
 }
 
 .btn.btn-primary:hover {
@@ -758,13 +823,13 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     background: var(--surface-light);
     border: 1px solid var(--neutral-200);
     border-radius: var(--radius-lg);
-    padding: var(--spacing-2xl); /* More generous padding */
+    padding: var(--spacing-2xl);
     margin-top: var(--spacing-2xl);
     box-shadow: var(--shadow-lg);
 }
 
 .section-title {
-    font-size: 1.8rem; /* Larger section title */
+    font-size: 1.8rem;
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: var(--spacing-md);
@@ -776,12 +841,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .section-title svg {
     color: var(--accent-primary);
     flex-shrink: 0;
-    width: 32px; /* Larger icon */
-    height: 32px; /* Larger icon */
+    width: 32px;
+    height: 32px;
 }
 
 .section-description {
-    font-size: 1rem; /* Consistent with page description */
+    font-size: 1rem;
     color: var(--text-secondary);
     margin-bottom: var(--spacing-xl);
     line-height: 1.7;
@@ -852,7 +917,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     font-size: 1.1rem;
     font-weight: 600;
     color: var(--text-primary);
-
     overflow: hidden;
     text-overflow: ellipsis;
     margin-bottom: 2px;
@@ -891,12 +955,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     height: 20px;
 }
 
-/* --- Setup Page Styles --- */
-/* This section was removed as the selectors were not found in the HTML files. */
-
-/* This makes the container a flexbox column */
-
-
 .qna-pair {
     display: flex;
     flex-direction: column;
@@ -904,48 +962,37 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 }
 
 .question-box, .answer-box {
-    max-width: 95%; /* Bubbles don't take up the full width */
-    /* padding: var(--spacing-md) var(--spacing-lg); */
-    border: none; /* Remove the main border */
-    box-shadow: var(--shadow-sm);
-    /* Make the corners more rounded for a softer, bubble-like feel */
+    max-width: 95%;
     border-radius: var(--radius-xl);
     margin: 8px;
 }
 
 .question-box {
-    align-self: flex-end; /* Align user's questions to the right */
-    background: #E3EFFB; /* A subtle blue background for the user */
+    align-self: flex-end;
+    background: #E3EFFB;
     color: #0B3C6F;
-    /* Custom border-radius for the "tail" effect */
     border-bottom-right-radius: var(--radius-sm);
 }
 
 .answer-box {
-    align-self: flex-start; /* Align AI answers to the left */
-    background: var(--surface-light); /* Keep the AI responses clean and white */
-    /* Custom border-radius for the "tail" effect */
+    align-self: flex-start;
+    background: var(--surface-light);
     border-bottom-left-radius: var(--radius-sm);
 }
 
-/* Hide the user's question header, as it's now redundant */
 .question-box .question-header {
     display: none;
 }
 
-/* Make the question text normal instead of italic */
 .question-box .question-content {
     font-style: normal;
-    color: inherit; /* Inherit the new blue color */
+    color: inherit;
 }
 
-/* Refine the answer header for better spacing */
 .answer-box .answer-header {
     margin-bottom: var(--spacing-sm);
 }
-/* In main.css */
 
-/* Make the parent container relative for positioning the dropdown */
 .header-actions {
     position: relative;
 }
@@ -965,11 +1012,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     background-color: var(--surface-medium);
 }
 
-/* The dropdown menu container */
 .dropdown-menu {
-    display: none; /* Hidden by default */
+    display: none;
     position: absolute;
-    top: 110%; /* Position it slightly below the button */
+    top: 110%;
     right: 0;
     background-color: var(--surface-light);
     box-shadow: var(--shadow-lg);
@@ -977,16 +1023,14 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     border: 1px solid var(--neutral-200);
     z-index: var(--z-dropdown);
     min-width: 200px;
-    overflow: hidden; /* Ensures child elements respect the border-radius */
+    overflow: hidden;
     padding: var(--spacing-sm) 0;
 }
 
-/* This class will be toggled by JavaScript to show the menu */
 .dropdown-menu.show {
     display: block;
 }
 
-/* Styling for the links (actions) inside the menu */
 .dropdown-menu a {
     display: block;
     padding: 10px 16px;
@@ -1001,7 +1045,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     color: var(--accent-primary);
 }
 
-/* A simple separator line */
 .dropdown-menu hr {
     border: none;
     border-top: 1px solid var(--neutral-200);
@@ -1010,35 +1053,29 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .button-spinner {
     width: 20px;
     height: 20px;
-    border: 3px solid rgba(0, 0, 0, 0.1); /* Light grey track */
-    border-left-color: var(--text-primary); /* Spinner color */
+    border: 3px solid rgba(0, 0, 0, 0.1);
+    border-left-color: var(--text-primary);
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
 
-/* In main.css */
-
 .kebab-menu-button .icon-success,
 .kebab-menu-button .icon-failure,
 .kebab-menu-button.state-loading .icon-default {
-    display: none; /* Hide success/failure icons by default */
+    display: none;
 }
 
-/* When the button has a state class, show the correct icon */
 .kebab-menu-button.state-success .icon-success,
 .kebab-menu-button.state-failure .icon-failure {
     display: block;
 }
 
-/* Style the new icons */
 .kebab-menu-button .icon-success {
     color: var(--accent-success);
 }
 .kebab-menu-button .icon-failure {
     color: var(--accent-error);
 }
-
-/* In main.css */
 
 .empty-state-container {
     text-align: center;
@@ -1072,13 +1109,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     line-height: var(--line-height-relaxed);
     margin-bottom: var(--spacing-md);
 }
-/* In main.css */
 
 .channel-card.is-processing {
     background-color: var(--surface-medium);
     border-style: dashed;
     opacity: 0.7;
-    pointer-events: none; /* Make it unclickable while processing */
+    pointer-events: none;
 }
 
 .channel-card.is-processing .channel-card-details {
@@ -1106,7 +1142,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     animation: spin 1s linear infinite;
     flex-shrink: 0;
 }
-
 
 /* === Login Popup Modal Styles === */
 .login-popup-overlay {
@@ -1204,7 +1239,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         to { transform: translateY(0); }
     }
 }
-/* In static/css/main.css or a style block */
+
 .progress-bar-inner {
     height: 100%;
     background-color: var(--accent-primary);
@@ -1223,31 +1258,28 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 }
 
 .channel-card.is-processing .channel-card-details {
-    /* Adjust alignment to make space for progress */
     justify-content: center;
 }
 
-/* Add this inside the <style> tag at the top of base.html */
 .sidebar-logo-img {
-    height: 70px; /* Controls the height of the logo */
+    height: 70px;
     margin: -20px;
     margin-left: 10%;
-    width: auto;  /* Lets the width adjust automatically */
+    width: auto;
 }
 @media (max-width: 768px) {
     .sidebar-logo-img {
         margin-left: 22%;
     }
-    /* Adjusted margins for elements within the card on mobile */
     .page-header {
-        margin-top: var(--spacing-lg); /* Consistent top margin for mobile */
-        margin-bottom: var(--spacing-xl); /* Spacing for header on mobile */
-        padding-left: var(--spacing-md); /* Horizontal padding for mobile header */
-        padding-right: var(--spacing-md); /* Horizontal padding for mobile header */
+        margin-top: var(--spacing-lg);
+        margin-bottom: var(--spacing-xl);
+        padding-left: var(--spacing-md);
+        padding-right: var(--spacing-md);
     }
 
     .page-title {
-        font-size: 1.8rem; /* Slightly smaller title on mobile */
+        font-size: 1.8rem;
         justify-content: center;
         text-align: center;
         margin-bottom: var(--spacing-sm);
@@ -1259,14 +1291,14 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     }
 
     .page-description {
-        font-size: 0.95rem; /* Slightly smaller description on mobile */
+        font-size: 0.95rem;
         text-align: center;
         padding: 0;
         margin-bottom: var(--spacing-lg);
     }
 
     .form-card {
-        padding: var(--spacing-xl) var(--spacing-md); /* Adjust padding */
+        padding: var(--spacing-xl) var(--spacing-md);
         box-shadow: var(--shadow-sm);
         border: 1px solid var(--neutral-200);
         background: var(--surface-medium);
@@ -1297,14 +1329,14 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
     .saved-channels-section {
         margin-top: var(--spacing-xl);
-        padding: var(--spacing-xl) var(--spacing-md); /* Adjust padding for mobile */
+        padding: var(--spacing-xl) var(--spacing-md);
         box-shadow: var(--shadow-lg);
         border: 1px solid var(--neutral-200);
         border-radius: var(--radius-lg);
     }
 
     .section-title {
-        font-size: 1.6rem; /* Smaller section title on mobile */
+        font-size: 1.6rem;
         justify-content: center;
         text-align: center;
         margin-bottom: var(--spacing-md);
@@ -1350,14 +1382,14 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     }
 
     .delete-channel-btn {
-        margin-left: auto; /* Ensure it stays pushed to the right */
-        width: 30px; /* Slightly smaller button on mobile */
-        height: 30px; /* Slightly smaller button on mobile */
+        margin-left: auto;
+        width: 30px;
+        height: 30px;
         padding: var(--spacing-xs);
     }
 
     .delete-channel-btn svg {
-        width: 16px; /* Smaller delete icon on mobile */
+        width: 16px;
         height: 16px;
     }
     .question-box, .answer-box {
@@ -1366,54 +1398,50 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     }
 }
 
-/* In main-purged.css */
-
 /* --- Desktop Two-Column Chat Layout --- */
 @media (min-width: 769px) {
-
-    /* 1. The main grid container */
+    .main-content.has-mobile-nav {
+        height: 100vh;
+        padding: 0;
+    }
+    .main-content.has-mobile-nav .card {
+        height: 100%;
+        border-radius: 0;
+        box-shadow: none;
+        border: none;
+        background: transparent;
+        padding: 0px;
+    }
     .desktop-chat-layout {
         display: grid;
-        grid-template-columns: 1fr 360px; /* Right sidebar is 360px */
-        gap: var(--spacing-xl);
-        /* This is crucial: Make the grid take up all available space */
+        grid-template-columns: 1fr 360px;
+        gap: 0px;
         height: 100%;
-        /* Prevents the grid from creating its own scrollbar */
-        overflow: hidden;
     }
-
-    /* 2. The new chat column (left side) */
     .chat-column {
-        display: flex; /* Make it a flex container... */
-        flex-direction: column; /* ...that stacks its children vertically. */
+        display: flex;
+        flex-direction: column;
         height: 100%;
-        /* This is a flexbox/grid fix to prevent weird overflow issues */
         min-height: 0;
     }
-
-    /* 3. Ensure the chat wrapper fills the column */
     .chat-column .chat-wrapper {
-        flex-grow: 1; /* Allows the wrapper to grow and fill the space */
+        flex-grow: 1;
         display: flex;
         flex-direction: column;
         min-height: 0;
-        /* Remove styles that are no longer needed */
         border-radius: 0;
         background: transparent;
     }
 
-    /* 4. Ensure the chat history scrolls correctly */
-
-
-    /* 5. The new right sidebar */
+    .question-form {
+        flex-shrink: 0;
+    }
     .chat-sidebar-right {
         position: sticky;
         top: var(--spacing-sm);
         max-height: calc(100vh - (var(--spacing-sm) * 2));
         overflow-y: auto;
     }
-
-    /* 6. Remove styles from the moved banner */
     .chat-sidebar-right .channel-info-banner,
     .chat-sidebar-right .general-qa-header {
         margin-bottom: 0;
@@ -1423,28 +1451,15 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         border-radius: 0;
         background: transparent;
     }
-
-    /* 7. Override mobile-specific fixed header styles */
-    .channel-info-banner,
-    .general-qa-header {
-        position: static;
-        height: auto;
-        padding: var(--spacing-lg);
-        box-shadow: var(--shadow-lg);
-        border: 1px solid var(--neutral-200);
-        border-radius: var(--radius-lg);
-        margin-bottom: var(--spacing-xl);
-    }
 }
 
-/* --- Mobile Only Rule (This part remains the same) --- */
+/* --- Mobile Only Rule --- */
 @media (max-width: 768px) {
     .chat-sidebar-right {
         display: none;
     }
 
     .channel-info-banner, .general-qa-header {
-
         top: 0;
         left: 0;
         width: 100%;
@@ -1456,99 +1471,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         display: flex;
         align-items: center;
         padding: var(--spacing-sm) var(--spacing-md) var(--spacing-sm) calc(var(--spacing-md) + 70px);
-
     }
 }
-
-/* In main-purged.css */
-
-/* In main-purged.css */
-
-/* --- Desktop Two-Column Chat Layout --- */
-@media (min-width: 769px) {
-    /* 1. Force the main content area on the chat page to take up the full viewport height */
-    .main-content.has-mobile-nav {
-        height: 100vh;
-        padding: 0; /* Remove default padding */
-    }
-    /* 2. Make the card inside also fill the full height */
-    .main-content.has-mobile-nav .card {
-        height: 100%;
-        border-radius: 0;
-        box-shadow: none;
-        border: none;
-        background: transparent;
-        padding: 0px;
-    }
-    /* 3. The main grid container (REMOVE overflow: hidden) */
-    .desktop-chat-layout {
-        display: grid;
-        grid-template-columns: 1fr 360px; /* Right sidebar is 360px */
-        gap: 0px;
-        height: 100%;
-    }
-    /* 4. The chat column (left side) now has a defined height to fill */
-    .chat-column {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        min-height: 0;
-    }
-    /* 5. The chat wrapper grows to fill the column, pushing the form down */
-    .chat-column .chat-wrapper {
-        flex-grow: 1;
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-        border-radius: 0;
-        background: transparent;
-    }
-    /* 6. The chat history scrolls, and the form stays put */
-
-    .question-form {
-        flex-shrink: 0; /* Prevents the form from shrinking */
-    }
-    /* 7. The right sidebar is now properly sticky */
-    .chat-sidebar-right {
-        position: sticky;
-        top: var(--spacing-sm);
-        max-height: calc(100vh - (var(--spacing-sm) * 2));
-        overflow-y: auto; /* Its own content will scroll if it's too long */
-    }
-    /* 8. Reset styles for the moved banner */
-    .chat-sidebar-right .channel-info-banner,
-    .chat-sidebar-right .general-qa-header {
-        margin-bottom: 0;
-        box-shadow: none;
-        border: none;
-        padding: 0;
-        border-radius: 0;
-        background: transparent;
-    }
-}
-/* In static/css/main-purged.css */
-
-/* In static/css/main-purged.css */
-
-/* --- START: DESKTOP OVERFLOW & LAYOUT FIX --- */
-@media (min-width: 769px) {
-    .main-content.has-mobile-nav {
-        height: 100vh;
-        padding: 0;
-    }
-    .main-content.has-mobile-nav .card {
-        height: 100%;
-    }
-    .desktop-chat-layout {
-        height: 100%;
-    }
-}
-/* --- END: DESKTOP OVERFLOW & LAYOUT FIX --- */
-
-
-/* --- START: NEW MOBILE HEADER & CHAT BUBBLE STYLES --- */
-
-/* --- END: NEW MOBILE HEADER & CHAT BUBBLE STYLES --- */
 
 .channel-list > * {
     display: flex;
@@ -1570,7 +1494,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     color: var(--text-primary);
 }
 
-/* --- Restored Chat Header Styles --- */
 .question-header, .answer-header {
     display: flex;
     align-items: center;
@@ -1594,24 +1517,29 @@ body {
     min-height: 100vh;
 }
 
-/* And change it to this */
-body {
-    font-family: 'Poppins', sans-serif; /* CHANGED */
-    line-height: 1.6;
-    color: var(--text-primary);
-    background: var(--primary-bg);
-    min-height: 100vh;
+.btn-primary {
+    background: var(--accent-primary-gradient);
 }
-
-/* Find this existing rule */
-h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-title {
-    font-family: 'Onest', sans-serif;
+@media (max-width: 768px) {
+  .channel-item-wrapper .delete-btn {
+    opacity: 1 !important;
+    transform: scale(1) !important;
+    width: 36px;
+    height: 36px;
+  }
+  
+  .channel-item-wrapper .delete-btn:hover {
+    background-color: var(--accent-error);
+    color: var(--text-white);
+  }
+  
+  /* Adjust channel item padding to accommodate the visible delete button */
+  .channel-item-wrapper {
+    padding: var(--spacing-sm) var(--spacing-sm);
+  }
+  
+  /* Make sure the channel name doesn't get hidden by the delete button */
+  .channel-name {
+    max-width: calc(100% - 50px);
+  }
 }
-
-/* And change it to this */
-h1, h2, h3, h4, .page-title, .profile-name, .sidebar-logo-link, .login-popup-title {
-    font-family: 'Poppins', sans-serif; /* CHANGED */
-}
-/* Add this to your main-purged.css file */
-
-/* Fix for public pages when user is not logged in */

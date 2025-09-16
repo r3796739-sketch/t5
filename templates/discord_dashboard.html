@@ -261,7 +261,9 @@
     /* --- Mobile Responsiveness --- */
     @media (max-width: 768px) {
         .bot-card-footer { flex-direction: column; }
-        .bot-card-footer .btn { width: 100%; }
+        .bot-card-footer .btn { width: 100%;
+        color: #ffffff;
+        background: #ff8c42;}
     }
 </style>
 
@@ -275,7 +277,7 @@
          alt="Discord Logo" class="card-icon" style="vertical-align: middle; margin-right: 0.5rem; width: 40px;">
     Discord Integrations
 </h1>
-
+    <br>
     {% if discord_account_linked %}
         {# --- THIS CONTENT SHOWS IF THE USER'S ACCOUNT IS LINKED --- #}
         <div class="integration-section bot-dashboard">
