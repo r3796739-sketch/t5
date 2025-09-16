@@ -88,43 +88,65 @@
             {% endfor %}
         </div>
     </div>
+
     <div class="admin-section">
-    <h2 class="section-title">Creator Payouts</h2>
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>Creator</th>
-                    <th>Amount</th>
-                    <th>Date Requested</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for payout in payouts %}
-                <tr>
-                    <td title="{{ payout.creator.email }}">{{ payout.creator.full_name or payout.creator.email }}</td>
-                    <td><strong>${{ "%.2f"|format(payout.amount_usd) }}</strong></td>
-                    <td>{{ payout.requested_at.split('T')[0] }}</td>
-                    <td><span class="status-badge status-{{ payout.status }}">{{ payout.status|title }}</span></td>
-                    <td>
-                        {% if payout.status == 'pending' %}
-                            <button class="btn-secondary" onclick="markPayoutAsPaid('{{ payout.id }}', this)">Mark as Paid</button>
-                        {% else %}
-                            <span>-</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5" style="text-align: center; padding: 2rem;">No payout requests yet.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="section-header">
+            <h2 class="section-title">Creator Payouts</h2>
+            <div class="search-wrapper">
+                <form id="payoutSearchForm">
+                    <input type="search" id="payoutSearchInput" name="q" placeholder="Search by email or payout ID..." value="{{ search_query or '' }}">
+                </form>
+            </div>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Creator</th>
+                        <th>Amount</th>
+                        <th>Date Requested</th>
+                        <th>Payout Details</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payout in payouts %}
+                    <tr>
+                        <td class="creator-cell">
+                            <span class="creator-name" title="{{ payout.creator.email }}">{{ payout.creator.full_name or payout.creator.email }}</span>
+                            <span class="creator-email" title="{{ payout.id }}">ID: {{ payout.id[:8] }}...</span>
+                        </td>
+                        <td class="amount-cell"><strong>${{ "%.2f"|format(payout.amount_usd) }}</strong></td>
+                        <td>{{ payout.requested_at.split('T')[0] }}</td>
+                        <td class="payout-details-cell">
+                            {% if payout.payout_destination_details %}
+                                <div><strong>Name:</strong> {{ payout.payout_destination_details.name }}</div>
+                                <div><strong>Acc No:</strong> {{ payout.payout_destination_details.account_number }}</div>
+                                <div><strong>IFSC:</strong> {{ payout.payout_destination_details.ifsc }}</div>
+                            {% else %}
+                                <span class="text-muted">No Details Provided</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="status-badge status-{{ payout.status }}">{{ payout.status|title }}</span></td>
+                        <td>
+                            {% if payout.status == 'pending' and payout.payout_destination_details %}
+                                <button class="btn-secondary" onclick="markPayoutAsPaid('{{ payout.id }}', this)">Mark as Paid</button>
+                            {% else %}
+                                <span>-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="empty-row">No payouts found matching your search.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-</div>
+
     <div class="admin-section">
         <h2 class="section-title">Direct Users (Non-Whop)</h2>
         <div class="admin-grid">

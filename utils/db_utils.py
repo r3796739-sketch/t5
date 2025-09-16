@@ -2,7 +2,7 @@
 
 import logging
 from .supabase_client import get_supabase_admin_client
-
+import datetime
 # It's good practice to use the shared admin client for these utility functions
 # as they are often called from background tasks or trusted server-side routes.
 supabase = get_supabase_admin_client()
@@ -486,30 +486,65 @@ def get_creator_balance_and_history(creator_id: str):
         return {'withdrawable_balance': 0.0, 'pending_payouts': 0.0, 'total_earned': 0.0, 'history': []}
 
 
-def create_payout_request(creator_id: str, amount: float, method_details: dict):
+def create_payout_request(creator_id: str, amount: float, payout_details: dict):
     """
-    Refactored to be much simpler. It now only creates a 'pending' payout
-    request without touching the original earnings records.
+    Creates a new payout request and stores a snapshot of the payout details.
     """
     supabase = get_supabase_admin_client()
     try:
-        # Step 1: Get the current, accurate withdrawable balance.
         current_balances = get_creator_balance_and_history(creator_id)
         withdrawable_balance = current_balances.get('withdrawable_balance', 0.0)
 
         if amount > withdrawable_balance:
             return None, "Withdrawal amount cannot exceed your available balance."
 
-        # Step 2: Simply create the new payout record with 'pending' status.
-        # We no longer link individual earnings at this stage.
+        # --- START OF THE FIX ---
+        # Save the provided payout_details into the new column for this specific request
         new_payout = supabase.table('creator_payouts').insert({
             'creator_id': creator_id,
             'amount_usd': amount,
             'status': 'pending',
-            'payout_method_details': method_details
+            'payout_destination_details': payout_details 
         }).execute().data[0]
+        # --- END OF THE FIX ---
 
         return new_payout, "Payout requested successfully. It will be reviewed by an admin."
     except Exception as e:
         log.error(f"Error creating payout request for creator {creator_id}: {e}")
         return None, "An internal error occurred."
+    
+def get_user_by_razorpay_customer_id(customer_id: str):
+    """
+    Finds a user by their Razorpay customer ID.
+    """
+    try:
+        response = supabase.table('profiles').select('id').eq('razorpay_customer_id', customer_id).single().execute()
+        return response.data['id'] if response.data else None
+    except Exception as e:
+        log.error(f"Error getting user by Razorpay customer ID: {e}")
+        return None
+
+def update_razorpay_subscription(user_id: str, subscription_data: dict):
+    """
+    Updates the user's subscription details in the database.
+    """
+    try:
+        supabase.table('razorpay_subscriptions').upsert({
+            'id': subscription_data['id'],
+            'user_id': user_id,
+            'plan_id': subscription_data['plan_id'],
+            'status': subscription_data['status'],
+            'current_start': datetime.fromtimestamp(subscription_data['current_start']).isoformat(),
+            'current_end': datetime.fromtimestamp(subscription_data['current_end']).isoformat(),
+        }, on_conflict='id').execute()
+    except Exception as e:
+        log.error(f"Error updating Razorpay subscription for user {user_id}: {e}")
+
+def update_payout_status(payout_id: str, status: str):
+    """
+    Updates the status of a payout request.
+    """
+    try:
+        supabase.table('creator_payouts').update({'status': status}).eq('id', payout_id).execute()
+    except Exception as e:
+        log.error(f"Error updating payout status for payout {payout_id}: {e}")

@@ -56,9 +56,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
         });
     }
-
+    
     // Run the function to attach the event listener
     initializeSpaNavigation();
+
+    // --- THIS IS THE NEWLY ADDED BLOCK ---
+    // This part handles resuming an action after a user logs in
+    if (typeof IS_USER_LOGGED_IN !== 'undefined' && IS_USER_LOGGED_IN) {
+        const pendingActionJSON = localStorage.getItem('action_after_login');
+        if (pendingActionJSON) {
+            const pendingAction = JSON.parse(pendingActionJSON);
+            localStorage.removeItem('action_after_login'); // Clear the action
+
+            // Check if the pending action was to buy a subscription
+            if (pendingAction.type === 'buy_subscription' && pendingAction.planId) {
+                // If so, call the buySubscription function immediately
+                buySubscription(pendingAction.planId);
+            }
+            // You can add more 'else if' blocks here for other actions in the future
+        }
+    }
+    // --- END OF NEW BLOCK ---
 });
 
 /**
@@ -296,4 +314,55 @@ function copyShareLink(buttonEl) {
     } else {
         console.error('Could not find an input field to copy from.');
     }
+}
+function buySubscription(planId) {
+    if (!IS_USER_LOGGED_IN) {
+        localStorage.setItem('action_after_login', JSON.stringify({
+            type: 'buy_subscription',
+            planId: planId
+        }));
+        showLoginPopup();
+        return;
+    }
+
+    fetch('/create_razorpay_subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_id: planId })
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.json().then(err => Promise.reject(err));
+        }
+        return res.json();
+    })
+    .then(data => {
+        if (data.status === 'success') {
+            const options = {
+                key: data.razorpay_key_id,
+                subscription_id: data.subscription_id,
+                name: 'YoppyChat AI',
+                description: `Subscription for ${data.plan_name} plan`,
+                handler: function (response) {
+                    showNotification('Payment successful! Your plan has been updated.', 'success');
+                    setTimeout(() => window.location.reload(), 2000);
+                },
+                prefill: {
+                    name: data.user_name || "",
+                    email: data.user_email || "",
+                    method: "upi" // <-- Prioritizes the UPI payment method
+                },
+                theme: {
+                    color: "#ff9a56"
+                }
+            };
+            const rzp = new Razorpay(options);
+            rzp.open();
+        } else {
+            throw new Error(data.message);
+        }
+    })
+    .catch(error => {
+        showNotification(error.message || 'An error occurred.', 'error');
+    });
 }

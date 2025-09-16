@@ -40,16 +40,27 @@ COMMUNITY_PLANS = {
 
 PLANS = {
     'free': { 
-        'name': 'Free', 'max_channels': 2, 'max_queries_per_month': 50, 
-        'price_usd': 0, 'commission_rate': 0 
+        'name': 'Free', 
+        'max_channels': 2, 
+        'max_queries_per_month': 50, 
+        'price_usd': 0, 
+        'commission_rate': 0 
     },
-    'creator': { 
-        'name': 'Creator', 'max_channels': 10, 'max_queries_per_month': 2500, 
-        'price_usd': 9, 'commission_rate': 0.70 
+    # This is the old 'creator' plan, now for regular users
+    os.environ.get('RAZORPAY_PLAN_ID_PERSONAL', 'personal'): { 
+        'name': 'Personal', 
+        'max_channels': 10, 
+        'max_queries_per_month': 2500, 
+        'price_usd': 3.60,  # Corrected from 9 (approx. ₹299)
+        'commission_rate': 0.70 
     },
-    'pro': { 
-        'name': 'Pro', 'max_channels': float('inf'), 'max_queries_per_month': 10000, 
-        'price_usd': 9.99, 'commission_rate': 0.75 
+    # This is the old 'pro' plan, now repurposed for creators
+    os.environ.get('RAZORPAY_PLAN_ID_CREATOR', 'creator'): { 
+        'name': 'Creator', 
+        'max_channels': float('inf'), 
+        'max_queries_per_month': 10000, 
+        'price_usd': 18.00, # Corrected from 9.99 (approx. ₹1,499)
+        'commission_rate': 0.75 
     },
     'admin_testing': { 'name': 'free', 'max_channels': 1, 'max_queries_per_month': 10 },
     'community_member': { 'name': 'Community Member', 'max_channels': 0, 'max_queries_per_month': 50 },
@@ -57,6 +68,7 @@ PLANS = {
     'whop_pro_member': { 'name': 'Pro Member', 'max_channels': 5, 'max_queries_per_month': 100 },
     'whop_rich_member': { 'name': 'Rich Member', 'max_channels': 10, 'max_queries_per_month': 300 }
 }
+
 
 # --- get_community_status (Unchanged) ---
 def get_community_status(community_id: str) -> dict:

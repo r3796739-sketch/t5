@@ -34,6 +34,7 @@ from utils.subscription_utils import PLANS, COMMUNITY_PLANS
 from datetime import datetime, timezone, timedelta
 from dateutil.parser import isoparse
 import uuid
+from utils.razorpay_client import get_razorpay_client
 from supabase_auth.errors import AuthApiError
 logger = logging.getLogger(__name__)
 
@@ -471,12 +472,29 @@ def set_auth_cookie():
     except Exception as e:
         logging.error(f"Error in set-cookie: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'An internal error occurred.'}), 500
+@app.route('/shipping-policy')
+def shipping_policy():
+    return render_template('shipping_policy.html', saved_channels=get_user_channels())
 
+@app.route('/contact')
+def contact():
+    return render_template('contact.html', saved_channels=get_user_channels())
+
+@app.route('/refund-policy')
+def refund_policy():
+    return render_template('refund_policy.html', saved_channels=get_user_channels())
 @app.route('/')
 def home():
     if 'user' in session:
         return redirect(url_for('channel'))
-    return render_template('landing.html')
+    else:
+        personal_plan_id = os.environ.get('RAZORPAY_PLAN_ID_PERSONAL')
+        creator_plan_id = os.environ.get('RAZORPAY_PLAN_ID_CREATOR')
+        return render_template(
+            'landing.html',
+            razorpay_plan_id_personal=personal_plan_id,
+            razorpay_plan_id_creator=creator_plan_id
+        )
 
 # --- All other routes like /channel, /ask, /stream_answer, etc. remain unchanged ---
 # ... (The rest of your app.py file from /channel downwards remains the same)
@@ -545,12 +563,15 @@ def channel():
                     if redis_client: redis_client.delete(f"user_channels:{user_id}")
                     return jsonify({'status': 'processing', 'task_id': task.id})
             return guarded_personal_channel_add()
-
+        personal_plan_id = os.environ.get('RAZORPAY_PLAN_ID_PERSONAL')
+        creator_plan_id = os.environ.get('RAZORPAY_PLAN_ID_CREATOR')
         return render_template(
             'channel.html',
             saved_channels=get_user_channels(),
             SUPABASE_URL=os.environ.get('SUPABASE_URL'),
-            SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
+            SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY'),
+            razorpay_plan_id_personal=personal_plan_id,
+            razorpay_plan_id_creator=creator_plan_id
         )
     except Exception as e:
         logging.error(f"Error in /channel: {e}", exc_info=True)
@@ -1122,17 +1143,28 @@ def admin_required(f):
 @admin_required
 def admin_dashboard():
     supabase_admin = get_supabase_admin_client()
+    
+    # --- START OF MODIFICATION ---
+    # Get the search query from the URL parameters
+    search_query = request.args.get('q', '').strip()
+
     communities_res = supabase_admin.table('communities').select('*, owner:owner_user_id(full_name, email)').execute()
     communities = communities_res.data if communities_res.data else []
 
     non_whop_users_res = supabase_admin.table('profiles').select('*, usage:usage_stats!inner(*)').is_('whop_user_id', None).execute()
     non_whop_users = non_whop_users_res.data if non_whop_users_res.data else []
 
-    # --- START: NEW LOGIC ---
-    # Fetch all creator payouts and join with the creator's profile info
-    payouts_res = supabase_admin.table('creator_payouts').select('*, creator:creator_id(email, full_name)').order('requested_at', desc=True).execute()
+    # Base query for payouts
+    payout_query = supabase_admin.table('creator_payouts').select('*, creator:creator_id(email, full_name, payout_details)').order('requested_at', desc=True)
+
+    # If there's a search query, filter the results
+    if search_query:
+        # This will search for the query in the creator's email OR in the payout ID
+        payout_query = payout_query.or_(f"creator.email.ilike.%{search_query}%,id.ilike.%{search_query}%")
+
+    payouts_res = payout_query.execute()
     payouts = payouts_res.data if payouts_res.data else []
-    # --- END: NEW LOGIC ---
+    # --- END OF MODIFICATION ---
 
     saved_channels = get_user_channels() 
     return render_template('admin.html', 
@@ -1141,7 +1173,8 @@ def admin_dashboard():
                            all_plans=PLANS, 
                            COMMUNITY_PLANS=COMMUNITY_PLANS, 
                            saved_channels=saved_channels,
-                           payouts=payouts) # Pass payouts to the template
+                           payouts=payouts,
+                           search_query=search_query) # Pass payouts to the template
 
 @app.route('/api/admin/complete_payout/<payout_id>', methods=['POST'])
 @admin_required
@@ -1273,18 +1306,17 @@ def api_admin_delete_user(user_id):
             return jsonify({'status': 'error', 'message': 'User not found. They may have already been deleted.'}), 404
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
 
-@app.route('/earnings')
-@login_required
-def earnings_page():
-    creator_id = session['user']['id']
-    earnings_data = db_utils.get_creator_balance_and_history(creator_id)
-    return render_template('earnings.html', earnings_data=earnings_data, saved_channels=get_user_channels())
+
 
 @app.route('/api/request_payout', methods=['POST'])
 @login_required
 def request_payout():
     creator_id = session['user']['id']
     amount = request.json.get('amount')
+    profile = db_utils.get_profile(creator_id)
+
+    if not profile or not profile.get('payout_details'):
+        return jsonify({'status': 'error', 'message': 'You must save your payout details before requesting a withdrawal.'}), 400
 
     try:
         amount_float = float(amount)
@@ -1293,10 +1325,11 @@ def request_payout():
     except (ValueError, TypeError):
         return jsonify({'status': 'error', 'message': 'Invalid amount specified.'}), 400
 
-    # For simulation, we'll just store a mock detail.
-    mock_details = {"method": "Simulated Bank Transfer", "account_ending": "XX1234"}
-
-    payout, message = db_utils.create_payout_request(creator_id, amount_float, mock_details)
+    # --- START OF THE FIX ---
+    # We now pass the creator's CURRENT bank details to the database function
+    current_payout_details = profile.get('payout_details')
+    payout, message = db_utils.create_payout_request(creator_id, amount_float, current_payout_details)
+    # --- END OF THE FIX ---
 
     if payout:
         return jsonify({'status': 'success', 'message': message})
@@ -1712,6 +1745,260 @@ def share_chat_history():
     redis_client.setex(f"shared_chat:{history_id}", 86400, json.dumps(history_data))
     
     return jsonify({'status': 'success', 'history_id': history_id})
+
+
+
+#payment system
+
+@app.route('/razorpay_webhook', methods=['POST'])
+def razorpay_webhook():
+    webhook_secret = os.environ.get('RAZORPAY_WEBHOOK_SECRET')
+    webhook_body = request.get_data()
+    received_signature = request.headers.get('X-Razorpay-Signature')
+
+    razorpay_client = get_razorpay_client()
+    if not razorpay_client:
+        return jsonify({'status': 'error', 'message': 'Razorpay client not configured'}), 500
+
+    try:
+        # This part remains the same, it verifies the request is from Razorpay
+        razorpay_client.utility.verify_webhook_signature(webhook_body, received_signature, webhook_secret)
+    except Exception as e:
+        logging.error(f"Razorpay webhook signature verification failed: {e}")
+        return jsonify({'status': 'error', 'message': 'Invalid signature'}), 400
+
+    event = request.get_json()
+    
+    # --- START OF THE FIX ---
+    # We now listen for 'invoice.paid' instead of 'subscription.charged'
+    if event['event'] == 'invoice.paid':
+        try:
+            invoice_data = event['payload']['invoice']['entity']
+            customer_id = invoice_data.get('customer_id')
+            subscription_id = invoice_data.get('subscription_id')
+
+            if not customer_id or not subscription_id:
+                logging.warning("Webhook for 'invoice.paid' received without customer_id or subscription_id.")
+                return jsonify({'status': 'ok', 'message': 'Ignoring event with missing data.'})
+
+            # Fetch the subscription to get the plan_id
+            subscription_details = razorpay_client.subscription.fetch(subscription_id)
+            plan_id = subscription_details.get('plan_id')
+
+            # Find the user in our database using their Razorpay customer ID
+            user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
+            
+            if user_id and plan_id:
+                logging.info(f"Processing successful subscription payment for user {user_id} on plan {plan_id}.")
+                
+                # Update the user's plan in your 'profiles' table
+                db_utils.create_or_update_profile({'id': user_id, 'direct_subscription_plan': plan_id})
+
+                # Update the subscription status and dates in your 'razorpay_subscriptions' table
+                db_utils.update_razorpay_subscription(user_id, subscription_details)
+
+                # Record the earning for the creator who referred this user
+                db_utils.record_creator_earning(referred_user_id=user_id, plan_id=plan_id)
+
+            else:
+                logging.error(f"Could not find user for customer_id {customer_id} or plan_id from webhook.")
+
+        except Exception as e:
+            logging.error(f"Error processing 'invoice.paid' webhook: {e}", exc_info=True)
+            return jsonify({'status': 'error', 'message': 'Internal processing error'}), 500
+    # --- END OF THE FIX ---
+
+    return jsonify({'status': 'ok'})
+
+@app.route('/create_razorpay_subscription', methods=['POST'])
+@login_required
+def create_razorpay_subscription():
+    plan_id = request.json.get('plan_id')
+    user_id = session['user']['id']
+    profile = db_utils.get_profile(user_id)
+    
+    razorpay_client = get_razorpay_client()
+    if not razorpay_client:
+        return jsonify({'status': 'error', 'message': 'Razorpay is not configured.'}), 500
+
+    plan_details = PLANS.get(plan_id)
+    if not plan_details:
+        return jsonify({'status': 'error', 'message': 'Invalid plan selected.'}), 400
+
+    customer_id = profile.get('razorpay_customer_id')
+
+    # If the user doesn't have a Razorpay customer ID yet
+    if not customer_id:
+        # --- START OF THE FIX ---
+        # Get user data from the session as a reliable fallback
+        user_session_data = session.get('user', {})
+        user_email = profile.get('email') or user_session_data.get('email')
+        user_name = profile.get('full_name') or user_session_data.get('user_metadata', {}).get('full_name')
+
+        if not user_email:
+            return jsonify({'status': 'error', 'message': 'User email not found. Cannot create customer.'}), 400
+
+        try:
+            customer = razorpay_client.customer.create({
+                "name": user_name,
+                "email": user_email,
+            })
+            customer_id = customer['id']
+            # Now, update the profile with the new customer ID
+            db_utils.create_or_update_profile({'id': user_id, 'razorpay_customer_id': customer_id, 'email': user_email})
+        except Exception as e:
+            # Handle the case where the customer might already exist on Razorpay due to a previous failure
+            if 'already exists' in str(e):
+                customers = razorpay_client.customer.all({'email': user_email})
+                if customers['count'] > 0:
+                    customer_id = customers['items'][0]['id']
+                    db_utils.create_or_update_profile({'id': user_id, 'razorpay_customer_id': customer_id, 'email': user_email})
+                else:
+                    return jsonify({'status': 'error', 'message': f"Razorpay conflict error: {e}"}), 500
+            else:
+                return jsonify({'status': 'error', 'message': f"Razorpay error: {e}"}), 500
+        # --- END OF THE FIX ---
+
+    # Create the subscription
+    try:
+        subscription = razorpay_client.subscription.create({
+            "plan_id": plan_id,
+            "customer_id": customer_id,
+            "total_count": 12, # Billed monthly for 12 installments (1 year)
+            "quantity": 1,
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Could not create subscription: {e}'}), 500
+
+
+    return jsonify({
+        'status': 'success',
+        'subscription_id': subscription['id'],
+        'razorpay_key_id': os.environ.get('RAZORPAY_KEY_ID'),
+        'plan_name': plan_details.get('name'),
+        'user_name': profile.get('full_name'),
+        'user_email': profile.get('email') or session.get('user', {}).get('email')
+    })
+
+@app.route('/admin/payouts/initiate_razorpay_payout', methods=['POST'])
+@admin_required
+def initiate_razorpay_payout():
+    payout_id = request.json.get('payout_id')
+    creator_id = request.json.get('creator_id')
+    amount = request.json.get('amount')
+
+    razorpay_client = get_razorpay_client()
+    if not razorpay_client:
+        return jsonify({'status': 'error', 'message': 'Razorpay is not configured.'}), 500
+
+    creator_profile = db_utils.get_profile(creator_id)
+    if not creator_profile:
+        return jsonify({'status': 'error', 'message': 'Creator not found.'}), 404
+
+    # --- Create Razorpay Contact ---
+    contact_id = creator_profile.get('razorpay_contact_id')
+    if not contact_id:
+        try:
+            contact = razorpay_client.contact.create({
+                "name": creator_profile.get('full_name'),
+                "email": creator_profile.get('email'),
+            })
+            contact_id = contact['id']
+            db_utils.create_or_update_profile({'id': creator_id, 'razorpay_contact_id': contact_id})
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': f'Razorpay Contact Error: {e}'}), 500
+            
+    # --- Create Razorpay Fund Account using stored details ---
+    fund_account_id = creator_profile.get('razorpay_fund_account_id')
+    if not fund_account_id:
+        payout_details = creator_profile.get('payout_details')
+        if not (payout_details and payout_details.get('account_number') and payout_details.get('ifsc')):
+            return jsonify({'status': 'error', 'message': 'Creator has not set up their payout details. Cannot create fund account.'}), 400
+
+        try:
+            fund_account = razorpay_client.fund_account.create({
+                "contact_id": contact_id,
+                "account_type": "bank_account",
+                "bank_account": {
+                    "name": payout_details.get('name'),
+                    "account_number": payout_details.get('account_number'),
+                    "ifsc": payout_details.get('ifsc')
+                }
+            })
+            fund_account_id = fund_account['id']
+            db_utils.create_or_update_profile({'id': creator_id, 'razorpay_fund_account_id': fund_account_id})
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': f'Razorpay Fund Account Error: {e}'}), 500
+
+    # --- Initiate the Payout ---
+    try:
+        razorpay_client.payout.create({
+            "account_number": os.environ.get("RAZORPAYX_ACCOUNT_NUMBER"),
+            "fund_account_id": fund_account_id,
+            "amount": int(float(amount) * 100), # Amount in paise
+            "currency": "INR",
+            "mode": "IMPS",
+            "purpose": "payout",
+            "queue_if_low_balance": True
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Razorpay Payout Error: {e}'}), 500
+
+    # --- Update Payout Status in Local DB ---
+    db_utils.update_payout_status(payout_id, 'processing')
+
+    return jsonify({'status': 'success', 'message': 'Payout initiated successfully via RazorpayX.'})
+
+
+@app.route('/earnings')
+@login_required
+def earnings_page():
+    creator_id = session['user']['id']
+    earnings_data = db_utils.get_creator_balance_and_history(creator_id)
+    
+    # This part is crucial: it fetches the profile and gets the payout_details
+    profile = db_utils.get_profile(creator_id)
+    payout_details = profile.get('payout_details') if profile else None
+    
+    # This passes the details to the HTML template
+    return render_template(
+        'earnings.html', 
+        earnings_data=earnings_data, 
+        payout_details=payout_details,
+        saved_channels=get_user_channels()
+    )
+
+@app.route('/api/save_payout_details', methods=['POST'])
+@login_required
+def save_payout_details():
+    creator_id = session['user']['id']
+    data = request.json
+    
+    # Basic validation
+    if not all(k in data for k in ['name', 'account_number', 'ifsc']):
+        return jsonify({'status': 'error', 'message': 'All fields are required.'}), 400
+
+    # Get the user's email from the session to ensure the NOT NULL constraint is met
+    user_email = session.get('user', {}).get('email')
+    if not user_email:
+         return jsonify({'status': 'error', 'message': 'User session is invalid. Please log in again.'}), 401
+
+    # Combine the two previous database calls into a single, efficient update
+    profile_update_payload = {
+        'id': creator_id,
+        'email': user_email, # This is the crucial line that fixes the error
+        'payout_details': {
+            'name': data['name'],
+            'account_number': data['account_number'],
+            'ifsc': data['ifsc']
+        },
+        'razorpay_fund_account_id': None # Also invalidate any existing fund account
+    }
+    
+    # Call the database update function once with all the data
+    db_utils.create_or_update_profile(profile_update_payload)
+    
+    return jsonify({'status': 'success', 'message': 'Payout details saved successfully.'})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

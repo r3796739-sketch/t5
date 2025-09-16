@@ -828,38 +828,32 @@ html[data-theme='dark'] .theme-toggle-btn .moon-icon { display: block; }
                         <p class="price">₹0 <span>/ month</span></p>
                         <a href="{{ url_for('channel') }}" class="btn-pricing btn-pricing-neutral">Get Started</a>
                         <ul class="pricing-features">
-                            <li><span class="icon">✓</span>3 Channel</li>
-                            <!-- <li><span class="icon">✓</span>Max 50 latest video Knowledge/channel</li> -->
+                            <li><span class="icon">✓</span>3 Channels</li>
                             <li><span class="icon">✓</span>50 queries/month</li>
                             <li><span class="icon">✓</span>Manual Refresh</li>
                         </ul>
                     </div>
                     <div class="pricing-card featured">
                         <span class="popular-badge">MOST POPULAR</span>
-                        <h4>Creator</h4>
-                        <p class="text-muted">Build deeper community engagement with more content, faster answers, and your own persona-driven bot.</p>
+                        <h4>Personal</h4> <p class="text-muted">For avid fans and learners who want to dive deep into their favorite creators' content.</p>
                         <p class="price price-featured">₹299 <span>/ month</span></p>
-                        <a href="{{ url_for('channel') }}" class="btn-pricing btn-pricing-accent">Choose Creator</a>
+                        <a href="#" onclick="buySubscription('{{ razorpay_plan_id_personal }}')" class="btn-pricing btn-pricing-accent">Choose Personal</a>
                         <ul class="pricing-features">
                             <li><span class="icon">✓</span>10 Channels</li>
-                            <!-- <li><span class="icon">✓</span>Max 250 latest video Knowledge/channel</li> -->
                             <li><span class="icon">✓</span>2,500 queries/month</li>
                             <li><span class="icon">✓</span>Auto Weekly Refresh</li>
                             <li><span class="icon">✓</span>Faster Responses</li>
-                            <li><span class="icon">✓</span>Access to Your Persona bot for your community</li>
                         </ul>
                     </div>
                     <div class="pricing-card">
-                        <h4>Pro</h4>
-                        <p class="text-muted">Full-scale, branded AI powered by your entire YouTube library—fully customizable and white-labeled.</p>
+                        <h4>Creator</h4> <p class="text-muted">For creators who want a fully branded AI assistant for their community.</p>
                         <p class="price">₹1,499 <span>/ month</span></p>
-                        <a href="{{ url_for('channel') }}" class="btn-pricing btn-pricing-neutral">Choose Pro</a>
+                        <a href="#" onclick="buySubscription('{{ razorpay_plan_id_creator }}')" class="btn-pricing btn-pricing-neutral">Choose Creator</a>
                         <ul class="pricing-features">
                              <li><span class="icon">✓</span>Unlimited Channels</li>
-                            <li><span class="icon">✓</span>Unlimited video knowledge/channel</li>
                             <li><span class="icon">✓</span>10,000 queries/month</li>
                             <li><span class="icon">✓</span>Faster Responses</li>
-                            <li><span class="icon">✓</span><strong>White-labeled channel knowledge bot (custom name & profile pic)</strong></li>
+                            <li><span class="icon">✓</span><strong>White-labeled channel knowledge bot</strong></li>
                         </ul>
                     </div>
                 </div>
@@ -937,6 +931,8 @@ html[data-theme='dark'] .theme-toggle-btn .moon-icon { display: block; }
                     <a href="#faq">FAQ</a>
                     <a href="{{ url_for('privacy') }}">Privacy</a>
                     <a href="{{ url_for('terms') }}">Terms</a>
+                    <a href="{{ url_for('refund-policy') }}">Refund Policy</a>
+                    
                 </div>
                 <div class="footer-copyright">
                     © 2024 - 2025 YoppyChat. All rights reserved.
@@ -1067,6 +1063,8 @@ html[data-theme='dark'] .theme-toggle-btn .moon-icon { display: block; }
                 demoContainer.addEventListener('click', startDemo);
             }
         });
+        
     </script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

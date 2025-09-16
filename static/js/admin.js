@@ -11,7 +11,16 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     // --- END: NEW Action Menu Logic ---
 
-
+    const payoutSearchForm = document.getElementById('payoutSearchForm');
+    if (payoutSearchForm) {
+        payoutSearchForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const searchInput = document.getElementById('payoutSearchInput');
+            const query = searchInput.value.trim();
+            // Reload the page with the search query as a URL parameter
+            window.location.href = `/admin/dashboard?q=${encodeURIComponent(query)}`;
+        });
+    }
     const createPlanForm = document.getElementById('createPlanForm');
     if (createPlanForm) {
         createPlanForm.addEventListener('submit', function(e) {
@@ -135,6 +144,8 @@ function markPayoutAsPaid(payoutId, buttonElement) {
         buttonElement.textContent = 'Mark as Paid';
     });
 }
+
+
 // NOTE: The setDefaultPlan function is no longer used in this new UI, 
 // as setting defaults can be a separate, less frequent action. 
 // You can remove it or keep it if you plan to add a dedicated "Set Default" section later.

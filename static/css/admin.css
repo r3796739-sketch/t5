@@ -214,3 +214,184 @@
 .btn-secondary:hover {
     background-color: var(--neutral-200);
 }
+
+.payouts-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.payout-card {
+    background: var(--surface-light);
+    border: 1px solid var(--neutral-200);
+    border-left: 4px solid var(--neutral-300);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.payout-card.status-pending {
+    border-left-color: var(--accent-info);
+}
+
+.payout-card.status-paid {
+    border-left-color: var(--accent-success);
+    opacity: 0.8;
+}
+
+.payout-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-md);
+}
+
+.creator-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+    display: block;
+}
+
+.payout-date {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.payout-amount {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.payout-details {
+    border-top: 1px solid var(--neutral-200);
+    padding-top: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.payout-details h4 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: var(--spacing-sm);
+}
+
+.bank-info p {
+    font-family: monospace;
+    font-size: 0.95rem;
+    margin: 0.25rem 0;
+}
+
+.payout-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.status-badge {
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: var(--radius-full);
+    font-size: 0.8rem;
+}
+
+.status-badge.status-pending {
+    background-color: #e3f2fd;
+    color: #1565c0;
+}
+
+.status-badge.status-paid {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+}
+
+.search-wrapper input[type="search"] {
+    min-width: 300px;
+    padding: 10px 15px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--neutral-300);
+    background-color: var(--surface-light);
+    font-size: 0.9rem;
+}
+
+/* Improved Table UI */
+.table-container {
+    background: var(--surface-light);
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: var(--spacing-md);
+    text-align: left;
+    border-bottom: 1px solid var(--neutral-200);
+    vertical-align: middle;
+}
+
+thead th {
+    background: var(--surface-medium);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.creator-cell .creator-name {
+    font-weight: 600;
+    display: block;
+}
+.creator-cell .creator-email {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.amount-cell {
+    font-size: 1.1rem;
+}
+
+.payout-details-cell {
+    font-family: monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+.payout-details-cell .text-muted {
+    font-family: 'Poppins', sans-serif;
+    font-style: italic;
+}
+
+.empty-row {
+    text-align: center;
+    color: var(--text-muted);
+    padding: var(--spacing-xl) 0;
+}
+
+.status-badge.status-pending {
+    background-color: #fff8e1;
+    color: #f57f17;
+}
+
+.status-badge.status-paid {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+.status-badge.status-processing {
+    background-color: #e3f2fd;
+    color: #1565c0;
+}
