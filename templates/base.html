@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
+
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo/favicon.png') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/logo/favicon.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main-purged.css') }}">
@@ -95,11 +95,11 @@
                                 {# --- START: MODIFIED AVATAR LOGIC --- #}
                                 {# Get the user's name or fallback to their email to create an initial #}
                                 {% set user_name = session.user.user_metadata.full_name or session.user.email %}
-                                
+
                                 {# Check if an avatar URL is provided #}
                                 {% if session.user.user_metadata.avatar_url %}
-                                    <img src="{{ session.user.user_metadata.avatar_url }}" 
-                                         alt="User Avatar" 
+                                    <img src="{{ session.user.user_metadata.avatar_url }}"
+                                         alt="User Avatar"
                                          onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                     <span class="avatar-initial" style="display: none;">{{ user_name[0] | upper if user_name }}</span>
                                 {% else %}
@@ -108,7 +108,7 @@
                                 {% endif %}
                                 {# --- END: MODIFIED AVATAR LOGIC --- #}
                             </div>
-                        
+
                             <div class="user-details">
                                 <span class="user-name">{{ session.user.user_metadata.full_name or session.user.email }}</span>
                             </div>
@@ -137,11 +137,11 @@
                             </p>
                         </div>
 
-                       
+
                         <a href="#" onclick="event.preventDefault(); showPricingModal();" class="menu-upgrade-button">
                         <span>✨ Upgrade Plan</span>
                         </a>
-                        
+
 
                         <ul class="menu-links">
                             {% if not is_embedded_whop_user %}
@@ -295,7 +295,7 @@
             if (!window.supabaseClient) {
                 window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
             }
-            
+
             const googleLoginBtn = document.getElementById('google-login-btn');
             if (googleLoginBtn && !googleLoginBtn.dataset.listenerAttached) {
                 googleLoginBtn.addEventListener('click', () => {
@@ -428,7 +428,7 @@
             if (!window.supabaseClient) {
                 window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
             }
-            
+
             const googleLoginBtn = document.getElementById('google-login-btn');
             if (googleLoginBtn) {
                 googleLoginBtn.addEventListener('click', () => {
@@ -514,6 +514,7 @@
 <!-- <script src="{{ url_for('static', filename='js/app.js') }}"></script> -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <script>
         // Pass server-side data to JavaScript as global constants
@@ -521,7 +522,7 @@
         const SUPABASE_URL = "{{ SUPABASE_URL or '' }}";
         const SUPABASE_ANON_KEY = "{{ SUPABASE_ANON_KEY or '' }}";
     </script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
     {% block page_scripts %}{% endblock %}
 
