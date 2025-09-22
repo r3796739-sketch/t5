@@ -11,6 +11,8 @@ from utils.youtube_utils import (
     get_transcripts_from_urls,    # <-- Use the targeted function for syncing
     youtube_api
 )
+from utils.discord_utils import update_bot_profile
+import asyncio
 from utils.embed_utils import create_and_store_embeddings
 from utils.supabase_client import get_supabase_admin_client
 from utils.telegram_utils import send_message, create_channel_keyboard
@@ -171,7 +173,7 @@ def sync_channel_task(channel_id, task=None):
         latest_video_ids = []
         next_page_token = None
         # We scan up to 250 recent videos to check for new ones
-        for _ in range(8): # 5 pages * 50 results = 250 videos
+        for _ in range(10): # 5 pages * 50 results = 250 videos
             playlist_resp = youtube_api.playlistItems().list(
                 part="contentDetails", playlistId=uploads_id, maxResults=50, pageToken=next_page_token
             ).execute()
@@ -581,3 +583,23 @@ def post_answer_processing_task(user_id, channel_name, question, answer, sources
         )
     except Exception as e:
         logger.error(f"Error in post-answer processing for user {user_id}: {e}", exc_info=True)
+
+@huey.task()
+def update_bot_profile_task(bot_token: str, channel_url: str):
+    """
+    Background task to update a Discord bot's name and avatar to match
+    the linked YouTube channel.
+    """
+    try:
+        logger.info(f"--- [TASK STARTED] Updating profile for bot using token: {bot_token[:5]}... ---")
+        
+        # The update_bot_profile function is async, so we need to run it in an event loop.
+        success, message = asyncio.run(update_bot_profile(bot_token, channel_url))
+        
+        if success:
+            logger.info(f"--- [TASK SUCCESS] Bot profile updated: {message} ---")
+        else:
+            logger.error(f"--- [TASK FAILED] Bot profile update failed: {message} ---")
+            
+    except Exception as e:
+        logger.error(f"--- [TASK FAILED] Critical error in update_bot_profile_task: {e}", exc_info=True)
