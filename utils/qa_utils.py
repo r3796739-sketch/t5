@@ -9,7 +9,6 @@ from functools import lru_cache
 from typing import Iterator, List, Optional, Dict, Any
 from dotenv import load_dotenv
 from sentence_transformers import CrossEncoder
-from datetime import datetime
 from . import prompts
 from .supabase_client import get_supabase_client, get_supabase_admin_client
 import re
@@ -17,8 +16,9 @@ import threading
 from . import prompts 
 from utils.supabase_client import get_supabase_admin_client
 import tiktoken
-
-
+import datetime
+from flask import session
+from .subscription_utils import get_user_status
 # Load environment variables from .env file
 load_dotenv()
 cross_encoder = None
@@ -87,7 +87,7 @@ def _create_gemini_embedding(texts: List[str], model: str, api_key: str) -> Opti
         model_name = f"models/{model}" if not model.startswith('models/') else model
         
         # Get the desired output dimension from environment variable, default to 768
-        output_dimensions = int(os.environ.get('GEMINI_EMBED_DIMENSIONS', '768'))
+        output_dimensions = int(os.environ.get('GEMINI_EMBED_DIMENSIONS', '1536'))
         
         # Gemini batching: prefer sending the whole list if supported
         result = genai.embed_content(
@@ -294,7 +294,8 @@ def _get_openai_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
 def _get_groq_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
     try:
         headers = {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
-        data = {'model': model, 'messages': [{"role": "user", "content": prompt}], 'max_tokens': 1024, 'temperature': 1, 'stream': True}
+        max_tokens = kwargs.get('max_tokens') # Get max_tokens from kwargs
+        data = {'model': model, 'messages': [{"role": "user", "content": prompt}], 'max_tokens': max_tokens, 'temperature': 1, 'stream': True}
         with requests.post('https://api.groq.com/openai/v1/chat/completions', headers=headers, json=data, stream=True, timeout=DEFAULT_REQUEST_TIMEOUT) as response:
             for raw in response.iter_lines():
                 if raw and raw.startswith(b'data: '):
@@ -314,16 +315,40 @@ def _get_groq_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
 def _get_gemini_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
     try:
         import google.generativeai as genai
+        from google.generativeai.types import generation_types
         genai.configure(api_key=api_key)
         gemini_model = genai.GenerativeModel(model)
-        response_stream = gemini_model.generate_content(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=1024, temperature=0.7), stream=True)
+        max_tokens = kwargs.get('max_tokens', 1024) # Get max_tokens from kwargs
+        safety_settings = {
+            'HARM_CATEGORY_HARASSMENT': 'BLOCK_NONE',
+            'HARM_CATEGORY_HATE_SPEECH': 'BLOCK_NONE',
+            'HARM_CATEGORY_SEXUALLY_EXPLICIT': 'BLOCK_NONE',
+            'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE',
+        }
+        response_stream = gemini_model.generate_content(
+            prompt, 
+            generation_config=genai.types.GenerationConfig(max_output_tokens=max_tokens, temperature=0.7), 
+            stream=True,
+            safety_settings=safety_settings
+        )
         for chunk in response_stream:
+            if not chunk.parts:
+                finish_reason_name = None
+                if hasattr(chunk, 'candidates') and chunk.candidates:
+                    finish_reason_name = chunk.candidates[0].finish_reason.name
+                if finish_reason_name == 'SAFETY':
+                    logging.warning("Gemini response was blocked due to safety settings.")
+                    yield "Error: The response was blocked by the model's safety filters. Please try rephrasing your question."
+                    return
             if hasattr(chunk, 'text') and chunk.text:
                 yield chunk.text
+    except generation_types.StopCandidateException as e:
+        logging.error(f"Gemini stream stopped due to safety or other reasons: {e}")
+        yield "Error: The response was blocked by the model. Please try rephrasing your question."
     except Exception as e:
         logging.error(f"Failed to get Gemini stream: {e}", exc_info=True)
         yield "Error: Could not get a response from the provider."
-
+        
 def _get_ollama_answer_stream(prompt: str, model: str, ollama_url: str, **kwargs):
     try:
         response = requests.post(f"{ollama_url}/api/chat", json={"model": model, "messages": [{"role": "user", "content": prompt}], "stream": True}, timeout=DEFAULT_REQUEST_TIMEOUT, stream=True)
@@ -449,7 +474,7 @@ def search_and_rerank_chunks(query: str, user_id: str, access_token: str, video_
             chunk_data['similarity_score'] = row.get('similarity')
             initial_results.append(chunk_data)
 
-        CHUNKS_TO_RERANK = int(os.environ.get('CHUNKS_TO_RERANK', 15))
+        CHUNKS_TO_RERANK = int(os.environ.get('CHUNKS_TO_RERANK', 55))
         print(f"Passing the top {CHUNKS_TO_RERANK} results to the re-ranker.")
         if os.environ.get('ENABLE_RERANKING', 'true').lower() == 'true':
             reranked_results = rerank_with_cross_encoder(query, initial_results[:CHUNKS_TO_RERANK])
@@ -497,23 +522,31 @@ def count_tokens(text: str, model: str = "gpt-4") -> int:
     
     return len(encoding.encode(text))
 
-def answer_question_stream(question_for_prompt: str, question_for_search: str, channel_data: dict = None, video_ids: set = None, user_id: str = None, access_token: str = None, tone: str = 'Casual', on_complete: callable = None, conversation_id: str = None) -> Iterator[str]:
+def answer_question_stream(question_for_prompt: str, question_for_search: str, channel_data: dict = None, video_ids: set = None, user_id: str = None, access_token: str = None, tone: str = 'Casual', on_complete: callable = None, conversation_id: str = None, active_community_id: str = None) -> Iterator[str]:
     """
     Finds relevant context and streams an answer. Now deducts bot queries synchronously.
     """
     from tasks import post_answer_processing_task
     from . import db_utils 
 
-    # --- START: NEW DEDUCTION LOGIC FOR BOTS ---
-    # We check if 'on_complete' is None. This is true ONLY for requests from bots.
     if on_complete is None and user_id:
-        # If it's a bot, deduct the query immediately before doing any work.
         db_utils.record_bot_query_usage(user_id)
-    # --- END: NEW DEDUCTION LOGIC FOR BOTS ---
     
     total_request_start_time = time.perf_counter()
 
-    # --- Configuration Logging ---
+    user_status = get_user_status(user_id, active_community_id)
+    plan_id = user_status.get('plan_name', 'Free') if user_status else 'Free'
+    print(f"<<<<<<<<<<<<DEBUG: Answering for user {user_id}. Detected plan_id: '{plan_id}'>>>>>>>>>>>>>>>>>")
+    if 'Creator' in plan_id:
+        max_tokens = 4096
+        word_count_guideline = "around 800-1000 words"
+    elif any(p in plan_id for p in ['Personal', 'pro', 'rich']):
+        max_tokens = 2048
+        word_count_guideline = "around 400-500 words"
+    else:
+        max_tokens = 1024
+        word_count_guideline = "around 200-250 words"
+
     llm_provider = os.environ.get('LLM_PROVIDER', 'groq')
     llm_model = os.environ.get('MODEL_NAME', 'Not Set')
     embed_provider = os.environ.get('EMBED_PROVIDER', 'openai')
@@ -532,7 +565,6 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
         print(f"  OpenAI Base URL:      {base_url}")
     print("---------------------------------------------------------")
 
-    # --- Separate chat history from the original question ---
     chat_history_for_prompt = ""
     original_question = question_for_prompt 
     history_marker = "Now, answer this new question, considering the history as context:\n"
@@ -547,7 +579,6 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
         yield "data: {\"error\": \"User not identified. Please log in.\"}\n\n"
         return
 
-    # --- Use the dedicated `question_for_search` to find relevant documents ---
     relevant_chunks = get_routed_context(question_for_search, channel_data, user_id, access_token)
 
     if relevant_chunks == "JWT_EXPIRED":
@@ -559,7 +590,6 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
         yield "data: [DONE]\n\n"
         return
 
-    # --- The rest of the function for processing and streaming the answer ---
     sources_dict = {}
     for chunk in relevant_chunks:
         try:
@@ -576,26 +606,21 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
     
     if channel_data:
         creator_name = channel_data.get('creator_name', channel_data.get('channel_name', 'the creator'))
-        
-        # We now ALWAYS use the new HYBRID_PERSONA_PROMPT
         prompt_template = prompts.HYBRID_PERSONA_PROMPT
         print("Using HYBRID Persona Prompt")
-
         prompt = prompt_template.format(
             creator_name=creator_name, 
             context=context, 
             question=original_question,
-            chat_history=chat_history_for_prompt or "This is the first message in the conversation."
+            chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
+            word_count=word_count_guideline
         )
     else:
         prompt = prompts.NEUTRAL_ASSISTANT_PROMPT.format(context=context, question=original_question)
 
-    # --- This block now contains all necessary variables ---
-    llm_provider = os.environ.get('LLM_PROVIDER', 'groq')
     model = os.environ.get('MODEL_NAME')
-    api_key = _get_api_key(llm_provider)
     ollama_url = os.environ.get('OLLAMA_URL')
-    openai_base_url = os.environ.get('OPENAI_API_BASE_URL')
+    openai_base_url = os.environ.get('OPENAI_API_BASE_URL', 'https://api.openai.com/v1')
     temperature = float(os.environ.get('LLM_TEMPERATURE', 0.7))
     prompt_token_count = count_tokens(prompt, model)
     print(f"  Prompt Token Count:     {prompt_token_count}")
@@ -614,7 +639,8 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
         'api_key': api_key,
         'ollama_url': ollama_url,
         'base_url': openai_base_url,
-        'temperature': temperature
+        'temperature': temperature,
+        'max_tokens': max_tokens
     }
 
     try:
@@ -647,9 +673,7 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
     
     if full_answer and "Error:" not in full_answer:
         try:
-            # This logic now correctly handles both web app and Discord conversations
             channel_name_for_history = conversation_id or (channel_data.get('channel_name', 'general') if channel_data else 'general')
-            
             post_answer_processing_task(
                 user_id=user_id,
                 channel_name=channel_name_for_history,
@@ -749,7 +773,7 @@ def _get_transcript_summary(text: str) -> str:
         # We use a fast and efficient model for this internal task.
         # Groq's Llama3 8B is excellent for summarization.
         provider = "groq"
-        model = "llama3-8b-8192"
+        model = "llama-3.1-8b-instant"
         api_key = _get_api_key(provider)
         
         if not api_key:

@@ -583,3 +583,24 @@ html[data-theme='dark'] .logo-light {
 ================================================================== */
 
 /* --- Base and Light Mode Styles --- */
+.button-spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    display: inline-block;
+    animation: spin 1s linear infinite;
+    margin-right: 12px; /* Adds space between spinner and text */
+}
+
+/* This ensures the text and spinner are centered correctly */
+.btn-pricing, .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

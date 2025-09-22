@@ -6,282 +6,77 @@
 {% block page_styles %}
 <style>
     .integrations-page { padding: 2rem; }
-
-    /* --- Navigation Back Link --- */
-    .back-link { 
-        display: inline-block; 
-        margin-bottom: 1.5rem; 
-        color: var(--text-secondary); 
-        text-decoration: none; 
-        font-weight: 500; 
-    }
+    .back-link { display: inline-block; margin-bottom: 1.5rem; color: var(--text-secondary); text-decoration: none; font-weight: 500; }
     .back-link:hover { color: var(--text-primary); }
-
-    /* --- Section Styling --- */
-    .integration-section { 
-        margin-bottom: 3rem; 
-        padding-bottom: 2rem; 
-        border-bottom: 1px solid var(--neutral-200);
-    }
+    .integration-section { margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid var(--neutral-200); }
     .integration-section:last-child { border-bottom: none; }
-
-    /* --- Grid Layout --- */
-    .bot-dashboard .grid { 
-        display: grid; 
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
-        gap: 1.5rem; 
-    }
-
-    /* --- Bot Card --- */
-    .bot-card {
-        background: var(--surface-light);
-        border: 1px solid var(--neutral-200);
-        border-radius: var(--radius-lg);
-        padding: 1.5rem;
-        display: flex;
-        flex-direction: column;
-        transition: all 0.25s ease;
-        box-shadow: var(--shadow-sm);
-    }
-    .bot-card:hover {
-        transform: translateY(-6px);
-        box-shadow: var(--shadow-md);
-    }
-
-    .bot-card-header { 
-        display: flex; 
-        align-items: center; 
-        gap: 1rem; 
-        margin-bottom: 1rem; 
-    }
-
-    .bot-avatar { 
-        width: 56px; 
-        height: 56px; 
-        border-radius: 50%; 
-        border: 2px solid var(--neutral-200);
-        object-fit: cover; 
-        background-color: var(--surface-medium);
-    }
-
+    .bot-dashboard .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
+    .bot-card { background: var(--surface-light); border: 1px solid var(--neutral-200); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; transition: all 0.25s ease; box-shadow: var(--shadow-sm); }
+    .bot-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-md); }
+    .bot-card-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+    .bot-avatar { width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--neutral-200); object-fit: cover; background-color: var(--surface-medium); }
     .bot-info .name { font-weight: 600; font-size: 1.1rem; }
     .bot-info .link { font-size: 0.9rem; color: var(--text-secondary); }
-
     .bot-card-body { flex-grow: 1; }
-
-    /* --- Status Indicators --- */
-    .status-indicator { 
-        display: inline-flex; 
-        align-items: center; 
-        gap: 0.4rem; 
-        font-weight: 500; 
-        margin-top: 0.5rem;
-    }
-    .status-badge {
-        font-size: 0.75rem;
-        font-weight: 600;
-        padding: 0.25rem 0.6rem;
-        border-radius: 999px;
-        color: #fff;
-    }
-    .status-badge.online { background: #2ECC71; }
-    .status-badge.offline { background: #95A5A6; }
-    .status-badge.connecting { background: #F39C12; animation: pulse 1.5s infinite; }
-    .status-badge.error { background: #E74C3C; }
-
-    @keyframes pulse { 
-        0% { opacity: 1; } 
-        50% { opacity: 0.4; } 
-        100% { opacity: 1; } 
-    }
-
-    /* --- Bot Card Footer Buttons --- */
-    .bot-card-footer { 
-        margin-top: 1.2rem; 
-        display: flex; 
-        justify-content: space-between; 
-        flex-wrap: wrap; 
-        gap: 0.6rem; 
-    }
-    .bot-card-footer .btn { 
-        flex: 1; 
-        min-width: 100px; 
-        text-align: center; 
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.4rem;
-    }
-
-    /* --- Button Variants --- */
-    .btn-secondary { 
-        background-color: var(--surface-medium); 
-        color: var(--text-primary); 
-        border: 1px solid var(--neutral-200); 
-        color: white;
-    }
-    .btn-danger { 
-        background-color: var(--accent-error); 
-        color: var(--text-white); 
-        border: 1px solid var(--accent-error); 
-    }
+    .status-indicator { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 500; margin-top: 0.5rem; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; transition: background-color 0.3s ease; }
+    .status-dot.online { background-color: var(--accent-success); }
+    .status-dot.offline { background-color: var(--text-muted); }
+    .status-dot.connecting { background-color: #F39C12; animation: pulse 1.5s infinite; }
+    .status-dot.error { background-color: var(--accent-error); }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+    .bot-card-footer { margin-top: 1.2rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.6rem; }
+    .bot-card-footer .btn { flex: 1; min-width: 100px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
+    .btn-secondary { background-color: var(--surface-medium); color: var(--text-primary); border: 1px solid var(--neutral-200); }
+    .btn-danger { background-color: var(--accent-error); color: var(--text-white); border: 1px solid var(--accent-error); }
     .btn-danger:hover { opacity: 0.9; }
-
-    /* --- Create Bot Card (Empty State) --- */
-    .create-bot-card.empty-state { 
-        border-style: dashed; 
-        cursor: pointer; 
-        background-color: var(--surface-medium); 
-        text-align: center;
-    }
+    .create-bot-card.empty-state { border-style: dashed; cursor: pointer; background-color: var(--surface-medium); text-align: center; }
     .empty-state-icon { margin-bottom: 1rem; color: var(--text-muted); }
     .empty-state-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem; }
     .empty-state-text { font-size: 0.9rem; color: var(--text-secondary); }
-
-    .create-bot-card-compact { 
-        display: flex; 
-        flex-direction: column;
-        justify-content: center; 
-        align-items: center; 
-        border: 2px dashed var(--neutral-200); 
-        color: var(--text-muted); 
-        cursor: pointer; 
-        min-height: 150px; 
-        border-radius: var(--radius-lg); 
-        transition: all 0.2s ease-in-out; 
-        font-size: 0.95rem;
-    }
-    .create-bot-card-compact:hover { 
-        border-color: var(--accent-primary); 
-        color: var(--accent-primary); 
-        background-color: var(--surface-medium); 
-        box-shadow: var(--shadow-md);
-        transform: translateY(-2px);
-    }
+    .create-bot-card-compact { display: flex; flex-direction: column; justify-content: center; align-items: center; border: 2px dashed var(--neutral-200); color: var(--text-muted); cursor: pointer; min-height: 150px; border-radius: var(--radius-lg); transition: all 0.2s ease-in-out; font-size: 0.95rem; }
+    .create-bot-card-compact:hover { border-color: var(--accent-primary); color: var(--accent-primary); background-color: var(--surface-medium); box-shadow: var(--shadow-md); transform: translateY(-2px); }
     .plus-icon-compact { font-size: 2.2rem; margin-bottom: 0.3rem; }
-
-    /* --- Connecting Card Animation --- */
-    .bot-card.is-connecting { 
-        animation: pulse-bg 2s infinite; 
-        border-color: #F39C12; 
-    }
-    @keyframes pulse-bg { 
-        0% { background-color: var(--surface-light); } 
-        50% { background-color: #fefcf5; } 
-        100% { background-color: var(--surface-light); } 
-    }
-    html[data-theme='dark'] .bot-card.is-connecting { animation-name: pulse-bg-dark; }
-    @keyframes pulse-bg-dark { 
-        0% { background-color: var(--surface-light); } 
-        50% { background-color: #3a362d; } 
-        100% { background-color: var(--surface-light); } 
-    }
-
-    /* --- Modal Styling --- */
-    .modal-overlay { 
-        position: fixed; 
-        top: 0; left: 0; 
-        width: 100%; height: 100%; 
-        background: rgba(0,0,0,0.5); 
-        display: none; 
-        justify-content: center; 
-        align-items: center; 
-        z-index: 1000; 
-        backdrop-filter: blur(4px);
-    }
-    .modal-content { 
-        background: var(--surface-light); 
-        padding: 2rem; 
-        border-radius: var(--radius-lg); 
-        width: 90%; 
-        max-width: 500px; 
-        box-shadow: var(--shadow-lg); 
-        animation: slideUp 0.3s ease;
-    }
-    .modal-header { 
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center; 
-        margin-bottom: 1.5rem; 
-    }
-    .modal-close { 
-        background: none; 
-        border: none; 
-        font-size: 1.5rem; 
-        cursor: pointer; 
-        color: black; 
-    }
-    @keyframes slideUp { 
-        from { transform: translateY(20px); opacity: 0; } 
-        to { transform: translateY(0); opacity: 1; } 
-    }
-
-    /* --- Official Bot Card --- */
-    .official-bot-card {
-        background: var(--surface-light);
-        border: 1px solid var(--neutral-200);
-        border-left: 4px solid var(--accent-primary);
-        border-radius: var(--radius-lg);
-        padding: 1.5rem;
-        display: flex;
-        flex-direction: column;
-        max-width: 400px;
-        margin-top: 1.5rem;
-        box-shadow: var(--shadow-sm);
-        position: relative;
-    }
-    .official-bot-card::before {
-        content: "Recommended";
-        position: absolute;
-        top: -10px;
-        right: 10px;
-        background: var(--accent-primary);
-        color: white;
-        font-size: 0.7rem;
-        padding: 2px 6px;
-        border-radius: 6px;
-    }
-    .official-bot-card .card-description {
-        color: var(--text-secondary);
-        font-size: 0.9rem;
-        line-height: 1.6;
-        margin: 1rem 0;
-        flex-grow: 1;
-    }
-    .official-bot-card .card-description code {
-        background-color: var(--surface-medium);
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-family: monospace;
-        color: var(--text-primary);
-    }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(4px); }
+    .modal-content { background: var(--surface-light); padding: 2rem; border-radius: var(--radius-lg); width: 90%; max-width: 500px; box-shadow: var(--shadow-lg); animation: slideUp 0.3s ease; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;padding: 5px;}
+    .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .official-bot-card { background: var(--surface-light); border: 1px solid var(--neutral-200); border-left: 4px solid var(--accent-primary); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; max-width: 400px; margin-top: 1.5rem; box-shadow: var(--shadow-sm); position: relative; }
+    .official-bot-card .card-description { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; margin: 1rem 0; flex-grow: 1; }
+    .official-bot-card .card-description code { background-color: var(--surface-medium); padding: 2px 6px; border-radius: 4px; font-family: monospace; color: var(--text-primary); }
     .official-bot-card .bot-card-footer { margin-top: auto; }
     .official-bot-card .btn-primary { width: 100%; }
+    .hamburger {display:none;}
+    .btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
 
-    /* --- Mobile Responsiveness --- */
-    @media (max-width: 768px) {
-        .bot-card-footer { flex-direction: column; }
-        .bot-card-footer .btn { width: 100%;
-        color: #ffffff;
-        background: #ff8c42;}
-    }
+.btn-primary {
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: var(--text-white);
+}
 </style>
-
 {% endblock %}
 
 {% block content %}
 <div class="integrations-page">
     <a href="{{ url_for('dashboard') }}" class="back-link">← Back to Dashboard</a>
-<h1>
+<h1 style="font-size: clamp(1.5rem, 4vw, 2.5rem); line-height: 1.2;">
     <img src="{{ url_for('static', filename='images/logo/discord-icon.svg') }}" 
          alt="Discord Logo" class="card-icon" style="vertical-align: middle; margin-right: 0.5rem; width: 40px;">
     Discord Integrations
 </h1>
     <br>
     {% if discord_account_linked %}
-        {# --- THIS CONTENT SHOWS IF THE USER'S ACCOUNT IS LINKED --- #}
-        <div class="integration-section bot-dashboard">
-            <h2>Your Branded Bots</h2>
+        <div class="integration-section bot-dashboard" >
+            <h2 style="font-size: clamp(1rem, 2vw, 2rem); line-height: 1.2;">Your Branded Bots</h2>
             <p>Create and manage your own white-labeled bots with custom names and profile pictures.</p>
             <div class="grid">
                 {% if not branded_bots %}
@@ -325,16 +120,14 @@
                 </div>
             </div>
         </div>
-        {% else %}
-        {# --- THIS CONTENT SHOWS IF THE USER'S ACCOUNT IS NOT LINKED --- #}
+    {% else %}
         <div class="integration-section">
             <h2>Step 1: Link Your Account</h2>
-            <div class="integration-card">
+            <div class="integration-card" style="max-width: 500px;">
                 <h3>Connect to Discord</h3>
                 <p>To get started, connect your YoppyChat account to your Discord account. This is a required first step before you can add bots or link channels to a server.</p>
-                <div class="form-card">
-                    <a href="{{ url_for('discord_auth') }}" class="btn btn-primary">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;"><path d="M20.317 4.36981C18.2769 3.29233 16.1262 2.75361 13.9292 2.75361C11.7322 2.75361 9.58155 3.29233 7.54144 4.36981C7.54144 4.36981 -3.06431 15.2331 1.14371 21.2464C1.14371 21.2464 4.88813 19.3131 6.33159 18.2931C6.33159 18.2931 5.61869 16.4839 5.08639 15.2869C5.08639 15.2869 7.42394 16.0331 9.61019 16.9414C10.963 16.4368 12.4416 16.1956 13.9292 16.1956C15.4168 16.1956 16.8954 16.4368 18.2482 16.9414C20.4345 16.0331 22.772 15.2869 22.772 15.2869C22.2397 16.4839 21.5268 18.2931 21.5268 18.2931C22.9703 19.3131 26.7147 21.2464 26.7147 21.2464C30.9227 15.2331 20.317 4.36981 20.317 4.36981ZM13.9292 13.3831C12.6356 13.3831 11.5996 12.2881 11.5996 10.9339C11.5996 9.57968 12.6074 8.48468 13.9292 8.48468C15.251 8.48468 16.287 9.57968 16.2588 10.9339C16.2588 12.2881 15.251 13.3831 13.9292 13.3831ZM18.2199 13.3831C16.9264 13.3831 15.8904 12.2881 15.8904 10.9339C15.8904 9.57968 16.8982 8.48468 18.2199 8.48468C19.5417 8.48468 20.5777 9.57968 20.5495 10.9339C20.5495 12.2881 19.5417 13.3831 18.2199 13.3831Z"/></svg>
+                <div class="form-card" style="padding: 0; background: none; border: none; box-shadow: none;">
+                    <a href="{{ url_for('discord_auth') }}" class="btn btn-primary" style="width: 100%;">
                         Connect Discord Account
                     </a>
                 </div>
@@ -358,7 +151,7 @@
                 <label for="youtube_channel_url">YouTube Channel URL</label>
                 <input type="url" id="youtube_channel_url" name="youtube_channel_url" class="form-control" required>
             </div>
-            <button type="submit" class="btn btn-primary" style="margin-top: 1.5rem;">Create Bot</button>
+            <button type="submit" class="btn btn-primary" style="margin-top: 1.5rem; width: 100%;">Create Bot</button>
         </form>
     </div>
 </div>
@@ -379,7 +172,7 @@
                 <label for="edit_youtube_channel_url">New YouTube Channel URL</label>
                 <input type="url" id="edit_youtube_channel_url" name="youtube_channel_url" class="form-control" placeholder="https://youtube.com/@newchannel">
             </div>
-            <button type="submit" class="btn btn-primary" style="margin-top: 1.5rem;">Save Changes</button>
+            <button type="submit" class="btn btn-primary" style="margin-top: 1.5rem; width: 100%;">Save Changes</button>
         </form>
     </div>
 </div>
@@ -388,7 +181,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h2 id="shareBotModalTitle">Share Bot</h2>
-            <button class="modal-close" onclick="closeShareModal()">&times;</button>
+            <button class="modal-close" onclick="closeBotShareModal()">&times;</button>
         </div>
         <p style="color: var(--text-secondary); margin-bottom: 1rem;">Use this link to invite your bot to any Discord server where you have administrator permissions.</p>
         <div class="form-group" style="display: flex; gap: 0.5rem;">
@@ -412,14 +205,13 @@ function openEditBotModal(botId) {
     document.getElementById('editBotModal').style.display = 'flex';
 }
 function closeEditBotModal() { document.getElementById('editBotModal').style.display = 'none'; }
-function openShareModal(inviteLink, botName) {
+function openBotShareModal(inviteLink, botName) {
     document.getElementById('shareBotModalTitle').textContent = `Invite "${botName}"`;
     document.getElementById('shareLinkInput').value = inviteLink;
-    // NEW LINE: Set the href for the direct invite button
     document.getElementById('inviteLinkBtn').href = inviteLink;
     document.getElementById('shareBotModal').style.display = 'flex';
 }
-function closeShareModal() {
+function closeBotShareModal() {
     document.getElementById('shareBotModal').style.display = 'none';
 }
 function copyShareLink() {
@@ -497,7 +289,6 @@ if(document.getElementById('editBotForm')) {
     });
 }
 
-
 // --- Bot Action and Polling Logic ---
 function toggleBot(botId, buttonEl) {
     buttonEl.disabled = true;
@@ -547,7 +338,6 @@ function updateCardStatus(card, status) {
 }
 
 function pollBotStatuses() {
-    // Only run polling if the main dashboard is visible
     if (!document.querySelector('.bot-dashboard')) return;
 
     fetch("{{ url_for('get_discord_bots_status') }}")
@@ -589,7 +379,14 @@ function renderBotCardHTML(bot) {
     const capitalizedStatus = status.charAt(0).toUpperCase() + status.slice(1);
     const buttonText = (status === 'online') ? 'Deactivate' : 'Activate';
     const isConnecting = status === 'connecting';
-    const inviteLink = bot.invite_link || '#';
+
+    // Generate the invite link using the client_id
+    let inviteLink = '#';
+    if (bot.client_id) {
+        const permissions = "328565073920";
+        inviteLink = `https://discord.com/api/oauth2/authorize?client_id=${bot.client_id}&permissions=${permissions}&scope=bot`;
+    }
+
     const isConnectingClass = isConnecting ? 'is-connecting' : '';
 
     return `
@@ -611,7 +408,7 @@ function renderBotCardHTML(bot) {
                 <button class="btn action-btn" onclick="toggleBot('${bot.id}', this)" ${isConnecting ? 'disabled' : ''}>
                     ${buttonText}
                 </button>
-                <button class="btn btn-secondary" onclick="openShareModal('${inviteLink}', '${channelName}')">Share</button>
+                <button class="btn btn-secondary" onclick="openBotShareModal('${inviteLink}', '${channelName}')">Share</button>
                 <button class="btn btn-secondary" onclick="openEditBotModal('${bot.id}')">Edit</button>
                 <button class="btn btn-danger" onclick="confirmDeleteBot('${bot.id}', '${channelName}', this)">Delete</button>
             </div>
@@ -654,7 +451,6 @@ function deleteBot(botId, buttonEl) {
 
 // Start polling when the page loads
 document.addEventListener('DOMContentLoaded', () => {
-    // We only start polling if the user is authenticated and sees the dashboard
     if (document.querySelector('.bot-dashboard')) {
         pollBotStatuses(); 
         const pollingInterval = setInterval(pollBotStatuses, 5000);

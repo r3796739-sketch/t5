@@ -109,7 +109,7 @@
         <button class="btn action-btn" onclick="toggleBot('{{ bot.id }}', this)" {% if bot.status == 'connecting' %}disabled{% endif %}>
             {% if bot.status == 'online' %}Deactivate{% else %}Activate{% endif %}
         </button>
-        <button class="btn btn-secondary" onclick="openShareModal('{{ bot.invite_link }}', '{{ bot.channel.channel_name or 'Branded Bot' }}')">Share</button>
+        <button class="btn btn-secondary" onclick="openBotShareModal('{{ bot.invite_link }}', '{{ bot.channel.channel_name or 'Branded Bot' }}')">Share</button>
         <button class="btn btn-secondary" onclick="openEditBotModal('{{ bot.id }}')">Edit</button>
         <button class="btn btn-danger" onclick="confirmDeleteBot('{{ bot.id }}', '{{ bot.channel.channel_name or 'Branded Bot' }}', this)">Delete</button>
     </div>

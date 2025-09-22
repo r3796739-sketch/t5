@@ -41,10 +41,9 @@
             </div>
             <div class="sidebar-content">
                 <div class="channel-section">
-                    {% if user_status %}
                     <div class="channel-section-title">Channels</div>
                     <div class="channel-list">
-                        
+                        {% if user_status %}
                             {% set can_add_personal = user_status.usage.channels_processed < user_status.limits.max_channels %}
 
                             {# For community owners, check if they can add more shared channels #}
@@ -63,15 +62,13 @@
                             {% else %}
                                 <div class="add-channel-btn disabled">Channel Limit Reached</div>
                             {% endif %}
-                        
+                        {% endif %}
 
                         {% for name, channel in saved_channels.items() %}
                             {{ render_sidebar_channel_item(channel, name, community_status) }}
                         {% endfor %}
                     </div>
-                    {% endif %}
                 </div>
-                
             </div>
 
             {% if user and not session.get('active_community_id') %}
@@ -140,11 +137,11 @@
                             </p>
                         </div>
 
-                        {% if user_status.plan_id != 'pro' %}
-                        <a href="#" onclick="showPricingModal(); return false;" class="menu-upgrade-button">
-                            <span>✨ Upgrade Plan</span>
+                       
+                        <a href="#" onclick="event.preventDefault(); showPricingModal();" class="menu-upgrade-button">
+                        <span>✨ Upgrade Plan</span>
                         </a>
-                        {% endif %}
+                        
 
                         <ul class="menu-links">
                             {% if not is_embedded_whop_user %}
@@ -206,69 +203,61 @@
         </div>
     </div>
 
-<div id="pricing-modal-overlay" class="login-popup-overlay">
-    <div class="login-popup-content" style="max-width: 1200px; text-align: left;">
-        <button class="login-popup-close-btn" onclick="closePricingModal()">&times;</button>
-        <div style="padding: 1rem;">
-            <h3 class="login-popup-title" style="text-align: center;">Simple, Scalable Pricing</h3>
+    <!-- Pricing Modal -->
+    <div id="pricing-modal-overlay" class="login-popup-overlay">
+        <div class="login-popup-content" style="max-width: 1200px; text-align: left;">
+            <button class="login-popup-close-btn" onclick="closePricingModal()">&times;</button>
+            <div style="padding: 1rem;">
+                <h3 class="login-popup-title" style="text-align: center;">Simple, Scalable Pricing</h3>
+                <p style="text-align: center; margin-top: 2rem; color: var(--text-muted); font-weight: 500;">
+                    We're committed to making this the best platform for creators and thier Viewers. 90% of all revenue is reinvested directly into improving this project.
+                </p>
+                <div class="pricing-grid-modal">
+                     <div class="pricing-card">
+                         <h4>Free</h4>
+                         <p class="text-muted">Start the conversation and explore the AI.</p>
+                         <p class="price">₹0 <span>/ month</span></p>
+                         <a href="{{ url_for('channel') }}" class="btn-pricing btn-pricing-neutral">Get Started</a>
+                         <ul class="pricing-features">
+                             <li><span class="icon">✓</span>Add Upto 3 Channels Persona AI</li>
+                             <li><span class="icon">✓</span>10 AI Conversations/month</li>
+                             <li><span class="icon">✓</span>Manual Content Updates</li>
+                         </ul>
+                     </div>
 
-                                        <p style="text-align: center; margin-top: 2rem; color: var(--text-muted); font-weight: 500;">
-                We're committed to making this the best platform for creators and thier Viewers. 90% of all revenue is reinvested directly into improving this project.
-            </p>
-            <div class="pricing-grid-modal">
-                    <div class="pricing-card">
-                        <h4>Free</h4>
-                        <p class="text-muted">Get a taste of what's possible.</p>
-                        <p class="price">₹0 <span>/ month</span></p>
-                        <a href="#" class="btn-pricing btn-pricing-neutral">Get Started</a>
-                        <ul class="pricing-features">
-                            <li><span class="icon">✓</span>3 Channel</li>
-                            <li><span class="icon">✓</span>50 queries/month</li>
-                            <li><span class="icon">✓</span>Manual Refresh</li>
-                        </ul>
-                    </div>
+                     <div class="pricing-card featured">
+                         <span class="popular-badge">MOST POPULAR</span>
+                         <h4>Personal</h4>
+                         <p class="text-muted">For the enthusiast who wants to dive deep.</p>
+                         <p class="price price-featured">₹299 <span>/ month</span></p>
+                         <a href="#" onclick="buySubscription('personal', this)" class="btn-pricing btn-pricing-accent">Choose Personal</a>
+                         <ul class="pricing-features">
+                             <li><span class="icon">✓</span><strong>Add UPTO 25 Channels Persona AI</strong></li>
+                             <li><span class="icon">✓</span><strong>250x More Interactions</strong></li>
+                             <li><span class="icon">✓</span><strong>Get longer In-Depth Answers</strong></li>
+                             <li><span class="icon">✓</span><strong>Always Up-to-Date AI</strong> (Auto Sync)</li>
+                             <li><span class="icon">✓</span>Priority AI Responses</li>
+                         </ul>
+                     </div>
 
-                    <div class="pricing-card featured">
-                        <span class="popular-badge">MOST POPULAR</span>
-                        <h4>Personal</h4>
-                        <p class="text-muted">For the serious community builder.</p>
-                        <p class="price price-featured">₹299 <span>/ month</span></p>
-                        <a href="#" onclick="buySubscription('{{ razorpay_plan_id_personal }}')" class="btn-pricing btn-pricing-accent">Choose Personal</a>
-                        <ul class="pricing-features">
-                            <li><span class="icon">✓</span>10 Channels</li>
-                            <li><span class="icon">✓</span>500+queries/month</li>
-                            <li><span class="icon">✓</span>Auto knowledge update</li>
-                            <li><span class="icon">✓</span>Faster Responses</li>
-                        </ul>
-                    </div>
-
-                    <div class="pricing-card">
-                        <h4>Creator</h4>
-                        <p class="text-muted">A fully branded, white-glove experience.</p>
-                        <p class="price">₹1,499 <span>/ month</span></p>
-                        <a href="#" onclick="buySubscription('{{ razorpay_plan_id_creator }}')" class="btn-pricing btn-pricing-neutral">Choose Creator</a>
-                        <ul class="pricing-features">
-                             <li><span class="icon">✓</span>Unlimited Channels</li>
-                            <li><span class="icon">✓</span>2,000 queries/month</li>
-                            <li><span class="icon">✓</span>2,500 extra quries for your channel's chatbot</li>
-                            <li><span class="icon">✓</span>Faster Responses</li>
-                            <li><span class="icon">✓</span><strong>channel's chatbot features integration </strong></li>
-                        </ul>
-                    </div>
+                     <div class="pricing-card">
+                         <h4>Creator</h4>
+                         <p class="text-muted">Build, deploy, and monetize your AI empire.</p>
+                         <p class="price">₹2,799 <span>/ month</span></p>
+                         <a href="#" onclick="buySubscription('creator', this)" class="btn-pricing btn-pricing-neutral">Choose Creator</a>
+                         <ul class="pricing-features">
+                            <li><span class="icon">✓</span>Everything in Personal, plus:</li>
+                             <li><span class="icon">✓</span><strong>Unlimited Channels</strong></li>
+                             <li><span class="icon">✓</span><strong>Massive Engagement</strong> (10,000/month)</li>
+                             <li><span class="icon">✓</span><strong>Deploy Your AI Anywhere</strong> (Discord & Telegram & more)</li>
+                         </ul>
+                     </div>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-    <script>
-        // All JavaScript functions remain the same
-    </script>
-    {% block page_scripts %}{% endblock %}
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-        <script>
-        const IS_USER_LOGGED_IN = {{ 'true' if user else 'false' }};
-    </script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
 
 <script>
     /**
@@ -522,10 +511,19 @@
         }
     });
 </script>
-
-
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<!-- <script src="{{ url_for('static', filename='js/app.js') }}"></script> -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+    <script>
+        // Pass server-side data to JavaScript as global constants
+        const IS_USER_LOGGED_IN = {{ 'true' if user else 'false' }};
+        const SUPABASE_URL = "{{ SUPABASE_URL or '' }}";
+        const SUPABASE_ANON_KEY = "{{ SUPABASE_ANON_KEY or '' }}";
+    </script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+    {% block page_scripts %}{% endblock %}
+
 </body>
 </html>

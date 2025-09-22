@@ -42,7 +42,7 @@ def get_transcript(video_id: str) -> Optional[str]:
     """
     # --- METHOD 1: WEB SCRAPING (Primary) ---
     try:
-        transcript_url = f"https://youtubetotranscript.com/transcript?v={video_id}"
+        #transcript_url = f"https://youtubetotranscript.com/transcript?v={video_id}"
         response = requests.get(transcript_url, timeout=30)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -55,6 +55,7 @@ def get_transcript(video_id: str) -> Optional[str]:
         return "\n".join(transcript_lines)
     except Exception:
         # --- METHOD 2: YOUTUBE TRANSCRIPT API (Fallback) ---
+        print('using method 2 YouTubeTranscriptApi')
         try:
             transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en','hi'])
             return "\n".join([segment['text'] for segment in transcript])
@@ -334,3 +335,49 @@ def get_channel_details_by_url(channel_url: str):
     )
     details_response = details_request.execute()
     return details_response['items'][0]
+def get_channel_url_from_video_url(video_url: str) -> Optional[str]:
+    """
+    Finds the parent channel URL from a given YouTube video URL.
+    """
+    if not youtube_api:
+        log.error("YouTube API client not initialized, cannot fetch video details.")
+        return None
+
+    # Regex to extract video ID from various YouTube URL formats
+    video_id_match = (
+        re.search(r"v=([a-zA-Z0-9_-]{11})", video_url) or
+        re.search(r"youtu\.be/([a-zA-Z0-9_-]{11})", video_url)
+    )
+    
+    if not video_id_match:
+        return None
+
+    video_id = video_id_match.group(1)
+    
+    try:
+        # Make an API call to get the video's details
+        request = youtube_api.videos().list(part="snippet", id=video_id)
+        response = request.execute()
+
+        # Extract the channelId from the response and build the canonical channel URL
+        if response.get("items"):
+            channel_id = response["items"][0]["snippet"]["channelId"]
+            log.info(f"Detected channel ID {channel_id} from video ID {video_id}.")
+            return f"https://www.youtube.com/channel/{channel_id}"
+        else:
+            log.warning(f"Could not find video details for video ID: {video_id}")
+            return None
+            
+    except Exception as e:
+        log.error(f"API error while fetching channel from video {video_id}: {e}")
+        return None
+def is_youtube_channel_url(url: str) -> bool:
+    """
+    Validates if a URL is a valid YouTube channel URL.
+    Handles /@handle, /channel/ID, /c/legacy, and /user/legacy formats.
+    """
+    if not isinstance(url, str):
+        return False
+    # This regex is designed to match all common YouTube channel URL formats
+    channel_pattern = r'^(https?://)?(www\.)?(youtube\.com|youtu\.be)/(channel/UC[\w-]{21}[AQgw]|@[\w.-]+|c/[\w.-]+|user/[\w.-]+)/?$'
+    return re.match(channel_pattern, url) is not None

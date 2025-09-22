@@ -1,4 +1,67 @@
+// --- START: NEW CURRENCY LOCALIZATION LOGIC ---
+let userCurrency = 'INR'; // Default currency
+
+/**
+ * Detects the user's country via a free API and sets the currency.
+ * Defaults to USD for any country that is not India.
+ */
+async function localizeCurrency() {
+    try {
+        // Use a free, simple IP geolocation API
+        const response = await fetch('https://ipapi.co/json/');
+        if (!response.ok) throw new Error('Failed to fetch geo data');
+        const data = await response.json();
+        
+        // If the country is not India, default to USD
+        if (data.country_code && data.country_code !== 'IN') {
+            userCurrency = 'USD';
+        }
+    } catch (error) {
+        console.warn('Could not detect user location, defaulting to INR.', error);
+        userCurrency = 'INR'; // Fallback to INR on error
+    } finally {
+        // After detection (or failure), update the pricing on the page
+        updatePricingDisplay();
+    }
+}
+
+/**
+ * Updates the pricing display on the landing and pricing modal pages.
+ */
+function updatePricingDisplay() {
+    // This function can be expanded if you have more plans
+    const prices = {
+        personal: { INR: '₹299', USD: '$12.99' },
+        creator: { INR: '₹1,499', USD: '$29.99' }
+    };
+
+    // Update prices on the landing page
+    const landingPersonalPrice = document.querySelector('#pricing [data-plan-type="personal"] .price');
+    if (landingPersonalPrice) {
+        landingPersonalPrice.innerHTML = `${prices.personal[userCurrency]} <span>/ month</span>`;
+    }
+    const landingCreatorPrice = document.querySelector('#pricing [data-plan-type="creator"] .price');
+    if (landingCreatorPrice) {
+        landingCreatorPrice.innerHTML = `${prices.creator[userCurrency]} <span>/ month</span>`;
+    }
+
+    // Update prices in the pricing modal
+    const modalPersonalPrice = document.querySelector('#pricing-modal-overlay [data-plan-type="personal"] .price');
+     if (modalPersonalPrice) {
+        modalPersonalPrice.innerHTML = `${prices.personal[userCurrency]} <span>/ month</span>`;
+    }
+    const modalCreatorPrice = document.querySelector('#pricing-modal-overlay [data-plan-type="creator"] .price');
+    if (modalCreatorPrice) {
+        modalCreatorPrice.innerHTML = `${prices.creator[userCurrency]} <span>/ month</span>`;
+    }
+}
+// --- END: NEW CURRENCY LOCALIZATION LOGIC ---
+
+
 document.addEventListener('DOMContentLoaded', function() {
+    // --- NEW: Run currency detection on page load ---
+    localizeCurrency();
+
     // This function adds the SPA-like navigation to the channel links
     function initializeSpaNavigation() {
         // We need to re-run this logic if new links are added to the page,
@@ -60,7 +123,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Run the function to attach the event listener
     initializeSpaNavigation();
 
-    // --- THIS IS THE NEWLY ADDED BLOCK ---
     // This part handles resuming an action after a user logs in
     if (typeof IS_USER_LOGGED_IN !== 'undefined' && IS_USER_LOGGED_IN) {
         const pendingActionJSON = localStorage.getItem('action_after_login');
@@ -69,14 +131,13 @@ document.addEventListener('DOMContentLoaded', function() {
             localStorage.removeItem('action_after_login'); // Clear the action
 
             // Check if the pending action was to buy a subscription
-            if (pendingAction.type === 'buy_subscription' && pendingAction.planId) {
+            if (pendingAction.type === 'buy_subscription' && pendingAction.planType) {
                 // If so, call the buySubscription function immediately
-                buySubscription(pendingAction.planId);
+                buySubscription(pendingAction.planType);
             }
             // You can add more 'else if' blocks here for other actions in the future
         }
     }
-    // --- END OF NEW BLOCK ---
 });
 
 /**
@@ -315,20 +376,38 @@ function copyShareLink(buttonEl) {
         console.error('Could not find an input field to copy from.');
     }
 }
-function buySubscription(planId) {
+
+// --- START: MODIFIED buySubscription FUNCTION ---
+function buySubscription(planType, buttonElement) {
+    // Prevent multiple clicks if the button is already processing
+    if (buttonElement.disabled) {
+        return;
+    }
+    
+    // Store the button's original content and show the loading state
+    const originalContent = buttonElement.innerHTML;
+    buttonElement.disabled = true;
+    buttonElement.innerHTML = `<div class="button-spinner"></div><span>Processing...</span>`;
+
     if (!IS_USER_LOGGED_IN) {
         localStorage.setItem('action_after_login', JSON.stringify({
             type: 'buy_subscription',
-            planId: planId
+            planType: planType
         }));
         showLoginPopup();
+        // Restore button if user needs to log in
+        buttonElement.disabled = false;
+        buttonElement.innerHTML = originalContent;
         return;
     }
 
     fetch('/create_razorpay_subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_id: planId })
+        body: JSON.stringify({
+            plan_type: planType,
+            currency: userCurrency
+        })
     })
     .then(res => {
         if (!res.ok) {
@@ -345,15 +424,35 @@ function buySubscription(planId) {
                 description: `Subscription for ${data.plan_name} plan`,
                 handler: function (response) {
                     showNotification('Payment successful! Your plan has been updated.', 'success');
+                    // Restore button before reloading
+                    buttonElement.disabled = false;
+                    buttonElement.innerHTML = originalContent;
                     setTimeout(() => window.location.reload(), 2000);
                 },
                 prefill: {
                     name: data.user_name || "",
                     email: data.user_email || "",
-                    method: "upi" // <-- Prioritizes the UPI payment method
                 },
                 theme: {
                     color: "#ff9a56"
+                },
+                modal: {
+                    // This function is called if the user closes the Razorpay modal
+                    ondismiss: function() {
+                        showNotification('Payment was cancelled.', 'info');
+                        buttonElement.disabled = false;
+                        buttonElement.innerHTML = originalContent;
+                    }
+                },
+                config: {
+                  display: {
+                    blocks: {
+                      upi: { name: "Pay with UPI", instruments: [{ method: "upi" }, { method: "intent" }] },
+                      card: { name: "Pay with Card", instruments: [{ method: "card" }] }
+                    },
+                    sequence: ["block.upi", "block.card"],
+                    preferences: { show_default_blocks: true }
+                  }
                 }
             };
             const rzp = new Razorpay(options);
@@ -364,5 +463,9 @@ function buySubscription(planId) {
     })
     .catch(error => {
         showNotification(error.message || 'An error occurred.', 'error');
+        // If there's an error, restore the button to its original state
+        buttonElement.disabled = false;
+        buttonElement.innerHTML = originalContent;
     });
 }
+// --- END: MODIFIED buySubscription FUNCTION ---

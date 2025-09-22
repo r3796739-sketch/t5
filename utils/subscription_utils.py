@@ -46,20 +46,20 @@ PLANS = {
         'price_usd': 0, 
         'commission_rate': 0 
     },
-    # This is the old 'creator' plan, now for regular users
-    os.environ.get('RAZORPAY_PLAN_ID_PERSONAL', 'personal'): { 
+    # This now correctly loads your INR plan ID from the .env file
+    os.environ.get('RAZORPAY_PLAN_ID_PERSONAL_INR', 'personal_inr'): { 
         'name': 'Personal', 
         'max_channels': 10, 
         'max_queries_per_month': 2500, 
-        'price_usd': 3.60,  # Corrected from 9 (approx. ₹299)
+        'price_usd': 3.60,
         'commission_rate': 0.70 
     },
-    # This is the old 'pro' plan, now repurposed for creators
-    os.environ.get('RAZORPAY_PLAN_ID_CREATOR', 'creator'): { 
+    # This now correctly loads your INR plan ID from the .env file
+    os.environ.get('RAZORPAY_PLAN_ID_CREATOR_INR', 'creator_inr'): { 
         'name': 'Creator', 
         'max_channels': float('inf'), 
         'max_queries_per_month': 10000, 
-        'price_usd': 18.00, # Corrected from 9.99 (approx. ₹1,499)
+        'price_usd': 18.00,
         'commission_rate': 0.75 
     },
     'admin_testing': { 'name': 'free', 'max_channels': 1, 'max_queries_per_month': 10 },
@@ -142,9 +142,8 @@ def get_user_status(user_id: str, active_community_id: str = None) -> dict:
     is_whop_user = bool(profile.get('whop_user_id'))
     personal_plan_id = profile.get('personal_plan_id') or profile.get('direct_subscription_plan')
     
-    # NEW: Determine ownership and role from the database
     is_active_community_owner = False
-    community_role = 'member' # Default role for Whop users
+    community_role = 'member'
     if is_whop_user and active_community_id:
         supabase_admin = get_supabase_admin_client()
         community_res = supabase_admin.table('communities').select('owner_user_id').eq('id', active_community_id).single().execute()
@@ -164,11 +163,12 @@ def get_user_status(user_id: str, active_community_id: str = None) -> dict:
                 if trial_used < trial_limit:
                     raw_plan_id = 'admin_testing'
 
+    # --- START OF FIX ---
+    # The incorrect 'is_valid_plan' check has been removed.
+    # We now only check if the plan ID from the database exists in our main PLANS dictionary.
     if personal_plan_id and personal_plan_id in PLANS:
-        is_valid_plan = (is_whop_user and personal_plan_id.startswith('whop_')) or \
-                        (not is_whop_user and personal_plan_id in ['creator', 'pro', 'free'])
-        if is_valid_plan:
-            raw_plan_id = personal_plan_id
+        raw_plan_id = personal_plan_id
+    # --- END OF FIX ---
 
     plan_details = PLANS.get(raw_plan_id, PLANS['free'])
     usage_stats = get_usage_stats(user_id)
@@ -177,7 +177,7 @@ def get_user_status(user_id: str, active_community_id: str = None) -> dict:
         'user_id': user_id,
         'plan_id': raw_plan_id,
         'plan_name': plan_details.get('name', 'Unknown Plan'),
-        'has_personal_plan': bool(personal_plan_id),
+        'has_personal_plan': bool(personal_plan_id) and personal_plan_id != 'free',
         'is_whop_user': is_whop_user,
         'active_community_id': active_community_id,
         'is_active_community_owner': is_active_community_owner,

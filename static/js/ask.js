@@ -434,7 +434,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             const avatarHtml = channelThumbnail
                 ? `<div class="answer-avatar-container avatar-container"><img src="${channelThumbnail}" alt="Avatar" class="answer-avatar"><span class="ai-badge">AI</span></div>`
-                : `<div class="answer-avatar-container avatar-container"><div class="answer-avatar-placeholder">🤖</div><span class="ai-badge">AI</span></div>`;
+                : `<div class="answer-avatar-container avatar-container"><div class="answer-avatar-placeholder">ðŸ¤–</div><span class="ai-badge">AI</span></div>`;
             const label = channelName ? `${escapeHtml(channelName)}` : 'Answer';
             html = `
                 <div class="answer-box">
@@ -455,9 +455,12 @@ document.addEventListener('DOMContentLoaded', function() {
         return role === 'ai' ? qnaPair.querySelector('.answer-box') : null;
     };
 
+    // 1. First, fix the renderSources function to include the copy button
     const renderSources = (sources, answerBoxElement) => {
         if (!answerBoxElement) return;
         let sourcesSection = answerBoxElement.querySelector('.sources-section');
+        if (!sourcesSection) return;
+        
         sourcesSection.innerHTML = '';
         
         let sourcesButtonHTML = '';
@@ -468,10 +471,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 <button class="toggle-sources-btn" onclick="toggleSources(this)">
                     <svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M4,6H2V20a2,2 0 0,0 2,2H18V18H4V6M20,2H8A2,2 0 0,0 6,4V16a2,2 0 0,0 2,2H20a2,2 0 0,0 2-2V4a2,2 0 0,0-2-2Z"></path></svg>
                     Sources (${sources.length})
-                    <span class="toggle-indicator">▼</span>
+                    <span class="toggle-indicator">â–¼</span>
                 </button>
             `;
-            const sourceLinks = sources.map(s => `<div class="source-item"><a href="${escapeHtml(s.url)}" target="_blank" class="source-link">${escapeHtml(s.title)}</a></div>`).join('');
+            const sourceLinks = sources.map(s => `<div class="source-item"><a href="${escapeHtml(s.url)}" target="_blank" class="source-link"><span class="source-title">${escapeHtml(s.title)}</span></a></div>`).join('');
             listHTML = `<div class="sources-list" style="display: none;">${sourceLinks}</div>`;
         }
         
@@ -480,8 +483,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 <svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
                 Regenerate
             </button>`;
+        
+        const copyButtonHTML = `
+            <button class="copy-answer-btn" onclick="copyAnswer(this)" data-tooltip="Copy answer">
+                <svg class="icon-copy-default" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <svg class="icon-copy-check" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </button>`;
             
-        sourcesSection.innerHTML = `<div class="source-buttons">${sourcesButtonHTML}${regenerateButtonHTML}</div>${listHTML}`;
+        sourcesSection.innerHTML = `<div class="source-buttons">${sourcesButtonHTML}${regenerateButtonHTML}${copyButtonHTML}</div>${listHTML}`;
+        
+        // Also ensure copy button exists in header if it doesn't
+        const answerHeader = answerBoxElement.querySelector('.answer-header');
+        if (answerHeader && !answerHeader.querySelector('.copy-answer-btn')) {
+            answerHeader.insertAdjacentHTML('beforeend', copyButtonHTML);
+        }
     };
 
     const handleFormSubmit = (event) => {
@@ -545,11 +560,19 @@ document.addEventListener('DOMContentLoaded', function() {
         const decoder = new TextDecoder();
         let fullAnswerText = '';
         let foundSources = [];
+
         const push = () => {
             reader.read().then(({ done, value }) => {
-                if (done) { return; }
+                // If the stream is finished, hide the typing indicator and render the final sources and regenerate button.
+                if (done) {
+                    if (typingContainer) typingContainer.classList.remove('active');
+                    renderSources(foundSources, aiAnswerBox);
+                    return;
+                }
+
                 const chunk = decoder.decode(value);
                 const lines = chunk.split('\n\n');
+
                 lines.forEach(line => {
                     if (line.startsWith('data: ')) {
                         const data = line.substring(6);
@@ -574,64 +597,175 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         } catch (e) {
                             console.error('Error parsing stream data:', e);
+                            throw e; // Re-throw the error to be caught by the catch block below
+                        }
+                    }
+                });
+
+                conversationHistory.scrollTop = conversationHistory.scrollHeight;
+                push(); // Continue reading the stream
+
+            }).catch(error => {
+                // This block will now handle any error that occurs during the stream.
+                console.error("Stream reading error:", error);
+                const errorMessage = error.message || 'An error occurred during generation.';
+                answerContent.innerHTML = `<p class="error-message">${escapeHtml(errorMessage)}</p>`;
+
+                // Crucially, we reset the UI here as well.
+                if (typingContainer) typingContainer.classList.remove('active');
+                renderSources([], aiAnswerBox); // Re-render the regenerate button
+
+                // This cancels the reader to prevent it from getting stuck.
+                reader.cancel(); 
+            });
+        };
+
+        push();
+    };
+
+    // 2. Completely replace the regenerateAnswer function
+    window.regenerateAnswer = function(btn) {
+        console.log('=== REGENERATE START ===');
+        
+        if (btn.disabled) {
+            console.log('Button already disabled, returning');
+            return;
+        }
+        
+        // Get references BEFORE changing button state
+        const lastQnaPair = btn.closest('.qna-pair');
+        const answerBox = btn.closest('.answer-box');
+        
+        console.log('QnA Pair found:', !!lastQnaPair);
+        console.log('Answer Box found:', !!answerBox);
+        
+        if (!lastQnaPair || !answerBox) {
+            console.log('Missing DOM elements, aborting');
+            return;
+        }
+        
+        const questionContent = lastQnaPair.querySelector('.question-box .question-content');
+        const answerContent = answerBox.querySelector('.answer-content');
+        const sourcesSection = answerBox.querySelector('.sources-section');
+        const typingContainer = answerBox.querySelector('.typing-container');
+        
+        console.log('Question content found:', !!questionContent);
+        console.log('Answer content found:', !!answerContent);
+        console.log('Sources section found:', !!sourcesSection);
+        console.log('Typing container found:', !!typingContainer);
+        
+        if (!questionContent || !answerContent) {
+            console.log('Missing essential DOM elements, aborting');
+            return;
+        }
+        
+        const lastQuestion = questionContent.textContent;
+        console.log('Question to regenerate:', lastQuestion);
+        
+        // NOW set button state
+        btn.disabled = true;
+        btn.innerHTML = 'Regenerating...';
+        console.log('Button state set to regenerating');
+
+        // Remove other regenerate buttons
+        document.querySelectorAll('.regenerate-btn-js').forEach(b => {
+            if (b !== btn) b.remove();
+        });
+
+        // Clear content and show typing
+        answerContent.innerHTML = '';
+        if (sourcesSection) sourcesSection.innerHTML = '';
+        if (typingContainer) typingContainer.classList.add('active');
+
+        const formData = new FormData();
+        formData.append('question', lastQuestion);
+        formData.append('channel_name', document.getElementById('chat-page-data').dataset.channelName || '');
+        formData.append('is_regenerating', 'true');
+
+        console.log('Making fetch request...');
+
+        fetch('/stream_answer', { method: 'POST', body: formData })
+            .then(response => {
+                console.log('Fetch response status:', response.status);
+                if (!response.ok) {
+                    return response.json().then(err => Promise.reject(err));
+                }
+                return response.body.getReader();
+            })
+            .then(reader => {
+                console.log('Reader obtained, starting stream...');
+                processRegenerateStream(reader, answerContent, typingContainer, answerBox);
+            })
+            .catch(err => {
+                console.error('Fetch failed:', err);
+                answerContent.innerHTML = `<p class="error-message">Failed to regenerate: ${err.message || 'Unknown error'}</p>`;
+                if (typingContainer) typingContainer.classList.remove('active');
+                renderSources([], answerBox);
+            });
+    };
+
+    // 3. Stream processing function
+    function processRegenerateStream(reader, answerContent, typingContainer, aiAnswerBox) {
+        console.log('Stream processing started');
+        
+        const decoder = new TextDecoder();
+        let fullAnswerText = '';
+        let foundSources = [];
+
+        const push = () => {
+            reader.read().then(({ done, value }) => {
+                if (done) {
+                    console.log('Stream completed');
+                    if (typingContainer) typingContainer.classList.remove('active');
+                    renderSources(foundSources, aiAnswerBox);
+                    return;
+                }
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n\n');
+
+                lines.forEach(line => {
+                    if (line.startsWith('data: ')) {
+                        const data = line.substring(6);
+                        if (data.trim() === '[DONE]') return;
+                        
+                        try {
+                            const parsed = JSON.parse(data);
+                            if (parsed.error) {
+                                throw new Error(parsed.message || 'Server error');
+                            }
+                            if (parsed.answer) {
+                                fullAnswerText += parsed.answer;
+                                answerContent.innerHTML = window.marked ? 
+                                    marked.parse(fullAnswerText) : fullAnswerText;
+                            }
+                            if (parsed.sources) {
+                                foundSources = parsed.sources;
+                            }
+                        } catch (e) {
+                            console.error('Error parsing stream data:', e);
                             throw e;
                         }
                     }
                 });
-                conversationHistory.scrollTop = conversationHistory.scrollHeight;
+
+                // Scroll to bottom
+                const conversationHistory = document.getElementById('conversation-history');
+                if (conversationHistory) {
+                    conversationHistory.scrollTop = conversationHistory.scrollHeight;
+                }
+
                 push();
+
             }).catch(error => {
-                console.error("Stream reading error:", error);
-                const errorMessage = error.message || 'An error occurred during generation.';
-                answerContent.innerHTML = `<p class="error-message">${escapeHtml(errorMessage)}</p>`; 
-            }).finally(() => {
+                console.error('Stream error:', error);
+                answerContent.innerHTML = `<p class="error-message">Stream error: ${error.message}</p>`;
                 if (typingContainer) typingContainer.classList.remove('active');
-                renderSources(foundSources, aiAnswerBox);
+                renderSources([], aiAnswerBox);
             });
         };
-        push();
-    };
 
-    window.regenerateAnswer = function(btn) {
-        if (btn.disabled) return;
-        btn.disabled = true;
-        btn.innerHTML = 'Regenerating...';
-        document.querySelectorAll('.regenerate-btn-js').forEach(b => {
-            if (b !== btn) b.remove();
-        });
-        const lastQnaPair = btn.closest('.qna-pair');
-        if (!lastQnaPair) {
-            btn.innerHTML = 'Regenerate';
-            btn.disabled = false;
-            return;
-        }
-        const questionContent = lastQnaPair.previousElementSibling?.querySelector('.question-content');
-        const answerBox = btn.closest('.answer-box');
-        if (!questionContent || !answerBox) return;
-        const lastQuestion = questionContent.textContent;
-        const answerContent = answerBox.querySelector('.answer-content');
-        const sourcesSection = answerBox.querySelector('.sources-section');
-        const typingContainer = answerBox.querySelector('.typing-container');
-        answerContent.innerHTML = '';
-        if (sourcesSection) sourcesSection.innerHTML = '';
-        if (typingContainer) typingContainer.classList.add('active');
-        const formData = new FormData();
-        formData.append('question', lastQuestion);
-        formData.append('channel_name', document.getElementById('chat-page-data').dataset.channelName);
-        fetch('/stream_answer', { method: 'POST', body: formData })
-            .then(response => {
-                if (!response.ok) return response.json().then(err => Promise.reject(err));
-                return response.body.getReader();
-            })
-            .then(reader => {
-                if (reader) processStream(reader, answerContent, typingContainer, answerBox);
-            })
-            .catch(err => {
-                console.error('Regeneration fetch error:', err);
-                answerContent.innerHTML = `<p class="error-message">Failed to regenerate answer. Please try again.</p>`;
-                if (typingContainer) typingContainer.classList.remove('active');
-                renderSources([], answerBox);
-            });
+        push();
     }
 
     if (questionForm) {

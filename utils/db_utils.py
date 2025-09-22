@@ -529,14 +529,25 @@ def update_razorpay_subscription(user_id: str, subscription_data: dict):
     Updates the user's subscription details in the database.
     """
     try:
-        supabase.table('razorpay_subscriptions').upsert({
-            'id': subscription_data['id'],
+        # --- START OF FIX ---
+        # Get the timestamp values from the subscription data
+        start_timestamp = subscription_data.get('current_start')
+        end_timestamp = subscription_data.get('current_end')
+        # Safely convert timestamps to ISO format only if they exist
+        start_iso = datetime.fromtimestamp(start_timestamp).isoformat() if start_timestamp is not None else None
+        end_iso = datetime.fromtimestamp(end_timestamp).isoformat() if end_timestamp is not None else None     
+        # Prepare the data for upserting into the database
+        upsert_payload = {
+            'id': subscription_data.get('id'),
             'user_id': user_id,
-            'plan_id': subscription_data['plan_id'],
-            'status': subscription_data['status'],
-            'current_start': datetime.fromtimestamp(subscription_data['current_start']).isoformat(),
-            'current_end': datetime.fromtimestamp(subscription_data['current_end']).isoformat(),
-        }, on_conflict='id').execute()
+            'plan_id': subscription_data.get('plan_id'),
+            'status': subscription_data.get('status'),
+            'current_start': start_iso,
+            'current_end': end_iso,
+        }
+        # Upsert the data into the razorpay_subscriptions table
+        supabase.table('razorpay_subscriptions').upsert(upsert_payload, on_conflict='id').execute()
+        # --- END OF FIX ---  
     except Exception as e:
         log.error(f"Error updating Razorpay subscription for user {user_id}: {e}")
 
