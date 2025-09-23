@@ -1,12 +1,12 @@
 import logging
 from functools import wraps
-from utils.youtube_utils import is_youtube_video_url, clean_youtube_url
+from utils.youtube_utils import is_youtube_video_url, is_youtube_channel_url, clean_youtube_url, get_channel_url_from_video_url
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, Response
 import os
 import json
 import secrets
 from datetime import datetime, timezone
-from tasks import huey, process_channel_task, sync_channel_task, process_telegram_update_task, delete_channel_task
+from tasks import huey, process_channel_task, sync_channel_task, process_telegram_update_task, delete_channel_task,update_bot_profile_task
 from utils.qa_utils import answer_question_stream
 from utils.supabase_client import get_supabase_client, get_supabase_admin_client, refresh_supabase_session
 from utils.history_utils import get_chat_history
@@ -94,7 +94,7 @@ def get_user_channels():
             if cached_data:
                 return json.loads(cached_data)
         except Exception as e:
-            logging.error(f"Redis GET error: {e}")
+            print(f"Redis GET error: {e}")
 
     supabase = get_supabase_admin_client()
     all_channels_list = []
@@ -106,7 +106,7 @@ def get_user_channels():
             all_channels_list = response.data
 
     except APIError as e:
-        logging.error(f"Supabase RPC error in get_user_channels: {e.message}")
+        print(f"Supabase RPC error in get_user_channels: {e.message}")
         if 'JWT expired' in e.message:
             session.clear()
 
@@ -219,7 +219,7 @@ def whop_embed_auth():
         flash("Invalid authentication token.", "error")
         return redirect(url_for('home'))
     except Exception as e:
-        logging.error(f"An error occurred during Whop embed auth: {e}", exc_info=True)
+        print(f"An error occurred during Whop embed auth: {e}", exc_info=True)
         flash("An unexpected error occurred during login.", "error")
         return redirect(url_for('home'))
 
@@ -273,7 +273,7 @@ def whop_installation_callback():
         return redirect(url_for('channel'))
 
     except Exception as e:
-        logging.error(f"An error occurred during Whop installation callback: {e}", exc_info=True)
+        print(f"An error occurred during Whop installation callback: {e}", exc_info=True)
         flash('An unexpected error occurred during installation.', 'error')
         return redirect(url_for('home'))
 
@@ -289,7 +289,7 @@ def validate_whop_webhook(f):
 
         secret = os.environ.get('WHOP_WEBHOOK_SECRET')
         if not secret:
-            logging.error("WHOP_WEBHOOK_SECRET is not configured. Cannot validate webhook.")
+            print("WHOP_WEBHOOK_SECRET is not configured. Cannot validate webhook.")
             return jsonify({'status': 'error', 'message': 'Server configuration error'}), 500
 
         request_body = request.get_data()
@@ -335,7 +335,7 @@ def whop_membership_update_webhook():
             redis_client.delete(f"user_status:{app_user_id}:community:none")
         return jsonify({'status': 'success'})
     except Exception as e:
-        logging.error(f"Error processing membership webhook for {whop_user_id}: {e}", exc_info=True)
+        print(f"Error processing membership webhook for {whop_user_id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
 
 @app.route('/whop/webhook/community-update', methods=['POST'])
@@ -357,7 +357,7 @@ def whop_community_update_webhook():
     except (ValueError, TypeError):
         return jsonify({'status': 'error', 'message': 'Invalid member_count value'}), 400
     except Exception as e:
-        logging.error(f"Error processing community webhook for {whop_community_id}: {e}", exc_info=True)
+        print(f"Error processing community webhook for {whop_community_id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
 
 @app.route('/whop/webhook/community-plan-update', methods=['POST'])
@@ -385,7 +385,7 @@ def whop_community_plan_update_webhook():
             redis_client.delete(f"community_status:{update_res.data[0]['id']}")
         return jsonify({'status': 'success'})
     except Exception as e:
-        logging.error(f"Error processing community plan update for {whop_community_id}: {e}", exc_info=True)
+        print(f"Error processing community plan update for {whop_community_id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
 
 # --- Standard Auth and App Routes (Largely unchanged) ---
@@ -470,7 +470,7 @@ def set_auth_cookie():
         return jsonify({'status': 'success', 'message': 'Session set successfully.'})
 
     except Exception as e:
-        logging.error(f"Error in set-cookie: {e}", exc_info=True)
+        print(f"Error in set-cookie: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'An internal error occurred.'}), 500
 @app.route('/shipping-policy')
 def shipping_policy():
@@ -505,6 +505,27 @@ def channel():
             if 'user' not in session:
                 return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
 
+            # --- START: INTELLIGENT URL HANDLING & SECURITY FIX ---
+            submitted_url = request.form.get('channel_url', '').strip()
+            final_channel_url = None
+
+            if is_youtube_channel_url(submitted_url):
+                # The user provided a valid channel URL directly
+                final_channel_url = submitted_url
+            elif is_youtube_video_url(submitted_url):
+                # The user provided a video URL, so we find the channel
+                try:
+                    final_channel_url = get_channel_url_from_video_url(submitted_url)
+                    if not final_channel_url:
+                        return jsonify({'status': 'error', 'message': 'Could not find the channel for that video URL.'}), 400
+                except Exception as e:
+                    logger.error(f"Failed to get channel from video URL '{submitted_url}': {e}", exc_info=True)
+                    return jsonify({'status': 'error', 'message': 'An API error occurred while finding the channel.'}), 500
+            else:
+                # The input is neither a valid channel nor a video URL
+                return jsonify({'status': 'error', 'message': 'Please enter a valid YouTube channel or video URL.'}), 400
+            # --- END: INTELLIGENT URL HANDLING & SECURITY FIX ---
+
             user_id = session['user']['id']
             active_community_id = session.get('active_community_id')
             user_status = get_user_status(user_id, active_community_id)
@@ -532,11 +553,9 @@ def channel():
             
             def guarded_personal_channel_add():
                 user_id = session['user']['id']
-                channel_url = request.form.get('channel_url', '').strip()
-                if not channel_url:
-                    return jsonify({'status': 'error', 'message': 'Channel URL is required'}), 400
-
-                cleaned_url = clean_youtube_url(channel_url)
+                
+                # This now uses the validated and converted final_channel_url
+                cleaned_url = clean_youtube_url(final_channel_url)
                 existing = db_utils.find_channel_by_url(cleaned_url)
 
                 if existing:
@@ -563,6 +582,8 @@ def channel():
                     if redis_client: redis_client.delete(f"user_channels:{user_id}")
                     return jsonify({'status': 'processing', 'task_id': task.id})
             return guarded_personal_channel_add()
+
+        # This is the GET request part of the function
         personal_plan_id = os.environ.get('RAZORPAY_PLAN_ID_PERSONAL')
         creator_plan_id = os.environ.get('RAZORPAY_PLAN_ID_CREATOR')
         return render_template(
@@ -574,7 +595,7 @@ def channel():
             razorpay_plan_id_creator=creator_plan_id
         )
     except Exception as e:
-        logging.error(f"Error in /channel: {e}", exc_info=True)
+        print(f"Error in /channel: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
 
 @app.route('/add_shared_channel', methods=['POST'])
@@ -658,9 +679,11 @@ def ask(channel_name):
         history=history,
         channel_name=channel_name,
         current_channel=current_channel,
-        saved_channels=all_user_channels, # This will be empty for logged-out users
+        saved_channels=all_user_channels,
         SUPABASE_URL=os.environ.get('SUPABASE_URL'),
-        SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
+        SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY'),
+        is_temporary_session=False,
+        notice=None
     )
 
 @app.route('/api/channel_details/<path:channel_name>')
@@ -795,7 +818,8 @@ def stream_answer():
         video_ids=video_ids, 
         user_id=user_id, 
         access_token=access_token, 
-        on_complete=on_complete_callback
+        on_complete=on_complete_callback,
+        active_community_id=active_community_id
     )
     return Response(stream, mimetype='text/event-stream')
 
@@ -1053,7 +1077,7 @@ def telegram_dashboard():
                         group_connection_status = 'code_generated'
                         group_connection_code = group_conn.data[0]['connection_code']
             except Exception as e:
-                logging.error(f"Error fetching group connections for user {user_id}, channel {channel_id}: {e}")
+                print(f"Error fetching group connections for user {user_id}, channel {channel_id}: {e}")
                 group_channel = None
     
     token, _ = get_bot_token_and_url()
@@ -1112,7 +1136,7 @@ def toggle_channel_privacy(channel_id):
             raise Exception("Failed to update channel privacy.")
         return jsonify({'status': 'success', 'message': f"Channel is now {'shared' if new_is_shared else 'personal'}.", 'is_shared': new_is_shared})
     except Exception as e:
-        logging.error(f"Error toggling privacy for channel {channel_id}: {e}", exc_info=True)
+        print(f"Error toggling privacy for channel {channel_id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
 
 if os.environ.get("FLASK_ENV") == "development":
@@ -1233,23 +1257,55 @@ def api_admin_set_current_plan():
     target_id = data.get('id')
     plan_id = data.get('plan_id')
     plan_type = data.get('type')
+
     if not all([target_id, plan_id, plan_type]):
         return jsonify({'status': 'error', 'message': 'Missing required fields.'}), 400
+
     supabase_admin = get_supabase_admin_client()
     try:
         if plan_type == 'community':
+            # ... (community logic remains the same)
             plan_details = COMMUNITY_PLANS.get(plan_id)
             if not plan_details:
                 return jsonify({'status': 'error', 'message': 'Invalid community plan ID.'}), 400
-            update_data = {'plan_id': plan_id, 'shared_channel_limit': plan_details['shared_channels_allowed'], 'query_limit': plan_details['queries_per_month']}
+            
+            update_data = {
+                'plan_id': plan_id, 
+                'shared_channel_limit': plan_details['shared_channels_allowed'], 
+                'query_limit': plan_details['queries_per_month']
+            }
             supabase_admin.table('communities').update(update_data).eq('id', target_id).execute()
+
         elif plan_type == 'user':
             if plan_id not in PLANS:
                 return jsonify({'status': 'error', 'message': 'Invalid user plan ID.'}), 400
-            supabase_admin.table('profiles').update({'direct_subscription_plan': plan_id}).eq('id', target_id).execute()
+
+            profile = db_utils.get_profile(target_id)
+            if not profile or not profile.get('email'):
+                return jsonify({'status': 'error', 'message': 'Could not find user or user email.'}), 404
+
+            profile_payload = {
+                'id': target_id,
+                'email': profile.get('email'),
+                'direct_subscription_plan': plan_id
+            }
+            db_utils.create_or_update_profile(profile_payload)
+            
+            # --- START OF FIX ---
+            # After updating the database, we must clear the user's cache.
+            if redis_client:
+                # This key must exactly match the one used in get_user_status()
+                # For direct users, the community_id is 'none'.
+                cache_key = f"user_status:{target_id}:community:none"
+                redis_client.delete(cache_key)
+                print(f"Admin action: Invalidated cache for user {target_id}")
+            # --- END OF FIX ---
+            
             db_utils.record_creator_earning(referred_user_id=target_id, plan_id=plan_id)
+
         return jsonify({'status': 'success', 'message': 'Plan updated successfully.'})
     except Exception as e:
+        logger.error(f"Error in set_current_plan: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/admin/remove_plan', methods=['POST'])
@@ -1455,7 +1511,7 @@ def update_discord_bot(bot_id):
         return jsonify({'status': 'success', 'message': 'Bot updated. The service will restart it with the new settings shortly.'})
 
     except Exception as e:
-        logging.error(f"Error updating bot {bot_id}: {e}", exc_info=True)
+        print(f"Error updating bot {bot_id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'An unexpected error occurred.'}), 500
     
 
@@ -1482,7 +1538,7 @@ def create_discord_bot():
             else:
                 return jsonify({'status': 'error', 'message': f'Discord API error: {e.response.text}'}), 500
         except Exception as e:
-             logging.error(f"Failed to verify bot token: {e}", exc_info=True)
+             print(f"Failed to verify bot token: {e}", exc_info=True)
              return jsonify({'status': 'error', 'message': 'Could not verify the bot token with Discord.'}), 500
 
         supabase_admin = get_supabase_admin_client()
@@ -1517,11 +1573,12 @@ def create_discord_bot():
         if not new_bot:
             return jsonify({'status': 'error', 'message': 'Failed to save bot to database.'}), 500
 
+        update_bot_profile_task.schedule(args=(bot_token, cleaned_url), delay=1)
         # The service will pick up this new 'online' bot on its next sync.
         return jsonify({'status': 'success', 'message': 'Bot created! The service will bring it online shortly.'})
 
     except Exception as e:
-        logging.error(f"Error in create_discord_bot: {e}", exc_info=True)
+        print(f"Error in create_discord_bot: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': f'An unexpected error occurred: {str(e)}'}), 500
 
 @app.route('/integrations/discord/start/<int:bot_id>', methods=['POST'])
@@ -1562,8 +1619,9 @@ def get_discord_bots_status():
     """
     user_id = session['user']['id']
     supabase_admin = get_supabase_admin_client()
-    bots_res = supabase_admin.table('discord_bots').select('id, status, channel:youtube_channel_id(channel_name, channel_thumbnail)').eq('user_id', user_id).execute()
-    return jsonify(bots_res.data)  
+    # Add client_id to the select query
+    bots_res = supabase_admin.table('discord_bots').select('id, status, client_id, channel:youtube_channel_id(channel_name, channel_thumbnail)').eq('user_id', user_id).execute()
+    return jsonify(bots_res.data)
 
 @app.route('/auth/discord')
 @login_required
@@ -1664,6 +1722,7 @@ def public_chat_page(channel_name):
         return render_template('error.html', error_message="This AI persona could not be found."), 404
 
     channel = channel_response.data
+    shared_history = []
     
     # --- START: NEW FEATURE LOGIC ---
     if 'user' in session:
@@ -1690,10 +1749,10 @@ def public_chat_page(channel_name):
             return redirect(url_for('ask', channel_name=channel['channel_name']))
         else:
             # The user is at their limit, provide a temporary session
-            flash(f"You have reached your channel limit. You can view this channel for this session only.", "info")
-            
-            # Render the page directly instead of redirecting.
-            # The channel will not be saved to their sidebar.
+            notice = {
+                "message": "<strong>You've reached your channel limit.</strong><br>This is a temporary session. This channel and your conversation will not be saved.",
+                "show_upgrade": True
+            }
             return render_template(
                 'ask.html', 
                 history=[],
@@ -1701,7 +1760,9 @@ def public_chat_page(channel_name):
                 current_channel=channel,
                 saved_channels=get_user_channels(), # This shows their actual saved channels
                 SUPABASE_URL=os.environ.get('SUPABASE_URL'),
-                SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
+                SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY'),
+                is_temporary_session=True,
+                notice=notice
             )
     # --- END: NEW FEATURE LOGIC ---
 
@@ -1714,7 +1775,7 @@ def public_chat_page(channel_name):
             if history_json:
                 shared_history = json.loads(history_json)
         except Exception as e:
-            logging.error(f"Error retrieving shared chat {history_id} from Redis: {e}")
+            print(f"Error retrieving shared chat {history_id} from Redis: {e}")
 
     session['referred_by_channel_id'] = channel['id']
 
@@ -1724,7 +1785,9 @@ def public_chat_page(channel_name):
         current_channel=channel,
         saved_channels={}, # Sidebar is empty for logged-out users
         SUPABASE_URL=os.environ.get('SUPABASE_URL'),
-        SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
+        SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY'),
+        is_temporary_session=False,
+        notice=None
     )
 
 @app.route('/api/share_chat', methods=['POST'])
@@ -1753,24 +1816,34 @@ def share_chat_history():
 @app.route('/razorpay_webhook', methods=['POST'])
 def razorpay_webhook():
     webhook_secret = os.environ.get('RAZORPAY_WEBHOOK_SECRET')
-    webhook_body = request.get_data()
+    # --- START OF FIX 1: Correctly handle webhook body as a string ---
+    webhook_body_as_string = request.get_data(as_text=True)
+    # --- END OF FIX 1 ---
     received_signature = request.headers.get('X-Razorpay-Signature')
+
+    if not webhook_secret:
+        logging.error("FATAL: RAZORPAY_WEBHOOK_SECRET is not set.")
+        return jsonify({'status': 'error', 'message': 'Server configuration error'}), 500
+    
+    if not received_signature:
+        logging.error("Webhook received without a signature.")
+        return jsonify({'status': 'error', 'message': 'Missing signature header'}), 400
 
     razorpay_client = get_razorpay_client()
     if not razorpay_client:
         return jsonify({'status': 'error', 'message': 'Razorpay client not configured'}), 500
 
+    # --- This now uses the official, reliable verification method ---
     try:
-        # This part remains the same, it verifies the request is from Razorpay
-        razorpay_client.utility.verify_webhook_signature(webhook_body, received_signature, webhook_secret)
+        razorpay_client.utility.verify_webhook_signature(webhook_body_as_string, received_signature, webhook_secret)
+        logging.info("Webhook signature VERIFIED successfully.")
     except Exception as e:
-        logging.error(f"Razorpay webhook signature verification failed: {e}")
+        logging.error(f"Razorpay webhook signature verification FAILED: {e}")
         return jsonify({'status': 'error', 'message': 'Invalid signature'}), 400
 
     event = request.get_json()
+    logging.info(f"Webhook event received: {event.get('event')}")
     
-    # --- START OF THE FIX ---
-    # We now listen for 'invoice.paid' instead of 'subscription.charged'
     if event['event'] == 'invoice.paid':
         try:
             invoice_data = event['payload']['invoice']['entity']
@@ -1778,42 +1851,55 @@ def razorpay_webhook():
             subscription_id = invoice_data.get('subscription_id')
 
             if not customer_id or not subscription_id:
-                logging.warning("Webhook for 'invoice.paid' received without customer_id or subscription_id.")
-                return jsonify({'status': 'ok', 'message': 'Ignoring event with missing data.'})
+                logging.warning("Webhook 'invoice.paid' missing customer_id or subscription_id.")
+                return jsonify({'status': 'ok'})
 
-            # Fetch the subscription to get the plan_id
             subscription_details = razorpay_client.subscription.fetch(subscription_id)
             plan_id = subscription_details.get('plan_id')
-
-            # Find the user in our database using their Razorpay customer ID
             user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
             
             if user_id and plan_id:
-                logging.info(f"Processing successful subscription payment for user {user_id} on plan {plan_id}.")
+                logging.info(f"UPDATING PLAN for user {user_id} to plan {plan_id}.")
                 
-                # Update the user's plan in your 'profiles' table
-                db_utils.create_or_update_profile({'id': user_id, 'direct_subscription_plan': plan_id})
+                # --- START OF FIX 2: Correct function name and cache invalidation ---
+                profile = db_utils.get_profile(user_id) # Correct function name is get_profile
+                if profile:
+                    db_utils.create_or_update_profile({
+                        'id': user_id, 
+                        'email': profile.get('email'), # Preserve the email
+                        'direct_subscription_plan': plan_id
+                    })
+                    if redis_client:
+                        cache_key = f"user_status:{user_id}:community:none"
+                        redis_client.delete(cache_key)
+                        logging.info(f"Cache invalidated for user {user_id}")
+                # --- END OF FIX 2 ---
 
-                # Update the subscription status and dates in your 'razorpay_subscriptions' table
                 db_utils.update_razorpay_subscription(user_id, subscription_details)
-
-                # Record the earning for the creator who referred this user
                 db_utils.record_creator_earning(referred_user_id=user_id, plan_id=plan_id)
-
             else:
-                logging.error(f"Could not find user for customer_id {customer_id} or plan_id from webhook.")
-
+                logging.error(f"Webhook Error: Could not find user for customer_id {customer_id} or plan_id from webhook.")
         except Exception as e:
             logging.error(f"Error processing 'invoice.paid' webhook: {e}", exc_info=True)
             return jsonify({'status': 'error', 'message': 'Internal processing error'}), 500
-    # --- END OF THE FIX ---
 
     return jsonify({'status': 'ok'})
 
 @app.route('/create_razorpay_subscription', methods=['POST'])
 @login_required
 def create_razorpay_subscription():
-    plan_id = request.json.get('plan_id')
+    data = request.get_json()
+    plan_type = data.get('plan_type')
+    currency = data.get('currency', 'INR').upper()
+
+    if currency == 'USD':
+        plan_id = os.environ.get(f'RAZORPAY_PLAN_ID_{plan_type.upper()}_USD')
+    else:
+        plan_id = os.environ.get(f'RAZORPAY_PLAN_ID_{plan_type.upper()}_INR')
+
+    if not plan_id:
+        return jsonify({'status': 'error', 'message': f'Plan ID for {plan_type} in {currency} not found.'}), 400
+
     user_id = session['user']['id']
     profile = db_utils.get_profile(user_id)
     
@@ -1821,63 +1907,56 @@ def create_razorpay_subscription():
     if not razorpay_client:
         return jsonify({'status': 'error', 'message': 'Razorpay is not configured.'}), 500
 
-    plan_details = PLANS.get(plan_id)
-    if not plan_details:
-        return jsonify({'status': 'error', 'message': 'Invalid plan selected.'}), 400
-
     customer_id = profile.get('razorpay_customer_id')
+    user_email = profile.get('email') or session.get('user', {}).get('email')
+    user_name = profile.get('full_name') or session.get('user', {}).get('user_metadata', {}).get('full_name')
 
-    # If the user doesn't have a Razorpay customer ID yet
+    # --- START OF THE FIX ---
+    # This block makes the customer lookup and creation process robust.
     if not customer_id:
-        # --- START OF THE FIX ---
-        # Get user data from the session as a reliable fallback
-        user_session_data = session.get('user', {})
-        user_email = profile.get('email') or user_session_data.get('email')
-        user_name = profile.get('full_name') or user_session_data.get('user_metadata', {}).get('full_name')
-
-        if not user_email:
-            return jsonify({'status': 'error', 'message': 'User email not found. Cannot create customer.'}), 400
-
         try:
-            customer = razorpay_client.customer.create({
-                "name": user_name,
-                "email": user_email,
-            })
-            customer_id = customer['id']
-            # Now, update the profile with the new customer ID
-            db_utils.create_or_update_profile({'id': user_id, 'razorpay_customer_id': customer_id, 'email': user_email})
-        except Exception as e:
-            # Handle the case where the customer might already exist on Razorpay due to a previous failure
-            if 'already exists' in str(e):
-                customers = razorpay_client.customer.all({'email': user_email})
-                if customers['count'] > 0:
-                    customer_id = customers['items'][0]['id']
-                    db_utils.create_or_update_profile({'id': user_id, 'razorpay_customer_id': customer_id, 'email': user_email})
-                else:
-                    return jsonify({'status': 'error', 'message': f"Razorpay conflict error: {e}"}), 500
+            # First, check if a customer exists on Razorpay with this email
+            customers = razorpay_client.customer.all({'email': user_email})
+            if customers['count'] > 0:
+                # If they exist, use their ID and save it to our database
+                customer_id = customers['items'][0]['id']
+                print(f"Found existing Razorpay customer {customer_id} for email {user_email}")
+                # This update now INCLUDES the email, fixing the null constraint error
+                db_utils.create_or_update_profile({'id': user_id, 'email': user_email, 'razorpay_customer_id': customer_id})
             else:
-                return jsonify({'status': 'error', 'message': f"Razorpay error: {e}"}), 500
-        # --- END OF THE FIX ---
+                # If they don't exist on Razorpay, create a new one
+                print(f"No existing Razorpay customer for {user_email}. Creating new customer.")
+                customer = razorpay_client.customer.create({
+                    "name": user_name,
+                    "email": user_email,
+                })
+                customer_id = customer['id']
+                # This update also INCLUDES the email
+                db_utils.create_or_update_profile({'id': user_id, 'email': user_email, 'razorpay_customer_id': customer_id})
+        except Exception as e:
+            logger.error(f"Razorpay customer handling error: {e}", exc_info=True)
+            return jsonify({'status': 'error', 'message': f"Razorpay error: {e}"}), 500
+    # --- END OF THE FIX ---
 
-    # Create the subscription
     try:
         subscription = razorpay_client.subscription.create({
             "plan_id": plan_id,
             "customer_id": customer_id,
-            "total_count": 12, # Billed monthly for 12 installments (1 year)
+            "total_count": 12, # This means the plan will run for 12 months
             "quantity": 1,
         })
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Could not create subscription: {e}'}), 500
-
-
+    
+    plan_name = f"{plan_type.title()} Plan"
+    
     return jsonify({
         'status': 'success',
         'subscription_id': subscription['id'],
         'razorpay_key_id': os.environ.get('RAZORPAY_KEY_ID'),
-        'plan_name': plan_details.get('name'),
-        'user_name': profile.get('full_name'),
-        'user_email': profile.get('email') or session.get('user', {}).get('email')
+        'plan_name': plan_name,
+        'user_name': user_name,
+        'user_email': user_email
     })
 
 @app.route('/admin/payouts/initiate_razorpay_payout', methods=['POST'])
