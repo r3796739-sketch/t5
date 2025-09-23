@@ -41,8 +41,8 @@ async def channel_autocomplete(interaction: discord.Interaction, current: str) -
         return []
     choices = [
         app_commands.Choice(name=ch['channel_name'], value=str(ch['id']))
-        for ch in user_channels 
-        if current.lower() in ch['channel_name'].lower() and ch.get('channel_name')
+        for ch in user_channels
+        if ch.get('channel_name') and current.lower() in ch['channel_name'].lower()
     ]
     return choices[:25]
 
@@ -126,7 +126,8 @@ class SharedYoppyBot(commands.Bot):
                     channel_data=channel_data,
                     user_id=owner_user_id,
                     access_token=None,
-                    conversation_id=conversation_id
+                    conversation_id=conversation_id,
+                    active_community_id=None
                 )
 
                 for chunk in stream:

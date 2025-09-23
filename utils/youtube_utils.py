@@ -60,7 +60,7 @@ def get_transcript(video_id: str) -> Optional[str]:
             transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en','hi'])
             return "\n".join([segment['text'] for segment in transcript])
         except Exception as api_e:
-            log.error(f"[{video_id}] Both scraping and API failed: {api_e}", exc_info=False)
+            log.error(f"[{video_id}] Both scraping and API failed: {api_e}", exc_info=True)
             return None
 
 def _fetch_transcript_worker(info_dict: Dict) -> Optional[Dict]:
