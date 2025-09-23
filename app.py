@@ -1757,7 +1757,8 @@ def public_chat_page(channel_name):
                 current_channel=channel,
                 saved_channels=get_user_channels(), # This shows their actual saved channels
                 SUPABASE_URL=os.environ.get('SUPABASE_URL'),
-                SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
+                SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY'),
+                is_temporary_session=True
             )
     # --- END: NEW FEATURE LOGIC ---
 

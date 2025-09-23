@@ -15,6 +15,23 @@ const escapeHtml = (text) => {
     return p.innerHTML;
 };
 
+const showBannerNotice = (message, showUpgradeButton = true) => {
+    const notice = document.getElementById('c-banner-notice');
+    if (!notice) return;
+
+    const noticeText = document.getElementById('c-banner-notice-text');
+    const noticeBtn = document.getElementById('c-banner-notice-btn');
+
+    if (noticeText) {
+        noticeText.innerHTML = message;
+    }
+    if (noticeBtn) {
+        noticeBtn.style.display = showUpgradeButton ? 'inline-block' : 'none';
+    }
+
+    notice.style.display = 'flex';
+};
+
 
 // =================================================================
 // 2. CURRENCY LOCALIZATION & PRICING
@@ -255,14 +272,17 @@ function renderChatHistory(history) {
             qnaPair.className = 'qna-pair';
             const avatarHtml = channelThumbnail ? `<div class="answer-avatar-container avatar-container"><img src="${channelThumbnail}" alt="${channelName}" class="answer-avatar"><span class="ai-badge">AI</span></div>` : `<div class="answer-avatar-container avatar-container"><div class="answer-avatar-placeholder">🤖</div><span class="ai-badge">AI</span></div>`;
             const answerLabel = channelName ? `${escapeHtml(channelName)}` : 'Answer';
-            let sourcesHtml = '';
+            let sourcesButtonHtml = '';
+            let sourcesListHtml = '';
             if (qa.sources && qa.sources.length > 0) {
                 const sourceLinks = qa.sources.map(s => `<div class="source-item"><a href="${escapeHtml(s.url)}" target="_blank" class="source-link"><span class="source-title">${escapeHtml(s.title)}</span></a></div>`).join('');
-                sourcesHtml = `<button class="toggle-sources-btn" onclick="toggleSources(this)"><svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M4,6H2V20a2,2 0 0,0 2,2H18V18H4V6M20,2H8A2,2 0 0,0 6,4V16a2,2 0 0,0 2,2H20a2,2 0 0,0 2-2V4a2,2 0 0,0-2-2Z"></path></svg>Sources (${qa.sources.length}) <span class="toggle-indicator">▼</span></button><div class="sources-list" style="display: none;">${sourceLinks}</div>`;
+                sourcesButtonHtml = `<button class="toggle-sources-btn" onclick="toggleSources(this)"><svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M4,6H2V20a2,2 0 0,0 2,2H18V18H4V6M20,2H8A2,2 0 0,0 6,4V16a2,2 0 0,0 2,2H20a2,2 0 0,0 2-2V4a2,2 0 0,0-2-2Z"></path></svg>Sources (${qa.sources.length}) <span class="toggle-indicator">▼</span></button>`;
+                sourcesListHtml = `<div class="sources-list" style="display: none;">${sourceLinks}</div>`;
             }
             let regenerateHtml = isLast ? `<button class="toggle-sources-btn regenerate-btn-js" onclick="regenerateAnswer(this)"><svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>Regenerate</button>` : '';
             const copyButtonHtml = `<button class="copy-answer-btn" onclick="copyAnswer(this)" data-tooltip="Copy answer"><svg class="icon-copy-default" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><svg class="icon-copy-check" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>`;
-            qnaPair.innerHTML = `<div class="question-box"><div class="question-content">${escapeHtml(qa.question)}</div></div><div class="answer-box"><div class="answer-header">${avatarHtml}<span class="answer-label">${answerLabel}</span>${copyButtonHtml}</div><div class="answer-content">${window.marked ? window.marked.parse(qa.answer || '') : qa.answer}</div><div class="typing-container"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div><div class="sources-section"><div class="source-buttons">${sourcesHtml}${regenerateHtml}</div></div></div>`;
+            const sourcesSectionHtml = `<div class="sources-section"><div class="source-buttons">${sourcesButtonHtml}${regenerateHtml}${copyButtonHtml}</div>${sourcesListHtml}</div>`;
+            qnaPair.innerHTML = `<div class="question-box"><div class="question-content">${escapeHtml(qa.question)}</div></div><div class="answer-box"><div class="answer-header">${avatarHtml}<span class="answer-label">${answerLabel}</span></div><div class="answer-content">${window.marked ? window.marked.parse(qa.answer || '') : qa.answer}</div><div class="typing-container"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>${sourcesSectionHtml}</div>`;
             chatContainer.appendChild(qnaPair);
         });
     } else {
@@ -356,7 +376,9 @@ window.toggleChannelPrivacy = function(channelId, isShared) {
 }
 
 window.toggleSources = function(btn) {
-    const list = btn.nextElementSibling;
+    const sourcesSection = btn.closest('.sources-section');
+    if (!sourcesSection) return;
+    const list = sourcesSection.querySelector('.sources-list');
     const indicator = btn.querySelector('.toggle-indicator');
     if (!list) return;
     const isExpanded = list.style.display === 'block';
@@ -527,6 +549,26 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- B. Chat Page Specific Initializations ---
     const questionForm = document.getElementById('questionForm');
     if (questionForm) {
+
+        // --- NEW: Banner Notice Logic ---
+        if (typeof NOTICE_DATA !== 'undefined' && NOTICE_DATA && NOTICE_DATA.message) {
+            showBannerNotice(NOTICE_DATA.message, NOTICE_DATA.show_upgrade);
+        } else if (typeof IS_TEMPORARY_SESSION !== 'undefined' && IS_TEMPORARY_SESSION) {
+            // Fallback for client-side only notice
+            showBannerNotice("You've reached your channel limit. You can ask 5 questions in this temporary session.", true);
+        }
+
+        const noticeBanner = document.getElementById('c-banner-notice');
+        if (noticeBanner) {
+            const closeBtn = noticeBanner.querySelector('.notice-close-btn');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
+                    noticeBanner.style.display = 'none';
+                });
+            }
+        }
+        // --- END: Banner Notice Logic ---
+
         // We are on a page with a chat form, so initialize all chat logic.
         const questionText = document.getElementById('questionText');
         const submitBtn = document.getElementById('submitBtn');
@@ -584,22 +626,28 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!answerBoxElement) return;
             let sourcesSection = answerBoxElement.querySelector('.sources-section');
             if (!sourcesSection) return;
-            sourcesSection.innerHTML = '';
+            sourcesSection.innerHTML = ''; // Clear previous content
+
             let sourcesButtonHTML = '';
-            let listHTML = '';
+            let sourcesListHTML = '';
             if (sources && sources.length > 0) {
                 sourcesButtonHTML = `<button class="toggle-sources-btn" onclick="toggleSources(this)"><svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M4,6H2V20a2,2 0 0,0 2,2H18V18H4V6M20,2H8A2,2 0 0,0 6,4V16a2,2 0 0,0 2,2H20a2,2 0 0,0 2-2V4a2,2 0 0,0-2-2Z"></path></svg>Sources (${sources.length})<span class="toggle-indicator">▼</span></button>`;
                 const sourceLinks = sources.map(s => `<div class="source-item"><a href="${escapeHtml(s.url)}" target="_blank" class="source-link"><span class="source-title">${escapeHtml(s.title)}</span></a></div>`).join('');
-                listHTML = `<div class="sources-list" style="display: none;">${sourceLinks}</div>`;
+                sourcesListHTML = `<div class="sources-list" style="display: none;">${sourceLinks}</div>`;
             }
-            const regenerateButtonHTML = `<button class="toggle-sources-btn regenerate-btn-js" onclick="regenerateAnswer(this)"><svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>Regenerate</button>`;
-            sourcesSection.innerHTML = `<div class="source-buttons">${sourcesButtonHTML}${regenerateButtonHTML}</div>${listHTML}`;
 
+            const regenerateButtonHTML = `<button class="toggle-sources-btn regenerate-btn-js" onclick="regenerateAnswer(this)"><svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>Regenerate</button>`;
             const copyButtonHTML = `<button class="copy-answer-btn" onclick="copyAnswer(this)" data-tooltip="Copy answer"><svg class="icon-copy-default" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><svg class="icon-copy-check" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>`;
-            const answerHeader = answerBoxElement.querySelector('.answer-header');
-            if (answerHeader && !answerHeader.querySelector('.copy-answer-btn')) {
-                answerHeader.insertAdjacentHTML('beforeend', copyButtonHTML);
-            }
+
+            // Correctly structure the HTML
+            sourcesSection.innerHTML = `
+                <div class="source-buttons">
+                    ${sourcesButtonHTML}
+                    ${regenerateButtonHTML}
+                    ${copyButtonHTML}
+                </div>
+                ${sourcesListHTML}
+            `;
         };
 
         const processStream = (reader, answerContent, typingContainer, aiAnswerBox) => {
@@ -678,8 +726,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 .catch(err => {
                     console.error('Fetch error:', err);
                     const message = err.message || 'Failed to send question. Please try again.';
-                    if (err.status === 'limit_reached' && window.showUpgradePopup) window.showUpgradePopup(message);
-                    else answerContent.innerHTML = `<p class="error-message">${escapeHtml(message)}</p>`;
+                    if (err.status === 'limit_reached') {
+                        showBannerNotice(message);
+                        // Clean up the temporary answer box that was created
+                        if(aiAnswerBox.closest('.qna-pair')) {
+                            aiAnswerBox.closest('.qna-pair').remove();
+                        }
+                    } else {
+                        answerContent.innerHTML = `<p class="error-message">${escapeHtml(message)}</p>`;
+                    }
                     typingContainer.classList.remove('active');
                 });
         };

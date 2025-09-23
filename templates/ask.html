@@ -4,8 +4,15 @@
 
 {% block page_styles %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ask.css') }}">
+    <script>
+        // Pass server-side data to JavaScript
+        const IS_TEMPORARY_SESSION = {{ is_temporary_session|tojson or 'false' }};
+        const NOTICE_DATA = {{ notice|tojson or 'null' }};
+    </script>
 {% endblock %}
+
 {% block content %}
+{% set notice = notice or {} %}
 
 <div class="mobile-header">
     <div class="mobile-header-left">
@@ -64,6 +71,14 @@
     <div class="chat-column">
         <div class="chat-wrapper">
 
+            <div class="c-banner-notice" id="c-banner-notice" style="display: none;">
+                <div class="notice-content">
+                    <p id="c-banner-notice-text"></p>
+                    <a href="{{ url_for('home') }}#pricing" class="btn-upgrade" id="c-banner-notice-btn">Upgrade Plan</a>
+                </div>
+                <button class="notice-close-btn">&times;</button>
+            </div>
+
             <div id="conversation-history" class="chat-container {% if not history %}is-empty{% endif %}" role="log" aria-live="polite">
 
                 {# Show example questions only if there is no history AND the user is logged out #}
@@ -97,7 +112,7 @@
     <span class="answer-label">
         {% if channel_name %}{{ channel_name }}{% else %}Answer{% endif %}
     </span>
-    
+
 </div>
                         <div class="answer-content">{{ qa.answer|markdown }}</div>
 
@@ -288,7 +303,3 @@
 </div>
 </div>
 {% endblock %}
-
-
-
-
