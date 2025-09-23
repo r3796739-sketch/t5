@@ -1334,6 +1334,11 @@ def api_admin_delete_user(user_id):
     """
     Permanently deletes a user and all their associated data.
     """
+    # --- START: VULNERABILITY FIX ---
+    # Prevent the admin from deleting their own account
+    if 'user' in session and str(session['user']['id']) == user_id:
+        return jsonify({'status': 'error', 'message': 'You cannot delete your own admin account.'}), 403
+    # --- END: VULNERABILITY FIX ---
     if not user_id:
         return jsonify({'status': 'error', 'message': 'User ID is required.'}), 400
 
@@ -1964,7 +1969,32 @@ def create_razorpay_subscription():
 def initiate_razorpay_payout():
     payout_id = request.json.get('payout_id')
     creator_id = request.json.get('creator_id')
-    amount = request.json.get('amount')
+
+    # --- START: VULNERABILITY FIX ---
+    # Fetch payout from DB to get the correct amount and prevent manipulation
+    supabase_admin = get_supabase_admin_client()
+    payout_res = supabase_admin.table('creator_payouts').select('*').eq('id', payout_id).eq('creator_id', creator_id).single().execute()
+
+    if not payout_res.data:
+        return jsonify({'status': 'error', 'message': 'Payout request not found.'}), 404
+
+    payout_data = payout_res.data
+    amount = payout_data.get('amount_usd')
+
+    # Ensure we don't process a payout that isn't pending
+    if payout_data.get('status') != 'pending':
+        return jsonify({'status': 'error', 'message': f"This payout is already in '{payout_data.get('status')}' status."}), 400
+    # --- END: VULNERABILITY FIX ---
+
+    if not payout_res.data:
+        return jsonify({'status': 'error', 'message': 'Payout request not found.'}), 404
+
+    payout_data = payout_res.data
+    amount = payout_data.get('amount_usd')
+    # Ensure we don't process a payout that isn't pending
+    if payout_data.get('status') != 'pending':
+        return jsonify({'status': 'error', 'message': f"This payout is already in '{payout_data.get('status')}' status."}), 400
+    # --- END: VULNERABILITY FIX ---
 
     razorpay_client = get_razorpay_client()
     if not razorpay_client:
