@@ -655,75 +655,81 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         };
 
-    const processStream = (reader, answerContent, typingContainer, aiAnswerBox) => {
-        const decoder = new TextDecoder();
-        let fullAnswerText = '';
-        let foundSources = [];
-        let buffer = ''; // Buffer to store incomplete chunks
-    
-        const push = () => {
-            reader.read().then(({ done, value }) => {
-                if (done) {
-                    if (typingContainer) typingContainer.classList.remove('active');
-                    renderSourcesAndActions(foundSources, aiAnswerBox);
-                    return;
-                }
-            
-                // Append new data to the buffer
-                buffer += decoder.decode(value, { stream: true });
-                
-                // Process all complete messages in the buffer
-                let boundary = buffer.lastIndexOf('\n\n');
-                if (boundary !== -1) {
-                    const completeMessages = buffer.substring(0, boundary);
-                    const lines = completeMessages.split('\n\n');
-                
-                    lines.forEach(line => {
-                        if (line.startsWith('data: ')) {
-                            const data = line.substring(6);
-                            if (data.trim() === '[DONE]') return;
-                        
-                            // *** THIS IS THE FIX ***
-                            // Only try to parse if the data is not empty
-                            if (data.trim()) { 
-                                try {
-                                    const parsed = JSON.parse(data);
-                                    if (parsed.error) throw new Error(parsed.message || 'An unknown error occurred.');
-                                    if (parsed.answer) {
-                                        fullAnswerText += parsed.answer;
-                                        answerContent.innerHTML = marked.parse(fullAnswerText);
-                                    }
-                                    if (parsed.sources) foundSources = parsed.sources;
-                                    if (parsed.updated_query_string) {
-                                        const planQueriesElement = document.querySelector('.plan-queries');
-                                        if (planQueriesElement) planQueriesElement.innerHTML = parsed.updated_query_string;
-                                    }
-                                } catch (e) { 
-                                    console.error('Error parsing stream data:', e, 'Problematic data:', data); 
-                                    // We throw the error to be caught by the outer catch block
-                                    throw e; 
-                                }
-                            }
-                        }
-                    });
-                
-                    // Keep the incomplete part for the next chunk
-                    buffer = buffer.substring(boundary + 2);
-                }
-                
-                conversationHistory.scrollTop = conversationHistory.scrollHeight;
-                push();
-            
-            }).catch(error => {
-                console.error("Stream reading error:", error);
-                answerContent.innerHTML = `<p class="error-message">${escapeHtml(error.message || 'An error occurred during generation.')}</p>`;
+const processStream = (reader, answerContent, typingContainer, aiAnswerBox) => {
+    const decoder = new TextDecoder();
+    let fullAnswerText = '';
+    let foundSources = [];
+    let buffer = ''; // Buffer to store incomplete chunks
+
+    const push = () => {
+        reader.read().then(({ done, value }) => {
+            if (done) {
                 if (typingContainer) typingContainer.classList.remove('active');
-                renderSourcesAndActions([], aiAnswerBox);
-                if (reader) reader.cancel();
-            });
-        };
-        push();
+                renderSourcesAndActions(foundSources, aiAnswerBox);
+                // Process any remaining data in the buffer when the stream is done
+                if (buffer.startsWith('data: ')) {
+                    const data = buffer.substring(6);
+                    if (data.trim() !== '[DONE]' && data.trim()) {
+                         try {
+                            const parsed = JSON.parse(data);
+                            if (parsed.answer) {
+                                fullAnswerText += parsed.answer;
+                                answerContent.innerHTML = marked.parse(fullAnswerText);
+                            }
+                        } catch (e) {
+                            console.error('Error parsing final buffered chunk:', e, 'Chunk:', buffer);
+                        }
+                    }
+                }
+                return;
+            }
+
+            // Append new data to the buffer
+            buffer += decoder.decode(value, { stream: true });
+            
+            // Process all complete messages in the buffer
+            let boundary = buffer.lastIndexOf('\n\n');
+            if (boundary !== -1) {
+                const completeMessages = buffer.substring(0, boundary);
+                const lines = completeMessages.split('\n\n');
+
+                lines.forEach(line => {
+                    if (line.startsWith('data: ')) {
+                        const data = line.substring(6);
+                        if (data.trim() === '[DONE]') return;
+                        try {
+                            const parsed = JSON.parse(data);
+                            if (parsed.error) throw new Error(parsed.message || 'An unknown error occurred.');
+                            if (parsed.answer) {
+                                fullAnswerText += parsed.answer;
+                                answerContent.innerHTML = marked.parse(fullAnswerText);
+                            }
+                            if (parsed.sources) foundSources = parsed.sources;
+                            if (parsed.updated_query_string) {
+                                const planQueriesElement = document.querySelector('.plan-queries');
+                                if (planQueriesElement) planQueriesElement.innerHTML = parsed.updated_query_string;
+                            }
+                        } catch (e) { console.error('Error parsing stream data:', e); throw e; }
+                    }
+                });
+
+                // Keep the incomplete part for the next chunk
+                buffer = buffer.substring(boundary + 2);
+            }
+            
+            conversationHistory.scrollTop = conversationHistory.scrollHeight;
+            push();
+
+        }).catch(error => {
+            console.error("Stream reading error:", error);
+            answerContent.innerHTML = `<p class="error-message">${escapeHtml(error.message || 'An error occurred during generation.')}</p>`;
+            if (typingContainer) typingContainer.classList.remove('active');
+            renderSourcesAndActions([], aiAnswerBox);
+            if (reader) reader.cancel();
+        });
     };
+    push();
+};
 
         const handleFormSubmit = (event) => {
             event.preventDefault();
