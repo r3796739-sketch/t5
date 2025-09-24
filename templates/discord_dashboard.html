@@ -48,6 +48,10 @@
     .channel-card.selected { border-color: var(--accent-primary); background-color: var(--surface-dark); box-shadow: 0 0 15px rgba(var(--accent-primary-rgb), 0.3); }
     .channel-card img { width: 60px; height: 60px; border-radius: 50%; margin-bottom: 0.5rem; object-fit: cover; }
     .channel-card-name { font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); }
+    .channel-selector::-webkit-scrollbar { height: 8px; }
+    .channel-selector::-webkit-scrollbar-track { background: var(--surface-medium); border-radius: 4px; }
+    .channel-selector::-webkit-scrollbar-thumb { background: var(--neutral-200); border-radius: 4px; }
+    .channel-selector::-webkit-scrollbar-thumb:hover { background: var(--neutral-300); }
     .official-bot-card { background: var(--surface-light); border: 1px solid var(--neutral-200); border-left: 4px solid var(--accent-primary); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; max-width: 400px; margin-top: 1.5rem; box-shadow: var(--shadow-sm); position: relative; }
     .official-bot-card .card-description { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; margin: 1rem 0; flex-grow: 1; }
     .official-bot-card .card-description code { background-color: var(--surface-medium); padding: 2px 6px; border-radius: 4px; font-family: monospace; color: var(--text-primary); }
@@ -155,7 +159,7 @@
             </div>
 
             <div class="form-group" style="margin-top: 1rem;">
-                <label>Or, Select an Existing Channel</label>
+                <label>Select a Channel</label>
                 <div class="channel-selector">
                     {% for channel in saved_channels.values() %}
                     <div class="channel-card" data-url="{{ channel.channel_url }}">
@@ -165,11 +169,7 @@
                     {% endfor %}
                 </div>
             </div>
-
-            <div class="form-group" style="margin-top: 1rem;">
-                <label for="youtube_channel_url">YouTube Channel URL</label>
-                <input type="url" id="youtube_channel_url" name="youtube_channel_url" class="form-control" required>
-            </div>
+            <input type="hidden" id="youtube_channel_url" name="youtube_channel_url" required>
             <button type="submit" class="btn btn-primary" style="margin-top: 1.5rem; width: 100%;">Create Bot</button>
         </form>
     </div>
@@ -248,6 +248,11 @@ if (document.getElementById('createBotForm')) {
     document.getElementById('createBotForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const form = e.target;
+        const channelUrlInput = document.getElementById('youtube_channel_url');
+        if (!channelUrlInput.value) {
+            showNotification('Please select a channel first.', 'error');
+            return;
+        }
         const formData = new FormData(form);
         const createBtn = form.querySelector('button[type="submit"]');
         createBtn.disabled = true;
@@ -488,9 +493,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        channelUrlInput.addEventListener('input', () => {
-            channelCards.forEach(c => c.classList.remove('selected'));
-        });
     }
 });
 </script>
