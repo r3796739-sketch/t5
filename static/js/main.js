@@ -666,21 +666,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (done) {
                         if (typingContainer) typingContainer.classList.remove('active');
                         renderSourcesAndActions(foundSources, aiAnswerBox);
-                        // Process any remaining data in the buffer when the stream is done
-                        if (buffer.startsWith('data: ')) {
-                            const data = buffer.substring(6);
-                            if (data.trim() !== '[DONE]' && data.trim()) {
-                                 try {
-                                    const parsed = JSON.parse(data);
-                                    if (parsed.answer) {
-                                        fullAnswerText += parsed.answer;
-                                        answerContent.innerHTML = marked.parse(fullAnswerText);
-                                    }
-                                } catch (e) {
-                                    console.error('Error parsing final buffered chunk:', e, 'Chunk:', buffer);
-                                }
-                            }
-                        }
                         return;
                     }
                 
@@ -697,19 +682,28 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (line.startsWith('data: ')) {
                                 const data = line.substring(6);
                                 if (data.trim() === '[DONE]') return;
-                                try {
-                                    const parsed = JSON.parse(data);
-                                    if (parsed.error) throw new Error(parsed.message || 'An unknown error occurred.');
-                                    if (parsed.answer) {
-                                        fullAnswerText += parsed.answer;
-                                        answerContent.innerHTML = marked.parse(fullAnswerText);
+                            
+                                // *** THIS IS THE FIX ***
+                                // Only try to parse if the data is not empty
+                                if (data.trim()) { 
+                                    try {
+                                        const parsed = JSON.parse(data);
+                                        if (parsed.error) throw new Error(parsed.message || 'An unknown error occurred.');
+                                        if (parsed.answer) {
+                                            fullAnswerText += parsed.answer;
+                                            answerContent.innerHTML = marked.parse(fullAnswerText);
+                                        }
+                                        if (parsed.sources) foundSources = parsed.sources;
+                                        if (parsed.updated_query_string) {
+                                            const planQueriesElement = document.querySelector('.plan-queries');
+                                            if (planQueriesElement) planQueriesElement.innerHTML = parsed.updated_query_string;
+                                        }
+                                    } catch (e) { 
+                                        console.error('Error parsing stream data:', e, 'Problematic data:', data); 
+                                        // We throw the error to be caught by the outer catch block
+                                        throw e; 
                                     }
-                                    if (parsed.sources) foundSources = parsed.sources;
-                                    if (parsed.updated_query_string) {
-                                        const planQueriesElement = document.querySelector('.plan-queries');
-                                        if (planQueriesElement) planQueriesElement.innerHTML = parsed.updated_query_string;
-                                    }
-                                } catch (e) { console.error('Error parsing stream data:', e); throw e; }
+                                }
                             }
                         });
                     
