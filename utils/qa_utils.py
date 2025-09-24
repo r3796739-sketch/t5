@@ -598,11 +598,12 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
     relevant_chunks = get_routed_context(question_for_search, channel_data, user_id, access_token)
 
     if relevant_chunks == "JWT_EXPIRED":
-        yield 'data: {"error": "JWT_EXPIRED"}\n\n'
+        yield f"data: {json.dumps({'error': 'JWT_EXPIRED'})}\n\n"
         return
     
     if not relevant_chunks:
-        yield "data: {\"answer\": \"I couldn't find any relevant information in the documents to answer your question.\"}\n\n"
+        message = "I couldn't find any relevant information in the documents to answer your question."
+        yield f"data: {json.dumps({'answer': message})}\n\n"
         yield "data: [DONE]\n\n"
         return
 
@@ -643,7 +644,7 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
     
     stream_function = LLM_STREAM_PROVIDER_MAP.get(llm_provider)
     if not stream_function:
-        yield "data: {\"answer\": \"Error: The selected LLM provider does not support streaming.\"}\n\n"
+        yield f"data: {json.dumps({'answer': 'Error: The selected LLM provider does not support streaming.'})}\n\n"
         yield "data: [DONE]\n\n"
         return
 
