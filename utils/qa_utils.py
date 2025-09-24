@@ -80,47 +80,63 @@ def _create_gemini_embedding(texts: List[str], model: str, api_key: str) -> Opti
     """
     Uses Google Gemini embed_content with configurable output dimensions.
     Normalizes output to a list aligned with inputs.
+    Includes a retry mechanism with exponential backoff for rate limit errors.
     """
     try:
         import google.generativeai as genai
+        import time
+        from google.api_core import exceptions
+
         genai.configure(api_key=api_key)
         model_name = f"models/{model}" if not model.startswith('models/') else model
         
-        # Get the desired output dimension from environment variable, default to 768
         output_dimensions = int(os.environ.get('GEMINI_EMBED_DIMENSIONS', '1536'))
         
-        # Gemini batching: prefer sending the whole list if supported
-        result = genai.embed_content(
-            model=model_name, 
-            content=texts, 
-            task_type="retrieval_document",
-            output_dimensionality=output_dimensions  # This is the key parameter!
-        )
+        max_retries = 5
+        backoff_factor = 2
+
+        for i in range(max_retries):
+            try:
+                result = genai.embed_content(
+                    model=model_name, 
+                    content=texts, 
+                    task_type="retrieval_document",
+                    output_dimensionality=output_dimensions
+                )
+                
+                embeddings = []
+                if isinstance(result, dict) and 'embedding' in result:
+                    emb_data = result['embedding']
+                    if isinstance(emb_data, (list, tuple)) and all(isinstance(x, (float, int)) for x in emb_data) and len(texts) == 1:
+                        embeddings = [np.array(emb_data).astype('float32')]
+                    elif isinstance(emb_data, list) and len(emb_data) == len(texts):
+                        for embedding in emb_data:
+                            embeddings.append(np.array(embedding).astype('float32') if embedding is not None else None)
+                    else:
+                        for embedding in emb_data:
+                            embeddings.append(np.array(embedding).astype('float32') if embedding is not None else None)
+                else:
+                    logging.error("Unexpected Gemini response format when creating embeddings.")
+                    return [None] * len(texts)
+                    
+                if len(embeddings) != len(texts):
+                    embeddings = (embeddings + [None] * len(texts))[:len(texts)]
+                return embeddings
+
+            except exceptions.ResourceExhausted as e:
+                if i < max_retries - 1:
+                    sleep_time = backoff_factor ** i
+                    logging.warning(f"Gemini API rate limit exceeded. Retrying in {sleep_time} seconds... (Attempt {i + 1}/{max_retries})")
+                    time.sleep(sleep_time)
+                else:
+                    logging.error(f"Failed to create Gemini batch embedding after {max_retries} retries due to rate limiting.")
+                    raise e
+            except Exception as e:
+                logging.error(f"An unexpected error occurred during Gemini embedding: {e}", exc_info=True)
+                return [None] * len(texts)
         
-        # result may contain 'embedding' as a list-of-lists or single list. Normalize it.
-        embeddings = []
-        if isinstance(result, dict) and 'embedding' in result:
-            emb_data = result['embedding']
-            # If single embedding for a single text:
-            if isinstance(emb_data, (list, tuple)) and all(isinstance(x, (float, int)) for x in emb_data) and len(texts) == 1:
-                embeddings = [np.array(emb_data).astype('float32')]
-            elif isinstance(emb_data, list) and len(emb_data) == len(texts):
-                # already aligned
-                for embedding in emb_data:
-                    embeddings.append(np.array(embedding).astype('float32') if embedding is not None else None)
-            else:
-                # Unknown shape; try to coerce
-                for embedding in emb_data:
-                    embeddings.append(np.array(embedding).astype('float32') if embedding is not None else None)
-        else:
-            logging.error("Unexpected Gemini response format when creating embeddings.")
-            return [None] * len(texts)
-            
-        # Ensure alignment with input length
-        if len(embeddings) != len(texts):
-            # pad or truncate to match
-            embeddings = (embeddings + [None] * len(texts))[:len(texts)]
-        return embeddings
+        return [None] * len(texts)
+
     except Exception as e:
         logging.error(f"Failed to create Gemini batch embedding: {e}", exc_info=True)
         return [None] * len(texts)

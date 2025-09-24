@@ -42,7 +42,7 @@ def get_transcript(video_id: str) -> Optional[str]:
     """
     # --- METHOD 1: WEB SCRAPING (Primary) ---
     try:
-        #transcript_url = f"https://youtubetotranscript.com/transcript?v={video_id}"
+        transcript_url = f"https://youtubetotranscript.com/transcript?v={video_id}"
         response = requests.get(transcript_url, timeout=30)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')

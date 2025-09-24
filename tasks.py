@@ -11,6 +11,8 @@ from utils.youtube_utils import (
     get_transcripts_from_urls,    # <-- Use the targeted function for syncing
     youtube_api
 )
+from utils.discord_utils import update_bot_profile
+import asyncio
 from utils.embed_utils import create_and_store_embeddings
 from utils.supabase_client import get_supabase_admin_client
 from utils.telegram_utils import send_message, create_channel_keyboard
@@ -171,7 +173,7 @@ def sync_channel_task(channel_id, task=None):
         latest_video_ids = []
         next_page_token = None
         # We scan up to 250 recent videos to check for new ones
-        for _ in range(8): # 5 pages * 50 results = 250 videos
+        for _ in range(10): # 5 pages * 50 results = 250 videos
             playlist_resp = youtube_api.playlistItems().list(
                 part="contentDetails", playlistId=uploads_id, maxResults=50, pageToken=next_page_token
             ).execute()
@@ -508,13 +510,11 @@ def delete_channel_task(channel_id: int, user_id: str):
         print(f"--- [DELETE TASK STARTED] Unlinking Channel ID: {channel_id} from User ID: {user_id} ---")
         supabase_admin = get_supabase_admin_client()
 
-        # --- FIX: Decrement user's personal channel count if it's a personal channel ---
-        # We must do this BEFORE unlinking, while we can still easily check the channel's status.
+        # Decrement user's personal channel count if it's a personal channel
         channel_details_resp = supabase_admin.table('channels').select('is_shared').eq('id', channel_id).single().execute()
         if channel_details_resp.data and not channel_details_resp.data.get('is_shared'):
             print(f"Channel {channel_id} is a personal channel. Decrementing count for user {user_id}.")
             supabase_admin.rpc('decrement_channel_count', {'p_user_id': user_id}).execute()
-        # --- END FIX ---
 
         # Step 1: Unlink the user from the channel.
         supabase_admin.table('user_channels').delete().match({
@@ -532,23 +532,14 @@ def delete_channel_task(channel_id: int, user_id: str):
         if other_users_response.count == 0:
             print(f"Channel {channel_id} is orphaned. Deleting all associated data.")
 
-            # Step 3: Get the channel details to find its associated videos.
-            channel_details_response = supabase_admin.table('channels').select('videos').eq('id', channel_id).single().execute()
-            
-            if channel_details_response.data and channel_details_response.data.get('videos'):
-                video_ids = [v['video_id'] for v in channel_details_response.data['videos']]
-                
-                # Step 4: Delete all embeddings linked to those videos.
-                if video_ids:
-                    print(f"Found {len(video_ids)} videos. Deleting associated embeddings...")
-                    supabase_admin.table('embeddings').delete().in_('video_id', video_ids).execute()
-                    print(f"Deleted embeddings for videos: {video_ids}")
+            # Step 3: Delete embeddings in batches to prevent timeouts.
+            _delete_embeddings_in_batches(channel_id)
 
-            # Step 5: Finally, delete the master channel record.
+            # Step 4: Finally, delete the master channel record.
             supabase_admin.table('channels').delete().eq('id', channel_id).execute()
             print(f"Deleted master record for channel {channel_id}.")
             print(f"--- [DELETE TASK SUCCESS] Permanently deleted channel {channel_id}. ---")
-        
+
         else:
             print(f"--- [DELETE TASK SUCCESS] Channel {channel_id} is still in use by {other_users_response.count} other users. ---")
 
@@ -581,3 +572,84 @@ def post_answer_processing_task(user_id, channel_name, question, answer, sources
         )
     except Exception as e:
         logger.error(f"Error in post-answer processing for user {user_id}: {e}", exc_info=True)
+
+@huey.task()
+def update_bot_profile_task(bot_token: str, channel_url: str):
+    """
+    Background task to update a Discord bot's name and avatar to match
+    the linked YouTube channel.
+    """
+    try:
+        logger.info(f"--- [TASK STARTED] Updating profile for bot using token: {bot_token[:5]}... ---")
+        
+        # The update_bot_profile function is async, so we need to run it in an event loop.
+        success, message = asyncio.run(update_bot_profile(bot_token, channel_url))
+        
+        if success:
+            logger.info(f"--- [TASK SUCCESS] Bot profile updated: {message} ---")
+        else:
+            logger.error(f"--- [TASK FAILED] Bot profile update failed: {message} ---")
+            
+    except Exception as e:
+        logger.error(f"--- [TASK FAILED] Critical error in update_bot_profile_task: {e}", exc_info=True)
+
+
+def _delete_embeddings_in_batches(channel_id: int, batch_size: int = 500):
+    """Helper function to delete embeddings in batches to avoid timeouts."""
+    supabase_admin = get_supabase_admin_client()
+    while True:
+        # Find a batch of embeddings to delete
+        ids_to_delete_res = supabase_admin.table('embeddings') \
+            .select('id') \
+            .eq('channel_id', channel_id) \
+            .limit(batch_size) \
+            .execute()
+        
+        if not ids_to_delete_res.data:
+            print("No more embeddings to delete.")
+            break # Exit the loop if no embeddings are found
+
+        ids = [item['id'] for item in ids_to_delete_res.data]
+        print(f"Deleting batch of {len(ids)} embeddings for channel {channel_id}...")
+        
+        # Delete the batch of embeddings by their primary keys
+        supabase_admin.table('embeddings').delete().in_('id', ids).execute()
+        
+        if len(ids) < batch_size:
+            print("Finished deleting all embeddings.")
+            break # Exit if the last batch was smaller than the batch size
+
+@huey.task()
+def owner_delete_channel_task(channel_id: int):
+    """
+    Background task for an OWNER to PERMANENTLY DELETE a channel and all
+    associated data (links, embeddings, etc.) for ALL users.
+    """
+    try:
+        print(f"--- [OWNER DELETE TASK STARTED] Permanently deleting Channel ID: {channel_id} ---")
+        supabase_admin = get_supabase_admin_client()
+
+        # Step 1: Explicitly unlink all users from the channel.
+        print(f"Unlinking all users from channel {channel_id}...")
+        supabase_admin.table('user_channels').delete().eq('channel_id', channel_id).execute()
+        print("All users unlinked.")
+
+        # Step 2: Delete embeddings in batches to prevent timeouts.
+        _delete_embeddings_in_batches(channel_id)
+
+        # Step 3: Finally, delete the master channel record.
+        print(f"Deleting master record for channel {channel_id}...")
+        supabase_admin.table('channels').delete().eq('id', channel_id).execute()
+        print("Channel record deleted.")
+
+        print(f"--- [OWNER DELETE TASK SUCCESS] Successfully deleted channel {channel_id} and all associated data. ---")
+
+    except Exception as e:
+        if isinstance(e, APIError):
+            error_message = e.message
+        else:
+            error_message = str(e)
+
+        print(f"--- [OWNER DELETE TASK FAILED] Error for channel {channel_id}: {error_message} ---")
+        logger.error(f"Owner delete task failed for channel {channel_id}: {e}", exc_info=True)
+        raise

@@ -6,7 +6,7 @@ import os
 import json
 import secrets
 from datetime import datetime, timezone
-from tasks import huey, process_channel_task, sync_channel_task, process_telegram_update_task, delete_channel_task,update_bot_profile_task
+from tasks import huey, process_channel_task, sync_channel_task, process_telegram_update_task, delete_channel_task,update_bot_profile_task,owner_delete_channel_task
 from utils.qa_utils import answer_question_stream
 from utils.supabase_client import get_supabase_client, get_supabase_admin_client, refresh_supabase_session
 from utils.history_utils import get_chat_history
@@ -829,14 +829,36 @@ def delete_channel_route(channel_id):
     user_id = session['user']['id']
     supabase_admin = get_supabase_admin_client()
     try:
-        supabase_admin.table('user_channels').select('channel_id').eq('user_id', user_id).eq('channel_id', channel_id).limit(1).single().execute()
-        delete_channel_task(channel_id, user_id)
-        return jsonify({'status': 'success', 'message': 'Channel deletion has been started in the background.'})
+        # Fetch the channel details to check for ownership
+        channel_response = supabase_admin.table('channels').select('user_id').eq('id', channel_id).single().execute()
+
+        if not channel_response.data:
+            return jsonify({'status': 'error', 'message': 'Channel not found.'}), 404
+
+        channel_owner_id = channel_response.data.get('user_id')
+
+        # If the user is the owner, trigger the permanent deletion task
+        if str(channel_owner_id) == str(user_id):
+            owner_delete_channel_task(channel_id)
+            return jsonify({'status': 'success', 'message': 'Channel and all its data are being permanently deleted.'})
+        
+        # If the user is not the owner, but is linked, just unlink them
+        else:
+            # Verify the user is at least linked to the channel before unlinking
+            link_check = supabase_admin.table('user_channels').select('channel_id').eq('user_id', user_id).eq('channel_id', channel_id).limit(1).single().execute()
+            if not link_check.data:
+                return jsonify({'status': 'error', 'message': 'You are not linked to this channel.'}), 403
+
+            delete_channel_task(channel_id, user_id)
+            return jsonify({'status': 'success', 'message': 'You have been unlinked from the channel.'})
+
     except APIError as e:
-        if 'PGRST116' in e.message:
+        if 'PGRST116' in e.message: # "Row not found"
             return jsonify({'status': 'error', 'message': 'Channel not found or you do not have permission.'}), 404
+        logger.error(f"Supabase API Error deleting channel {channel_id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'A database error occurred.'}), 500
     except Exception as e:
+        logger.error(f"Error deleting channel {channel_id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'An error occurred while starting the deletion process.'}), 500
 
 @app.route('/refresh_channel/<int:channel_id>', methods=['POST'])
@@ -1334,6 +1356,11 @@ def api_admin_delete_user(user_id):
     """
     Permanently deletes a user and all their associated data.
     """
+    # --- START: VULNERABILITY FIX ---
+    # Prevent the admin from deleting their own account
+    if 'user' in session and str(session['user']['id']) == user_id:
+        return jsonify({'status': 'error', 'message': 'You cannot delete your own admin account.'}), 403
+    # --- END: VULNERABILITY FIX ---
     if not user_id:
         return jsonify({'status': 'error', 'message': 'User ID is required.'}), 400
 
@@ -1964,7 +1991,32 @@ def create_razorpay_subscription():
 def initiate_razorpay_payout():
     payout_id = request.json.get('payout_id')
     creator_id = request.json.get('creator_id')
-    amount = request.json.get('amount')
+
+    # --- START: VULNERABILITY FIX ---
+    # Fetch payout from DB to get the correct amount and prevent manipulation
+    supabase_admin = get_supabase_admin_client()
+    payout_res = supabase_admin.table('creator_payouts').select('*').eq('id', payout_id).eq('creator_id', creator_id).single().execute()
+
+    if not payout_res.data:
+        return jsonify({'status': 'error', 'message': 'Payout request not found.'}), 404
+
+    payout_data = payout_res.data
+    amount = payout_data.get('amount_usd')
+
+    # Ensure we don't process a payout that isn't pending
+    if payout_data.get('status') != 'pending':
+        return jsonify({'status': 'error', 'message': f"This payout is already in '{payout_data.get('status')}' status."}), 400
+    # --- END: VULNERABILITY FIX ---
+
+    if not payout_res.data:
+        return jsonify({'status': 'error', 'message': 'Payout request not found.'}), 404
+
+    payout_data = payout_res.data
+    amount = payout_data.get('amount_usd')
+    # Ensure we don't process a payout that isn't pending
+    if payout_data.get('status') != 'pending':
+        return jsonify({'status': 'error', 'message': f"This payout is already in '{payout_data.get('status')}' status."}), 400
+    # --- END: VULNERABILITY FIX ---
 
     razorpay_client = get_razorpay_client()
     if not razorpay_client:
@@ -2078,6 +2130,34 @@ def save_payout_details():
     db_utils.create_or_update_profile(profile_update_payload)
     
     return jsonify({'status': 'success', 'message': 'Payout details saved successfully.'})
+
+@app.context_processor
+def inject_user_status():
+    if 'user' in session:
+        user_id = session['user']['id']
+        active_community_id = session.get('active_community_id')
+        user_status = get_user_status(user_id, active_community_id)
+        is_embedded = session.get('is_embedded_whop_user', False)
+
+        # Check if user is a creator (has created channels)
+        is_creator = False
+        if user_id:
+            creator_channels = db_utils.get_channels_created_by_user(user_id)
+            is_creator = len(creator_channels) > 0
+
+        community_status = None
+        if active_community_id:
+            community_status = get_community_status(active_community_id)
+
+        return dict(
+            user_status=user_status,
+            user=session.get('user'),
+            is_embedded_whop_user=is_embedded,
+            community_status=community_status,
+            saved_channels={},
+            is_creator=is_creator  # Add this line
+        )
+    return dict(user_status=None, user=None, is_embedded_whop_user=False, community_status=None, is_creator=False)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
