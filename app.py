@@ -1032,7 +1032,7 @@ def discord_dashboard():
         branded_bots=branded_bots,
         discord_invite_link=discord_invite_link,
         discord_account_linked=discord_account_linked,
-        saved_channels=creator_channels  # Pass the filtered list of creator channels
+        saved_channels=creator_channels
     )
 
 @app.route('/integrations/telegram')

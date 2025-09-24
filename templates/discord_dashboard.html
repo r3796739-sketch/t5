@@ -42,6 +42,12 @@
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;padding: 5px;}
     .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); }
     @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .channel-selector { display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem; margin-bottom: 1rem; }
+    .channel-card { cursor: pointer; border: 2px solid transparent; border-radius: var(--radius-md); padding: 0.5rem; text-align: center; min-width: 100px; transition: all 0.2s ease-in-out; }
+    .channel-card:hover { border-color: var(--accent-primary-faded); background-color: var(--surface-medium); }
+    .channel-card.selected { border-color: var(--accent-primary); background-color: var(--surface-dark); box-shadow: 0 0 15px rgba(var(--accent-primary-rgb), 0.3); }
+    .channel-card img { width: 60px; height: 60px; border-radius: 50%; margin-bottom: 0.5rem; object-fit: cover; }
+    .channel-card-name { font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); }
     .official-bot-card { background: var(--surface-light); border: 1px solid var(--neutral-200); border-left: 4px solid var(--accent-primary); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; max-width: 400px; margin-top: 1.5rem; box-shadow: var(--shadow-sm); position: relative; }
     .official-bot-card .card-description { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; margin: 1rem 0; flex-grow: 1; }
     .official-bot-card .card-description code { background-color: var(--surface-medium); padding: 2px 6px; border-radius: 4px; font-family: monospace; color: var(--text-primary); }
@@ -147,6 +153,19 @@
                 <label for="discord_bot_token">Your Discord Bot Token</label>
                 <input type="password" id="discord_bot_token" name="discord_bot_token" class="form-control" required>
             </div>
+
+            <div class="form-group" style="margin-top: 1rem;">
+                <label>Or, Select an Existing Channel</label>
+                <div class="channel-selector">
+                    {% for channel in saved_channels.values() %}
+                    <div class="channel-card" data-url="{{ channel.channel_url }}">
+                        <img src="{{ channel.channel_thumbnail }}" alt="{{ channel.channel_name }}">
+                        <div class="channel-card-name">{{ channel.channel_name }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
             <div class="form-group" style="margin-top: 1rem;">
                 <label for="youtube_channel_url">YouTube Channel URL</label>
                 <input type="url" id="youtube_channel_url" name="youtube_channel_url" class="form-control" required>
@@ -454,6 +473,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.querySelector('.bot-dashboard')) {
         pollBotStatuses(); 
         const pollingInterval = setInterval(pollBotStatuses, 5000);
+    }
+
+    const channelUrlInput = document.getElementById('youtube_channel_url');
+    const channelSelector = document.querySelector('.channel-selector');
+
+    if (channelSelector) {
+        const channelCards = channelSelector.querySelectorAll('.channel-card');
+        channelCards.forEach(card => {
+            card.addEventListener('click', () => {
+                channelCards.forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                channelUrlInput.value = card.dataset.url;
+            });
+        });
+
+        channelUrlInput.addEventListener('input', () => {
+            channelCards.forEach(c => c.classList.remove('selected'));
+        });
     }
 });
 </script>
