@@ -1,0 +1,397 @@
+.admin-container {
+    padding: var(--spacing-lg);
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.page-header {
+    text-align: center;
+    margin-bottom: var(--spacing-2xl);
+}
+
+.page-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.page-subtitle {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-top: var(--spacing-sm);
+}
+
+.admin-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.section-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--neutral-200);
+}
+
+.form-card {
+    background: var(--surface-light);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    border: 1px solid var(--neutral-200);
+}
+
+.form-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: var(--spacing-lg);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: var(--spacing-sm);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.form-group input, .form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--radius-md);
+    background-color: var(--surface-medium);
+}
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.admin-card {
+    background: var(--surface-light);
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.card-title {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.card-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-family: monospace;
+}
+
+.card-actions {
+    position: relative;
+}
+
+.action-menu-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0 8px;
+    border-radius: 50%;
+}
+
+.action-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: var(--surface-light);
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 10;
+    width: 280px;
+    padding: var(--spacing-md);
+}
+
+.action-menu.show {
+    display: block;
+}
+
+.action-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+.action-group label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+.action-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--radius-sm);
+}
+.action-divider {
+    height: 1px;
+    background: var(--neutral-200);
+    margin: var(--spacing-md) 0;
+}
+
+.action-menu a {
+    display: block;
+    padding: 8px;
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+}
+.action-menu a:hover {
+    background: var(--surface-medium);
+    color: var(--text-primary);
+}
+.action-menu a.danger {
+    color: var(--accent-error);
+}
+.action-menu a.danger:hover {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.card-body {
+    border-top: 1px solid var(--neutral-200);
+    padding-top: var(--spacing-md);
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 0.9rem;
+}
+
+.plan-badge {
+    font-weight: 600;
+    background-color: var(--accent-purple-light);
+    color: var(--accent-purple);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 0.8rem;
+}
+
+.btn-secondary {
+    padding: 8px 12px;
+    background-color: var(--surface-medium);
+    color: var(--text-primary);
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-weight: 500;
+    width: 100%;
+    margin-top: 4px;
+}
+.btn-secondary:hover {
+    background-color: var(--neutral-200);
+}
+
+.payouts-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.payout-card {
+    background: var(--surface-light);
+    border: 1px solid var(--neutral-200);
+    border-left: 4px solid var(--neutral-300);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.payout-card.status-pending {
+    border-left-color: var(--accent-info);
+}
+
+.payout-card.status-paid {
+    border-left-color: var(--accent-success);
+    opacity: 0.8;
+}
+
+.payout-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-md);
+}
+
+.creator-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+    display: block;
+}
+
+.payout-date {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.payout-amount {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.payout-details {
+    border-top: 1px solid var(--neutral-200);
+    padding-top: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.payout-details h4 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: var(--spacing-sm);
+}
+
+.bank-info p {
+    font-family: monospace;
+    font-size: 0.95rem;
+    margin: 0.25rem 0;
+}
+
+.payout-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.status-badge {
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: var(--radius-full);
+    font-size: 0.8rem;
+}
+
+.status-badge.status-pending {
+    background-color: #e3f2fd;
+    color: #1565c0;
+}
+
+.status-badge.status-paid {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+}
+
+.search-wrapper input[type="search"] {
+    min-width: 300px;
+    padding: 10px 15px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--neutral-300);
+    background-color: var(--surface-light);
+    font-size: 0.9rem;
+}
+
+/* Improved Table UI */
+.table-container {
+    background: var(--surface-light);
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: var(--spacing-md);
+    text-align: left;
+    border-bottom: 1px solid var(--neutral-200);
+    vertical-align: middle;
+}
+
+thead th {
+    background: var(--surface-medium);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.creator-cell .creator-name {
+    font-weight: 600;
+    display: block;
+}
+.creator-cell .creator-email {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.amount-cell {
+    font-size: 1.1rem;
+}
+
+.payout-details-cell {
+    font-family: monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+.payout-details-cell .text-muted {
+    font-family: 'Poppins', sans-serif;
+    font-style: italic;
+}
+
+.empty-row {
+    text-align: center;
+    color: var(--text-muted);
+    padding: var(--spacing-xl) 0;
+}
+
+.status-badge.status-pending {
+    background-color: #fff8e1;
+    color: #f57f17;
+}
+
+.status-badge.status-paid {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+.status-badge.status-processing {
+    background-color: #e3f2fd;
+    color: #1565c0;
+}

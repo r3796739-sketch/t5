@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Authenticating...</title>
+</head>
+<body>
+    <p>Please wait, you are being authenticated...</p>
+    <script>
+        // This function correctly parses the access token from the URL fragment
+        function getUrlParameter(name) {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            return params.get(name);
+        }
+
+        const accessToken = getUrlParameter('access_token');
+        const refreshToken = getUrlParameter('refresh_token');
+        const expiresIn = getUrlParameter('expires_in');
+
+        if (accessToken && refreshToken && expiresIn) {
+            const expiresAt = Date.now() / 1000 + parseInt(expiresIn, 10);
+
+            fetch('/auth/set-cookie', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                    expires_at: expiresAt
+                }),
+            })
+            .then(response => {
+                if (response.ok) {
+                    // --- START: MODIFIED REDIRECT LOGIC ---
+                    // Check if a redirect URL was saved before login
+                    const redirectUrl = localStorage.getItem('login_redirect_url');
+                    
+                    if (redirectUrl) {
+                        // If we found a URL, clear it from storage and redirect there
+                        localStorage.removeItem('login_redirect_url');
+                        window.location.href = redirectUrl;
+                    } else {
+                        // Otherwise, redirect to the default channel page
+                        window.location.href = "{{ url_for('channel') }}";
+                    }
+                    // --- END: MODIFIED REDIRECT LOGIC ---
+                } else {
+                    throw new Error('Server failed to set auth cookie.');
+                }
+            })
+            .catch(error => {
+                console.error('Authentication sync failed:', error);
+                alert('Login failed. Please try again.');
+                window.location.href = "{{ url_for('home') }}";
+            });
+        } else {
+            console.error("Supabase tokens not found in URL fragment.");
+            alert("Authentication error. Could not complete login.");
+            window.location.href = "{{ url_for('home') }}";
+        }
+    </script>
+</body>
+</html>

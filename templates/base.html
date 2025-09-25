@@ -1,0 +1,535 @@
+{% from "_macros.html" import render_sidebar_channel_item %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}YouTube Channel QA{% endblock %}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo/favicon.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/logo/favicon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main-purged.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    {% block page_styles %}{% endblock %}
+    <script>
+        (function() {
+            const theme = localStorage.getItem('theme') || 'light';
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+</head>
+<body>
+    <div id="notification-container" class="notification-container"></div>
+
+    <button class="hamburger" id="hamburgerBtn" aria-label="Toggle Sidebar">
+        <span></span><span></span><span></span>
+    </button>
+
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <a href="{{ url_for('channel') }}" class="sidebar-logo-link">
+                    <img src="{{ url_for('static', filename='images/logo/primiry__logo.png') }}" alt="yoppychat Logo" class="sidebar-logo-img logo-light">
+                    <img src="{{ url_for('static', filename='images/logo/primiry_logo_dark.png') }}" alt="yoppychat Logo" class="sidebar-logo-img logo-dark">
+                </a>
+            </div>
+            <div class="sidebar-content">
+                <div class="channel-section">
+                    <div class="channel-section-title">Channels</div>
+                    <div class="channel-list">
+                        {% if user_status %}
+                            {% set can_add_personal = user_status.usage.channels_processed < user_status.limits.max_channels %}
+
+                            {# For community owners, check if they can add more shared channels #}
+                            {% set can_add_shared = False %}
+                            {% if user_status.is_active_community_owner %}
+                                {# This part requires fetching community status, which might be complex here.
+                                   Assuming a simple check for now, but a more robust solution might need a dedicated function.
+                                   For simplicity, we'll just check if they are an owner. #}
+                                {% set can_add_shared = True %}
+                            {% endif %}
+
+                            {% if can_add_personal or can_add_shared %}
+                                <div class="add-channel-btn" onclick='location.href="{{ url_for("channel") }}"'>+ Add Channel</div>
+                            {% elif user_status.is_whop_user %}
+                                <div class="add-channel-btn" onclick="showUpgradePopup('You have reached your channel limit. Please upgrade for more.')">+ Add Channel (Upgrade)</div>
+                            {% else %}
+                                <div class="add-channel-btn disabled">Channel Limit Reached</div>
+                            {% endif %}
+                        {% endif %}
+
+                        {% for name, channel in saved_channels.items() %}
+                            {{ render_sidebar_channel_item(channel, name, community_status) }}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            {% if user and not session.get('active_community_id') %}
+            <div class="sidebar-actions-section">
+                {% if is_creator %}
+                <a href="{{ url_for('dashboard') }}" class="sidebar-action-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-layout"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                    <span>Dashboard</span>
+                </a>
+                {% endif %}
+            {# Only show the Earnings link if the user is currently on the dashboard page #}
+            {% if request.endpoint == 'dashboard' %}
+            <a href="{{ url_for('earnings_page') }}" class="sidebar-action-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-dollar-sign"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                <span>Earnings</span>
+            </a>
+            {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="sidebar-footer">
+                <div style="position: relative;" id="profile-container">
+                    <div class="user-profile-section" id="user-profile-trigger" style="cursor: pointer;">
+                        {% if session.user %}
+                            <div class="user-avatar">
+                                {# --- START: MODIFIED AVATAR LOGIC --- #}
+                                {# Get the user's name or fallback to their email to create an initial #}
+                                {% set user_name = session.user.user_metadata.full_name or session.user.email %}
+
+                                {# Check if an avatar URL is provided #}
+                                {% if session.user.user_metadata.avatar_url %}
+                                    <img src="{{ session.user.user_metadata.avatar_url }}"
+                                         alt="User Avatar"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <span class="avatar-initial" style="display: none;">{{ user_name[0] | upper if user_name }}</span>
+                                {% else %}
+                                    {# If no avatar URL, just show the initial #}
+                                    <span class="avatar-initial">{{ user_name[0] | upper if user_name }}</span>
+                                {% endif %}
+                                {# --- END: MODIFIED AVATAR LOGIC --- #}
+                            </div>
+
+                            <div class="user-details">
+                                <span class="user-name">{{ session.user.user_metadata.full_name or session.user.email }}</span>
+                                {% if user_status %}
+                                    <span class="user-plan">{{ user_status.plan_name | title }} Plan</span>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <a href="#" onclick="showLoginPopup()" class="login-prompt-btn">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points=" १० १७ १५ १२ १० ७"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                                <span>Login or Sign Up</span>
+                            </a>
+                        {% endif %}
+                    </div>
+
+                    {% if user and user_status %}
+                    <div class="profile-menu" id="user-profile-menu">
+                        <div class="menu-plan-display">
+                            <div class="plan-badge">{{ user_status.plan_name | title }} Plan</div>
+                            <p class="plan-queries">
+                                {% if user_status.has_personal_plan or not user_status.is_whop_user %}
+                                    {% if user_status.limits.max_queries_per_month|string() == 'inf' %}
+                                        You have <strong>Unlimited</strong> personal queries.
+                                    {% else %}
+                                        You have <strong>{{ (user_status.limits.max_queries_per_month - user_status.usage.queries_this_month) | int }}</strong> personal queries remaining.
+                                    {% endif %}
+                                {% elif community_status %}
+                                    The community has <strong>{{ (community_status.limits.query_limit - community_status.usage.queries_used) | int }}</strong> shared queries remaining.
+                                {% endif %}
+                            </p>
+                        </div>
+
+
+                        <a href="#" onclick="event.preventDefault(); showPricingModal();" class="menu-upgrade-button">
+                        <span>✨ Upgrade Plan</span>
+                        </a>
+
+
+                        <ul class="menu-links">
+                            {% if not is_embedded_whop_user %}
+                             <li><a href="{{ url_for('about') }}">About</a></li>
+                             <li><a href="{{ url_for('terms') }}">Terms of Service</a></li>
+                             <li><a href="{{ url_for('privacy') }}">Privacy Policy</a></li>
+                             <li><a href="#" onclick="handleLogout(event)" class="logout">Logout</a></li>
+                            {% endif %}
+                             <li>
+                                 <div class="menu-toggle-option">
+                                     <span>Dark Mode</span>
+                                     <label class="theme-switch">
+                                         <input type="checkbox" id="profile-theme-toggle">
+                                         <span class="slider"></span>
+                                     </label>
+                                 </div>
+                             </li>
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </aside>
+
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <main class="main-content {% if request.endpoint in ['ask', 'public_chat_page'] %}has-mobile-nav{% endif %}">
+            <div class="card">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <div id="login-popup-modal" class="login-popup-overlay">
+        <div class="login-popup-content">
+            <button class="login-popup-close-btn" onclick="closeLoginPopup()">&times;</button>
+            <div class="login-popup-icon">
+                <img src="{{ url_for('static', filename='images/logo/primiry__logo.png') }}" alt="yoppychat Logo" class="sidebar-logo-img logo-light" width="60" height="60">
+                <img src="{{ url_for('static', filename='images/logo/primiry_logo_dark.png') }}" alt="yoppychat Logo" class="sidebar-logo-img logo-dark" width="60" height="60">
+            </div>
+            <h3 class="login-popup-title">Welcome to YoppyChat</h3>
+            <p class="login-popup-subtitle">Create an account or log in to continue</p>
+            <button id="google-login-btn" class="login-popup-google-btn">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M19.9999 10.2248C19.9999 9.53448 19.9452 8.85345 19.8265 8.18103H10.204V11.8534H15.7516C15.5344 13.069 14.8973 14.1207 13.9648 14.7759V17.2672H16.7137C18.6637 15.4397 19.9999 13.0172 19.9999 10.2248Z" fill="#4285F4"/><path d="M10.2042 20C12.8363 20 15.0432 19.181 16.7137 17.2672L13.9648 14.7759C13.0958 15.3534 11.9053 15.7328 10.2042 15.7328C7.15271 15.7328 4.60271 13.7328 3.70615 11.0603H0.836304V13.6293C2.48115 17.2328 6.09494 20 10.2042 20Z" fill="#34A853"/><path d="M3.70604 11.0603C3.52839 10.5345 3.42839 9.97414 3.42839 9.39655C3.42839 8.81897 3.52839 8.25862 3.70604 7.73276V5.16379H0.836202C0.301636 6.24138 0 7.75862 0 9.39655C0 11.0345 0.301636 12.5517 0.836202 13.6293L3.70604 11.0603Z" fill="#FBBC05"/><path d="M10.2042 3.06034C11.5794 3.06034 12.9139 3.56034 13.9053 4.50862L16.7758 1.63793C15.0349 0.0344827 12.8279 0 10.2042 0C6.09494 0 2.48115 2.76724 0.836304 6.37069L3.70615 8.93966C4.60271 6.26724 7.15271 3.06034 10.2042 3.06034Z" fill="#EA4335"/></svg>
+                Continue with Google
+            </button>
+            <p class="login-popup-terms">By signing in, you are agreeing to the <strong>Terms of Service</strong> and <strong>Privacy Policy</strong></p>
+        </div>
+    </div>
+
+    <div id="confirmDeleteDialog" class="confirm-dialog" style="display: none;">
+        <div class="confirm-content">
+            <h3>Confirm Deletion</h3>
+            <p>Are you sure you want to delete the channel "<strong id="channelToDeleteName"></strong>"? This action cannot be undone.</p>
+            <div class="confirm-actions">
+                <button class="btn cancel-btn" onclick="cancelDeleteChannel()">Cancel</button>
+                <button class="btn confirm-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pricing Modal -->
+    <div id="pricing-modal-overlay" class="login-popup-overlay">
+        <div class="login-popup-content" style="max-width: 1200px; text-align: left;">
+            <button class="login-popup-close-btn" onclick="closePricingModal()">&times;</button>
+            <div style="padding: 1rem;">
+                <h3 class="login-popup-title" style="text-align: center;">Simple, Scalable Pricing</h3>
+                <p style="text-align: center; margin-top: 2rem; color: var(--text-muted); font-weight: 500;">
+                    We're committed to making this the best platform for creators and thier Viewers. 90% of all revenue is reinvested directly into improving this project.
+                </p>
+                <div class="pricing-grid-modal">
+                     <div class="pricing-card">
+                         <h4>Free</h4>
+                         <p class="text-muted">Start the conversation and explore the AI.</p>
+                         <p class="price">₹0 <span>/ month</span></p>
+                         <a href="{{ url_for('channel') }}" class="btn-pricing btn-pricing-neutral">Get Started</a>
+                         <ul class="pricing-features">
+                             <li><span class="icon">✓</span>Add Upto 3 Channels Persona AI</li>
+                             <li><span class="icon">✓</span>10 AI Conversations/month</li>
+                             <li><span class="icon">✓</span>Manual Content Updates</li>
+                         </ul>
+                     </div>
+
+                     <div class="pricing-card featured">
+                         <span class="popular-badge">MOST POPULAR</span>
+                         <h4>Personal</h4>
+                         <p class="text-muted">For the enthusiast who wants to dive deep.</p>
+                         <p class="price price-featured">₹299 <span>/ month</span></p>
+                         <a href="#" onclick="buySubscription('personal', this)" class="btn-pricing btn-pricing-accent">Choose Personal</a>
+                         <ul class="pricing-features">
+                             <li><span class="icon">✓</span><strong>Add UPTO 25 Channels Persona AI</strong></li>
+                             <li><span class="icon">✓</span><strong>250x More Interactions</strong></li>
+                             <li><span class="icon">✓</span><strong>Get longer In-Depth Answers</strong></li>
+                             <li><span class="icon">✓</span><strong>Always Up-to-Date AI</strong> (Auto Sync)</li>
+                             <li><span class="icon">✓</span>Priority AI Responses</li>
+                         </ul>
+                     </div>
+
+                     <div class="pricing-card">
+                         <h4>Creator</h4>
+                         <p class="text-muted">Build, deploy, and monetize your AI empire.</p>
+                         <p class="price">₹2,799 <span>/ month</span></p>
+                         <a href="#" onclick="buySubscription('creator', this)" class="btn-pricing btn-pricing-neutral">Choose Creator</a>
+                         <ul class="pricing-features">
+                            <li><span class="icon">✓</span>Everything in Personal, plus:</li>
+                             <li><span class="icon">✓</span><strong>Unlimited Channels</strong></li>
+                             <li><span class="icon">✓</span><strong>Massive Engagement</strong> (10,000/month)</li>
+                             <li><span class="icon">✓</span><strong>Deploy Your AI Anywhere</strong> (Discord & Telegram & more)</li>
+                         </ul>
+                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+<script>
+    /**
+     * ===================================================================
+     * 1. GLOBALLY ACCESSIBLE FUNCTIONS
+     * ===================================================================
+     */
+
+    function showNotification(message, type = 'info') {
+        const container = document.getElementById('notification-container');
+        if (!container) return;
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.innerHTML = `<span class="notification-message">${message}</span>`;
+        container.appendChild(notification);
+        setTimeout(() => notification.classList.add('show'), 100);
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => { if (container.contains(notification)) container.removeChild(notification); }, 500);
+        }, 5000);
+    }
+
+    function showLoginPopup() {
+        const modal = document.getElementById('login-popup-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+        }
+
+        // --- START: CORE FIX ---
+        // This logic now runs every time the popup is shown, guaranteeing the button works.
+        const supabaseUrl = "{{ SUPABASE_URL or '' }}";
+        const supabaseAnonKey = "{{ SUPABASE_ANON_KEY or '' }}";
+
+        if (supabaseUrl && supabaseAnonKey && window.supabase) {
+            if (!window.supabaseClient) {
+                window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+            }
+
+            const googleLoginBtn = document.getElementById('google-login-btn');
+            if (googleLoginBtn && !googleLoginBtn.dataset.listenerAttached) {
+                googleLoginBtn.addEventListener('click', () => {
+                    // --- START: NEW REDIRECT LOGIC ---
+                    // Save the current URL to localStorage before redirecting to Google
+                    localStorage.setItem('login_redirect_url', window.location.href);
+                    // --- END: NEW REDIRECT LOGIC ---
+                    window.supabaseClient.auth.signInWithOAuth({
+                        provider: 'google',
+                        options: { redirectTo: "{{ url_for('auth_callback', _external=True) }}" }
+                    });
+                });
+                // Mark the button so we don't attach the listener more than once.
+                googleLoginBtn.dataset.listenerAttached = 'true';
+            }
+        } else {
+            console.warn("Supabase credentials not found. Auth features will be disabled.");
+        }
+        // --- END: CORE FIX ---
+    }
+
+    function closeLoginPopup() {
+        const modal = document.getElementById('login-popup-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function showPricingModal() {
+        const modal = document.getElementById('pricing-modal-overlay');
+        if (modal) modal.style.display = 'flex';
+    }
+
+    function closePricingModal() {
+        const modal = document.getElementById('pricing-modal-overlay');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async function handleLogout(event) {
+        event.preventDefault();
+        if (window.supabaseClient) {
+            await window.supabaseClient.auth.signOut();
+        }
+        window.location.href = "{{ url_for('logout') }}";
+    }
+
+    function cancelDeleteChannel() {
+        const dialog = document.getElementById('confirmDeleteDialog');
+        if (dialog) dialog.style.display = 'none';
+    }
+
+    function confirmDeleteChannel(id, name, buttonElement) {
+        const dialog = document.getElementById('confirmDeleteDialog');
+        if (!dialog) return;
+        dialog.querySelector('#channelToDeleteName').textContent = name;
+        const confirmBtn = dialog.querySelector('.confirm-btn');
+        confirmBtn.onclick = () => deleteChannel(id, buttonElement);
+        dialog.style.display = 'flex';
+    }
+
+    function deleteChannel(id, buttonElement) {
+        if (!id || !buttonElement) {
+            console.error("Delete function called without ID or button reference.");
+            return;
+        }
+        cancelDeleteChannel();
+        buttonElement.disabled = true;
+        const spinner = document.createElement('div');
+        spinner.className = 'inline-spinner';
+        buttonElement.innerHTML = '';
+        buttonElement.appendChild(spinner);
+        fetch(`/delete_channel/${id}`, { method: 'POST' })
+            .then(res => {
+                if (!res.ok) return res.json().then(err => Promise.reject(err.message || 'Server error'));
+                return res.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    showNotification('Channel deletion started in the background.', 'info');
+                    const cardsToRemove = document.querySelectorAll(`[data-channel-id="${id}"]`);
+                    cardsToRemove.forEach(card => {
+                        card.style.transition = 'all 0.5s ease';
+                        card.style.opacity = '0';
+                        card.style.transform = 'scale(0.95)';
+                        card.style.height = '0px';
+                        card.style.paddingTop = '0';
+                        card.style.paddingBottom = '0';
+                        card.style.marginTop = '0';
+                        card.style.marginBottom = '0';
+                        setTimeout(() => card.remove(), 500);
+                    });
+                } else {
+                    throw new Error(data.message);
+                }
+            })
+            .catch(err => {
+                showNotification(err.toString(), 'error');
+                buttonElement.disabled = false;
+                buttonElement.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-l-1h-5l-1 1H5v2h14V4z"/></svg>`;
+            });
+    }
+
+    function showUpgradePopup(message) {
+        const modal = document.getElementById('pricing-modal-overlay');
+        const modalContent = modal ? modal.querySelector('.login-popup-content > div') : null;
+        if (modal && modalContent) {
+            modalContent.innerHTML = `
+                <div style="text-align: center; padding: 1rem 2rem;">
+                    <h3 style="font-size: 1.5rem; color: var(--text-primary); margin-bottom: 0.75rem;">Upgrade Required</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">${message}</p>
+                    <a href="https://whop.com/yoppychat-ai/personal-plan/?a=user"
+                       target="_blank"
+                       class="btn-upgrade"
+                       style="display: inline-block; background-color: var(--accent-primary); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">
+                        Upgrade to Personal Plan
+                    </a>
+                </div>
+            `;
+            modal.style.display = 'flex';
+        }
+    }
+
+    /**
+     * Initializes the Supabase client and Google Login button.
+     */
+    function initializeAuth() {
+        const supabaseUrl = "{{ SUPABASE_URL or '' }}";
+        const supabaseAnonKey = "{{ SUPABASE_ANON_KEY or '' }}";
+        const loginModal = document.getElementById('login-popup-modal');
+
+        if (supabaseUrl && supabaseAnonKey && window.supabase) {
+            if (!window.supabaseClient) {
+                window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+            }
+
+            const googleLoginBtn = document.getElementById('google-login-btn');
+            if (googleLoginBtn) {
+                googleLoginBtn.addEventListener('click', () => {
+                    window.supabaseClient.auth.signInWithOAuth({
+                        provider: 'google',
+                        options: { redirectTo: "{{ url_for('auth_callback', _external=True) }}" }
+                    });
+                });
+            }
+
+            if(loginModal) {
+                loginModal.addEventListener('click', (event) => {
+                    if (event.target === loginModal) {
+                        closeLoginPopup();
+                    }
+                });
+            }
+        } else {
+            console.warn("Supabase credentials not found. Auth features will be disabled.");
+        }
+    }
+
+    /**
+     * ===================================================================
+     * 2. CORE SITE LOGIC (RUNS AFTER DOM IS READY)
+     * ===================================================================
+     */
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize authentication logic on every page load.
+        initializeAuth();
+
+        // --- Theme Toggle Logic ---
+        const themeToggle = document.getElementById('profile-theme-toggle');
+        const updateThemeUI = (theme) => {
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                if (themeToggle) themeToggle.checked = true;
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                if (themeToggle) themeToggle.checked = false;
+            }
+        };
+        const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        updateThemeUI(currentTheme);
+        if (themeToggle) {
+            themeToggle.addEventListener('change', () => {
+                const newTheme = themeToggle.checked ? 'dark' : 'light';
+                localStorage.setItem('theme', newTheme);
+                updateThemeUI(newTheme);
+            });
+        }
+
+        // --- Hamburger Menu Toggle ---
+        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        if (hamburgerBtn && sidebar && sidebarOverlay) {
+            const toggleSidebar = () => {
+                sidebar.classList.toggle('open');
+                sidebarOverlay.classList.toggle('show');
+                hamburgerBtn.classList.toggle('active');
+            };
+            hamburgerBtn.addEventListener('click', toggleSidebar);
+            sidebarOverlay.addEventListener('click', toggleSidebar);
+        }
+
+        // --- Profile Menu Toggle ---
+        const profileTrigger = document.getElementById('user-profile-trigger');
+        const profileMenu = document.getElementById('user-profile-menu');
+        if (profileTrigger && profileMenu) {
+            profileTrigger.addEventListener('click', (event) => {
+                event.stopPropagation();
+                profileMenu.classList.toggle('show');
+            });
+            window.addEventListener('click', () => {
+                if (profileMenu.classList.contains('show')) {
+                    profileMenu.classList.remove('show');
+                }
+            });
+        }
+    });
+</script>
+<!-- <script src="{{ url_for('static', filename='js/app.js') }}"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <script>
+        // Pass server-side data to JavaScript as global constants
+        const IS_USER_LOGGED_IN = {{ 'true' if user else 'false' }};
+        const SUPABASE_URL = "{{ SUPABASE_URL or '' }}";
+        const SUPABASE_ANON_KEY = "{{ SUPABASE_ANON_KEY or '' }}";
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    {% block page_scripts %}{% endblock %}
+
+</body>
+</html>

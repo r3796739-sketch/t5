@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Earnings Dashboard{% endblock %}
+
+{% block page_styles %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/earnings.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="earnings-container">
+    <div class="page-header">
+        <h1 class="page-title">Earnings</h1>
+        <p class="page-subtitle">Track your commissions and manage your payouts.</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3 class="stat-title">Withdrawable Balance</h3>
+            <p class="stat-value">${{ "%.2f"|format(earnings_data.withdrawable_balance) }}</p>
+            <p class="stat-description">Earnings ready for the next payout.</p>
+        </div>
+        <div class="stat-card">
+            <h3 class="stat-title">Pending Payouts</h3>
+            <p class="stat-value">${{ "%.2f"|format(earnings_data.pending_payouts) }}</p>
+            <p class="stat-description">Requested payouts being processed.</p>
+        </div>
+        <div class="stat-card">
+            <h3 class="stat-title">Total Earned</h3>
+            <p class="stat-value">${{ "%.2f"|format(earnings_data.total_earned) }}</p>
+            <p class="stat-description">All-time earnings from referrals.</p>
+        </div>
+    </div>
+
+    <div class="payout-action-section">
+        <button id="requestPayoutBtn" class="btn btn-primary" {% if earnings_data.withdrawable_balance <= 0 %}disabled{% endif %}>
+            Request Withdrawal
+        </button>
+    </div>
+
+<div class="history-section">
+    <h2 class="section-title">Payout History</h2>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date Requested</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Transaction ID</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payout in earnings_data.history %}
+                <tr>
+                    <td>{{ payout.requested_at.split('T')[0] }}</td>
+                    <td>${{ "%.2f"|format(payout.amount_usd) }}</td>
+                    <td><span class="status-badge status-{{ payout.status }}">{{ payout.status|title }}</span></td>
+                    <td class="id-cell">{{ payout.id[:8] }}...</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="empty-row">You have no payout history yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+
+<div id="payoutModal" class="modal-overlay" 
+     data-payout-details="{{ payout_details | tojson | e }}">
+    <div class="modal-content">
+        <button class="modal-close-btn login-popup-close-btn" id="closeModalBtn">&times;</button>
+        
+        <div id="payoutRequestView">
+            <h3>Request a Withdrawal</h3>
+            <p>Your payout will be sent to the bank account on file.</p>
+            <div class="payout-info-display">
+                <span id="payoutMethodName"></span>
+                <button id="editPayoutDetailsBtn" class="btn-text">Edit</button>
+            </div>
+            <div class="balance-display">
+                Available to withdraw: <strong>${{ "%.2f"|format(earnings_data.withdrawable_balance) }}</strong>
+            </div>
+            <form id="payoutForm">
+                <div class="form-group">
+                    <label for="payoutAmount">Amount (USD)</label>
+                    <input type="number" id="payoutAmount" name="amount" step="0.01" min="1.00" max="{{ earnings_data.withdrawable_balance }}" required placeholder="e.g., 50.00">
+                </div>
+                <button type="submit" class="btn btn-primary">Submit Request</button>
+            </form>
+        </div>
+
+        <div id="payoutDetailsView" style="display: none;">
+            <h3 id="payoutDetailsTitle">Add Payout Details</h3>
+            <p>Enter your bank account details to receive payouts.</p>
+             <form id="payoutDetailsForm">
+                <div class="form-group">
+                    <label for="bank_account_name">Account Holder Name</label>
+                    <input type="text" id="bank_account_name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="bank_account_number">Account Number</label>
+                    <input type="text" id="bank_account_number" name="account_number" required>
+                </div>
+                <div class="form-group">
+                    <label for="bank_ifsc_code">IFSC Code</label>
+                    <input type="text" id="bank_ifsc_code" name="ifsc" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Save and Continue</button>
+            </form>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+    <script src="{{ url_for('static', filename='js/earnings.js') }}"></script>
+{% endblock %}
