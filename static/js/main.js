@@ -802,25 +802,37 @@ document.addEventListener('DOMContentLoaded', function() {
             const answerBox = lastQnaPair.querySelector('.answer-box');
             if (!questionContent || !answerBox) return;
             const lastQuestion = questionContent.textContent;
+
+            // --- START: THE FIX ---
+            // 1. Find the container for all action buttons.
+            const sourcesSection = answerBox.querySelector('.sources-section');
+            if (sourcesSection) {
+                // 2. Completely clear out the old buttons (Regenerate, Sources, Copy).
+                //    This prevents button duplication on subsequent regenerations.
+                sourcesSection.innerHTML = '';
+            }
+            // --- END: THE FIX ---
+            
             btn.disabled = true;
             btn.innerHTML = 'Regenerating...';
-            document.querySelectorAll('.regenerate-btn-js').forEach(b => { if (b !== btn) b.remove(); });
+            
             const answerContent = answerBox.querySelector('.answer-content');
-            const sourcesSection = answerBox.querySelector('.sources-section');
             const typingContainer = answerBox.querySelector('.typing-container');
             answerContent.innerHTML = '';
-            if (sourcesSection) sourcesSection.innerHTML = '';
             if (typingContainer) typingContainer.classList.add('active');
+            
             const formData = new FormData();
             formData.append('question', lastQuestion);
             formData.append('channel_name', document.getElementById('chat-page-data').dataset.channelName || '');
             formData.append('is_regenerating', 'true');
+            
             fetch('/stream_answer', { method: 'POST', body: formData })
                 .then(response => response.ok ? response.body.getReader() : response.json().then(err => Promise.reject(err)))
                 .then(reader => processStream(reader, answerContent, typingContainer, answerBox))
                 .catch(err => {
                     answerContent.innerHTML = `<p class="error-message">Failed to regenerate: ${err.message || 'Unknown error'}</p>`;
                     if (typingContainer) typingContainer.classList.remove('active');
+                    // Even on failure, render a fresh set of action buttons
                     renderSourcesAndActions([], answerBox);
                 });
         };
