@@ -39,6 +39,7 @@
     z-index: 2;
     max-width: 600px;
     margin: 0 auto;
+    margin-top: 10%;
 }
 
 .hero-icon {
@@ -348,3 +349,4 @@
         font-size: 1rem;
     }
 }
+
