@@ -39,9 +39,7 @@
     z-index: 2;
     max-width: 600px;
     margin: 0 auto;
-    margin-top: 20%;
 }
-
 
 .hero-icon {
     display: inline-flex;
@@ -350,5 +348,9 @@
         font-size: 1rem;
     }
 }
-
-
+@media (max-width: 768px){
+    .hero-content {
+    margin: 0 auto;
+    margin-top: 10%;
+}
+}
