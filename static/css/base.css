@@ -521,6 +521,9 @@
     transition: .3s;
     border-radius: 50%;
 }
+.delete-channel-btn{
+    background: linear-gradient(135deg, #ff9a5600 0%, #ff8c4200 100%);
+}
 input:checked + .slider {
     background-color: var(--accent-primary);
 }
@@ -624,3 +627,29 @@ html[data-theme='dark'] .logo-light {
 .user-plan[data-plan="creator"] {
     color: #f59e0b;
 }
+
+/* --- START: UX FIX for Dark Mode Sidebar Hover --- */
+/*
+  This rule specifically targets the channel items in the sidebar when
+  the dark theme is active. On hover, it forces a lighter background
+  and a dark text color, ensuring it remains readable.
+*/
+html[data-theme='dark'] .channel-item-wrapper:hover {
+    background-color: var(--neutral-200); /* A light beige/grey from the light theme */
+}
+html[data-theme='dark'] .channel-item-wrapper:hover .channel-link {
+    color: var(--neutral-900); /* Dark text color from the light theme */
+}
+
+/* We also need to ensure the delete button icon color updates to be visible */
+html[data-theme='dark'] .channel-item-wrapper:hover .delete-btn {
+    color: var(--text-secondary); /* A medium-dark grey */
+}
+/* Finally, handle the hover state for the delete button itself */
+html[data-theme='dark'] .channel-item-wrapper:hover .delete-btn:hover {
+    background-color: var(--neutral-300); /* a slightly darker beige */
+    color: var(--accent-error);
+}
+button, .btn {
+        background: linear-gradient(135deg, #ff9a5600 0%, #ff8c4200 100%);
+/* --- END: UX FIX --- */
