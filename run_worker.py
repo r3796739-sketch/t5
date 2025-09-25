@@ -12,6 +12,7 @@ if __name__ == '__main__':
     sys.argv.insert(1, 'tasks.huey')
     
     # Add the other configuration arguments
-    sys.argv.extend(['--workers', '4', '--delay', '0.1', '--quiet'])
+    sys.argv.extend(['--workers', '2', '--delay', '0.1', '--quiet'])
     
+
     consumer_main()
