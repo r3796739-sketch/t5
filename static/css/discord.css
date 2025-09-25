@@ -1,0 +1,385 @@
+/* ===================================================================
+   1. PAGE LAYOUT & HEADER
+=================================================================== */
+.integrations-page {
+    padding: var(--spacing-lg);
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xl);
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-weight: 500;
+}
+.back-link:hover {
+    color: var(--text-primary);
+}
+
+.page-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-2xl);
+}
+.page-icon {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+}
+.page-title {
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0;
+}
+.page-subtitle {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-top: var(--spacing-xs);
+}
+
+.integration-section {
+    margin-bottom: var(--spacing-2xl);
+    padding-bottom: var(--spacing-2xl);
+    border-bottom: 1px solid var(--neutral-200);
+}
+.integration-section:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+.section-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: var(--spacing-sm);
+}
+.section-description {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    max-width: 700px;
+    margin-bottom: var(--spacing-xl);
+}
+
+/* ===================================================================
+   2. BOT CARD GRID & DESIGN
+=================================================================== */
+.bot-dashboard .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.bot-card {
+    background: var(--surface-light);
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.25s ease;
+    box-shadow: var(--shadow-sm);
+}
+.bot-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--neutral-300);
+}
+
+.bot-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--neutral-200);
+}
+
+.bot-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    background-color: var(--surface-medium);
+}
+.bot-info {
+    flex-grow: 1;
+}
+.bot-info .name {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+.bot-info .link {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.bot-card-footer {
+    margin-top: var(--spacing-md);
+}
+
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+.status-dot.online { background-color: var(--accent-success); }
+.status-dot.offline { background-color: var(--text-muted); }
+.status-dot.connecting { background-color: #F39C12; animation: pulse 1.5s infinite; }
+.status-dot.error { background-color: var(--accent-error); }
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+/* Bot Actions Dropdown */
+.bot-actions {
+    position: relative;
+    flex-shrink: 0;
+}
+.action-menu-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    color: var(--text-muted);
+}
+.action-menu-btn:hover {
+    background-color: var(--surface-medium);
+    color: var(--text-primary);
+}
+.action-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 110%;
+    background-color: var(--surface-light);
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+    min-width: 160px;
+    padding: var(--spacing-sm);
+}
+.action-menu.show { display: block; }
+.action-menu a {
+    display: block;
+    padding: 8px 12px;
+    color: var(--text-primary);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+.action-menu a:hover {
+    background-color: var(--surface-medium);
+}
+.action-menu .action-divider {
+    height: 1px;
+    background-color: var(--neutral-200);
+    margin: var(--spacing-sm) 0;
+}
+.action-menu a.danger { color: var(--accent-error); }
+.action-menu a.danger:hover { background-color: #fee2e2; }
+html[data-theme='dark'] .action-menu a.danger:hover { background-color: rgba(229, 115, 115, 0.2); }
+
+
+/* "Create Bot" & Empty State Cards */
+.create-bot-card.empty-state {
+    border-style: dashed;
+    cursor: pointer;
+    background-color: var(--surface-medium);
+    text-align: center;
+    padding: 2.5rem;
+}
+.empty-state-icon { margin-bottom: 1rem; color: var(--text-muted); }
+.empty-state-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem; }
+.empty-state-text { font-size: 0.9rem; color: var(--text-secondary); }
+
+.create-bot-card-compact {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border: 2px dashed var(--neutral-200);
+    color: var(--text-muted);
+    cursor: pointer;
+    min-height: 150px;
+    border-radius: var(--radius-lg);
+    transition: all 0.2s ease-in-out;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+.create-bot-card-compact:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    background-color: var(--surface-medium);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+.plus-icon-compact { font-size: 2.2rem; margin-bottom: 0.3rem; }
+
+/* ===================================================================
+   3. OFFICIAL BOT CARD
+=================================================================== */
+.official-bot-card {
+    background: var(--surface-light);
+    border: 1px solid var(--neutral-200);
+    border-left: 4px solid var(--accent-primary);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    max-width: 450px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+}
+.official-bot-card .card-description {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin: 1rem 0;
+    flex-grow: 1;
+}
+.official-bot-card .card-description code {
+    background-color: var(--surface-medium);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    color: var(--text-primary);
+}
+.official-bot-card .bot-card-footer { margin-top: auto; }
+.official-bot-card .btn-primary { width: 100%; }
+
+/* ===================================================================
+   4. MODALS
+=================================================================== */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); display: none;
+    justify-content: center; align-items: center; z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+.modal-content {
+    background: var(--surface-light);
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    width: 90%;
+    max-width: 500px;
+    box-shadow: var(--shadow-lg);
+    animation: slideUp 0.3s ease;
+}
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+.modal-header h2 { font-size: 1.5rem; font-weight: 600; }
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+.form-group .form-control {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-md);
+    background-color: var(--surface-medium);
+    font-size: 1rem;
+}
+.form-group .form-control:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(255, 154, 86, 0.2);
+}
+
+.channel-selector {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+}
+.channel-card {
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: var(--radius-md);
+    padding: 0.5rem;
+    text-align: center;
+    min-width: 100px;
+    transition: all 0.2s ease-in-out;
+}
+.channel-card:hover {
+    border-color: var(--accent-primary-faded);
+    background-color: var(--surface-medium);
+}
+.channel-card.selected {
+    border-color: var(--accent-primary);
+    background-color: var(--surface-dark);
+}
+.channel-card img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin-bottom: 0.5rem;
+    object-fit: cover;
+}
+.channel-card-name {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.channel-selector::-webkit-scrollbar { height: 6px; }
+.channel-selector::-webkit-scrollbar-track { background: var(--surface-medium); border-radius: 4px; }
+.channel-selector::-webkit-scrollbar-thumb { background: var(--neutral-200); border-radius: 4px; }
+.channel-selector::-webkit-scrollbar-thumb:hover { background: var(--neutral-300); }
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
+.btn-primary {
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: var(--text-white);
+}
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+.btn-secondary {
+    background-color: var(--surface-medium);
+    color: var(--text-primary);
+    border: 1px solid var(--neutral-200);
+}
+@media (max-width: 768px) {
+.back-link{
+    display: none;
+}}

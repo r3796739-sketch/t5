@@ -15,6 +15,24 @@ const escapeHtml = (text) => {
     return p.innerHTML;
 };
 
+// --- START: NEW HELPER FUNCTION ---
+/**
+ * Formats subscriber counts in JavaScript to match the Python filter.
+ * e.g., 12345 -> "12.3K", 1200000 -> "1.2M"
+ * @param {number} num The number to format.
+ * @returns {string} The formatted string.
+ */
+function formatSubscribersJS(num) {
+    if (typeof num !== 'number' || isNaN(num)) {
+        return '';
+    }
+    if (num < 1000) return String(num);
+    if (num < 1000000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+}
+// --- END: NEW HELPER FUNCTION ---
+
+
 const showBannerNotice = (message, showUpgradeButton = true) => {
     const notice = document.getElementById('c-banner-notice');
     if (!notice) return;
@@ -155,10 +173,34 @@ function buySubscription(planType, buttonElement) {
 // (From app.js, with dependencies from ask.js now available)
 // =================================================================
 
+// --- START: NEW HELPER FUNCTION ---
+/**
+ * Closes the mobile sidebar if it's open. This improves the user experience
+ * on smaller screens by hiding the navigation after a selection is made.
+ */
+function closeSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+
+    // Check if the sidebar is currently open before trying to close it.
+    if (sidebar && sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+        if (sidebarOverlay) sidebarOverlay.classList.remove('show');
+        if (hamburgerBtn) hamburgerBtn.classList.remove('active');
+    }
+}
+// --- END: NEW HELPER FUNCTION ---
+
 function initializeSpaNavigation() {
     document.body.addEventListener('click', function(event) {
         const link = event.target.closest('.channel-link');
         if (!link) return;
+
+        // --- START: THE FIX ---
+        // Close the sidebar automatically on mobile when a channel is clicked.
+        closeSidebar();
+        // --- END: THE FIX ---
 
         const chatContainer = document.getElementById('conversation-history');
         if (!chatContainer) return;
@@ -194,11 +236,25 @@ function updateChannelShell(data) {
     // Mobile Header
     const mobileHeader = document.querySelector('.mobile-header-channel');
     if (mobileHeader) {
+        // --- START: THE FIX ---
+        // 1. Create the subscriber count HTML element, but only if the data exists.
+        let subscriberHtml = '';
+        if (current_channel.subscriber_count) {
+            subscriberHtml = `
+                <span class="mobile-channel-subscribers">
+                    ${formatSubscribersJS(current_channel.subscriber_count)} Subscribers
+                </span>
+            `;
+        }
+
+        // 2. Build the final HTML for the mobile header, including the new subscriber element.
         mobileHeader.innerHTML = `
             <img src="${escapeHtml(current_channel.channel_thumbnail)}" alt="${escapeHtml(current_channel.channel_name)}" class="mobile-channel-avatar">
             <div class="mobile-channel-text-details">
                 <span class="mobile-channel-title">${escapeHtml(current_channel.channel_name)}</span>
+                ${subscriberHtml}
             </div>`;
+        // --- END: THE FIX ---
     }
 
     // Desktop Right Sidebar
@@ -910,3 +966,5 @@ document.addEventListener('DOMContentLoaded', function() {
         hamburgerBtnMobile.addEventListener('click', () => mainHamburger.click());
     }
 });
+
+

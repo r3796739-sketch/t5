@@ -88,30 +88,34 @@
     {# ... (no changes needed in this macro) ... #}
 {% endmacro %}
 
-{# This macro renders the branded Discord bot management card #}
+{# --- START: REVISED BOT CARD MACRO --- #}
 {% macro render_bot_card(bot) %}
-<div class="bot-card" data-bot-id="{{ bot.id }}" data-status="{{ bot.status }}">
+<div class="bot-card" data-bot-id="{{ bot.id }}" data-status="{{ bot.status or 'offline' }}">
     <div class="bot-card-header">
-        <img src="{{ bot.channel.channel_thumbnail or url_for('static', filename='images/default_avatar.png') }}" alt="Bot Avatar" class="bot-avatar">
+        <img src="{{ bot.channel.channel_thumbnail or url_for('static', filename='images/logo/favicon.png') }}" alt="Bot Avatar" class="bot-avatar">
         <div class="bot-info">
             <div class="name">{{ bot.channel.channel_name or 'Branded Bot' }}</div>
             <div class="link">Linked to {{ bot.channel.channel_name or 'YouTube Channel' }}</div>
         </div>
-    </div>
-    <div class="bot-card-body">
-        <div class="status-indicator">
-            <div class="status-dot {{ bot.status }}"></div>
-            <span class="status-text">{{ bot.status|capitalize }}</span>
+        <div class="bot-actions">
+            <button class="action-menu-btn" onclick="toggleActionMenu(this)">•••</button>
+            <div class="action-menu">
+                <a href="#" onclick="toggleBot('{{ bot.id }}', this); return false;">
+                    {% if bot.status == 'online' %}Deactivate{% else %}Activate{% endif %}
+                </a>
+                <a href="#" onclick="openBotShareModal('{{ bot.invite_link }}', '{{ bot.channel.channel_name or 'Branded Bot' | e }}'); return false;">Share</a>
+                <a href="#" onclick="openEditBotModal('{{ bot.id }}'); return false;">Edit</a>
+                <div class="action-divider"></div>
+                <a href="#" class="danger" onclick="confirmDeleteBot('{{ bot.id }}', '{{ bot.channel.channel_name or 'Branded Bot' | e }}', this); return false;">Delete</a>
+            </div>
         </div>
     </div>
     <div class="bot-card-footer">
-        {# --- MODIFIED BUTTON --- #}
-        <button class="btn action-btn" onclick="toggleBot('{{ bot.id }}', this)" {% if bot.status == 'connecting' %}disabled{% endif %}>
-            {% if bot.status == 'online' %}Deactivate{% else %}Activate{% endif %}
-        </button>
-        <button class="btn btn-secondary" onclick="openBotShareModal('{{ bot.invite_link }}', '{{ bot.channel.channel_name or 'Branded Bot' }}')">Share</button>
-        <button class="btn btn-secondary" onclick="openEditBotModal('{{ bot.id }}')">Edit</button>
-        <button class="btn btn-danger" onclick="confirmDeleteBot('{{ bot.id }}', '{{ bot.channel.channel_name or 'Branded Bot' }}', this)">Delete</button>
+        <div class="status-indicator">
+            <div class="status-dot {{ bot.status or 'offline' }}"></div>
+            <span class="status-text">{{ (bot.status or 'offline')|capitalize }}</span>
+        </div>
     </div>
 </div>
 {% endmacro %}
+{# --- END: REVISED BOT CARD MACRO --- #}
