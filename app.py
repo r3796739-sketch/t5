@@ -54,7 +54,7 @@ logging.info(f"SESSION_COOKIE_SECURE is set to: {app.config.get('SESSION_COOKIE_
 # --- END: SESSION FIX ---
 
 Compress(app)
-app.secret_key = os.environ.get('SECRET_KEY')
+app.secret_key = os.environ.get('SECRET_KEY', 'a_default_dev_secret_key')
 
 
 @app.template_filter('markdown')
@@ -478,6 +478,7 @@ def set_auth_cookie():
         session['access_token'] = access_token
         session['refresh_token'] = refresh_token
         session['expires_at'] = expires_at
+        session.permanent = True
         return jsonify({'status': 'success', 'message': 'Session set successfully.'})
 
     except Exception as e:
@@ -2181,4 +2182,3 @@ def inject_user_status():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
-
