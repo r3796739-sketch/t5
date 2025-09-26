@@ -47,6 +47,10 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
+logging.info(f"SESSION_PERMANENT is set to: {app.config.get('SESSION_PERMANENT')}")
+logging.info(f"SESSION_COOKIE_SECURE is set to: {app.config.get('SESSION_COOKIE_SECURE')}")
+
+
 # --- END: SESSION FIX ---
 
 Compress(app)
@@ -573,7 +577,10 @@ def channel():
                     if link_response:
                         db_utils.increment_channels_processed(user_id)
                     # --- Corrected Line ---
-                    if redis_client: redis_client.delete(cache_key_to_delete)
+                    if redis_client:
+                        logging.info(f"CHANNEL EXISTS: Attempting to delete cache key: {cache_key_to_delete}")
+                        redis_client.delete(cache_key_to_delete)
+                        logging.info("CACHE: Deletion command sent for existing channel.")
                     return jsonify({'status': 'success', 'message': 'Channel added to your list.'})
                 else:
                     community_id_for_channel = None
@@ -2174,4 +2181,3 @@ def inject_user_status():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
-
