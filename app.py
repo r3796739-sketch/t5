@@ -42,6 +42,10 @@ load_dotenv()
 
 app = Flask(__name__)
 
+app.config['SESSION_PERMANENT'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+# --- END: SESSION FIX ---
+
 Compress(app)
 app.secret_key = os.environ.get('SECRET_KEY', 'a_default_dev_secret_key')
 
@@ -553,8 +557,11 @@ def channel():
             
             def guarded_personal_channel_add():
                 user_id = session['user']['id']
+                # --- START: CACHE FIX ---
+                active_community_id = session.get('active_community_id')
+                cache_key_to_delete = f"user_visible_channels:{user_id}:community:{active_community_id or 'none'}"
+                # --- END: CACHE FIX ---
                 
-                # This now uses the validated and converted final_channel_url
                 cleaned_url = clean_youtube_url(final_channel_url)
                 existing = db_utils.find_channel_by_url(cleaned_url)
 
@@ -562,15 +569,14 @@ def channel():
                     link_response = db_utils.link_user_to_channel(user_id, existing['id'])
                     if link_response:
                         db_utils.increment_channels_processed(user_id)
-                    if redis_client: redis_client.delete(f"user_channels:{user_id}")
+                    # --- Corrected Line ---
+                    if redis_client: redis_client.delete(cache_key_to_delete)
                     return jsonify({'status': 'success', 'message': 'Channel added to your list.'})
                 else:
                     community_id_for_channel = None
                     if user_status.get('is_active_community_owner'):
                         community_id_for_channel = active_community_id
                     
-                    # This call is now correct. The user_id is passed to create_channel,
-                    # which internally assigns it to the `creator_id` field.
                     new_channel = db_utils.create_channel(cleaned_url, user_id, is_shared=False, community_id=community_id_for_channel)
                     
                     if not new_channel:
@@ -579,7 +585,8 @@ def channel():
                     db_utils.link_user_to_channel(user_id, new_channel['id'])
                     db_utils.increment_channels_processed(user_id)
                     task = process_channel_task.schedule(args=(new_channel['id'],), delay=1)
-                    if redis_client: redis_client.delete(f"user_channels:{user_id}")
+                    # --- Corrected Line ---
+                    if redis_client: redis_client.delete(cache_key_to_delete)
                     return jsonify({'status': 'processing', 'task_id': task.id})
             return guarded_personal_channel_add()
 
@@ -829,7 +836,10 @@ def delete_channel_route(channel_id):
     user_id = session['user']['id']
     supabase_admin = get_supabase_admin_client()
     try:
-        # Fetch the channel details to check for ownership
+        active_community_id = session.get('active_community_id')
+        cache_key_to_delete = f"user_visible_channels:{user_id}:community:{active_community_id or 'none'}"
+        if redis_client:
+            redis_client.delete(cache_key_to_delete)
         channel_response = supabase_admin.table('channels').select('user_id').eq('id', channel_id).single().execute()
 
         if not channel_response.data:
