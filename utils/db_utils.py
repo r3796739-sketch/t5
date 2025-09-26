@@ -13,10 +13,10 @@ def get_profile(user_id: str):
     try:
         response = supabase.table('profiles').select('*').eq('id', user_id).maybe_single().execute()
         # Add a check to ensure response is not None before accessing .data
-        return response.data if response else None
+        return response.data if response and response.data else {}
     except Exception as e:
         log.error(f"Error getting profile for user {user_id}: {e}")
-        return None
+        return {}
 
 def get_usage_stats(user_id: str):
     """Fetches a user's usage statistics from the usage_stats table."""
