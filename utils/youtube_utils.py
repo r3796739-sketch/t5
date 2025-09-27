@@ -102,9 +102,10 @@ def get_transcripts_from_channel(
     target_video_count: int = 50,
     min_duration_seconds: int = 61,
     max_videos_to_scan: int = 500
-) -> Tuple[List[Dict], str, int]:
+) -> Tuple[List[Dict], str, int, List[Dict]]:
     """
-    Intelligently finds and processes a target number of long-form videos from a channel.
+    Intelligently finds and processes videos from a channel.
+    NOW RETURNS: (successful_transcripts, thumbnail, subs_count, failed_long_form_videos)
     """
     start_time = time.perf_counter()
 
@@ -127,10 +128,9 @@ def get_transcripts_from_channel(
         subscriber_count = int(channel_item['statistics'].get('subscriberCount', 0))
         channel_thumbnail = channel_item['snippet']['thumbnails']['high']['url']
         print(f"Found Channel: {channel_item['snippet']['title']} ({subscriber_count} subscribers)")
-
     except Exception as e:
         log.error(f"Failed to get channel details: {e}", exc_info=True)
-        return [], '', 0
+        return [], '', 0, []
 
     # --- Step 2: Scan for long-form videos ---
     long_form_metadata = []
@@ -155,8 +155,10 @@ def get_transcripts_from_channel(
             part="snippet,contentDetails",
             id=",".join(video_ids_chunk)
         ).execute()
+        
+        scanned_items = video_details_response.get('items', [])
 
-        for video_meta in video_details_response.get('items', []):
+        for video_meta in scanned_items:
             duration_iso = video_meta.get('contentDetails', {}).get('duration', 'PT0S')
             try:
                 duration_seconds = isodate.parse_duration(duration_iso).total_seconds()
@@ -175,10 +177,10 @@ def get_transcripts_from_channel(
 
     print(f"\nScan complete. Found {len(long_form_metadata)} long-form videos to process.")
 
-    # --- Step 3: Fetch transcripts in parallel ---
     if not long_form_metadata:
-        return [], channel_thumbnail, subscriber_count
+        return [], channel_thumbnail, subscriber_count, []
 
+    # --- Step 3: Fetch transcripts in parallel ---
     print(f"\n--- Step 3: Fetching transcripts in parallel for {len(long_form_metadata)} videos ---")
     final_results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
@@ -188,10 +190,21 @@ def get_transcripts_from_channel(
             if result:
                 final_results.append(result)
 
+    # --- Accurately calculate which long-form videos failed transcription ---
+    successful_video_ids = {res['video_id'] for res in final_results}
+    failed_long_form_videos = []
+    for video_meta in long_form_metadata:
+        if video_meta.get('id') not in successful_video_ids:
+            # This part correctly formats the data for the email template
+            failed_long_form_videos.append({
+                'title': video_meta.get('snippet', {}).get('title', 'Unknown Title')
+            })
+
     duration = time.perf_counter() - start_time
     print(f"\n[PERFORMANCE] Completed entire process in {duration:.2f} seconds.")
 
-    return final_results, channel_thumbnail, subscriber_count
+    # Return the accurate list of failed long-form videos
+    return final_results, channel_thumbnail, subscriber_count, failed_long_form_videos
 
 def get_transcripts_from_urls(
     youtube_api_client,
