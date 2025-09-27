@@ -24,6 +24,9 @@ import logging
 from utils.history_utils import save_chat_history
 from utils.history_utils import get_chat_history_for_service
 from utils import db_utils
+from flask import Flask, render_template
+from flask_mail import Message
+from extensions import mail
 logger = logging.getLogger(__name__)
 
 # Load environment variables from .env if present
@@ -47,7 +50,6 @@ except Exception as e:
     redis_client = None
     print(f"Could not connect to Redis for progress updates: {e}. Progress feature will be disabled.")
 
-
 # --- Helper function ---
 def update_task_progress(task_id, status, progress, message):
     """Updates the progress of a task in Redis."""
@@ -58,15 +60,36 @@ def update_task_progress(task_id, status, progress, message):
 
 
 # --- REFACTORED process_channel_task ---
+def create_task_app():
+    """
+    Creates a minimal Flask app instance for the background task context.
+    This allows tasks to use functions like render_template().
+    """
+    task_app = Flask(__name__)
+    # Load necessary config for mail and templates from environment variables
+    task_app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
+    task_app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+    task_app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
+    task_app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+    task_app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+    task_app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
+    
+    # Initialize the mail extension with this temporary app
+    mail.init_app(task_app)
+    return task_app
+
+
 @huey.task(context=True)
 def process_channel_task(channel_id, task=None):
     """
-    [REFACTORED] Background task for a NEW channel using the intelligent fetcher.
+    [MODIFIED] The email sending logic is now isolated and reliably retrieves
+    the sender from the app config to prevent errors.
     """
     task_id = task.id if task else None
     supabase_admin = get_supabase_admin_client()
     logger.info(f"Clearing any previous data for channel_id: {channel_id}")
     supabase_admin.table('embeddings').delete().eq('channel_id', channel_id).execute()
+    
     try:
         update_task_progress(task_id, 'processing', 5, 'Fetching channel details...')
         channel_resp = supabase_admin.table('channels').select('channel_url, creator_id').eq('id', channel_id).single().execute()
@@ -81,23 +104,19 @@ def process_channel_task(channel_id, task=None):
         supabase_admin.table('channels').update({'status': 'processing'}).eq('id', channel_id).execute()
         
         update_task_progress(task_id, 'processing', 10, 'Scanning for long-form videos...')
-        # --- THIS IS THE CORRECTED LOGIC ---
-        transcripts, thumbnail, subs = get_transcripts_from_channel(
+        
+        # This now correctly unpacks the list of failed long-form videos
+        transcripts, thumbnail, subs, skipped_videos = get_transcripts_from_channel(
             youtube_api, 
             channel_url, 
-            target_video_count=300 # Target this many long-form videos
+            target_video_count=300
         )
+        
         if not transcripts:
             raise ValueError("Could not find any long-form videos with transcripts.")
-        # --- END OF CORRECTION ---
 
         update_task_progress(task_id, 'processing', 75, 'Building AI knowledge base...')
-        
-        # --- START: THE FIX ---
-        # Pass the user_id_who_submitted to the embedding function.
-        # The second argument (_unused_config) is kept as a placeholder.
         create_and_store_embeddings(transcripts, None, user_id_who_submitted)
-        # --- END: THE FIX ---
         
         text_sample = " ".join([t['transcript'] for t in transcripts[:5]])[:10000]
         update_task_progress(task_id, 'processing', 90, 'Identifying topics...')
@@ -122,15 +141,54 @@ def process_channel_task(channel_id, task=None):
             'status': 'ready'
         }).eq('id', channel_id).execute()
 
+        # --- START: ISOLATED AND CORRECTED EMAIL HANDLING ---
+        try:
+            creator_profile_resp = supabase_admin.table('profiles').select('email, full_name').eq('id', user_id_who_submitted).single().execute()
+            creator_profile = creator_profile_resp.data
+            
+            if creator_profile and creator_profile.get('email'):
+                app_base_url = os.environ.get('APP_BASE_URL', 'http://localhost:5000')
+                persona_link = f"{app_base_url}/c/{channel_name}"
+                
+                task_app = create_task_app()
+                
+                with task_app.app_context():
+                    # Retrieve the sender from the current app context's config
+                    email_sender = task_app.config.get('MAIL_DEFAULT_SENDER')
+                    if not email_sender:
+                        raise ValueError("MAIL_DEFAULT_SENDER is not configured in the task app context.")
+
+                    msg_body = render_template(
+                        'email/processing_complete.html',
+                        creator_name=creator_profile.get('full_name', 'Creator'),
+                        channel_name=channel_name,
+                        persona_link=persona_link,
+                        processed_count=len(transcripts),
+                        skipped_count=len(skipped_videos),
+                        skipped_videos=skipped_videos
+                    )
+                    msg = Message(
+                        subject=f"🚀 Your AI Persona for '{channel_name}' is Ready!",
+                        sender=email_sender, # Use the retrieved sender
+                        recipients=[creator_profile['email']],
+                        html=msg_body
+                    )
+                    mail.send(msg)
+                    logging.info(f"Sent processing completion email to {creator_profile['email']}")
+        except Exception as email_error:
+            # If the email fails, we log it as a warning but DO NOT fail the whole task.
+            logging.warning(f"Email notification failed for channel ID {channel_id}: {email_error}", exc_info=True)
+        # --- END: ISOLATED AND CORRECTED EMAIL HANDLING ---
+
         update_task_progress(task_id, 'complete', 100, f"Success! The AI for '{channel_name}' is ready.")
         return f"Successfully processed {channel_name}"
 
     except Exception as e:
+        # This block will now only catch critical processing errors.
         logging.error(f"Task failed for channel ID {channel_id}: {e}", exc_info=True)
         supabase_admin.table('channels').update({'status': 'failed'}).eq('id', channel_id).execute()
         update_task_progress(task_id, 'failed', 0, str(e))
         raise e
-
 
 # --- REFACTORED sync_channel_task ---
 @huey.task(context=True)
