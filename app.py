@@ -36,11 +36,21 @@ from dateutil.parser import isoparse
 import uuid
 from utils.razorpay_client import get_razorpay_client
 from supabase_auth.errors import AuthApiError
+from extensions import mail
+from flask_mail import Message
 logger = logging.getLogger(__name__)
 
 load_dotenv()
 
 app = Flask(__name__)
+
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
+
 
 app.config['SESSION_PERMANENT'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
@@ -55,7 +65,7 @@ logging.info(f"SESSION_COOKIE_SECURE is set to: {app.config.get('SESSION_COOKIE_
 
 Compress(app)
 app.secret_key = os.environ.get('SECRET_KEY', 'a_default_dev_secret_key')
-
+mail.init_app(app)
 
 @app.template_filter('markdown')
 def markdown_filter(text):
@@ -510,6 +520,35 @@ def home():
 
 # --- All other routes like /channel, /ask, /stream_answer, etc. remain unchanged ---
 # ... (The rest of your app.py file from /channel downwards remains the same)
+def create_new_channel_and_process(channel_url, user_id, user_status, active_community_id):
+    """
+    Creates a new channel record, links it to the user, increments their
+    channel count, and schedules the processing task.
+    """
+    community_id_for_channel = None
+    if user_status.get('is_active_community_owner'):
+        community_id_for_channel = active_community_id
+
+    # Create the initial channel record in the database
+    new_channel = db_utils.create_channel(channel_url, user_id, is_shared=False, community_id=community_id_for_channel)
+    if not new_channel:
+        return jsonify({'status': 'error', 'message': 'Could not create channel record.'}), 500
+
+    # Link the new channel to the current user
+    db_utils.link_user_to_channel(user_id, new_channel['id'])
+    # Increment the user's processed channel count
+    db_utils.increment_channels_processed(user_id)
+    # Schedule the background task to process the channel's content
+    task = process_channel_task.schedule(args=(new_channel['id'],), delay=1)
+
+    # Invalidate the user's channel list cache so the new one appears
+    if redis_client:
+        cache_key = f"user_visible_channels:{user_id}:community:{active_community_id or 'none'}"
+        redis_client.delete(cache_key)
+
+    return jsonify({'status': 'processing', 'task_id': task.id})
+
+
 @app.route('/channel', methods=['GET', 'POST'])
 def channel():
     try:
@@ -517,15 +556,13 @@ def channel():
             if 'user' not in session:
                 return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
 
-            # --- START: INTELLIGENT URL HANDLING & SECURITY FIX ---
+            # --- START: INTELLIGENT URL HANDLING (No changes here) ---
             submitted_url = request.form.get('channel_url', '').strip()
             final_channel_url = None
 
             if is_youtube_channel_url(submitted_url):
-                # The user provided a valid channel URL directly
                 final_channel_url = submitted_url
             elif is_youtube_video_url(submitted_url):
-                # The user provided a video URL, so we find the channel
                 try:
                     final_channel_url = get_channel_url_from_video_url(submitted_url)
                     if not final_channel_url:
@@ -534,9 +571,8 @@ def channel():
                     logger.error(f"Failed to get channel from video URL '{submitted_url}': {e}", exc_info=True)
                     return jsonify({'status': 'error', 'message': 'An API error occurred while finding the channel.'}), 500
             else:
-                # The input is neither a valid channel nor a video URL
                 return jsonify({'status': 'error', 'message': 'Please enter a valid YouTube channel or video URL.'}), 400
-            # --- END: INTELLIGENT URL HANDLING & SECURITY FIX ---
+            # --- END: INTELLIGENT URL HANDLING ---
 
             user_id = session['user']['id']
             active_community_id = session.get('active_community_id')
@@ -545,6 +581,7 @@ def channel():
             if not user_status:
                 return jsonify({'status': 'error', 'message': 'Could not verify user status.'}), 500
 
+            # --- START: PLAN LIMIT CHECKS (No changes here) ---
             if user_status.get('is_active_community_owner'):
                 community_status = get_community_status(active_community_id)
                 if not community_status:
@@ -562,46 +599,45 @@ def channel():
                         return jsonify({'status': 'limit_reached', 'message': message, 'action': 'show_upgrade_popup'}), 403
                     else:
                         return jsonify({'status': 'limit_reached', 'message': message}), 403
-            
-            def guarded_personal_channel_add():
-                user_id = session['user']['id']
-                # --- START: CACHE FIX ---
-                active_community_id = session.get('active_community_id')
-                cache_key_to_delete = f"user_visible_channels:{user_id}:community:{active_community_id or 'none'}"
-                # --- END: CACHE FIX ---
-                
-                cleaned_url = clean_youtube_url(final_channel_url)
-                existing = db_utils.find_channel_by_url(cleaned_url)
+            # --- END: PLAN LIMIT CHECKS ---
 
-                if existing:
-                    link_response = db_utils.link_user_to_channel(user_id, existing['id'])
+            # --- START: REVISED LOGIC FOR HANDLING EXISTING/FAILED CHANNELS ---
+            cleaned_url = clean_youtube_url(final_channel_url)
+            existing_channel = db_utils.find_channel_by_url(cleaned_url)
+
+            if existing_channel:
+                # If the channel exists, we now check its status
+                if existing_channel['status'] == 'failed':
+                    # If it failed, delete the old record to allow reprocessing.
+                    logging.info(f"Retrying failed channel. Deleting old record for ID: {existing_channel['id']}")
+                    supabase = get_supabase_admin_client()
+                    supabase.table('channels').delete().eq('id', existing_channel['id']).execute()
+                    # Now, proceed to create a new one using our helper function.
+                    return create_new_channel_and_process(cleaned_url, user_id, user_status, active_community_id)
+
+                elif existing_channel['status'] == 'ready':
+                    # If it's ready, just link it to the user.
+                    logging.info(f"Linking existing, ready channel ID: {existing_channel['id']} to user: {user_id}")
+                    link_response = db_utils.link_user_to_channel(user_id, existing_channel['id'])
                     if link_response:
                         db_utils.increment_channels_processed(user_id)
-                    # --- Corrected Line ---
+                    
                     if redis_client:
-                        logging.info(f"CHANNEL EXISTS: Attempting to delete cache key: {cache_key_to_delete}")
-                        redis_client.delete(cache_key_to_delete)
-                        logging.info("CACHE: Deletion command sent for existing channel.")
-                    return jsonify({'status': 'success', 'message': 'Channel added to your list.'})
-                else:
-                    community_id_for_channel = None
-                    if user_status.get('is_active_community_owner'):
-                        community_id_for_channel = active_community_id
-                    
-                    new_channel = db_utils.create_channel(cleaned_url, user_id, is_shared=False, community_id=community_id_for_channel)
-                    
-                    if not new_channel:
-                        return jsonify({'status': 'error', 'message': 'Could not create channel record.'}), 500
-                    
-                    db_utils.link_user_to_channel(user_id, new_channel['id'])
-                    db_utils.increment_channels_processed(user_id)
-                    task = process_channel_task.schedule(args=(new_channel['id'],), delay=1)
-                    # --- Corrected Line ---
-                    if redis_client: redis_client.delete(cache_key_to_delete)
-                    return jsonify({'status': 'processing', 'task_id': task.id})
-            return guarded_personal_channel_add()
+                        cache_key = f"user_visible_channels:{user_id}:community:{active_community_id or 'none'}"
+                        redis_client.delete(cache_key)
 
-        # This is the GET request part of the function
+                    return jsonify({'status': 'success', 'message': 'Channel added to your list.'})
+                
+                else: # Status is 'processing' or 'pending'
+                    return jsonify({'status': 'processing', 'message': 'This channel is already being processed. Please wait.'})
+
+            else:
+                # If the channel doesn't exist at all, create it.
+                logging.info(f"Processing a completely new channel URL: {cleaned_url}")
+                return create_new_channel_and_process(cleaned_url, user_id, user_status, active_community_id)
+            # --- END: REVISED LOGIC ---
+
+        # --- GET Request part of the function (No changes here) ---
         personal_plan_id = os.environ.get('RAZORPAY_PLAN_ID_PERSONAL')
         creator_plan_id = os.environ.get('RAZORPAY_PLAN_ID_CREATOR')
         return render_template(
@@ -615,6 +651,7 @@ def channel():
     except Exception as e:
         print(f"Error in /channel: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
+
 
 @app.route('/add_shared_channel', methods=['POST'])
 @login_required
