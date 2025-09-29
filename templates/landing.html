@@ -615,6 +615,44 @@ html[data-theme='dark'] {
 .theme-toggle-btn .moon-icon { display: none; }
 html[data-theme='dark'] .theme-toggle-btn .sun-icon { display: none; }
 html[data-theme='dark'] .theme-toggle-btn .moon-icon { display: block; }
+.message-ai-header {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Space between avatar and name */
+    margin-bottom: 8px;
+}
+
+.demo-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--neutral-200);
+}
+
+.message-ai-name {
+    font-weight: 700;
+    color: var(--accent-primary);
+}
+.demo-avatar-container {
+    position: relative; /* This is the key to positioning the badge */
+    width: 35px;
+    height: 35px;
+    flex-shrink: 0; /* Prevents the container from shrinking */
+}
+
+.demo-ai-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    background: linear-gradient(135deg, #000000, #4a4a4a);
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 500;
+    padding: 1px 5px;
+    border-radius: var(--radius-full);
+    border: 1.5px solid var(--surface-light);
+}
     </style>
     <script>
     (function() {
@@ -623,6 +661,8 @@ html[data-theme='dark'] .theme-toggle-btn .moon-icon { display: block; }
             document.documentElement.setAttribute('data-theme', 'dark');
         }
     })();
+    
+    
 </script>
 
 </head>
@@ -858,7 +898,7 @@ html[data-theme='dark'] .theme-toggle-btn .moon-icon { display: block; }
                          <ul class="pricing-features">
                              <li><span class="icon">✓</span>Add Upto 3 Channels Persona AI</li>
                              <li><span class="icon">✓</span>10 AI Conversations/month</li>
-                             <li><span class="icon">✓</span>Manual Content Updates</li>
+                             <li><span class="icon">✓</span>Manual Content Updates button</li>
                          </ul>
                      </div>
 
@@ -869,7 +909,7 @@ html[data-theme='dark'] .theme-toggle-btn .moon-icon { display: block; }
                          <p class="price price-featured">₹299 <span>/ month</span></p>
                          <a href="#" onclick="buySubscription('personal', this)" class="btn-pricing btn-pricing-accent">Choose Personal</a>
                          <ul class="pricing-features">
-                             <li><span class="icon">✓</span><strong>Add UPTO 25 Channels Persona AI</strong></li>
+                             <li><span class="icon">✓</span><strong>Unlimited Channels</strong></li>
                              <li><span class="icon">✓</span><strong>250x More Interactions</strong></li>
                              <li><span class="icon">✓</span><strong>Get longer In-Depth Answers</strong></li>
                              <li><span class="icon">✓</span><strong>Always Up-to-Date AI</strong> (Auto Sync)</li>
@@ -883,10 +923,9 @@ html[data-theme='dark'] .theme-toggle-btn .moon-icon { display: block; }
                          <p class="price">₹2,799 <span>/ month</span></p>
                          <a href="#" onclick="buySubscription('creator', this)" class="btn-pricing btn-pricing-neutral">Choose Creator</a>
                          <ul class="pricing-features">
-                            <li><span class="icon">✓</span>Everything in Personal, plus:</li>
-                             <li><span class="icon">✓</span><strong>Unlimited Channels</strong></li>
+                            <li><span class="icon">✓</span><strong>Everything in Personal, plus:</strong></li>
                              <li><span class="icon">✓</span><strong>Massive Engagement</strong> (10,000/month)</li>
-                             <li><span class="icon">✓</span><strong>Deploy Your AI Anywhere</strong> (Discord & Telegram & more)</li>
+                             <li><span class="icon">✓</span><strong>Deploy Your AI Anywhere</strong> <p style="font-size: smaller;">(Discord & Telegram & more)</p></li>
                          </ul>
                      </div>
                 </div>
@@ -1062,36 +1101,104 @@ html[data-theme='dark'] .theme-toggle-btn .moon-icon { display: block; }
             const demoContainer = document.getElementById('interactive-demo');
             if (demoContainer) {
                 let demoStep = 0;
-                const demoMessages = [
-                    {
-                        user: '"What are Ali Abdaal\'s top productivity tools?"',
-                        ai: 'Ali\'s top picks include <strong>Notion</strong> for organization, <strong>Anki</strong> for spaced repetition learning, and <strong>Todoist</strong> for task management. He really emphasizes building systems over just setting goals.<br><br>📹 <a href="#" style="color: var(--accent-primary);">Watch "My Productivity System"</a>'
-                    },
-                    {
-                        user: '"Summarize Peter McKinnon\'s photography tips for beginners."',
-                        ai: 'Peter\'s key tips are: 1) Master composition first, 2) Always shoot in golden hour, 3) Focus on telling a story, and 4) Always shoot in RAW format. He often says that great gear doesn\'t make a great photographer.<br><br>📹 <a href="#" style="color: var(--accent-primary);">Multiple videos referenced</a>'
-                    },
-                     {
-                        user: '"What\'s Gary Vee\'s core social media strategy?"',
-                        ai: 'Gary emphasizes two main things: <strong>authenticity</strong> and providing <strong>massive value upfront</strong>. He created the "Jab, Jab, Jab, Right Hook" model, which means give value three times before you ask for anything.<br><br>📹 <a href="#" style="color: var(--accent-primary);">Watch "Jab, Jab, Jab..."</a>'
-                    }
-                ];
+            const demoMessages = [
+    {
+        creator: 'MKBHD',
+        avatar: 'https://yt3.googleusercontent.com/PEwQfVuhh5jO7_NDDufCq349q0W6MgZeYlgeMyW3OSRMxMx9W5yre5Fgbi4Bql56L1cPwoteOA=s160-c-k-c0x00ffffff-no-rj',
+        user: 'You mentioned in an old video that you regretted buying a specific Tesla model. Which one was it and why?"',
+        ai: 'Yes, that was the Model S Plaid. I mentioned in my 2022 review that while the acceleration was incredible, I regretted it because the build quality issues weren\'t worth the extra cost over the regular Model S. The panel gaps and interior rattles were particularly frustrating for a $130K+ car.<br><br>📹 <a href="#" style="color: var(--accent-primary);">Referenced from "Tesla Model S Plaid: 6 Months Later"</a>'
+    },
+    {
+        creator: 'Ali Abdaal',
+        avatar: 'https://yt3.googleusercontent.com/ytc/AIdro_m2xx6mCZwsyjARnkwBKJxEv0FqGxGS2NwWNkjWH__Smw=s160-c-k-c0x00ffffff-no-rj',
+        user: 'I think you said Notion was bad for task management in one video, but you use it everywhere. Did I mishear or did your opinion change?"',
+        ai: 'You heard correctly! In my 2021 productivity setup video, I said Notion was terrible for quick task capture because it\'s too slow to load. But I clarified that it\'s amazing for project management and knowledge management. For daily tasks, I still use Todoist, but Notion is my "second brain" for everything else.<br><br>📹 <a href="#" style="color: var(--accent-primary);">From "Why I Don\'t Use Notion for Tasks" at 4:22</a>'
+    },
+    {
+        creator: 'Peter McKinnon',
+        avatar: 'https://yt3.googleusercontent.com/bnJYBhADbuQmi24xfSUc9NoIWUWRAF6JfNv6GBt2ZeNVh8uKk_LTD3lLu-4nDxEtNZNrciO3=s160-c-k-c0x00ffffff-no-rj',
+        user: 'What was the story behind that photo you took of the abandoned warehouse that went viral on Instagram?"',
+        ai: 'Oh man, that was such a random moment! I was driving to a client shoot and saw this old textile factory with incredible light coming through broken windows. I was actually 30 minutes late to my client because I couldn\'t resist stopping. Shot it with my 85mm f/1.4, and it ended up being one of my most liked posts that year. Sometimes the best shots are unplanned.<br><br>📹 <a href="#" style="color: var(--accent-primary);">Story shared in "Behind My Most Popular Photos"</a>'
+    },
+    {
+        creator: 'Iman Gadzhi',
+        avatar: 'https://yt3.googleusercontent.com/TuT4HjFsvarFnLuoKokU5Jr2Iay3D2d3Ee5Ktqdya4Zr9hDnfK4lpYbAhRU0R0qE8pjUZK32qrE=s160-c-k-c0x00ffffff-no-rj',
+        user: 'You mentioned losing money on crypto in 2018. How much did you lose and what did you learn?"',
+        ai: 'I lost about £47,000 in crypto during the 2018 crash - mostly on Ethereum and some altcoins. The lesson wasn\'t about crypto being bad, but about position sizing. I put too much of my agency profits into something I didn\'t fully understand. Now I never invest more than 5% of my net worth in speculative assets.<br><br>📹 <a href="#" style="color: var(--accent-primary);">From "My Biggest Financial Mistakes" at 8:15</a>'
+    },
+    {
+        creator: 'Alex Hormozi',
+        avatar: 'https://yt3.googleusercontent.com/29XFUn3pc3cC81yUUCFiyCKKdgi856IGMJ4EZBnf53zTfrWWUGvmYnYGx86K08f4XR03UxpWyw=s160-c-k-c0x00ffffff-no-rj',
+        user: 'You said you fired your entire marketing team at Gym Launch. What exactly happened there?"',
+        ai: 'Yeah, that was brutal but necessary. The team was focused on vanity metrics - getting likes and shares instead of actual leads and sales. They spent $200K on content that looked pretty but generated zero revenue. I realized I\'d rather have no marketing team than a team that burns cash without results. After that, I only hired people who understood direct response marketing.<br><br>📹 <a href="#" style="color: var(--accent-primary);">From "$100M Leads" case study breakdown</a>'
+    },
+    {
+        creator: 'Andrew Huberman',
+        avatar: 'https://yt3.googleusercontent.com/Y8lhyl8aHY42phxwoAwUqwLGDp-z8nmtj3Z7_JB-Oh4yIZ1OFYb-MlJRuz_oygqsYQU-VgGqiOM=s160-c-k-c0x00ffffff-no-rj',
+        user: 'You mentioned changing your stance on cold showers after reviewing new research. What changed your mind?"',
+        ai: 'Great memory! Initially, I recommended daily cold showers, but then I reviewed studies showing that chronic cold exposure might blunt some training adaptations by reducing inflammation too much. Now I recommend cold exposure 6+ hours after strength training, or on rest days. The timing matters more than I initially thought.<br><br>📹 <a href="#" style="color: var(--accent-primary);">Updated in "Cold Exposure: Updated Protocol" at 12:45</a>'
+    },
+    {
+        creator: 'Graham Stephan',
+        avatar: 'https://yt3.googleusercontent.com/ytc/AIdro_m4km0pJvdvRxT_gFN6WS16Ggl9D_eX_K8uxCdgTA_hFBo=s160-c-k-c0x00ffffff-no-rj',
+        user: 'What was that expensive mistake you made with your first rental property that you briefly mentioned?"',
+        ai: 'Oof, that was painful. I bought a duplex in 2012 and immediately spent $15K on renovations without getting proper permits. The city made me tear everything out and redo it correctly, costing another $12K. Learned to always pull permits and get inspections, even for "small" jobs. That mistake cost me nearly 6 months of rental income too.<br><br>📹 <a href="#" style="color: var(--accent-primary);">Mentioned in "Real Estate Mistakes That Cost Me $$$"</a>'
+    },
+    {
+        creator: 'Thomas Frank',
+        avatar: 'https://yt3.googleusercontent.com/ytc/AIdro_nIr5PB90HA3Uoa6w6PNkbMDZVVINovFpKb5hbHd7JwG0nP=s160-c-k-c0x00ffffff-no-rj',
+        user: 'You said you failed organic chemistry twice in college. How did you finally pass it?"',
+        ai: 'Yeah, O-Chem was my nemesis! Failed it twice because I was trying to memorize everything instead of understanding the patterns. Third time, I focused on drawing out reaction mechanisms over and over until I could visualize how electrons moved. Also formed a study group that met 3x per week. Finally got a B+, which felt like an A+ to me!<br><br>📹 <a href="#" style="color: var(--accent-primary);">Story from "How to Study Chemistry Effectively"</a>'
+    },
+    {
+        creator: 'Casey Neistat',
+        avatar: 'https://yt3.googleusercontent.com/ytc/AIdro_n4AHNRd0upuWqg3NZq4iXWP5JSbnKHh_nbzhOmgGzUc3k=s160-c-k-c0x00ffffff-no-rj',
+        user: 'What was the real reason you stopped daily vlogging? You gave different answers in different videos."',
+        ai: 'You\'re right, I wasn\'t totally honest at first. The real reason was burnout and family. I was missing too many moments with Francine and Candice because I was always thinking about content. The "creative fulfillment" reason I gave initially was partly true, but the main thing was wanting to be present for my family without a camera between us.<br><br>📹 <a href="#" style="color: var(--accent-primary);">Honest answer from "Why I Really Stopped Vlogging"</a>'
+    },
+    {
+        creator: 'Athlean-X (Jeff Cavaliere)',
+        avatar: 'https://yt3.googleusercontent.com/UN93iXdFUqIzbOHUOneFgq4hxmqbZVXAxNx-e_OJJ6FRwiQH3Id0SBYa99ezjeZd82wow6nE=s160-c-k-c0x00ffffff-no-rj',
+        user: 'You said face pulls were the most important exercise, but then called them overrated. Which is it?"',
+        ai: 'Good catch! I said face pulls were essential for shoulder health, which is true. But then I called the standard face pull "overrated" because most people do them wrong - they pull to their face instead of pulling high and apart to target the rear delts properly. The corrective face pull is essential, the regular face pull is overrated.<br><br>📹 <a href="#" style="color: var(--accent-primary);">Clarified in "Face Pulls: You\'re Doing Them Wrong"</a>'
+    },
+    {
+        creator: 'Matt D\'Avella',
+        avatar: 'https://yt3.googleusercontent.com/9tZhUHaqI9ynPOstWuYVrzbp1wAfLE71TIzws5Fccs0u8a-obZz6WTiocIpFmmp0_O2xGjRteI8=s160-c-k-c0x00ffffff-no-rj',
+        user: 'What was that 30-day challenge that you said was your biggest failure and why?"',
+        ai: 'The 30-day meditation challenge in 2019. I quit on day 18 because I was trying to meditate for an hour daily, which was completely unrealistic with my schedule. I learned that challenges need to be sustainable, not extreme. Now I recommend starting with just 5 minutes daily - consistency beats intensity every time.<br><br>📹 <a href="#" style="color: var(--accent-primary);">Discussed in "Why I Failed My Own Challenge"</a>'
+    },
+    {
+        creator: 'MrBeast',
+        avatar: 'https://yt3.googleusercontent.com/nxYrc_1_2f77DoBadyxMTmv7ZpRZapHR5jbuYe7PlPd5cIRJxtNNEYyOC0ZsxaDyJJzXrnJiuDE=s160-c-k-c0x00ffffff-no-rj',
+        user: 'You mentioned spending way too much money on a video that flopped early in your career. Which video was it and what went wrong?',
+        ai: 'Oh man, that was the "I Bought Everything In A Store" video from 2018. I spent like $46,000 thinking bigger budget automatically meant bigger views, but I didn\'t focus on the story or pacing. It only got like 2 million views when my average was 8 million at the time. Learned that you can\'t just throw money at content - the idea and execution matter way more than the budget.<br><br>📹 <a href="#" style="color: var(--accent-primary);">Discussed in "My Biggest YouTube Failures"</a>'
+    }
 
-                const startDemo = () => {
-                    const currentDemo = demoMessages[demoStep % demoMessages.length];
-                    demoContainer.innerHTML = `
-                        <div class="chat-message">
-                            <div class="message-user">You:</div>
-                            <div class="message-content">${currentDemo.user}</div>
-                        </div>
-                        <div class="chat-message">
-                            <div class="message-ai">YoppyChat:</div>
-                            <div class="message-content">${currentDemo.ai}</div>
-                        </div>
-                        <p class="demo-prompt">💡 Click me to see more examples</p>
-                    `;
-                    demoStep++;
-                };
+
+            ];
+
+const startDemo = () => {
+    const currentDemo = demoMessages[demoStep % demoMessages.length];
+    demoContainer.innerHTML = `
+        <div class="chat-message">
+            <div class="message-user">You:</div>
+            <div class="message-content">${currentDemo.user}</div>
+        </div>
+        <div class="chat-message">
+            <div class="message-ai-header">
+                <div class="demo-avatar-container">
+                    <img src="${currentDemo.avatar}" alt="${currentDemo.creator}" class="demo-avatar">
+                    <span class="demo-ai-badge">AI</span>
+                </div>
+                <div class="message-ai-name">${currentDemo.creator}</div>
+            </div>
+            <div class="message-content">${currentDemo.ai}</div>
+        </div>
+        <p class="demo-prompt">💡 Click me to see more examples</p>
+    `;
+    demoStep++;
+};
                 
                 demoContainer.addEventListener('click', startDemo);
             }
