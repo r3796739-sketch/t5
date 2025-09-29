@@ -1843,7 +1843,9 @@ def public_chat_page(channel_name):
                 current_channel=channel,
                 saved_channels=get_user_channels(),
                 is_temporary_session=True, 
-                notice=notice
+                notice=notice,
+                SUPABASE_URL=os.environ.get('SUPABASE_URL'),
+                SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
             )
 
         # If NO shared history is in the URL, proceed with the original logic for logged-in users.
@@ -1873,7 +1875,9 @@ def public_chat_page(channel_name):
                 current_channel=channel,
                 saved_channels=get_user_channels(),
                 is_temporary_session=True,
-                notice=notice
+                notice=notice,
+                SUPABASE_URL=os.environ.get('SUPABASE_URL'),
+                SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
             )
 
     # This part handles logged-out users. It will correctly display shared history if the ID is present.
@@ -1884,7 +1888,9 @@ def public_chat_page(channel_name):
         current_channel=channel,
         saved_channels={},
         is_temporary_session=False,
-        notice=None
+        notice=None,
+        SUPABASE_URL=os.environ.get('SUPABASE_URL'),
+        SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
     )
 
 @app.route('/api/share_chat', methods=['POST'])
