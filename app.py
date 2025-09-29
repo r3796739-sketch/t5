@@ -1827,17 +1827,22 @@ def public_chat_page(channel_name):
         
         # If a shared history was found in the URL, display it immediately for the logged-in user.
         if shared_history:
+            # --- START: MODIFIED CODE ---
             notice = {
                 "message": "<strong>You are viewing a shared conversation.</strong><br>This chat will not be saved to your personal history.",
-                "show_upgrade": False
+                "action": "add_channel",
+                "channel_id": channel['id'],
+                "channel_name": channel['channel_name'],
+                "button_text": "Add this Channel to My Dashboard"
             }
+            # --- END: MODIFIED CODE ---
             return render_template(
                 'ask.html', 
                 history=shared_history,
                 channel_name=channel['channel_name'], 
                 current_channel=channel,
                 saved_channels=get_user_channels(),
-                is_temporary_session=True, # Treat as temporary to prevent saving
+                is_temporary_session=True, 
                 notice=notice
             )
 
@@ -2223,6 +2228,38 @@ def inject_user_status():
             is_creator=is_creator  # Add this line
         )
     return dict(user_status=None, user=None, is_embedded_whop_user=False, community_status=None, is_creator=False)
+
+@app.route('/api/add_shared_channel/<int:channel_id>', methods=['POST'])
+@login_required
+def add_shared_channel_api(channel_id):
+    user_id = session['user']['id']
+    
+    # Check if the user is already linked to this channel to prevent errors
+    supabase_admin = get_supabase_admin_client()
+    link_check = supabase_admin.table('user_channels').select('user_id').eq('user_id', user_id).eq('channel_id', channel_id).execute()
+    if link_check.data:
+        return jsonify({'status': 'already_exists', 'message': 'You already have this channel.'})
+
+    # Check the user's plan limits
+    user_status = get_user_status(user_id)
+    max_channels = user_status['limits'].get('max_channels', 0)
+    current_channels = user_status['usage'].get('channels_processed', 0)
+
+    if current_channels >= max_channels:
+        message = f"You have reached the maximum of {int(max_channels)} personal channels for your plan."
+        return jsonify({'status': 'limit_reached', 'message': message}), 403
+
+    # If they have space, add the channel
+    db_utils.link_user_to_channel(user_id, channel_id)
+    db_utils.increment_channels_processed(user_id)
+    
+    # Invalidate the cache so the sidebar updates on the next page load
+    if redis_client:
+        active_community_id = session.get('active_community_id')
+        cache_key = f"user_visible_channels:{user_id}:community:{active_community_id or 'none'}"
+        redis_client.delete(cache_key)
+
+    return jsonify({'status': 'success', 'message': 'Channel added to your dashboard!'})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
