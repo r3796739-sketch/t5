@@ -1796,6 +1796,7 @@ def creator_links():
 def public_chat_page(channel_name):
     """
     Public-facing page for a creator's AI persona.
+    - CORRECTED: Now prioritizes loading shared history for ALL users.
     - For logged-out users, it shows the page and prompts login.
     - For logged-in users, it adds the channel if they have space,
       or provides a temporary session if they are at their plan limit.
@@ -1807,51 +1808,8 @@ def public_chat_page(channel_name):
         return render_template('error.html', error_message="This AI persona could not be found."), 404
 
     channel = channel_response.data
-    shared_history = []
     
-    # --- START: NEW FEATURE LOGIC ---
-    if 'user' in session:
-        user_id = session['user']['id']
-        channel_id = channel['id']
-        
-        # Check if the user is already linked to this channel
-        link_check = supabase_admin.table('user_channels').select('user_id').eq('user_id', user_id).eq('channel_id', channel_id).execute()
-
-        if link_check.data:
-            # User already has this channel, just redirect them
-            return redirect(url_for('ask', channel_name=channel['channel_name']))
-
-        # This is a new channel for the user, so we must check their limits
-        user_status = get_user_status(user_id)
-        max_channels = user_status['limits'].get('max_channels', 0)
-        current_channels = user_status['usage'].get('channels_processed', 0)
-
-        if current_channels < max_channels:
-            # The user has space, so add the channel permanently
-            db_utils.link_user_to_channel(user_id, channel_id)
-            db_utils.increment_channels_processed(user_id)
-            flash(f"'{channel['channel_name']}' has been added to your channels.", "success")
-            return redirect(url_for('ask', channel_name=channel['channel_name']))
-        else:
-            # The user is at their limit, provide a temporary session
-            notice = {
-                "message": "<strong>You've reached your channel limit.</strong><br>This is a temporary session. This channel and your conversation will not be saved.",
-                "show_upgrade": True
-            }
-            return render_template(
-                'ask.html', 
-                history=[],
-                channel_name=channel['channel_name'], 
-                current_channel=channel,
-                saved_channels=get_user_channels(), # This shows their actual saved channels
-                SUPABASE_URL=os.environ.get('SUPABASE_URL'),
-                SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY'),
-                is_temporary_session=True,
-                notice=notice
-            )
-    # --- END: NEW FEATURE LOGIC ---
-
-    # This part remains the same for logged-out users
+    # --- START OF FIX: Check for shared history BEFORE checking the user's session ---
     shared_history = []
     history_id = request.args.get('history_id')
     if history_id and redis_client:
@@ -1861,16 +1819,65 @@ def public_chat_page(channel_name):
                 shared_history = json.loads(history_json)
         except Exception as e:
             print(f"Error retrieving shared chat {history_id} from Redis: {e}")
+    # --- END OF FIX ---
 
+    if 'user' in session:
+        user_id = session['user']['id']
+        channel_id = channel['id']
+        
+        # If a shared history was found in the URL, display it immediately for the logged-in user.
+        if shared_history:
+            notice = {
+                "message": "<strong>You are viewing a shared conversation.</strong><br>This chat will not be saved to your personal history.",
+                "show_upgrade": False
+            }
+            return render_template(
+                'ask.html', 
+                history=shared_history,
+                channel_name=channel['channel_name'], 
+                current_channel=channel,
+                saved_channels=get_user_channels(),
+                is_temporary_session=True, # Treat as temporary to prevent saving
+                notice=notice
+            )
+
+        # If NO shared history is in the URL, proceed with the original logic for logged-in users.
+        link_check = supabase_admin.table('user_channels').select('user_id').eq('user_id', user_id).eq('channel_id', channel_id).execute()
+
+        if link_check.data:
+            return redirect(url_for('ask', channel_name=channel['channel_name']))
+
+        user_status = get_user_status(user_id)
+        max_channels = user_status['limits'].get('max_channels', 0)
+        current_channels = user_status['usage'].get('channels_processed', 0)
+
+        if current_channels < max_channels:
+            db_utils.link_user_to_channel(user_id, channel_id)
+            db_utils.increment_channels_processed(user_id)
+            flash(f"'{channel['channel_name']}' has been added to your channels.", "success")
+            return redirect(url_for('ask', channel_name=channel['channel_name']))
+        else:
+            notice = {
+                "message": "<strong>You've reached your channel limit.</strong><br>This is a temporary session. This channel and your conversation will not be saved.",
+                "show_upgrade": True
+            }
+            return render_template(
+                'ask.html', 
+                history=[],
+                channel_name=channel['channel_name'], 
+                current_channel=channel,
+                saved_channels=get_user_channels(),
+                is_temporary_session=True,
+                notice=notice
+            )
+
+    # This part handles logged-out users. It will correctly display shared history if the ID is present.
     session['referred_by_channel_id'] = channel['id']
-
     return render_template('ask.html', 
         history=shared_history,
         channel_name=channel['channel_name'], 
         current_channel=channel,
-        saved_channels={}, # Sidebar is empty for logged-out users
-        SUPABASE_URL=os.environ.get('SUPABASE_URL'),
-        SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY'),
+        saved_channels={},
         is_temporary_session=False,
         notice=None
     )
