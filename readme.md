@@ -1,83 +1,85 @@
-Yes, you can absolutely use Next.js to create a seamless embed experience for Whop users while keeping your Flask app accessible to non-Whop users. Here's how to implement this architecture:
+<p align="center">
+  <img src="https://raw.githubusercontent.com/user-attachments/assets/941e699b-4654-47f4-8a19-93e114777a94/primiry__logo.png" alt="YoppyChat AI Logo" width="350">
+</p>
 
-## Architecture Overview
+<h1 align="center">YoppyChat AI</h1>
 
-1. **Next.js App** (runs on Vercel/separate domain): Handles Whop OAuth, serves as embedded iframe inside Whop
-2. **Flask App** (your existing app.py): Remains unchanged for endpoints, receives auth tokens from Next.js
-3. **Authentication Flow**: Next.js validates Whop users and passes credentials to Flask via postMessage
+<p align="center">
+  <strong>Turn YouTube Channels into Scalable, Conversational AI Personas.</strong>
+  <br />
+  <em>Bridging the gap between content creators and their communities through deeply personal, AI-driven engagement.</em>
+</p>
 
-## Implementation Steps
+<p align="center">
+  <a href="#the-problem">The Problem</a> •
+  <a href="#the-solution">The Solution</a> •
+  <a href="#key-features">Key Features</a> •
+  <a href="#technology-stack">Technology</a> •
+  <a href="#getting-started">Setup</a> •
+  <a href="#roadmap">Roadmap</a>
+</p>
 
-### 1. Set Up Next.js App Using Whop Template
+---
 
-```bash
-# Clone the template
-git clone https://github.com/whopio/whop-nextjs-app-template your-app-embed
-cd your-app-embed
-npm install
-```
+## The Problem: The Creator Economy's Scaling Dilemma
 
-### 2. Configure Next.js Environment Variables
+The creator economy is booming, but engagement doesn't scale. As creators grow their audience, the personal connection that built their community becomes impossible to maintain.
 
-```env
-# .env.local
-NEXT_PUBLIC_WHOP_APP_ID=your_whop_app_id
-WHOP_API_KEY=your_whop_api_key
-WHOP_WEBHOOK_SECRET=your_webhook_secret
-NEXT_PUBLIC_FLASK_APP_URL=https://yourflaskapp.com
-```
+* **For Creators:**
+    * **Engagement Bottleneck:** They are overwhelmed by repetitive questions across thousands of comments and DMs.
+    * **Missed Monetization:** Valuable expertise locked away in video content is difficult to monetize directly.
+    * **Audience Insight is Buried:** It's impossible to manually track the most pressing questions and content desires of their audience.
 
-### 3. Create the Embed Page in Next.js## Key Benefits of This Architecture
+* **For Viewers & Fans:**
+    * **Information is Inaccessible:** Finding a specific answer means scrubbing through hours of video content.
+    * **No Direct Connection:** The chances of getting a personal response from their favorite creator are near zero.
+    * **Fragmented Learning:** Knowledge is scattered across a vast library of videos, with no way to connect concepts.
 
-### 1. **Seamless Authentication**
-Yes, users opening the app in Whop community will be automatically logged in without clicking any button. The Next.js app handles the OAuth flow transparently using Whop SDK's built-in authentication.
+> **The result is a frustrating experience for fans and a massive, untapped opportunity for creators.**
 
-### 2. **Your Flask App Knows Everything**
-When users access through Whop, your Flask app receives:
-- User ID (Whop ID)
-- Company/Community ID
-- User role (owner/admin/member)
-- Email, name, profile picture
-- Whether they're embedded or direct access
+---
 
-### 3. **No Changes to Existing Flask Endpoints**
-Your existing endpoints remain unchanged. The new `/whop/embed-auth` route handles the embedded authentication separately from your current `/whop/app` route.
+## The Solution: YoppyChat AI
 
-### 4. **Dual Access Maintained**
-- **Whop users**: Access through embedded iframe with automatic auth
-- **Non-Whop users**: Continue using your Flask app directly at yourapp.com
+**YoppyChat AI transforms a creator's entire content library into an intelligent, interactive AI persona that acts as a true extension of their brand.**
 
-## Additional Configuration Files## Deployment Steps
+We don't just search for keywords; we create a digital clone of the creator's knowledge and personality. Our platform studies every video transcript to understand their unique style, opinions, and expertise, enabling it to hold authentic, human-like conversations.
 
-1. **Deploy Next.js app to Vercel**:
-```bash
-vercel deploy
-```
+This creates a powerful new channel for 24/7 engagement, turning passive viewers into an active, engaged community.
 
-2. **Configure Whop App Settings**:
-- Set your app URL to: `https://your-nextjs-app.vercel.app/embed`
-- Add required OAuth scopes
-- Set up webhooks if needed
 
-3. **Update Flask Environment**:
-```python
-# .env
-JWT_SECRET=your-shared-jwt-secret  # Same as Next.js
-```
 
-4. **Testing Flow**:
-- Whop users open your app in their community
-- Next.js automatically authenticates them via Whop SDK
-- Creates a JWT token with user info
-- Redirects to Flask with the token
-- Flask validates token and creates session
-- User sees the app with full context (admin/member status)
+---
 
-## Security Considerations
+## Key Features: A Platform for Engagement & Monetization
 
-1. **JWT Secret**: Use the same strong secret in both Next.js and Flask
-2. **Token Expiry**: Set short expiry times (1 hour) for security
-3. **HTTPS Only**: Ensure both apps use HTTPS in production
-4. **Domain Validation**: Validate the origin of postMessage communications
+YoppyChat is more than a chatbot; it's a comprehensive engagement platform.
 
-This architecture provides the seamless experience you want while maintaining backward compatibility with your existing Flask app for non-Whop users.
+* 💬 **Instant AI Persona Creation:** Creators simply provide their YouTube channel URL. Our asynchronous backend processes hundreds of videos, creating a knowledgeable AI assistant in minutes.
+* 🧠 **Authentic & Context-Aware Conversations:** Powered by advanced LLMs and RAG (Retrieval-Augmented Generation), the AI answers questions in the creator's unique voice and style, citing specific video sources for every claim.
+* 🌐 **Multi-Platform Deployment:** Engage fans where they are. YoppyChat provides seamless integrations for:
+    * **Discord:** Deploy fully branded, custom bots to a creator's private community.
+    * **Telegram:** Enable personal Q&A or group chat interactions on the go.
+    * **Public Web Pages:** Each channel gets a shareable, public-facing chat page.
+* 💰 **Creator Monetization & Growth Tools:**
+    * **Affiliate System:** Every public chat page acts as a referral link. Creators earn a recurring commission on every user who signs up and subscribes.
+    * **Creator Dashboard:** A central hub to track earnings, view referral statistics, and manage integrations.
+* 📊 **Powerful Admin Dashboard:** Full administrative control over users, community plans, and creator payouts.
+
+---
+
+## Technology Stack: Built for Scale & Performance
+
+Our platform is built on a modern, robust, and scalable technology stack designed for high-performance AI applications.
+
+| Category                | Technology                                                                                                  |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Backend** | Python, Flask, Gunicorn                                                                                     |
+| **Frontend** | HTML5, CSS3, Vanilla JavaScript (for a lightweight, fast user experience)                                     |
+| **Database** | Supabase (PostgreSQL with pgvector for vector storage)                                                      |
+| **AI / Machine Learning** | **Embeddings:** Gemini, OpenAI<br>**LLMs:** Groq (for speed), OpenAI, Gemini<br>**Reranking:** Sentence Transformers |
+| **Async Task Processing** | Huey with a Redis backend for managing long-running tasks like video processing and AI model updates.      |
+| **Payments & Webhooks** | Razorpay for secure subscription management.                                                                |
+| **DevOps** | Virtual environment setup scripts, clear separation of services (web, worker).                              |
+
+### High-Level Architecture
