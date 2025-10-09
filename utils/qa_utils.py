@@ -286,23 +286,55 @@ def _get_openai_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
         import openai
         base_url = kwargs.get('base_url')
         temperature = kwargs.get('temperature', 1)
+        max_tokens = kwargs.get('max_tokens', 1024)
         client = openai.OpenAI(api_key=api_key, base_url=base_url)
-        response_stream = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=1024,
-            temperature=temperature,
-            stream=True
-        )
-        for chunk in response_stream:
-            # compatibility with different SDK response shapes
-            content = None
-            if hasattr(chunk.choices[0].delta, 'content'):
-                content = chunk.choices[0].delta.content
-            elif 'choices' in chunk and chunk['choices'][0].get('delta', {}).get('content'):
-                content = chunk['choices'][0]['delta']['content']
-            if content:
-                yield content
+        
+        try:
+            # First attempt: try streaming
+            response_stream = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=temperature,
+                stream=True
+            )
+            for chunk in response_stream:
+                # compatibility with different SDK response shapes
+                content = None
+                if hasattr(chunk.choices[0].delta, 'content'):
+                    content = chunk.choices[0].delta.content
+                elif 'choices' in chunk and chunk['choices'][0].get('delta', {}).get('content'):
+                    content = chunk['choices'][0]['delta']['content']
+                if content:
+                    yield content
+                    
+        except openai.APIError as e:
+            if "streaming the response from the model provider" in str(e):
+                logging.warning(f"Streaming failed for model {model}, falling back to non-streaming: {e}")
+                # Fallback: try non-streaming approach
+                try:
+                    response = client.chat.completions.create(
+                        model=model,
+                        messages=[{"role": "user", "content": prompt}],
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        stream=False
+                    )
+                    # Get the complete response and yield it in chunks to simulate streaming
+                    content = response.choices[0].message.content
+                    if content:
+                        # Simulate streaming by yielding words
+                        words = content.split()
+                        for i in range(0, len(words), 3):  # yield 3 words at a time
+                            chunk_words = words[i:i+3]
+                            yield " ".join(chunk_words) + (" " if i + 3 < len(words) else "")
+                            time.sleep(0.01)  # Small delay to simulate streaming
+                except Exception as fallback_error:
+                    logging.error(f"Both streaming and non-streaming failed: {fallback_error}")
+                    yield "Error: Could not get a response from the provider."
+            else:
+                raise  # Re-raise if it's a different API error
+                
     except Exception as e:
         logging.error(f"Failed to get OpenAI stream: {e}", exc_info=True)
         yield "Error: Could not get a response from the provider."

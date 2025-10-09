@@ -77,15 +77,22 @@ async function localizeCurrency() {
     }
 }
 
+
+
 /**
  * Updates the pricing display on the landing and pricing modal pages.
  */
 function updatePricingDisplay() {
+    // --- START: MODIFIED PRICING ---
     const prices = {
-        personal: { INR: '₹299', USD: '$12.99' },
-        creator: { INR: '₹1,499', USD: '$29.99' }
+        free:     { INR: '₹0', USD: '$0' },
+        personal: { INR: '₹299', USD: '$7' },
+        creator: { INR: '₹2,799', USD: '$35' }
     };
-
+    // --- END: MODIFIED PRICING ---
+    document.querySelectorAll('[data-plan-type="free"] .price').forEach(el => {
+        el.innerHTML = `${prices.free[userCurrency]} <span>/ month</span>`;
+    });
     document.querySelectorAll('[data-plan-type="personal"] .price').forEach(el => {
         el.innerHTML = `${prices.personal[userCurrency]} <span>/ month</span>`;
     });
@@ -115,58 +122,77 @@ function buySubscription(planType, buttonElement) {
         return;
     }
 
-    fetch('/create_razorpay_subscription', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_type: planType, currency: userCurrency })
-    })
-    .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
-    .then(data => {
-        if (data.status === 'success') {
-            const options = {
-                key: data.razorpay_key_id,
-                subscription_id: data.subscription_id,
-                name: 'YoppyChat AI',
-                description: `Subscription for ${data.plan_name} plan`,
-                handler: function (response) {
-                    showNotification('Payment successful! Your plan has been updated.', 'success');
-                    buttonElement.disabled = false;
-                    buttonElement.innerHTML = originalContent;
-                    setTimeout(() => window.location.reload(), 2000);
-                },
-                prefill: { name: data.user_name || "", email: data.user_email || "" },
-                theme: { color: "#ff9a56" },
-                modal: {
-                    ondismiss: function() {
-                        showNotification('Payment was cancelled.', 'info');
-                        buttonElement.disabled = false;
-                        buttonElement.innerHTML = originalContent;
-                    }
-                },
-                config: {
-                  display: {
-                    blocks: {
-                      upi: { name: "Pay with UPI", instruments: [{ method: "upi" }, { method: "intent" }] },
-                      card: { name: "Pay with Card", instruments: [{ method: "card" }] }
-                    },
-                    sequence: ["block.upi", "block.card"],
-                    preferences: { show_default_blocks: true }
-                  }
-                }
-            };
-            const rzp = new Razorpay(options);
-            rzp.open();
-        } else {
-            throw new Error(data.message);
-        }
-    })
-    .catch(error => {
-        showNotification(error.message || 'An error occurred.', 'error');
+    // --- START: NEW CONDITIONAL LOGIC ---
+    if (userCurrency === 'USD') {
+        // Call the NEW backend endpoint for subscriptions
+        fetch('/create_paypal_subscription', { // <--- CHANGE THIS LINE
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan_type: planType })
+        })
+        .then(res => res.ok ? res.json() : Promise.reject(new Error('Failed to create PayPal subscription.'))) // <--- And this line
+        .then(data => {
+            if (data.status === 'success' && data.paypal_checkout_url) {
+                window.location.href = data.paypal_checkout_url;
+            } else {
+                throw new Error(data.message || 'Could not initiate PayPal subscription.'); // <--- And this line
+            }
+        })
+        .catch(error => {
+            showNotification(error.message, 'error');
+            buttonElement.disabled = false;
+            buttonElement.innerHTML = originalContent;
+        });
+
+    } else {
+        // Existing Razorpay logic for INR users
+        fetch('/create_razorpay_subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan_type: planType, currency: 'INR' })
+        })
+        .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
+        .then(data => {
+            if (data.status === 'success') {
+const options = {
+    key: data.razorpay_key_id,
+    subscription_id: data.subscription_id,
+    name: 'YoppyChat AI',
+    description: `Subscription for ${data.plan_name} plan`,
+    handler: function (response) {
+        showNotification('Payment successful! Your plan has been updated.', 'success');
         buttonElement.disabled = false;
         buttonElement.innerHTML = originalContent;
-    });
+        setTimeout(() => window.location.reload(), 2000);
+    },
+    prefill: { 
+        name: data.user_name || "", 
+        email: data.user_email || "" 
+    },
+    theme: { color: "#ff9a56" },
+    modal: {
+        ondismiss: function() {
+            showNotification('Payment was cancelled.', 'info');
+            buttonElement.disabled = false;
+            buttonElement.innerHTML = originalContent;
+        }
+    }
+    // No config block for subscriptions
+};
+                const rzp = new Razorpay(options);
+                rzp.open();
+            } else {
+                throw new Error(data.message);
+            }
+        })
+        .catch(error => {
+            showNotification(error.message || 'An error occurred.', 'error');
+            buttonElement.disabled = false;
+            buttonElement.innerHTML = originalContent;
+        });
+    }
+    // --- END: NEW CONDITIONAL LOGIC ---
 }
-
 
 // =================================================================
 // 4. SPA-LIKE CHANNEL NAVIGATION
@@ -859,39 +885,36 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!questionContent || !answerBox) return;
             const lastQuestion = questionContent.textContent;
 
-            // --- START: THE FIX ---
-            // 1. Find the container for all action buttons.
-            const sourcesSection = answerBox.querySelector('.sources-section');
-            if (sourcesSection) {
-                // 2. Completely clear out the old buttons (Regenerate, Sources, Copy).
-                //    This prevents button duplication on subsequent regenerations.
-                sourcesSection.innerHTML = '';
-            }
-            // --- END: THE FIX ---
-            
-            btn.disabled = true;
-            btn.innerHTML = 'Regenerating...';
-            
+            // Store the question before clearing anything
             const answerContent = answerBox.querySelector('.answer-content');
             const typingContainer = answerBox.querySelector('.typing-container');
+            
+            // Clear the answer content and show typing indicator
             answerContent.innerHTML = '';
             if (typingContainer) typingContainer.classList.add('active');
             
-            const formData = new FormData();
-            formData.append('question', lastQuestion);
-            formData.append('channel_name', document.getElementById('chat-page-data').dataset.channelName || '');
-            formData.append('is_regenerating', 'true');
-            
-            fetch('/stream_answer', { method: 'POST', body: formData })
-                .then(response => response.ok ? response.body.getReader() : response.json().then(err => Promise.reject(err)))
-                .then(reader => processStream(reader, answerContent, typingContainer, answerBox))
-                .catch(err => {
-                    answerContent.innerHTML = `<p class="error-message">Failed to regenerate: ${err.message || 'Unknown error'}</p>`;
-                    if (typingContainer) typingContainer.classList.remove('active');
-                    // Even on failure, render a fresh set of action buttons
-                    renderSourcesAndActions([], answerBox);
-                });
-        };
+            // Clear the sources section (this removes all buttons including the regenerate button)
+            const sourcesSection = answerBox.querySelector('.sources-section');
+            if (sourcesSection) {
+                sourcesSection.innerHTML = '';
+            }
+    
+    // Make the API call
+    const formData = new FormData();
+    formData.append('question', lastQuestion);
+    formData.append('channel_name', document.getElementById('chat-page-data').dataset.channelName || '');
+    formData.append('is_regenerating', 'true');
+    
+    fetch('/stream_answer', { method: 'POST', body: formData })
+        .then(response => response.ok ? response.body.getReader() : response.json().then(err => Promise.reject(err)))
+        .then(reader => processStream(reader, answerContent, typingContainer, answerBox))
+        .catch(err => {
+            answerContent.innerHTML = `<p class="error-message">Failed to regenerate: ${err.message || 'Unknown error'}</p>`;
+            if (typingContainer) typingContainer.classList.remove('active');
+            // Even on failure, render a fresh set of action buttons
+            renderSourcesAndActions([], answerBox);
+        });
+};
 
         if (includeHistoryToggle && shareLinkInput) {
             const subtitle = document.getElementById('shareModalSubtitle');

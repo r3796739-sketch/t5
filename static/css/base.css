@@ -533,3 +533,10 @@ html[data-theme='dark'] .sidebar-action-item.active {
     color: var(--text-white);
     font-weight: 600;
 }
+.btn-pricing-disabled {
+    background-color: #4CAF50; /* A modern, theme-friendly green */
+    color: #FFFFFF;           /* White text for high contrast and readability */
+    border: none;              /* Removes the border for a cleaner look */
+    cursor: not-allowed;
+    pointer-events: none;/* This makes the button unclickable */
+}

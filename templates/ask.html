@@ -71,14 +71,6 @@
     <div class="chat-column">
         <div class="chat-wrapper">
 
-            <div class="c-banner-notice" id="c-banner-notice" style="display: none;">
-                <div class="notice-content">
-                    <p id="c-banner-notice-text"></p>
-                    <a href="#" onclick="event.preventDefault(); showPricingModal();" class="btn-upgrade" id="c-banner-notice-btn">Upgrade Plan</a>
-                </div>
-                <button class="notice-close-btn">&times;</button>
-            </div>
-
             <div id="conversation-history" class="chat-container {% if not history %}is-empty{% endif %}" role="log" aria-live="polite">
 
                 {# Show example questions only if there is no history AND the user is logged out #}
@@ -131,12 +123,6 @@
                                         <span class="toggle-indicator">▼</span>
                                     </button>
                                 {% endif %}
-                                <!-- {% if loop.last %}
-                                    <button class="toggle-sources-btn regenerate-btn-js" onclick="regenerateAnswer(this)">
-                                        <svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
-                                        Regenerate
-                                    </button>
-                                {% endif %} -->
                                 <button class="copy-answer-btn" onclick="copyAnswer(this)" data-tooltip="Copy answer">
                                 <svg class="icon-copy-default" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                                 <svg class="icon-copy-check" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -157,6 +143,14 @@
                     </div>
                 </div>
                 {% endfor %}
+            </div>
+            
+            <div class="c-banner-notice" id="c-banner-notice" style="display: none;">
+                <div class="notice-content">
+                    <p id="c-banner-notice-text"></p>
+                    <a href="#" onclick="event.preventDefault(); showPricingModal();" class="btn-upgrade" id="c-banner-notice-btn">Upgrade Plan</a>
+                </div>
+                <button class="notice-close-btn">&times;</button>
             </div>
 
             <form id="questionForm" class="question-form" role="form">
@@ -302,62 +296,4 @@
     <p style="font-size: 0.875rem; color: var(--text-secondary); margin: 0; line-height: 1.5;">Generates a new link that includes a snapshot of the current conversation.</p>
 </div>
 </div>
-{% endblock %}
-{% block page_scripts %}
-    {# Your existing script tag for ask.js can stay here #}
-    <script src="{{ url_for('static', filename='js/ask.js') }}"></script>
-
-    {# --- START: ADD THIS NEW SCRIPT BLOCK --- #}
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const noticeBanner = document.getElementById('c-banner-notice');
-            const noticeText = document.getElementById('c-banner-notice-text');
-            const noticeBtn = document.getElementById('c-banner-notice-btn');
-
-            if (NOTICE_DATA && noticeBanner && noticeText && noticeBtn) {
-                noticeText.innerHTML = NOTICE_DATA.message;
-
-                if (NOTICE_DATA.action === 'add_channel') {
-                    noticeBtn.textContent = NOTICE_DATA.button_text;
-                    noticeBtn.onclick = (event) => {
-                        event.preventDefault();
-                        addSharedChannel(NOTICE_DATA.channel_id, NOTICE_DATA.channel_name, noticeBtn);
-                    };
-                }
-                // The 'showUpgrade' logic is already handled by your existing ask.js
-                noticeBanner.style.display = 'flex';
-            }
-        });
-
-        function addSharedChannel(channelId, channelName, buttonElement) {
-            buttonElement.disabled = true;
-            buttonElement.textContent = 'Adding...';
-
-            fetch(`/api/add_shared_channel/${channelId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            })
-            .then(res => {
-                if (!res.ok) { return res.json().then(err => Promise.reject(err)); }
-                return res.json();
-            })
-            .then(data => {
-                if (data.status === 'success' || data.status === 'already_exists') {
-                    showNotification(data.message, 'success');
-                    // Redirect to the user's permanent chat page for this channel
-                    window.location.href = `/ask/channel/${encodeURIComponent(channelName)}`;
-                }
-            })
-            .catch(error => {
-                if (error.status === 'limit_reached') {
-                    showPricingModal(); // Open the upgrade modal
-                } else {
-                    showNotification(error.message || 'An error occurred.', 'error');
-                }
-                buttonElement.disabled = false;
-                buttonElement.textContent = 'Save this Channel';
-            });
-        }
-    </script>
-    {# --- END: ADD THIS NEW SCRIPT BLOCK --- #}
 {% endblock %}

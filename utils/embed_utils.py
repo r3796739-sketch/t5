@@ -1,3 +1,5 @@
+# In utils/embed_utils.py
+
 import logging
 import numpy as np
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -129,7 +131,12 @@ def create_and_store_embeddings(transcripts, _unused_config, user_id, progress_c
             logging.warning("No valid vectors to insert. Skipping database operation.")
             return True
         
-        insert_batch_size = 100
+        # --- START OF FIX: Reduced batch size for database insertion ---
+        # Changed from 100 to 50 to prevent statement timeouts on large channels.
+        # This is the key change to solve the error.
+        insert_batch_size = 50
+        # --- END OF FIX ---
+        
         total_batches = (len(vectors_to_insert) + insert_batch_size - 1) // insert_batch_size
         
         logging.info(f"Preparing to insert {len(vectors_to_insert)} vectors in {total_batches} batches.")

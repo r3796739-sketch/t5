@@ -38,6 +38,7 @@ from utils.razorpay_client import get_razorpay_client
 from supabase_auth.errors import AuthApiError
 from extensions import mail
 from flask_mail import Message
+import paypalrestsdk
 logger = logging.getLogger(__name__)
 
 load_dotenv()
@@ -60,12 +61,21 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 logging.info(f"SESSION_PERMANENT is set to: {app.config.get('SESSION_PERMANENT')}")
 logging.info(f"SESSION_COOKIE_SECURE is set to: {app.config.get('SESSION_COOKIE_SECURE')}")
 
-
+PAYPAL_BASE_URL = "https://api-m.paypal.com" if os.environ.get('PAYPAL_MODE') == 'live' else "https://api-m.sandbox.paypal.com"
+PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID')
+PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET')
 # --- END: SESSION FIX ---
 
 Compress(app)
 app.secret_key = os.environ.get('SECRET_KEY', 'a_default_dev_secret_key')
 mail.init_app(app)
+
+# --- PayPal Configuration ---
+paypalrestsdk.configure({
+    "mode": os.environ.get('PAYPAL_MODE', 'sandbox'),  # sandbox or live
+    "client_id": os.environ.get('PAYPAL_CLIENT_ID'),
+    "client_secret": os.environ.get('PAYPAL_CLIENT_SECRET')
+})
 
 @app.template_filter('markdown')
 def markdown_filter(text):
@@ -240,7 +250,7 @@ def whop_embed_auth():
         flash("Invalid authentication token.", "error")
         return redirect(url_for('home'))
     except Exception as e:
-        print(f"An error occurred during Whop embed auth: {e}", exc_info=True)
+        print(f"An error occurred during Whop embed auth: {e}")
         flash("An unexpected error occurred during login.", "error")
         return redirect(url_for('home'))
 
@@ -294,7 +304,7 @@ def whop_installation_callback():
         return redirect(url_for('channel'))
 
     except Exception as e:
-        print(f"An error occurred during Whop installation callback: {e}", exc_info=True)
+        print(f"An error occurred during Whop installation callback: {e}")
         flash('An unexpected error occurred during installation.', 'error')
         return redirect(url_for('home'))
 
@@ -356,7 +366,7 @@ def whop_membership_update_webhook():
             redis_client.delete(f"user_status:{app_user_id}:community:none")
         return jsonify({'status': 'success'})
     except Exception as e:
-        print(f"Error processing membership webhook for {whop_user_id}: {e}", exc_info=True)
+        print(f"Error processing membership webhook for {whop_user_id}: {e}")
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
 
 @app.route('/whop/webhook/community-update', methods=['POST'])
@@ -378,7 +388,7 @@ def whop_community_update_webhook():
     except (ValueError, TypeError):
         return jsonify({'status': 'error', 'message': 'Invalid member_count value'}), 400
     except Exception as e:
-        print(f"Error processing community webhook for {whop_community_id}: {e}", exc_info=True)
+        print(f"Error processing community webhook for {whop_community_id}: {e}")
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
 
 @app.route('/whop/webhook/community-plan-update', methods=['POST'])
@@ -406,7 +416,7 @@ def whop_community_plan_update_webhook():
             redis_client.delete(f"community_status:{update_res.data[0]['id']}")
         return jsonify({'status': 'success'})
     except Exception as e:
-        print(f"Error processing community plan update for {whop_community_id}: {e}", exc_info=True)
+        print(f"Error processing community plan update for {whop_community_id}: {e}")
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
 
 # --- Standard Auth and App Routes (Largely unchanged) ---
@@ -492,7 +502,7 @@ def set_auth_cookie():
         return jsonify({'status': 'success', 'message': 'Session set successfully.'})
 
     except Exception as e:
-        print(f"Error in set-cookie: {e}", exc_info=True)
+        print(f"Error in set-cookie: {e}")
         return jsonify({'status': 'error', 'message': 'An internal error occurred.'}), 500
 @app.route('/shipping-policy')
 def shipping_policy():
@@ -568,7 +578,7 @@ def channel():
                     if not final_channel_url:
                         return jsonify({'status': 'error', 'message': 'Could not find the channel for that video URL.'}), 400
                 except Exception as e:
-                    logger.error(f"Failed to get channel from video URL '{submitted_url}': {e}", exc_info=True)
+                    logger.error(f"Failed to get channel from video URL '{submitted_url}': {e}")
                     return jsonify({'status': 'error', 'message': 'An API error occurred while finding the channel.'}), 500
             else:
                 return jsonify({'status': 'error', 'message': 'Please enter a valid YouTube channel or video URL.'}), 400
@@ -649,7 +659,7 @@ def channel():
             razorpay_plan_id_creator=creator_plan_id
         )
     except Exception as e:
-        print(f"Error in /channel: {e}", exc_info=True)
+        print(f"Error in /channel: {e}")
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
 
 
@@ -913,10 +923,10 @@ def delete_channel_route(channel_id):
     except APIError as e:
         if 'PGRST116' in e.message: # "Row not found"
             return jsonify({'status': 'error', 'message': 'Channel not found or you do not have permission.'}), 404
-        logger.error(f"Supabase API Error deleting channel {channel_id}: {e}", exc_info=True)
+        logger.error(f"Supabase API Error deleting channel {channel_id}: {e}")
         return jsonify({'status': 'error', 'message': 'A database error occurred.'}), 500
     except Exception as e:
-        logger.error(f"Error deleting channel {channel_id}: {e}", exc_info=True)
+        logger.error(f"Error deleting channel {channel_id}: {e}")
         return jsonify({'status': 'error', 'message': 'An error occurred while starting the deletion process.'}), 500
 
 @app.route('/refresh_channel/<int:channel_id>', methods=['POST'])
@@ -1216,7 +1226,7 @@ def toggle_channel_privacy(channel_id):
             raise Exception("Failed to update channel privacy.")
         return jsonify({'status': 'success', 'message': f"Channel is now {'shared' if new_is_shared else 'personal'}.", 'is_shared': new_is_shared})
     except Exception as e:
-        print(f"Error toggling privacy for channel {channel_id}: {e}", exc_info=True)
+        print(f"Error toggling privacy for channel {channel_id}: {e}")
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
 
 if os.environ.get("FLASK_ENV") == "development":
@@ -1294,7 +1304,7 @@ def api_admin_complete_payout(payout_id):
         }).eq('id', payout_id).execute()
         return jsonify({'status': 'success', 'message': 'Payout marked as paid.'})
     except Exception as e:
-        logger.error(f"Error completing payout {payout_id}: {e}", exc_info=True)
+        logger.error(f"Error completing payout {payout_id}: {e}")
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
     
 @app.route('/api/admin/create_plan', methods=['POST'])
@@ -1385,7 +1395,7 @@ def api_admin_set_current_plan():
 
         return jsonify({'status': 'success', 'message': 'Plan updated successfully.'})
     except Exception as e:
-        logger.error(f"Error in set_current_plan: {e}", exc_info=True)
+        logger.error(f"Error in set_current_plan: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/admin/remove_plan', methods=['POST'])
@@ -1442,7 +1452,7 @@ def api_admin_delete_user(user_id):
         
         return jsonify({'status': 'success', 'message': f'Successfully deleted user {user_id}.'})
     except Exception as e:
-        logger.error(f"Error deleting user {user_id}: {e}", exc_info=True)
+        logger.error(f"Error deleting user {user_id}: {e}")
         if 'User not found' in str(e):
             return jsonify({'status': 'error', 'message': 'User not found. They may have already been deleted.'}), 404
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
@@ -1596,7 +1606,7 @@ def update_discord_bot(bot_id):
         return jsonify({'status': 'success', 'message': 'Bot updated. The service will restart it with the new settings shortly.'})
 
     except Exception as e:
-        print(f"Error updating bot {bot_id}: {e}", exc_info=True)
+        print(f"Error updating bot {bot_id}: {e}")
         return jsonify({'status': 'error', 'message': 'An unexpected error occurred.'}), 500
     
 
@@ -1623,7 +1633,7 @@ def create_discord_bot():
             else:
                 return jsonify({'status': 'error', 'message': f'Discord API error: {e.response.text}'}), 500
         except Exception as e:
-             print(f"Failed to verify bot token: {e}", exc_info=True)
+             print(f"Failed to verify bot token: {e}")
              return jsonify({'status': 'error', 'message': 'Could not verify the bot token with Discord.'}), 500
 
         supabase_admin = get_supabase_admin_client()
@@ -1663,7 +1673,7 @@ def create_discord_bot():
         return jsonify({'status': 'success', 'message': 'Bot created! The service will bring it online shortly.'})
 
     except Exception as e:
-        print(f"Error in create_discord_bot: {e}", exc_info=True)
+        print(f"Error in create_discord_bot: {e}")
         return jsonify({'status': 'error', 'message': f'An unexpected error occurred: {str(e)}'}), 500
 
 @app.route('/integrations/discord/start/<int:bot_id>', methods=['POST'])
@@ -1983,7 +1993,7 @@ def razorpay_webhook():
             else:
                 logging.error(f"Webhook Error: Could not find user for customer_id {customer_id} or plan_id from webhook.")
         except Exception as e:
-            logging.error(f"Error processing 'invoice.paid' webhook: {e}", exc_info=True)
+            logging.error(f"Error processing 'invoice.paid' webhook: {e}")
             return jsonify({'status': 'error', 'message': 'Internal processing error'}), 500
 
     return jsonify({'status': 'ok'})
@@ -2014,6 +2024,14 @@ def create_razorpay_subscription():
     user_email = profile.get('email') or session.get('user', {}).get('email')
     user_name = profile.get('full_name') or session.get('user', {}).get('user_metadata', {}).get('full_name')
 
+    if customer_id:
+        try:
+            # Verify the customer_id is valid
+            razorpay_client.customer.fetch(customer_id)
+        except Exception as e:
+            # If the customer_id is invalid, set it to None to trigger creation
+            customer_id = None
+
     # --- START OF THE FIX ---
     # This block makes the customer lookup and creation process robust.
     if not customer_id:
@@ -2037,7 +2055,7 @@ def create_razorpay_subscription():
                 # This update also INCLUDES the email
                 db_utils.create_or_update_profile({'id': user_id, 'email': user_email, 'razorpay_customer_id': customer_id})
         except Exception as e:
-            logger.error(f"Razorpay customer handling error: {e}", exc_info=True)
+            logger.error(f"Razorpay customer handling error: {e}")
             return jsonify({'status': 'error', 'message': f"Razorpay error: {e}"}), 500
     # --- END OF THE FIX ---
 
@@ -2266,6 +2284,225 @@ def add_shared_channel_api(channel_id):
         redis_client.delete(cache_key)
 
     return jsonify({'status': 'success', 'message': 'Channel added to your dashboard!'})
+
+def get_paypal_access_token():
+    """Get PayPal OAuth access token"""
+    url = f"{PAYPAL_BASE_URL}/v1/oauth2/token"
+    headers = {"Accept": "application/json", "Accept-Language": "en_US"}
+    data = {"grant_type": "client_credentials"}
+    
+    response = requests.post(
+        url,
+        headers=headers,
+        data=data,
+        auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET)
+    )
+    
+    if response.status_code == 200:
+        return response.json()["access_token"]
+    else:
+        logging.error(f"Failed to get PayPal token: {response.text}")
+        return None
+
+
+@app.route('/create_paypal_subscription', methods=['POST'])
+@login_required
+def create_paypal_subscription():
+    data = request.get_json()
+    plan_type = data.get('plan_type')
+
+    plan_id_map = {
+        'personal': os.environ.get('PAYPAL_PERSONAL_PLAN_ID'),
+        'creator': os.environ.get('PAYPAL_CREATOR_PLAN_ID')
+    }
+    paypal_plan_id = plan_id_map.get(plan_type)
+
+    if not paypal_plan_id:
+        return jsonify({'status': 'error', 'message': f'PayPal plan for {plan_type} not found.'}), 400
+
+    # Get access token
+    access_token = get_paypal_access_token()
+    if not access_token:
+        return jsonify({'status': 'error', 'message': 'Could not authenticate with PayPal.'}), 500
+
+    # Create subscription using v1 API
+    url = f"{PAYPAL_BASE_URL}/v1/billing/subscriptions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {access_token}"
+    }
+    
+    # Get base URL for return URLs
+    base_url = request.host_url.rstrip('/')
+    
+    subscription_data = {
+        "plan_id": paypal_plan_id,
+        "custom_id": session['user']['id'],
+        "application_context": {
+            "brand_name": "YoppyChat AI",
+            "shipping_preference": "NO_SHIPPING",
+            "user_action": "SUBSCRIBE_NOW",
+            "return_url": f"{base_url}/execute_paypal_subscription",
+            "cancel_url": f"{base_url}/cancel_paypal_subscription"
+        }
+    }
+
+    response = requests.post(url, json=subscription_data, headers=headers)
+    
+    if response.status_code == 201:
+        subscription = response.json()
+        
+        # Find the approval URL
+        approval_url = None
+        for link in subscription.get('links', []):
+            if link.get('rel') == 'approve':
+                approval_url = link.get('href')
+                break
+        
+        if approval_url:
+            # Store subscription ID in session for verification
+            session['paypal_subscription_id'] = subscription['id']
+            return jsonify({'status': 'success', 'paypal_checkout_url': approval_url})
+        else:
+            logging.error(f"No approval URL in PayPal response: {subscription}")
+            return jsonify({'status': 'error', 'message': 'Could not get approval URL.'}), 500
+    else:
+        logging.error(f"Error creating PayPal subscription: {response.text}")
+        return jsonify({'status': 'error', 'message': 'Could not initiate PayPal subscription.'}), 500
+
+
+@app.route('/execute_paypal_subscription')
+@login_required
+def execute_paypal_subscription():
+    subscription_id = request.args.get('subscription_id')
+    
+    if not subscription_id:
+        flash('Subscription ID not found. Please try again.', 'error')
+        return redirect(url_for('channel'))
+
+    try:
+        access_token = get_paypal_access_token()
+        if not access_token:
+            raise Exception("Could not authenticate with PayPal")
+
+        url = f"{PAYPAL_BASE_URL}/v1/billing/subscriptions/{subscription_id}"
+        headers = {"Authorization": f"Bearer {access_token}"}
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            subscription = response.json()
+            status = subscription.get('status')
+            
+            # As long as the subscription is approved by PayPal, we can proceed.
+            # Our webhook will handle linking it to the correct user via custom_id.
+            if status in ['ACTIVE', 'APPROVED']:
+                session['pending_paypal_subscription'] = {
+                    'subscription_id': subscription_id,
+                    'plan_id': subscription.get('plan_id'),
+                    'status': status
+                }
+                
+                flash('Your subscription has been set up! Your plan will be updated once the first payment is confirmed.', 'success')
+                return redirect(url_for('channel'))
+            else:
+                # If the status is something else (e.g., 'CANCELLED'), raise an error.
+                raise Exception(f"Subscription status is {status}")
+        else:
+            raise Exception(f"Could not verify subscription: {response.text}")
+
+    except Exception as e:
+        logging.error(f"Error executing PayPal subscription: {e}")
+        flash('Could not finalize your subscription. Please try again.', 'error')
+        return redirect(url_for('channel'))
+
+
+@app.route('/cancel_paypal_subscription')
+@login_required
+def cancel_paypal_subscription():
+    session.pop('paypal_subscription_id', None)
+    flash('Your subscription setup was cancelled.', 'info')
+    return redirect(url_for('channel'))
+
+
+@app.route('/paypal_webhook', methods=['POST'])
+def paypal_webhook():
+    try:
+        event_body = request.get_json()
+        event_type = event_body.get('event_type')
+        resource = event_body.get('resource', {})
+        logging.info(f"PayPal webhook received: {event_type}")
+
+        if event_type in ["BILLING.SUBSCRIPTION.ACTIVATED", "PAYMENT.SALE.COMPLETED"]:
+            supabase_admin = get_supabase_admin_client()
+            
+            profile_res = None
+            # --- START: MODIFIED LOGIC ---
+            # 1. Prioritize finding the user by the custom_id we stored
+            yoppy_user_id = resource.get('custom_id')
+            if yoppy_user_id:
+                logging.info(f"Found custom_id in webhook: {yoppy_user_id}. Looking up user by ID.")
+                profile_res = supabase_admin.table('profiles').select('id, email').eq('id', yoppy_user_id).single().execute()
+            
+            # 2. If no user was found by ID (fallback for old subscriptions), try email
+            if not (profile_res and profile_res.data):
+                subscription_id = resource.get('id') if event_type == "BILLING.SUBSCRIPTION.ACTIVATED" else resource.get('billing_agreement_id')
+                if not subscription_id:
+                    logging.warning(f"No subscription ID in webhook: {event_type}")
+                    return jsonify({'status': 'ok'}), 200
+
+                access_token = get_paypal_access_token()
+                if not access_token:
+                    return jsonify({'status': 'error', 'message': 'Could not get PayPal access token'}), 500
+
+                url = f"{PAYPAL_BASE_URL}/v1/billing/subscriptions/{subscription_id}"
+                headers = {"Authorization": f"Bearer {access_token}"}
+                response = requests.get(url, headers=headers)
+                
+                if response.status_code != 200:
+                    logging.error(f"Could not fetch subscription details: {response.text}")
+                    return jsonify({'status': 'error'}), 500
+
+                subscription = response.json()
+                subscriber_email = subscription.get('subscriber', {}).get('email_address')
+                logging.info(f"No custom_id. Looking up user by email: {subscriber_email}")
+                if subscriber_email:
+                    profile_res = supabase_admin.table('profiles').select('id, email').eq('email', subscriber_email).single().execute()
+            # --- END: MODIFIED LOGIC ---
+
+            if profile_res and profile_res.data:
+                profile = profile_res.data
+                user_id = profile['id']
+                
+                # Use the plan_id from the resource if available, otherwise from the fetched subscription
+                paypal_plan_id = resource.get('plan_id') or subscription.get('plan_id')
+                
+                plan_id_map = {
+                    os.environ.get('PAYPAL_PERSONAL_PLAN_ID'): os.environ.get('RAZORPAY_PLAN_ID_PERSONAL_INR'),
+                    os.environ.get('PAYPAL_CREATOR_PLAN_ID'): os.environ.get('RAZORPAY_PLAN_ID_CREATOR_INR')
+                }
+                internal_plan_id = plan_id_map.get(paypal_plan_id)
+                
+                if internal_plan_id:
+                    # Update user's plan - ensure we use the correct email from our database
+                    db_utils.create_or_update_profile({
+                        'id': user_id,
+                        'email': profile['email'], # Use the email from our DB, not PayPal's
+                        'direct_subscription_plan': internal_plan_id
+                    })
+                    
+                    if redis_client:
+                        redis_client.delete(f"user_status:{user_id}:community:none")
+                    
+                    db_utils.record_creator_earning(referred_user_id=user_id, plan_id=internal_plan_id)
+                    logging.info(f"Successfully processed webhook for user {user_id}, plan {internal_plan_id}")
+            else:
+                logging.warning(f"Webhook received but no matching user found in database.")
+
+    except Exception as e:
+        logging.error(f"Error processing PayPal webhook: {e}", exc_info=True)
+        return jsonify({'status': 'error'}), 500
+
+    return jsonify({'status': 'success'}), 200
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

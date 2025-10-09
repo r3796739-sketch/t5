@@ -42,17 +42,17 @@ PLANS = {
     'free': { 
         'name': 'Free', 
         'max_channels': 2, 
-        'max_queries_per_month': 50, 
+        'max_queries_per_month': 20, 
         'price_usd': 0, 
         'commission_rate': 0 
     },
     # This now correctly loads your INR plan ID from the .env file
     os.environ.get('RAZORPAY_PLAN_ID_PERSONAL_INR', 'personal_inr'): { 
         'name': 'Personal', 
-        'max_channels': 10, 
-        'max_queries_per_month': 2500, 
+        'max_channels': float('inf'), 
+        'max_queries_per_month': 500, 
         'price_usd': 3.60,
-        'commission_rate': 0.70 
+        'commission_rate': 0.40 
     },
     # This now correctly loads your INR plan ID from the .env file
     os.environ.get('RAZORPAY_PLAN_ID_CREATOR_INR', 'creator_inr'): { 
@@ -60,7 +60,7 @@ PLANS = {
         'max_channels': float('inf'), 
         'max_queries_per_month': 10000, 
         'price_usd': 18.00,
-        'commission_rate': 0.75 
+        'commission_rate': 0.45 
     },
     'admin_testing': { 'name': 'free', 'max_channels': 1, 'max_queries_per_month': 10 },
     'community_member': { 'name': 'Community Member', 'max_channels': 0, 'max_queries_per_month': 50 },
