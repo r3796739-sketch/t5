@@ -890,9 +890,11 @@ html[data-theme='dark'] .theme-toggle-btn .moon-icon { display: block; }
                 <h2 class="section-title">Plans That Grow with You</h2>
                 <p class="section-subtitle">Choose a plan that grows with your community. Start for free.</p>
                 <div class="pricing-grid">
-                     <div class="pricing-card">
+                     <div class="pricing-card" data-plan-type="free">
                          <h4>Free</h4>
-                         <p class="text-muted">Start the conversation and explore the AI.</p>
+                         <p class="text-muted">Explore YoppyChat on a small scale. Get 50 answers and test the magic.
+
+</p>
                          <p class="price">₹0 <span>/ month</span></p>
                          <a href="{{ url_for('channel') }}" class="btn-pricing btn-pricing-neutral">Get Started</a>
                          <ul class="pricing-features">
@@ -902,10 +904,10 @@ html[data-theme='dark'] .theme-toggle-btn .moon-icon { display: block; }
                          </ul>
                      </div>
 
-                     <div class="pricing-card featured">
+                     <div class="pricing-card featured" data-plan-type="personal">
                          <span class="popular-badge">MOST POPULAR</span>
                          <h4>Personal</h4>
-                         <p class="text-muted">For the enthusiast who wants to dive deep.</p>
+                         <p class="text-muted">For avid fans and learners who want to dive deep into their favorite creator's content.</p>
                          <p class="price price-featured">₹299 <span>/ month</span></p>
                          <a href="#" onclick="buySubscription('personal', this)" class="btn-pricing btn-pricing-accent">Choose Personal</a>
                          <ul class="pricing-features">
@@ -917,9 +919,9 @@ html[data-theme='dark'] .theme-toggle-btn .moon-icon { display: block; }
                          </ul>
                      </div>
 
-                     <div class="pricing-card">
+                     <div class="pricing-card" data-plan-type="creator">
                          <h4>Creator</h4>
-                         <p class="text-muted">Build, deploy, and monetize your AI empire.</p>
+                         <p class="text-muted">For creators who want a fully branded AI assistant for their community.</p>
                          <p class="price">₹2,799 <span>/ month</span></p>
                          <a href="#" onclick="buySubscription('creator', this)" class="btn-pricing btn-pricing-neutral">Choose Creator</a>
                          <ul class="pricing-features">
