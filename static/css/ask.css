@@ -258,8 +258,8 @@ html[data-theme='dark'] .question-box {
 }
 
 .answer-avatar, .answer-avatar-placeholder {
-    width: 32px;
-    height: 32px;
+    width: 35px;
+    height: 35px;
     border-radius: 50%;
     flex-shrink: 0;
 }
@@ -861,4 +861,5 @@ html[data-theme='dark'] .question-box {
 
 .chat-container::-webkit-scrollbar-thumb:hover {
     background-color: var(--neutral-400); /* Changes color on hover */
+
 }
