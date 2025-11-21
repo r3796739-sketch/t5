@@ -22,7 +22,7 @@ torch
 numpy
 openai
 google-generativeai
-langchain
+langchain==0.0.354
 sentence-transformers
 
 # -- Google API (for YouTube Data) --
@@ -48,3 +48,4 @@ tiktoken
 
 
 discord
+
