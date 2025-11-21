@@ -39,12 +39,13 @@ from supabase_auth.errors import AuthApiError
 from extensions import mail
 from flask_mail import Message
 import paypalrestsdk
+from werkzeug.middleware.proxy_fix import ProxyFix
 logger = logging.getLogger(__name__)
 
 load_dotenv()
 
 app = Flask(__name__)
-
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
 app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
 app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
@@ -2505,4 +2506,5 @@ def paypal_webhook():
     return jsonify({'status': 'success'}), 200
 
 if __name__ == '__main__':
+
     app.run(debug=True, host='0.0.0.0', port=5000)
