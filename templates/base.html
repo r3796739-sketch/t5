@@ -319,7 +319,7 @@
                     // --- END: NEW REDIRECT LOGIC ---
                     window.supabaseClient.auth.signInWithOAuth({
                         provider: 'google',
-                        options: { redirectTo: "{{ url_for('auth_callback', _external=True) }}" }
+                        options: { redirectTo: window.location.origin + "/auth/callback" }
                     });
                 });
                 // Mark the button so we don't attach the listener more than once.
