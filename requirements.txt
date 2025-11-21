@@ -48,4 +48,9 @@ tiktoken
 
 
 discord
+Flask-Mail
+python-dateutil
+razorpay
+paypalrestsdk
+
 
