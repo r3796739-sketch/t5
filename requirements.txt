@@ -19,7 +19,6 @@ requests
 # -- AI & Machine Learning --
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch
-faiss-cpu
 numpy
 openai
 google-generativeai
@@ -46,5 +45,6 @@ grpcio
 isodate
 httpx[http2]
 tiktoken
+
 
 discord
