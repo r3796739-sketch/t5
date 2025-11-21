@@ -448,7 +448,7 @@
                 googleLoginBtn.addEventListener('click', () => {
                     window.supabaseClient.auth.signInWithOAuth({
                         provider: 'google',
-                        options: { redirectTo: "{{ url_for('auth_callback', _external=True) }}" }
+                        options: { redirectTo: window.location.origin + "/auth/callback" }
                     });
                 });
             }
