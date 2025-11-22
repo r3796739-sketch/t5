@@ -31,7 +31,7 @@ google-auth-httplib2
 isodate
 
 # -- Supabase & Database --
-supabase
+supabase==2.23.0
 psycopg2-binary
 
 # -- Utilities --
@@ -52,5 +52,6 @@ Flask-Mail
 python-dateutil
 razorpay
 paypalrestsdk
+
 
 
