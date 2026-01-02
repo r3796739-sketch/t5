@@ -2,7 +2,7 @@
 
 import logging
 from .supabase_client import get_supabase_admin_client
-import datetime
+from datetime import datetime
 # It's good practice to use the shared admin client for these utility functions
 # as they are often called from background tasks or trusted server-side routes.
 supabase = get_supabase_admin_client()
@@ -558,4 +558,5 @@ def update_payout_status(payout_id: str, status: str):
     try:
         supabase.table('creator_payouts').update({'status': status}).eq('id', payout_id).execute()
     except Exception as e:
+
         log.error(f"Error updating payout status for payout {payout_id}: {e}")
