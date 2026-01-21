@@ -1,6 +1,5 @@
 # In utils/youtube_utils.py
 
-
 import os
 import re
 import logging
@@ -13,8 +12,8 @@ from typing import List, Dict, Optional, Union, Tuple
 from googleapiclient.discovery import build
 from dotenv import load_dotenv
 from youtube_transcript_api import YouTubeTranscriptApi
-from bs4 import BeautifulSoup
-import requests
+from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+import yt_dlp
 
 # --- Setup ---
 load_dotenv()
@@ -37,31 +36,137 @@ else:
 def get_transcript(video_id: str) -> Optional[str]:
     """
     Fetches a transcript for a given video_id using a two-step process:
-    1. Web Scraping (fast, primary)
-    2. youtube_transcript_api (slower, fallback)
+    1. youtube_transcript_api (fast, primary)
+    2. yt-dlp (slower, fallback with rate limiting protection)
     """
-    # --- METHOD 1: WEB SCRAPING (Primary) ---
+    # --- METHOD 1: YOUTUBE TRANSCRIPT API (Primary) ---
     try:
-        transcript_url = f"https://youtubetotranscript.com/transcript?v={video_id}"
-        response = requests.get(transcript_url, timeout=30)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
-        transcript_container = soup.find('div', class_='-mt-4') or soup.find('article')
-        if not transcript_container: raise ValueError("Transcript container not found.")
-        filter_keywords = ["SponsorBlock", "Recapio", "Author :", "free prompts", "on steroids"]
-        paragraphs = transcript_container.find_all('p')
-        transcript_lines = [p.get_text(" ", strip=True) for p in paragraphs if p.get_text(" ", strip=True) and not any(kw in p.get_text() for kw in filter_keywords)]
-        if not transcript_lines: raise ValueError("No valid transcript text found.")
-        return "\n".join(transcript_lines)
-    except Exception:
-        # --- METHOD 2: YOUTUBE TRANSCRIPT API (Fallback) ---
-        print('using method 2 YouTubeTranscriptApi')
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        
+        # Try to get manual transcripts first (more accurate)
         try:
-            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en','hi'])
-            return "\n".join([segment['text'] for segment in transcript])
-        except Exception as api_e:
-            log.error(f"[{video_id}] Both scraping and API failed: {api_e}", exc_info=True)
-            return None
+            transcript = transcript_list.find_manually_created_transcript(['en', 'hi'])
+            return "\n".join([segment['text'] for segment in transcript.fetch()])
+        except:
+            # Fall back to auto-generated transcripts
+            try:
+                transcript = transcript_list.find_generated_transcript(['en', 'hi'])
+                return "\n".join([segment['text'] for segment in transcript.fetch()])
+            except:
+                pass
+                
+    except (TranscriptsDisabled, NoTranscriptFound) as e:
+        log.debug(f"[{video_id}] No transcript available via API: {e}")
+    except Exception as e:
+        log.debug(f"[{video_id}] YouTubeTranscriptApi method failed: {e}")
+    
+    # --- METHOD 2: YT-DLP (Fallback with rate limiting protection) ---
+    print(f'Using method 2 yt-dlp for {video_id}')
+    try:
+        video_url = f"https://www.youtube.com/watch?v={video_id}"
+        ydl_opts = {
+            'skip_download': True,
+            'writesubtitles': True,
+            'writeautomaticsub': True,
+            'subtitleslangs': ['en', 'hi'],
+            'quiet': True,
+            'no_warnings': True,
+            'sleep_interval': 1,  # Add delay between requests
+            'max_sleep_interval': 3,  # Maximum delay
+            'extractor_retries': 3,  # Retry on failures
+        }
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(video_url, download=False)
+            
+            # Try to get subtitles from the info
+            subtitles = info.get('subtitles', {})
+            automatic_captions = info.get('automatic_captions', {})
+            
+            # Prefer manual subtitles over automatic
+            transcript_lines = []
+            for lang in ['en', 'hi']:
+                if lang in subtitles:
+                    sub_data = subtitles[lang]
+                    transcript_lines = _extract_subtitle_text(sub_data)
+                    if transcript_lines:
+                        break
+                
+                # Try automatic captions if manual not found
+                if not transcript_lines and lang in automatic_captions:
+                    auto_data = automatic_captions[lang]
+                    transcript_lines = _extract_subtitle_text(auto_data)
+                    if transcript_lines:
+                        break
+            
+            if transcript_lines:
+                return '\n'.join(transcript_lines)
+            else:
+                raise ValueError("No subtitles found via yt-dlp")
+                
+    except Exception as e:
+        log.error(f"[{video_id}] Both methods failed. Final error: {e}")
+        return None
+
+def _extract_subtitle_text(subtitle_data: List[Dict]) -> List[str]:
+    """
+    Helper function to extract text from yt-dlp subtitle data.
+    Handles different subtitle formats safely.
+    """
+    import json
+    import urllib.request
+    
+    lines = []
+    for sub in subtitle_data:
+        try:
+            # Prefer json3 format
+            if sub.get('ext') == 'json3':
+                sub_url = sub.get('url')
+                if sub_url:
+                    # Add timeout and error handling for rate limiting
+                    time.sleep(0.5)  # Small delay to avoid rate limiting
+                    request = urllib.request.Request(
+                        sub_url,
+                        headers={'User-Agent': 'Mozilla/5.0'}
+                    )
+                    with urllib.request.urlopen(request, timeout=10) as response:
+                        sub_content = json.loads(response.read().decode('utf-8'))
+                        events = sub_content.get('events', [])
+                        for event in events:
+                            if 'segs' in event:
+                                text = ''.join([seg.get('utf8', '') for seg in event['segs']])
+                                if text.strip():
+                                    lines.append(text.strip())
+                    if lines:
+                        break
+            # Try other formats like srv3, vtt, etc.
+            elif sub.get('ext') in ['srv3', 'vtt', 'ttml']:
+                sub_url = sub.get('url')
+                if sub_url:
+                    time.sleep(0.5)
+                    request = urllib.request.Request(
+                        sub_url,
+                        headers={'User-Agent': 'Mozilla/5.0'}
+                    )
+                    with urllib.request.urlopen(request, timeout=10) as response:
+                        content = response.read().decode('utf-8')
+                        # Simple text extraction (you might want to use a proper parser)
+                        for line in content.split('\n'):
+                            line = line.strip()
+                            if line and not line.startswith('<') and '-->' not in line and not line.isdigit():
+                                lines.append(line)
+                    if lines:
+                        break
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                log.warning(f"Rate limited (429) while fetching subtitles. Backing off...")
+                time.sleep(5)  # Wait longer on rate limit
+            continue
+        except Exception as e:
+            log.debug(f"Error extracting subtitle format {sub.get('ext')}: {e}")
+            continue
+    
+    return lines
 
 def _fetch_transcript_worker(info_dict: Dict) -> Optional[Dict]:
     """
@@ -180,22 +285,22 @@ def get_transcripts_from_channel(
     if not long_form_metadata:
         return [], channel_thumbnail, subscriber_count, []
 
-    # --- Step 3: Fetch transcripts in parallel ---
+    # --- Step 3: Fetch transcripts in parallel (reduced workers to avoid rate limiting) ---
     print(f"\n--- Step 3: Fetching transcripts in parallel for {len(long_form_metadata)} videos ---")
     final_results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:  # Reduced from 8 to 3
         future_to_video = {executor.submit(_fetch_transcript_worker, meta): meta for meta in long_form_metadata}
         for future in concurrent.futures.as_completed(future_to_video):
             result = future.result()
             if result:
                 final_results.append(result)
+            time.sleep(0.2)  # Small delay between completions
 
     # --- Accurately calculate which long-form videos failed transcription ---
     successful_video_ids = {res['video_id'] for res in final_results}
     failed_long_form_videos = []
     for video_meta in long_form_metadata:
         if video_meta.get('id') not in successful_video_ids:
-            # This part correctly formats the data for the email template
             failed_long_form_videos.append({
                 'title': video_meta.get('snippet', {}).get('title', 'Unknown Title')
             })
@@ -203,7 +308,6 @@ def get_transcripts_from_channel(
     duration = time.perf_counter() - start_time
     print(f"\n[PERFORMANCE] Completed entire process in {duration:.2f} seconds.")
 
-    # Return the accurate list of failed long-form videos
     return final_results, channel_thumbnail, subscriber_count, failed_long_form_videos
 
 def get_transcripts_from_urls(
@@ -222,7 +326,7 @@ def get_transcripts_from_urls(
 
     # --- Step 1: Get metadata for all videos at once ---
     video_metadata_list = []
-    for i in range(0, len(video_ids), 50): # Process in chunks of 50
+    for i in range(0, len(video_ids), 50):
         chunk_ids = video_ids[i:i + 50]
         try:
             response = youtube_api_client.videos().list(
@@ -247,14 +351,15 @@ def get_transcripts_from_urls(
     if not long_form_metadata:
         return []
 
-    # --- Step 3: Fetch transcripts in parallel ---
+    # --- Step 3: Fetch transcripts in parallel (reduced workers) ---
     final_results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
         future_to_video = {executor.submit(_fetch_transcript_worker, meta): meta for meta in long_form_metadata}
         for future in concurrent.futures.as_completed(future_to_video):
             result = future.result()
             if result:
                 final_results.append(result)
+            time.sleep(0.2)
     
     return final_results
 
@@ -280,11 +385,9 @@ def get_channel_details_by_url(channel_url: str):
     if not youtube_api:
         raise ConnectionError("YouTube API client is not initialized. Check your API key.")
 
-    # --- START: NEW, MORE ROBUST LOGIC ---
     channel_identifier = None
     api_param = {}
 
-    # Try to identify the URL type and set the correct API parameter
     if '/channel/' in channel_url:
         match = re.search(r'/channel/([^/?&]+)', channel_url)
         if match:
@@ -294,9 +397,6 @@ def get_channel_details_by_url(channel_url: str):
     elif '/@' in channel_url:
         match = re.search(r'/@([^/?&]+)', channel_url)
         if match:
-            # The official parameter for @ handles is 'forHandle'
-            # Note: The google-api-python-client might expect for_handle, but forUsername suggests it takes camelCase.
-            # We will try with forHandle as per the official API documentation.
             channel_identifier = match.group(1)
             api_param = {'forHandle': channel_identifier}
             print(f"Identified Channel Handle: {channel_identifier}")
@@ -310,7 +410,6 @@ def get_channel_details_by_url(channel_url: str):
     if not channel_identifier:
         raise ValueError("Could not extract a valid channel ID or name from the URL.")
 
-    # First, try a direct lookup with the correct parameter
     response = None
     try:
         print(f"Attempting direct API lookup with parameter: {api_param}")
@@ -322,13 +421,10 @@ def get_channel_details_by_url(channel_url: str):
     except Exception as e:
         log.warning(f"Direct API lookup failed with an exception: {e}")
 
-    # If the direct lookup was successful and returned items, we're done.
     if response and response.get('items'):
         print("Direct API lookup successful.")
         return response['items'][0]
-    # --- END: NEW LOGIC ---
 
-    # If the first attempt failed, fall back to search.
     log.warning(f"Direct lookup for '{channel_identifier}' failed. Trying search as a fallback...")
     search_request = youtube_api.search().list(
         part="snippet",
@@ -340,7 +436,6 @@ def get_channel_details_by_url(channel_url: str):
     if not search_response.get('items'):
         raise ValueError(f"YouTube channel not found for identifier via search: {channel_identifier}")
 
-    # Now get the full details using the channel ID from the search result.
     channel_id_from_search = search_response['items'][0]['snippet']['channelId']
     details_request = youtube_api.channels().list(
         part="snippet,contentDetails,statistics",
@@ -348,6 +443,7 @@ def get_channel_details_by_url(channel_url: str):
     )
     details_response = details_request.execute()
     return details_response['items'][0]
+
 def get_channel_url_from_video_url(video_url: str) -> Optional[str]:
     """
     Finds the parent channel URL from a given YouTube video URL.
@@ -356,7 +452,6 @@ def get_channel_url_from_video_url(video_url: str) -> Optional[str]:
         log.error("YouTube API client not initialized, cannot fetch video details.")
         return None
 
-    # Regex to extract video ID from various YouTube URL formats
     video_id_match = (
         re.search(r"v=([a-zA-Z0-9_-]{11})", video_url) or
         re.search(r"youtu\.be/([a-zA-Z0-9_-]{11})", video_url)
@@ -368,11 +463,9 @@ def get_channel_url_from_video_url(video_url: str) -> Optional[str]:
     video_id = video_id_match.group(1)
     
     try:
-        # Make an API call to get the video's details
         request = youtube_api.videos().list(part="snippet", id=video_id)
         response = request.execute()
 
-        # Extract the channelId from the response and build the canonical channel URL
         if response.get("items"):
             channel_id = response["items"][0]["snippet"]["channelId"]
             log.info(f"Detected channel ID {channel_id} from video ID {video_id}.")
@@ -384,6 +477,7 @@ def get_channel_url_from_video_url(video_url: str) -> Optional[str]:
     except Exception as e:
         log.error(f"API error while fetching channel from video {video_id}: {e}")
         return None
+
 def is_youtube_channel_url(url: str) -> bool:
     """
     Validates if a URL is a valid YouTube channel URL.
@@ -391,6 +485,5 @@ def is_youtube_channel_url(url: str) -> bool:
     """
     if not isinstance(url, str):
         return False
-    # This regex is designed to match all common YouTube channel URL formats
     channel_pattern = r'^(https?://)?(www\.)?(youtube\.com|youtu\.be)/(channel/UC[\w-]{21}[AQgw]|@[\w.-]+|c/[\w.-]+|user/[\w.-]+)/?$'
     return re.match(channel_pattern, url) is not None
