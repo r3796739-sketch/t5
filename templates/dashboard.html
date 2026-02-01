@@ -1,366 +1,777 @@
 {% extends "base.html" %}
 
-{% block title %}Integrations - YoppyChat AI{% endblock %}
+{% block title %}Creator Dashboard - YoppyChat AI{% endblock %}
 
 {% block page_styles %}
 <style>
-    .integration-hub {
-        text-align: center;
-        padding: 2rem;
+    /* ========================================
+       DASHBOARD - Professional Analytics
+       ======================================== */
+
+    .dashboard-container {
+        padding: 1.5rem;
+        max-width: 1200px;
+        margin: 0 auto;
     }
+
+    /* --- Header --- */
+    .dashboard-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .dashboard-header h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .dashboard-header h1 svg {
+        color: var(--accent-primary);
+    }
+
+    .dashboard-header p {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    /* --- Stats Overview Grid --- */
+    .stats-overview {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        padding: 1.25rem;
+        transition: all 0.2s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--accent-primary);
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+
+    .stat-card:hover {
+        box-shadow: var(--shadow-md);
+    }
+
+    .stat-card:hover::before {
+        opacity: 1;
+    }
+
+    .stat-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+    }
+
+    .stat-card-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .stat-card-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .stat-card-icon svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .stat-card-icon.referrals {
+        background: rgba(99, 102, 241, 0.12);
+        color: #6366F1;
+    }
+
+    .stat-card-icon.revenue {
+        background: rgba(16, 185, 129, 0.12);
+        color: #10B981;
+    }
+
+    .stat-card-icon.adds {
+        background: rgba(245, 158, 11, 0.12);
+        color: #F59E0B;
+    }
+
+    .stat-card-icon.channels {
+        background: rgba(236, 72, 153, 0.12);
+        color: #EC4899;
+    }
+
+    .stat-card-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        line-height: 1.2;
+    }
+
+    .stat-card-sub {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+    }
+
+    /* --- Charts Section --- */
+    .charts-section {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .chart-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        padding: 1.25rem;
+    }
+
+    .chart-card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .chart-card-header svg {
+        color: var(--accent-primary);
+        width: 18px;
+        height: 18px;
+    }
+
+    .chart-card-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .chart-container {
+        position: relative;
+        height: 200px;
+    }
+
+    /* --- Section Headers --- */
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .section-header svg {
+        color: var(--accent-primary);
+        width: 18px;
+        height: 18px;
+    }
+
+    .section-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    /* --- Integrations Grid --- */
     .integration-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: 1.5rem;
-        margin-top: 2rem;
-        text-align: left;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
     }
+
     .integration-card {
         background: var(--surface-light);
         border: 1px solid var(--neutral-200);
         border-radius: var(--radius-lg);
-        padding: 1.5rem;
+        padding: 1.25rem;
         text-decoration: none;
         color: var(--text-primary);
-        transition: all 0.2s ease-in-out;
-        display: flex;
-        flex-direction: column;
+        transition: all 0.2s ease;
     }
+
     .integration-card:hover {
-        transform: translateY(-4px);
+        transform: translateY(-2px);
         box-shadow: var(--shadow-md);
         border-color: var(--accent-primary);
     }
+
     .card-header {
         display: flex;
         align-items: center;
-        gap: 1rem;
-        font-size: 1.2rem;
-        font-weight: 600;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
     }
+
     .card-icon {
         width: 32px;
         height: 32px;
     }
-    .card-description {
-        margin: 1rem 0;
-        color: var(--text-secondary);
-        flex-grow: 1;
-    }
-    .card-footer {
-        font-weight: 500;
-        color: var(--accent-primary);
+
+    .card-header span {
+        font-weight: 600;
     }
 
-    /* --- NEW: Status Badge Styles --- */
     .status-badge {
-        margin-left: auto; /* Pushes the badge to the right */
-        font-size: 0.8rem;
+        margin-left: auto;
+        font-size: 0.7rem;
         font-weight: 600;
-        padding: 4px 12px;
+        padding: 4px 10px;
         border-radius: var(--radius-full);
         background-color: var(--surface-medium);
         color: var(--text-secondary);
-        border: 1px solid var(--neutral-200);
     }
+
     .status-badge.active {
-        background-color: #e8f5e9; /* Light green */
-        color: #2e7d32; /* Dark green */
-        border-color: #a5d6a7;
+        background-color: rgba(16, 185, 129, 0.15);
+        color: #10B981;
     }
-    html[data-theme='dark'] .status-badge {
-        background-color: var(--surface-dark);
-        border-color: var(--neutral-300);
+
+    .card-description {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        line-height: 1.4;
+        margin-bottom: 0.75rem;
     }
-    html[data-theme='dark'] .status-badge.active {
-        background-color: #1c3b1e;
-        color: #a5d6a7;
-        border-color: #2e7d32;
+
+    .card-footer {
+        font-weight: 500;
+        color: var(--accent-primary);
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 4px;
     }
-        .links-page { padding: 2rem; }
-    .back-link { 
-        display: inline-block; 
-        margin-bottom: 1.5rem; 
-        color: var(--text-secondary); 
-        text-decoration: none; 
-        font-weight: 500; 
+
+    .card-footer svg {
+        width: 14px;
+        height: 14px;
     }
-    .back-link:hover { color: var(--text-primary); }
-    .channel-link-card {
+
+    /* --- Channel Cards --- */
+    .channel-card {
         background: var(--surface-light);
         border: 1px solid var(--neutral-200);
         border-radius: var(--radius-lg);
-        padding: 1.5rem;
+        padding: 1.25rem;
         margin-bottom: 1rem;
         display: flex;
         align-items: center;
-        gap: 1.5rem;
+        gap: 1rem;
     }
+
     .channel-avatar {
-        width: 50px;
-        height: 50px;
+        width: 48px;
+        height: 48px;
         border-radius: 50%;
         object-fit: cover;
-    }
-    .link-details {
-        flex-grow: 1;
-    }
-    .channel-name {
-        font-weight: 600;
-        font-size: 1.1rem;
-    }
-    .code-block-wrapper {
-        display: flex;
-        gap: 0.5rem;
-        margin-top: 0.5rem;
-    }
-    .code-block-input {
-        font-family: monospace;
-        background: var(--surface-medium);
-        border: 1px solid var(--neutral-200);
-        padding: 0.75rem;
-        border-radius: var(--radius-sm);
-        flex-grow: 1;
-        font-size: 0.9rem;
-    }
-    .copy-btn {
-        padding: 0.5rem 1rem;
         flex-shrink: 0;
     }
-    .no-channels-notice {
+
+    .channel-info {
+        flex-grow: 1;
+        min-width: 0;
+    }
+
+    .channel-name {
+        font-weight: 600;
+        font-size: 1rem;
+        color: var(--text-primary);
+    }
+
+    .channel-link-display {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .copy-btn {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        background: var(--accent-primary);
+        color: white;
+        border: none;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+
+    .copy-btn svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .copy-btn:hover {
+        opacity: 0.9;
+    }
+
+    /* --- Channel Stats --- */
+    .channel-stats {
+        display: flex;
+        gap: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    .channel-stat {
+        background: var(--surface-medium);
+        border-radius: var(--radius-md);
+        padding: 0.5rem 0.75rem;
         text-align: center;
-        padding: 3rem;
-        background-color: var(--surface-medium);
+        min-width: 70px;
+    }
+
+    .channel-stat-value {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .channel-stat-label {
+        font-size: 0.65rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        margin-top: 2px;
+    }
+
+    /* --- Empty State --- */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+        background: var(--surface-medium);
         border-radius: var(--radius-lg);
         border: 2px dashed var(--neutral-200);
     }
-    .channel-link-card-new {
-    background: var(--surface-light);
-    border: 1px solid var(--neutral-200);
-    border-radius: var(--radius-lg);
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    box-shadow: var(--shadow-sm);
-}
-.channel-link-card-new .card-header {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    padding-bottom: 1rem;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid var(--neutral-200);
-}
-.channel-link-card-new .card-stats h4 {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 1rem;
-}
-.card-stats .stat-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 1rem;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid var(--neutral-200);
-}
-.card-stats .stat-item:last-child {
-    border-bottom: none;
-}
-.stat-item .stat-label {
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-.stat-item .stat-value {
-    color: var(--text-primary);
-    font-weight: 600;
-    font-family: 'Onest', sans-serif;
-}
-.stat-label {
-    display: flex;
-    align-items: center;
-    gap: 8px; /* Creates space between the label text and the icon */
-}
-.info-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background-color: var(--neutral-300);
-    color: var(--surface-light);
-    font-size: 12px;
-    font-weight: 700;
-    font-family: serif; /* Gives a nice look to the 'i' */
-    cursor: pointer;
-    position: relative;
-    user-select: none; /* Prevents text selection on mobile tap */
-}
 
-/* Tooltip Bubble */
-.info-icon::before {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: 150%;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 240px;
-    background-color: var(--text-primary);
-    color: var(--surface-light);
-    padding: 10px;
-    border-radius: var(--radius-md);
-    font-size: 0.85rem;
-    font-family: 'Figtree', sans-serif;
-    font-weight: 500;
-    line-height: 1.5;
-    text-align: center;
-    z-index: 10;
-    /* Hidden by default */
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s ease;
-    pointer-events: none;
-}
+    .empty-state-icon {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 1rem;
+        color: var(--text-muted);
+    }
 
-/* Show on hover (desktop) or when .active class is added by JS (mobile) */
-.info-icon:hover::before,
-.info-icon.active::before {
-    opacity: 1;
-    visibility: visible;
-}
+    .empty-state h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state p {
+        color: var(--text-secondary);
+        margin-bottom: 1rem;
+    }
+
+    /* --- Responsive --- */
+    @media (max-width: 1024px) {
+        .stats-overview {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .charts-section {
+            grid-template-columns: 1fr;
+        }
+
+        .integration-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .channel-card {
+            flex-wrap: wrap;
+        }
+
+        .channel-stats {
+            width: 100%;
+            margin-top: 0.75rem;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .dashboard-container {
+            padding: 1rem;
+        }
+
+        .stats-overview,
+        .integration-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .channel-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="integration-hub">
-    <h1>Integrations</h1>
-    <p>Connect YoppyChat with your favorite apps to extend its power.</p>
+<div class="dashboard-container">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h1>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 3v18h18" />
+                <path d="m19 9-5 5-4-4-3 3" />
+            </svg>
+            Creator Dashboard
+        </h1>
+        <p>Track your AI persona performance and earnings.</p>
+    </div>
 
+    <!-- Stats Overview Cards -->
+    <div class="stats-overview">
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-label">Total Referrals</span>
+                <div class="stat-card-icon referrals">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                </div>
+            </div>
+            <div class="stat-card-value">{{ total_stats.referrals|default(0) }}</div>
+            <div class="stat-card-sub">{{ total_stats.paid_referrals|default(0) }} subscribed</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-label">Monthly Revenue</span>
+                <div class="stat-card-icon revenue">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="1" x2="12" y2="23" />
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                    </svg>
+                </div>
+            </div>
+            <div class="stat-card-value">${{ "%.2f"|format(total_stats.creator_mrr|default(0)) }}</div>
+            <div class="stat-card-sub">Creator MRR</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-label">Current Adds</span>
+                <div class="stat-card-icon adds">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                    </svg>
+                </div>
+            </div>
+            <div class="stat-card-value">{{ total_stats.current_adds|default(0) }}</div>
+            <div class="stat-card-sub">Users with your channels</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-label">Your Channels</span>
+                <div class="stat-card-icon channels">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path
+                            d="m22.54 6.42-6.16-3.17a1 1 0 0 0-1 0L12 5.23l-3.38-1.98a1 1 0 0 0-1 0L1.46 6.42a1 1 0 0 0-.54.89v9.38a1 1 0 0 0 .54.89l6.16 3.17a1 1 0 0 0 1 0L12 18.77l3.38 1.98a1 1 0 0 0 1 0l6.16-3.17a1 1 0 0 0 .54-.89V7.31a1 1 0 0 0-.54-.89Z" />
+                        <path d="m12 18.77V5.23" />
+                        <path d="M1.46 6.42L12 12l10.54-5.58" />
+                    </svg>
+                </div>
+            </div>
+            <div class="stat-card-value">{{ creator_channels|length }}</div>
+            <div class="stat-card-sub">AI-powered personas</div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-section">
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10" />
+                    <line x1="12" y1="20" x2="12" y2="4" />
+                    <line x1="6" y1="20" x2="6" y2="14" />
+                </svg>
+                <span class="chart-card-title">Engagement Trends (Last 7 Days)</span>
+            </div>
+            <div class="chart-container">
+                <canvas id="engagementChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+                    <path d="M22 12A10 10 0 0 0 12 2v10z" />
+                </svg>
+                <span class="chart-card-title">Platform Distribution</span>
+            </div>
+            <div class="chart-container">
+                <canvas id="platformChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Integrations Section -->
+    <div class="section-header">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+            <path d="m9 12 2 2 4-4" />
+        </svg>
+        <h2 class="section-title">Integrations</h2>
+    </div>
     <div class="integration-grid">
         <a href="{{ url_for('discord_dashboard') }}" class="integration-card">
             <div class="card-header">
-                        <img src="{{ url_for('static', filename='images/logo/discord-icon.svg') }}" 
-             alt="Discord Logo" class="card-icon">
+                <img src="{{ url_for('static', filename='images/logo/discord-icon.svg') }}" alt="Discord"
+                    class="card-icon">
                 <span>Discord</span>
                 {% if discord_is_active %}
-                    <span class="status-badge active">Active</span>
+                <span class="status-badge active">Active</span>
                 {% else %}
-                    <span class="status-badge">Not Connected</span>
+                <span class="status-badge">Not Connected</span>
                 {% endif %}
             </div>
-            <p class="card-description">Manage the official YoppyChat bot or create your own fully branded bot for your server.</p>
-            <div class="card-footer">Manage Discord →</div>
+            <p class="card-description">Deploy your AI bot to Discord servers.</p>
+            <div class="card-footer">
+                Manage Discord
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                </svg>
+            </div>
         </a>
 
         <a href="{{ url_for('telegram_dashboard') }}" class="integration-card">
             <div class="card-header">
-                <img src="{{ url_for('static', filename='images/logo/telegram.svg') }}" 
-                     alt="Telegram Logo" class="card-icon">
+                <img src="{{ url_for('static', filename='images/logo/telegram.svg') }}" alt="Telegram"
+                    class="card-icon">
                 <span>Telegram</span>
                 {% if telegram_is_active %}
-                    <span class="status-badge active">Active</span>
+                <span class="status-badge active">Active</span>
                 {% else %}
-                    <span class="status-badge">Not Connected</span>
+                <span class="status-badge">Not Connected</span>
                 {% endif %}
             </div>
-            <p class="card-description">Connect your personal account or add the bot to a group chat for Q&A on the go.</p>
-            <div class="card-footer">Manage Telegram →</div>
+            <p class="card-description">Connect to Telegram for instant Q&A.</p>
+            <div class="card-footer">
+                Manage Telegram
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                </svg>
+            </div>
+        </a>
+
+        <a href="{{ url_for('embed_dashboard') }}" class="integration-card">
+            <div class="card-header">
+                <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="16 18 22 12 16 6" />
+                    <polyline points="8 6 2 12 8 18" />
+                </svg>
+                <span>Website Embed</span>
+                {% if embed_is_active %}
+                <span class="status-badge active">Active</span>
+                {% else %}
+                <span class="status-badge">Not Set Up</span>
+                {% endif %}
+            </div>
+            <p class="card-description">Add chat widget to your website.</p>
+            <div class="card-footer">
+                Get Embed Code
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                </svg>
+            </div>
         </a>
     </div>
-</div>
-<div class="links-page">
 
-    <h1>Creator Share Links</h1>
-    <p>Share these public links to allow anyone to chat with the AI persona of your channels.</p>
-
-    <div class="links-container" style="margin-top: 2rem;">
-        {% if saved_channels %}
-            {% for name, channel in saved_channels.items() %}
-                <div class="channel-link-card-new">
-                    <div class="card-header">
-                        <img src="{{ channel.channel_thumbnail }}" alt="{{ name }}" class="channel-avatar">
-                        <div class="link-details">
-                            <div class="channel-name">{{ name }}</div>
-                            <div class="code-block-wrapper">
-                                <input type="text" class="code-block-input" value="{{ url_for('public_chat_page', channel_name=name, _external=True) }}" readonly>
-                                <button class="btn btn-secondary copy-btn" onclick="copyShareLink(this)">Copy</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card-stats">
-                        <div class="stat-item">
-                            <span class="stat-label">
-                                Referrals
-                                <span class="info-icon" data-tooltip="Total new users who signed up using this channel's public link.">i</span>
-                            </span>
-                            <span class="stat-value">
-                                {{ channel.stats.referrals }} 
-                                <span style="color: var(--text-muted); font-weight: 500;" data-tooltip="How many of your referred users have upgraded to a paid plan.">
-                                    ({{ channel.stats.paid_referrals }} Subscribed)
-                                </span>
-                            </span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">
-                                Creator MRR
-                                <span class="info-icon" data-tooltip="Your estimated monthly commission from your referred users' subscriptions.">i</span>
-                            </span>
-                            <span class="stat-value">${{ "%.2f"|format(channel.stats.creator_mrr) }} / month</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">
-                                Current Adds
-                                <span class="info-icon" data-tooltip="The total number of users who currently have this channel in their personal list.">i</span>
-                            </span>
-                            <span class="stat-value">{{ channel.stats.current_adds }}</span>
-                        </div>
-                    </div>
-                </div> {% endfor %}
-        {% else %}
-            <div class="no-channels-notice">
-                <p>You haven't processed any channels yet.</p>
-                <a href="{{ url_for('channel') }}" class="btn btn-primary" style="margin-top: 1rem;">Process Your First Channel</a>
-            </div>
-        {% endif %}
+    <!-- Channel Performance Section -->
+    <div class="section-header">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
+            <polyline points="17 2 12 7 7 2" />
+        </svg>
+        <h2 class="section-title">Channel Performance</h2>
     </div>
+
+    {% if creator_channels %}
+    {% for name, channel in creator_channels.items() %}
+    <div class="channel-card">
+        <img src="{{ channel.channel_thumbnail }}" alt="{{ name }}" class="channel-avatar">
+        <div class="channel-info">
+            <div class="channel-name">{{ name }}</div>
+            <div class="channel-link-display">{{ url_for('public_chat_page', channel_name=name, _external=True) }}</div>
+        </div>
+        <button class="copy-btn"
+            onclick="copyShareLink(this, '{{ url_for('public_chat_page', channel_name=name, _external=True) }}')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+            Copy
+        </button>
+        <div class="channel-stats">
+            <div class="channel-stat">
+                <div class="channel-stat-value">{{ channel.stats.referrals|default(0) }}</div>
+                <div class="channel-stat-label">Referrals</div>
+            </div>
+            <div class="channel-stat">
+                <div class="channel-stat-value">{{ channel.stats.paid_referrals|default(0) }}</div>
+                <div class="channel-stat-label">Subscribed</div>
+            </div>
+            <div class="channel-stat">
+                <div class="channel-stat-value">${{ "%.2f"|format(channel.stats.creator_mrr|default(0)) }}</div>
+                <div class="channel-stat-label">MRR</div>
+            </div>
+            <div class="channel-stat">
+                <div class="channel-stat-value">{{ channel.stats.current_adds|default(0) }}</div>
+                <div class="channel-stat-label">Adds</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">
+        <svg class="empty-state-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path
+                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+            <line x1="12" y1="22.08" x2="12" y2="12" />
+        </svg>
+        <h3>No Channels Yet</h3>
+        <p>Process your first YouTube channel to start tracking analytics.</p>
+        <a href="{{ url_for('channel') }}" class="btn btn-primary">Process Your First Channel</a>
+    </div>
+    {% endif %}
 </div>
-
 {% endblock %}
-{% block page_scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // This script handles the tooltip clicks for mobile users
-    const dashboardContainer = document.querySelector('.links-container');
-    if (dashboardContainer) {
-        // Use event delegation for efficiency
-        dashboardContainer.addEventListener('click', function(e) {
-            if (e.target.classList.contains('info-icon')) {
-                e.stopPropagation(); // Prevent the document click listener from firing immediately
 
-                // Deactivate any other active icons
-                document.querySelectorAll('.info-icon.active').forEach(icon => {
-                    if (icon !== e.target) {
-                        icon.classList.remove('active');
-                    }
-                });
-                // Toggle the active state on the clicked icon
-                e.target.classList.toggle('active');
-            }
+{% block page_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    // --- Copy Share Link Function ---
+    function copyShareLink(button, url) {
+        navigator.clipboard.writeText(url).then(() => {
+            const originalHTML = button.innerHTML;
+            button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied`;
+            button.style.background = '#10B981';
+            setTimeout(() => {
+                button.innerHTML = originalHTML;
+                button.style.background = '';
+            }, 2000);
         });
     }
 
-    // Add a single listener to the document to close any open tooltips
-    document.addEventListener('click', function(e) {
-        if (!e.target.classList.contains('info-icon')) {
-            document.querySelectorAll('.info-icon.active').forEach(icon => {
-                icon.classList.remove('active');
+    // --- Initialize Charts ---
+    document.addEventListener('DOMContentLoaded', function () {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColor = isDark ? '#9ca3af' : '#6b7280';
+        const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
+
+        // Engagement Chart
+        const engagementCtx = document.getElementById('engagementChart');
+        if (engagementCtx) {
+            new Chart(engagementCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Engagement',
+                        data: [12, 19, 15, 25, 22, 30, 28],
+                        borderColor: '#FF6B35',
+                        backgroundColor: 'rgba(255, 107, 53, 0.08)',
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#FF6B35',
+                        pointRadius: 3,
+                        pointHoverRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: gridColor, drawBorder: false }, ticks: { color: textColor, font: { size: 11 } } },
+                        y: { grid: { color: gridColor, drawBorder: false }, ticks: { color: textColor, font: { size: 11 } }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Platform Chart
+        const platformCtx = document.getElementById('platformChart');
+        if (platformCtx) {
+            new Chart(platformCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Website', 'Discord', 'Telegram', 'Embed'],
+                    datasets: [{
+                        data: [45, 25, 20, 10],
+                        backgroundColor: ['#FF6B35', '#5865F2', '#0088cc', '#F59E0B'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: textColor, padding: 12, usePointStyle: true, pointStyle: 'circle', font: { size: 11 } }
+                        }
+                    }
+                }
             });
         }
     });
-});
 </script>
 {% endblock %}

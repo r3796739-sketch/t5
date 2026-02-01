@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Transcript Extractor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            display: none;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .result.active {
+            display: block;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .result-header h3 {
+            color: #333;
+        }
+
+        .copy-btn {
+            padding: 8px 16px;
+            width: auto;
+            background: #4CAF50;
+            font-size: 14px;
+        }
+
+        .copy-btn:hover {
+            background: #45a049;
+        }
+
+        .transcript-box {
+            background: #f5f5f5;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #1565c0;
+        }
+
+        .info strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎥 YouTube Transcript Extractor</h1>
+            <p>Extract transcripts from any YouTube video instantly</p>
+        </div>
+
+        <div class="card">
+            <div class="info">
+                <strong>How it works:</strong>
+                This uses YouTube's built-in caption/transcript data. Simply paste a YouTube URL or video ID and we'll extract the transcript for you. No speech recognition needed - we access the captions YouTube already has!
+            </div>
+
+            <div class="input-group">
+                <label for="videoUrl">YouTube URL or Video ID</label>
+                <input 
+                    type="text" 
+                    id="videoUrl" 
+                    placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ or dQw4w9WgXcQ"
+                    value="dQw4w9WgXcQ"
+                >
+            </div>
+
+            <div class="options">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="timestamps" checked>
+                    <label for="timestamps" style="margin: 0;">Include Timestamps</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="formatPretty" checked>
+                    <label for="formatPretty" style="margin: 0;">Pretty Format</label>
+                </div>
+            </div>
+
+            <button id="extractBtn" onclick="extractTranscript()">
+                Extract Transcript
+            </button>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Fetching transcript...</p>
+            </div>
+
+            <div class="error" id="error"></div>
+
+            <div class="result" id="result">
+                <div class="result-header">
+                    <h3>Transcript Result</h3>
+                    <button class="copy-btn" onclick="copyTranscript()">📋 Copy</button>
+                </div>
+                <div class="transcript-box" id="transcriptBox"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 15px;">💡 Technical Implementation</h3>
+            <p style="line-height: 1.6; color: #555;">
+                This demo simulates how services like TranscriptAPI.com work. In a real implementation, you would:
+            </p>
+            <ul style="margin: 15px 0 15px 20px; line-height: 1.8; color: #555;">
+                <li>Use <code>youtube-transcript-api</code> Python library</li>
+                <li>Build a REST API with Flask/FastAPI</li>
+                <li>Access YouTube's internal caption endpoints</li>
+                <li>Add caching and rate limiting</li>
+                <li>Handle multiple languages and translations</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function extractVideoId(url) {
+            const patterns = [
+                /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
+                /youtube\.com\/embed\/([^&\n?#]+)/,
+            ];
+            
+            for (let pattern of patterns) {
+                const match = url.match(pattern);
+                if (match) return match[1];
+            }
+            return url.trim();
+        }
+
+async function extractTranscript() {
+    const videoUrl = document.getElementById('videoUrl').value;
+    const includeTimestamps = document.getElementById('timestamps').checked;
+    const formatPretty = document.getElementById('formatPretty').checked;
+    
+    const loading = document.getElementById('loading');
+    const error = document.getElementById('error');
+    const result = document.getElementById('result');
+    const extractBtn = document.getElementById('extractBtn');
+    
+    error.classList.remove('active');
+    result.classList.remove('active');
+    loading.classList.add('active');
+    extractBtn.disabled = true;
+
+    try {
+        // Call your Flask API
+        const response = await fetch(
+            `/api/transcript?video_url=${encodeURIComponent(videoUrl)}&format=json&include_timestamps=${includeTimestamps}`
+        );
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to fetch transcript');
+        }
+
+        const transcript = data.transcript;
+        let formattedTranscript;
+        
+        if (includeTimestamps && formatPretty) {
+            formattedTranscript = transcript.map(entry => 
+                `[${formatTime(entry.start)}] ${entry.text}`
+            ).join('\n');
+        } else if (includeTimestamps) {
+            formattedTranscript = transcript.map(entry => 
+                `[${entry.start.toFixed(2)}s] ${entry.text}`
+            ).join('\n');
+        } else {
+            formattedTranscript = transcript.map(entry => entry.text).join(' ');
+        }
+
+        document.getElementById('transcriptBox').textContent = formattedTranscript;
+        result.classList.add('active');
+
+    } catch (err) {
+        error.textContent = `Error: ${err.message}`;
+        error.classList.add('active');
+    } finally {
+        loading.classList.remove('active');
+        extractBtn.disabled = false;
+    }
+}
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function copyTranscript() {
+            const transcriptBox = document.getElementById('transcriptBox');
+            const text = transcriptBox.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            });
+        }
+
+        document.getElementById('videoUrl').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                extractTranscript();
+            }
+        });
+    </script>
+</body>
+</html>

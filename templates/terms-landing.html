@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Terms of Service for YoppyChat - Read our terms and conditions for using our service.">
+    <title>Terms of Service - YoppyChat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#ff9a56',
+                        secondary: '#ff8c42',
+                        purple: '#9333ea',
+                        'purple-light': '#a855f7',
+                        success: '#4caf50',
+                        'text-primary': '#2a1f16',
+                        'text-secondary': '#5a4a32',
+                        'text-muted': '#7d6847',
+                        'neutral-100': '#f8f1e8',
+                        'neutral-200': '#f0e6d6',
+                        'neutral-300': '#e6d5c1',
+                        'neutral-400': '#c4a882',
+                        cream: '#fdf8f3',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #fdf8f3;
+            color: #2a1f16;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #ff9a56 0%, #ff8c42 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f8f1e8;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c4a882;
+            border-radius: 9999px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ff9a56;
+        }
+
+        ::selection {
+            background: rgba(255, 154, 86, 0.3);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen overflow-x-hidden">
+    <!-- Background decorations -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+        <div class="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full opacity-30"
+            style="background: radial-gradient(circle, rgba(255,154,86,0.3) 0%, transparent 70%);"></div>
+        <div class="absolute top-1/3 -left-40 w-[500px] h-[500px] rounded-full opacity-20"
+            style="background: radial-gradient(circle, rgba(147,51,234,0.25) 0%, transparent 70%);"></div>
+        <div class="absolute inset-0 opacity-[0.015]"
+            style="background-image: linear-gradient(#c4a882 1px, transparent 1px), linear-gradient(90deg, #c4a882 1px, transparent 1px); background-size: 60px 60px;">
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-neutral-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav class="flex items-center justify-between h-16 lg:h-20">
+                <a href="{{ url_for('home') }}" class="flex items-center gap-2 group">
+                    <img src="{{ url_for('static', filename='images/logo/primiry__logo.png') }}" alt="YoppyChat Logo"
+                        class="h-12 lg:h-14 w-auto">
+                </a>
+
+                <div class="flex items-center gap-4">
+                    <a href="{{ url_for('channel') }}"
+                        class="px-6 py-2.5 rounded-full bg-gradient-to-r from-primary to-secondary text-white font-semibold shadow-lg hover:shadow-xl hover:shadow-primary/30 transform hover:-translate-y-0.5 transition-all duration-300">
+                        Try Free
+                    </a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="relative z-10 pt-24 pb-16">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Page Header -->
+            <div class="text-center mb-12">
+                <div
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
+                    <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                    </svg>
+                    <span class="text-sm font-medium text-primary">Legal</span>
+                </div>
+                <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold text-text-primary mb-4">
+                    Terms of <span class="gradient-text">Service</span>
+                </h1>
+                <p class="text-lg text-text-muted">Last Updated: July 11, 2025</p>
+            </div>
+
+            <!-- Content -->
+            <div class="bg-white rounded-3xl shadow-xl border border-neutral-200 p-8 lg:p-12">
+                <div class="prose prose-lg max-w-none">
+                    <p class="text-text-secondary leading-relaxed mb-6">
+                        Welcome to YoppyChat AI! These Terms and Conditions ("Terms") govern your use of our web
+                        application, services, and APIs (collectively, the "Service"). By creating an account or using
+                        our Service, you agree to be bound by these Terms.
+                    </p>
+
+                    <div class="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg mb-8">
+                        <p class="text-red-700 font-semibold">
+                            <strong>Disclaimer:</strong> By accessing or using the Service, you agree to be bound by
+                            these Terms. If you do not agree, do not use the Service.
+                        </p>
+                    </div>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        1. Description of the Service
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-6">
+                        YoppyChat AI is a service that allows users to process public YouTube channels to create a
+                        conversational AI assistant. The Service fetches publicly available video transcripts, processes
+                        this information, and enables users to ask questions and receive answers based on the content of
+                        those videos. The Service can be accessed via our web application and an integrated Telegram
+                        bot.
+                    </p>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        2. User Accounts
+                    </h2>
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong
+                                    class="text-text-primary">Registration:</strong> To use most features, you must
+                                register for an account, which can be done via Google OAuth. You agree to provide
+                                accurate and complete information.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong class="text-text-primary">Account
+                                    Security:</strong> You are responsible for safeguarding your account credentials and
+                                for all activities that occur under your account. You must notify us immediately of any
+                                unauthorized use.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong class="text-text-primary">Age
+                                    Requirement:</strong> You must be at least 13 years old to use the Service.</span>
+                        </li>
+                    </ul>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        3. Subscriptions and Payments
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-4">
+                        The Service is offered under different subscription plans, including a free tier and paid tiers
+                        ("Creator," "Pro").
+                    </p>
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong
+                                    class="text-text-primary">Plans:</strong> Each plan has specific limits on the
+                                number of channels you can process, videos per channel, and queries per month. These
+                                limits are detailed on our pricing page.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong
+                                    class="text-text-primary">Billing:</strong> For paid plans, you will be billed on a
+                                recurring monthly basis. All fees are non-refundable.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong
+                                    class="text-text-primary">Cancellation:</strong> You may cancel your subscription at
+                                any time. The cancellation will take effect at the end of the current billing cycle, and
+                                you will not be charged for subsequent cycles.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong
+                                    class="text-text-primary">Changes:</strong> We reserve the right to change our
+                                subscription plans or pricing. We will provide you with reasonable notice of any such
+                                changes.</span>
+                        </li>
+                    </ul>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        4. User Content and Responsibilities
+                    </h2>
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong class="text-text-primary">Your
+                                    Content:</strong> You retain ownership of the YouTube channel URLs you provide to
+                                the Service.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong
+                                    class="text-text-primary">Responsibility for Content:</strong> By submitting a
+                                YouTube channel URL to the Service, you represent and warrant that you have the
+                                necessary rights and permissions to use that content. You agree not to submit content
+                                that infringes on any third-party copyrights or intellectual property rights.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong
+                                    class="text-text-primary">Service's Use of Content:</strong> You grant YoppyChat AI
+                                a limited, non-exclusive license to access, process, and store the publicly available
+                                data (such as video transcripts, titles, and descriptions) from the YouTube channels you
+                                provide for the sole purpose of providing the Service to you.</span>
+                        </li>
+                    </ul>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        5. Acceptable Use Policy
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-4">You agree not to use the Service to:</p>
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed">Engage in any illegal, fraudulent, or
+                                abusive activities.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed">Infringe on the intellectual property
+                                rights of others.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed">Upload or transmit any viruses, malware,
+                                or other malicious code.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed">Attempt to reverse-engineer, decompile, or
+                                otherwise disrupt the Service.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed">Exceed your usage limits through automated
+                                or deceptive means.</span>
+                        </li>
+                    </ul>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        6. Disclaimers and Limitation of Liability
+                    </h2>
+                    <ul class="space-y-4 mb-6">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong
+                                    class="text-text-primary">AI-Generated Content:</strong> The answers provided by the
+                                AI are generated based on the content of the YouTube videos. While we strive for
+                                accuracy, <strong>we do not guarantee the accuracy, completeness, or reliability of any
+                                    information provided by the AI</strong>. The Service is for informational purposes
+                                only and should not be considered a substitute for professional advice.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong class="text-text-primary">"AS IS"
+                                    Service:</strong> The Service is provided "as is" and "as available" without any
+                                warranties of any kind, either express or implied. We do not warrant that the Service
+                                will be uninterrupted, error-free, or completely secure.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong
+                                    class="text-text-primary">Limitation of Liability:</strong> To the fullest extent
+                                permitted by law, YoppyChat AI and its affiliates shall not be liable for any indirect,
+                                incidental, special, consequential, or punitive damages, or any loss of profits or
+                                revenues, whether incurred directly or indirectly, or any loss of data, use, goodwill,
+                                or other intangible losses resulting from your use of the Service.</span>
+                        </li>
+                    </ul>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        7. Termination
+                    </h2>
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong class="text-text-primary">By
+                                    You:</strong> You may terminate your account at any time by ceasing to use the
+                                Service or by contacting us.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong class="text-text-primary">By
+                                    Us:</strong> We reserve the right to suspend or terminate your account at any time,
+                                without prior notice, if you breach these Terms or for any other reason at our sole
+                                discretion.</span>
+                        </li>
+                    </ul>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        8. Changes to These Terms
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-6">
+                        We may modify these Terms from time to time. If we make material changes, we will notify you
+                        through the Service or by other means to provide you with an opportunity to review the changes
+                        before they become effective. Your continued use of the Service after the changes have been made
+                        will constitute your acceptance of the new Terms.
+                    </p>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        9. Governing Law
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-6">
+                        These Terms shall be governed by and construed in accordance with the laws of India, without
+                        regard to its conflict of law principles.
+                    </p>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        10. YouTube Terms of Service
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-6">
+                        Our application uses YouTube API Services to provide its features. By using our application, you
+                        are also agreeing to be bound by the <a href="https://www.youtube.com/t/terms" target="_blank"
+                            class="text-primary hover:underline font-semibold">YouTube Terms of Service</a>.
+                    </p>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        11. Contact Information
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed">
+                        If you have any questions about these Terms, please contact us at <strong
+                            class="text-primary">support@YoppyChatai.com</strong>.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Back to Home -->
+            <div class="text-center mt-12">
+                <a href="{{ url_for('home') }}"
+                    class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white border-2 border-neutral-200 text-text-primary font-semibold hover:border-primary hover:text-primary transform hover:-translate-y-0.5 transition-all duration-300 shadow-lg">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Home
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative z-10 bg-white border-t border-neutral-200 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="text-center text-text-muted text-sm">
+                <p>&copy; 2025 YoppyChat. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>

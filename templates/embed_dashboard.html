@@ -1,0 +1,850 @@
+{% extends "base.html" %}
+
+{% block title %}Website Embed - YoppyChat AI{% endblock %}
+
+{% block page_styles %}
+<style>
+    .embed-dashboard {
+        padding: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-weight: 500;
+        margin-bottom: 1.5rem;
+    }
+
+    .back-link:hover {
+        color: var(--text-primary);
+    }
+
+    .page-header {
+        margin-bottom: 2rem;
+    }
+
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .page-subtitle {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+    }
+
+    .embed-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+
+    @media (min-width: 1024px) {
+        .embed-grid {
+            grid-template-columns: 1fr 400px;
+        }
+    }
+
+    .embed-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+    }
+
+    .embed-card-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .channel-selector {
+        margin-bottom: 1.5rem;
+    }
+
+    .channel-selector label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+    }
+
+    .channel-selector select {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-md);
+        background: var(--surface-light);
+        font-size: 1rem;
+        color: var(--text-primary);
+        cursor: pointer;
+    }
+
+    .customization-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .customization-section h4 {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 1rem;
+    }
+
+    .option-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--neutral-100);
+    }
+
+    .option-row:last-child {
+        border-bottom: none;
+    }
+
+    .option-label {
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+
+    .option-description {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-top: 0.25rem;
+    }
+
+    .color-picker-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .color-picker {
+        width: 40px;
+        height: 40px;
+        border: 2px solid var(--neutral-200);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        padding: 0;
+    }
+
+    .code-block {
+        background: #1e1e1e;
+        border-radius: var(--radius-md);
+        padding: 1rem;
+        margin-top: 1rem;
+        position: relative;
+    }
+
+    .code-block pre {
+        margin: 0;
+        color: #d4d4d4;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        white-space: pre-wrap;
+        word-break: break-all;
+        line-height: 1.5;
+    }
+
+    .code-block .copy-btn {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        background: var(--accent-primary);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .code-block .copy-btn:hover {
+        opacity: 0.9;
+    }
+
+    .code-block .copy-btn.copied {
+        background: #10b981;
+    }
+
+    /* Preview Section */
+    .preview-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        min-height: 400px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .preview-label {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: var(--radius-full);
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .preview-website {
+        background: white;
+        border-radius: 12px;
+        width: 100%;
+        max-width: 350px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+    }
+
+    .preview-browser-bar {
+        background: #f1f1f1;
+        padding: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .preview-dots {
+        display: flex;
+        gap: 4px;
+    }
+
+    .preview-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #ddd;
+    }
+
+    .preview-dot.red {
+        background: #ff5f56;
+    }
+
+    .preview-dot.yellow {
+        background: #ffbd2e;
+    }
+
+    .preview-dot.green {
+        background: #27ca3f;
+    }
+
+    .preview-url {
+        flex: 1;
+        background: white;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 0.75rem;
+        color: #666;
+    }
+
+    .preview-content {
+        padding: 1.5rem;
+        min-height: 250px;
+        position: relative;
+        background: #fafafa;
+    }
+
+    .preview-content-placeholder {
+        background: #e0e0e0;
+        height: 12px;
+        border-radius: 4px;
+        margin-bottom: 0.75rem;
+    }
+
+    .preview-content-placeholder.short {
+        width: 60%;
+    }
+
+    /* Stats Section */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .stat-card {
+        background: var(--surface-medium);
+        border-radius: var(--radius-md);
+        padding: 1rem;
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .stat-label {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-top: 0.25rem;
+    }
+
+    /* Floating Widget Preview */
+    .widget-preview {
+        position: absolute;
+        bottom: 1rem;
+        right: 1rem;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        cursor: pointer;
+        transition: transform 0.3s;
+    }
+
+    .widget-preview:hover {
+        transform: scale(1.1);
+    }
+
+    .widget-preview svg {
+        width: 24px;
+        height: 24px;
+        fill: white;
+    }
+
+    .widget-preview svg.close-icon {
+        display: none;
+    }
+
+    .widget-preview.open svg.chat-icon {
+        display: none;
+    }
+
+    .widget-preview.open svg.close-icon {
+        display: block;
+    }
+
+    /* Interactive Preview Chat Popup */
+    .preview-chat-popup {
+        position: absolute;
+        bottom: 70px;
+        right: 1rem;
+        width: 260px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 5px 30px rgba(0, 0, 0, 0.2);
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+        animation: previewSlideIn 0.3s ease;
+    }
+
+    .preview-chat-popup.open {
+        display: flex;
+    }
+
+    @keyframes previewSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .preview-chat-header {
+        padding: 10px 12px;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .preview-chat-header-info h4 {
+        margin: 0;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .preview-chat-header-info span {
+        font-size: 0.7rem;
+        opacity: 0.9;
+    }
+
+    .preview-chat-messages {
+        padding: 10px;
+        background: #f5f5f5;
+        min-height: 80px;
+    }
+
+    .preview-chat-bubble {
+        background: white;
+        border: 1px solid #e0e0e0;
+        padding: 8px 10px;
+        border-radius: 10px;
+        border-bottom-left-radius: 4px;
+        font-size: 0.75rem;
+        color: #333;
+        max-width: 95%;
+    }
+
+    .preview-chat-input {
+        padding: 8px;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        gap: 6px;
+        background: white;
+    }
+
+    .preview-chat-input input {
+        flex: 1;
+        border: 1px solid #e0e0e0;
+        border-radius: 16px;
+        padding: 6px 10px;
+        font-size: 0.75rem;
+        outline: none;
+    }
+
+    .preview-chat-input button {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+
+    .preview-chat-input button svg {
+        width: 14px;
+        height: 14px;
+        fill: white;
+    }
+
+    .no-channels-notice {
+        text-align: center;
+        padding: 3rem;
+        background: var(--surface-medium);
+        border-radius: var(--radius-lg);
+        border: 2px dashed var(--neutral-200);
+    }
+
+    .installation-steps {
+        margin-top: 1.5rem;
+    }
+
+    .installation-steps h4 {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 1rem;
+    }
+
+    .step {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem 0;
+        border-bottom: 1px solid var(--neutral-100);
+    }
+
+    .step:last-child {
+        border-bottom: none;
+    }
+
+    .step-number {
+        width: 28px;
+        height: 28px;
+        background: var(--accent-primary);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+    }
+
+    .step-content h5 {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+
+    .step-content p {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    .position-selector {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .position-option {
+        padding: 0.5rem 1rem;
+        border: 2px solid var(--neutral-200);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .position-option.active {
+        border-color: var(--accent-primary);
+        background: rgba(255, 154, 86, 0.1);
+        color: var(--accent-primary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="embed-dashboard">
+    <a href="{{ url_for('dashboard') }}" class="back-link">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+        </svg>
+        Back to Integrations
+    </a>
+
+    <div class="page-header">
+        <h1 class="page-title">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <path d="M9 3v18M21 9H3" />
+            </svg>
+            Website Embed
+        </h1>
+        <p class="page-subtitle">Add a floating chat widget to any website. Your visitors can ask questions directly
+            from your site.</p>
+    </div>
+
+    {% if saved_channels %}
+    <div class="embed-grid">
+        <!-- Left Column: Settings -->
+        <div>
+            <div class="embed-card">
+                <h3 class="embed-card-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
+                    Widget Settings
+                </h3>
+
+                <div class="channel-selector">
+                    <label for="channelSelect">Select Channel</label>
+                    <select id="channelSelect" onchange="updateEmbedCode()">
+                        {% for name, channel in saved_channels.items() %}
+                        <option value="{{ name }}" data-thumbnail="{{ channel.channel_thumbnail }}">{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="customization-section">
+                    <h4>Appearance</h4>
+                    <div class="option-row">
+                        <div>
+                            <div class="option-label">Button Color</div>
+                            <div class="option-description">Main color for the widget button</div>
+                        </div>
+                        <div class="color-picker-wrapper">
+                            <input type="color" id="buttonColor" class="color-picker" value="#ff9a56"
+                                onchange="updateEmbedCode()">
+                        </div>
+                    </div>
+                    <div class="option-row">
+                        <div>
+                            <div class="option-label">Position</div>
+                            <div class="option-description">Where to show the chat button</div>
+                        </div>
+                        <div class="position-selector">
+                            <div class="position-option active" data-position="right" onclick="selectPosition(this)">
+                                Right</div>
+                            <div class="position-option" data-position="left" onclick="selectPosition(this)">Left</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Embed Code -->
+            <div class="embed-card" style="margin-top: 1.5rem;">
+                <h3 class="embed-card-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="16 18 22 12 16 6" />
+                        <polyline points="8 6 2 12 8 18" />
+                    </svg>
+                    Embed Code
+                </h3>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                    Copy this code and paste it before the closing <code>&lt;/body&gt;</code> tag of your website.
+                </p>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyEmbedCode(this)">Copy Code</button>
+                    <pre id="embedCode"></pre>
+                </div>
+
+                <div class="installation-steps">
+                    <h4>Installation Steps</h4>
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h5>Copy the code above</h5>
+                            <p>Click the "Copy Code" button to copy the embed snippet.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h5>Open your website editor</h5>
+                            <p>Go to your website's HTML or theme settings.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h5>Paste before &lt;/body&gt;</h5>
+                            <p>Add the code just before the closing body tag and save.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="embed-card" style="margin-top: 1.5rem;">
+                <h3 class="embed-card-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 20V10M12 20V4M6 20v-6" />
+                    </svg>
+                    Widget Statistics
+                </h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">{{ embed_stats.total_chats|default(0) }}</div>
+                        <div class="stat-label">Total Chats</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">{{ embed_stats.total_questions|default(0) }}</div>
+                        <div class="stat-label">Questions Asked</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">{{ embed_stats.unique_visitors|default(0) }}</div>
+                        <div class="stat-label">Unique Visitors</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">{{ embed_stats.domains|default(0) }}</div>
+                        <div class="stat-label">Domains Active</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Preview -->
+        <div>
+            <div class="embed-card">
+                <h3 class="embed-card-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Live Preview
+                    <span
+                        style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400; margin-left: auto;">Click
+                        the button to try!</span>
+                </h3>
+                <div class="preview-section">
+                    <span class="preview-label">Your Website</span>
+                    <div class="preview-website">
+                        <div class="preview-browser-bar">
+                            <div class="preview-dots">
+                                <span class="preview-dot red"></span>
+                                <span class="preview-dot yellow"></span>
+                                <span class="preview-dot green"></span>
+                            </div>
+                            <div class="preview-url">yourwebsite.com</div>
+                        </div>
+                        <div class="preview-content">
+                            <div class="preview-content-placeholder"></div>
+                            <div class="preview-content-placeholder short"></div>
+                            <div class="preview-content-placeholder"></div>
+                            <div class="preview-content-placeholder short"></div>
+                            <div class="preview-content-placeholder"></div>
+
+                            <!-- Interactive Chat Popup -->
+                            <div id="previewChatPopup" class="preview-chat-popup">
+                                <div id="previewChatHeader" class="preview-chat-header" style="background: #ff9a56;">
+                                    <div class="preview-chat-header-info">
+                                        <h4 id="previewChannelName">Channel AI</h4>
+                                        <span>AI Assistant</span>
+                                    </div>
+                                </div>
+                                <div class="preview-chat-messages">
+                                    <div class="preview-chat-bubble">Hi! Ask me anything about this creator.</div>
+                                </div>
+                                <div class="preview-chat-input">
+                                    <input type="text" placeholder="Type your question..." disabled>
+                                    <button id="previewSendBtn" style="background: #ff9a56;">
+                                        <svg viewBox="0 0 24 24">
+                                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Widget Button Preview -->
+                            <div id="widgetPreview" class="widget-preview" style="background: #ff9a56;"
+                                onclick="togglePreviewChat()">
+                                <svg class="chat-icon" viewBox="0 0 24 24">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                </svg>
+                                <svg class="close-icon" viewBox="0 0 24 24">
+                                    <path d="M18 6L6 18M6 6l12 12" stroke="white" stroke-width="2"
+                                        stroke-linecap="round" fill="none" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="no-channels-notice">
+        <h3>No Channels Yet</h3>
+        <p>You need to process at least one YouTube channel before you can create a website widget.</p>
+        <a href="{{ url_for('channel') }}" class="btn btn-primary" style="margin-top: 1rem;">Process Your First
+            Channel</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+    let selectedPosition = 'right';
+    let previewChatOpen = false;
+
+    function getEmbedCode() {
+        const channel = document.getElementById('channelSelect')?.value || '';
+        const color = document.getElementById('buttonColor')?.value || '#ff9a56';
+        const position = selectedPosition;
+
+        return `<!-- YoppyChat Widget -->
+<script src="{{ request.host_url }}static/widget/yoppychat.js"><\/script>
+<script>
+  YoppyChat.init({
+    channel: '${channel}',
+    color: '${color}',
+    position: '${position}'
+  });
+<\/script>`;
+    }
+
+    function updateEmbedCode() {
+        const codeElement = document.getElementById('embedCode');
+        if (codeElement) {
+            codeElement.textContent = getEmbedCode();
+        }
+
+        // Update preview widget color
+        const color = document.getElementById('buttonColor')?.value || '#ff9a56';
+        const widgetPreview = document.getElementById('widgetPreview');
+        const previewChatHeader = document.getElementById('previewChatHeader');
+        const previewSendBtn = document.getElementById('previewSendBtn');
+
+        if (widgetPreview) {
+            widgetPreview.style.background = color;
+        }
+        if (previewChatHeader) {
+            previewChatHeader.style.background = color;
+        }
+        if (previewSendBtn) {
+            previewSendBtn.style.background = color;
+        }
+
+        // Update channel name in preview
+        const channelSelect = document.getElementById('channelSelect');
+        const previewChannelName = document.getElementById('previewChannelName');
+        if (channelSelect && previewChannelName) {
+            previewChannelName.textContent = channelSelect.value || 'Channel AI';
+        }
+    }
+
+    function selectPosition(element) {
+        document.querySelectorAll('.position-option').forEach(opt => opt.classList.remove('active'));
+        element.classList.add('active');
+        selectedPosition = element.dataset.position;
+
+        // Update preview position
+        const widgetPreview = document.getElementById('widgetPreview');
+        const chatPopup = document.getElementById('previewChatPopup');
+
+        if (widgetPreview) {
+            widgetPreview.style.right = selectedPosition === 'right' ? '1rem' : 'auto';
+            widgetPreview.style.left = selectedPosition === 'left' ? '1rem' : 'auto';
+        }
+        if (chatPopup) {
+            chatPopup.style.right = selectedPosition === 'right' ? '1rem' : 'auto';
+            chatPopup.style.left = selectedPosition === 'left' ? '1rem' : 'auto';
+        }
+
+        updateEmbedCode();
+    }
+
+    function togglePreviewChat() {
+        previewChatOpen = !previewChatOpen;
+
+        const widgetPreview = document.getElementById('widgetPreview');
+        const chatPopup = document.getElementById('previewChatPopup');
+
+        if (widgetPreview) {
+            widgetPreview.classList.toggle('open', previewChatOpen);
+        }
+        if (chatPopup) {
+            chatPopup.classList.toggle('open', previewChatOpen);
+        }
+    }
+
+    function copyEmbedCode(button) {
+        const code = getEmbedCode();
+        navigator.clipboard.writeText(code).then(() => {
+            button.textContent = 'Copied!';
+            button.classList.add('copied');
+            setTimeout(() => {
+                button.textContent = 'Copy Code';
+                button.classList.remove('copied');
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+        });
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', updateEmbedCode);
+</script>
+{% endblock %}

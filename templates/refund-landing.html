@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Refund Policy for YoppyChat - Learn about our cancellation and refund policy.">
+    <title>Refund Policy - YoppyChat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#ff9a56',
+                        secondary: '#ff8c42',
+                        purple: '#9333ea',
+                        'purple-light': '#a855f7',
+                        success: '#4caf50',
+                        'text-primary': '#2a1f16',
+                        'text-secondary': '#5a4a32',
+                        'text-muted': '#7d6847',
+                        'neutral-100': '#f8f1e8',
+                        'neutral-200': '#f0e6d6',
+                        'neutral-300': '#e6d5c1',
+                        'neutral-400': '#c4a882',
+                        cream: '#fdf8f3',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #fdf8f3;
+            color: #2a1f16;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #ff9a56 0%, #ff8c42 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f8f1e8;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c4a882;
+            border-radius: 9999px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ff9a56;
+        }
+
+        ::selection {
+            background: rgba(255, 154, 86, 0.3);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen overflow-x-hidden">
+    <!-- Background decorations -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+        <div class="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full opacity-30"
+            style="background: radial-gradient(circle, rgba(255,154,86,0.3) 0%, transparent 70%);"></div>
+        <div class="absolute top-1/3 -left-40 w-[500px] h-[500px] rounded-full opacity-20"
+            style="background: radial-gradient(circle, rgba(147,51,234,0.25) 0%, transparent 70%);"></div>
+        <div class="absolute inset-0 opacity-[0.015]"
+            style="background-image: linear-gradient(#c4a882 1px, transparent 1px), linear-gradient(90deg, #c4a882 1px, transparent 1px); background-size: 60px 60px;">
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-neutral-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav class="flex items-center justify-between h-16 lg:h-20">
+                <a href="{{ url_for('home') }}" class="flex items-center gap-2 group">
+                    <img src="{{ url_for('static', filename='images/logo/primiry__logo.png') }}" alt="YoppyChat Logo"
+                        class="h-12 lg:h-14 w-auto">
+                </a>
+
+                <div class="flex items-center gap-4">
+                    <a href="{{ url_for('channel') }}"
+                        class="px-6 py-2.5 rounded-full bg-gradient-to-r from-primary to-secondary text-white font-semibold shadow-lg hover:shadow-xl hover:shadow-primary/30 transform hover:-translate-y-0.5 transition-all duration-300">
+                        Try Free
+                    </a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="relative z-10 pt-24 pb-16">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Page Header -->
+            <div class="text-center mb-12">
+                <div
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
+                    <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                    <span class="text-sm font-medium text-primary">Legal</span>
+                </div>
+                <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold text-text-primary mb-4">
+                    Cancellation & <span class="gradient-text">Refund Policy</span>
+                </h1>
+                <p class="text-lg text-text-muted">Last Updated: September 15, 2025</p>
+            </div>
+
+            <!-- Content -->
+            <div class="bg-white rounded-3xl shadow-xl border border-neutral-200 p-8 lg:p-12">
+                <div class="prose prose-lg max-w-none">
+                    <p class="text-text-secondary leading-relaxed mb-8">
+                        At YoppyChat, we want you to be completely satisfied with our service. This policy outlines our
+                        approach to subscription cancellations and refunds.
+                    </p>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        Subscription Cancellation
+                    </h2>
+                    <div
+                        class="bg-gradient-to-br from-primary/5 to-secondary/5 border border-primary/20 rounded-2xl p-6 mb-6">
+                        <div class="flex items-start gap-4">
+                            <div
+                                class="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                                <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-text-primary mb-2">How Cancellation Works</h3>
+                                <p class="text-text-secondary leading-relaxed">
+                                    You may cancel your YoppyChat subscription at any time. When you cancel, your
+                                    subscription will remain active until the end of your current billing cycle. After
+                                    the cycle ends, you will not be charged again, and your account will be downgraded
+                                    to the free plan.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        Refund Policy
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-6">
+                        Due to the nature of our digital service and the costs associated with processing YouTube
+                        channels and running AI models, <strong class="text-text-primary">we do not offer refunds for
+                            subscription fees already paid</strong>. When you cancel your service, you are cancelling
+                        the next billing charge, not the current one.
+                    </p>
+
+                    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-6 rounded-lg mb-6">
+                        <div class="flex items-start gap-3">
+                            <svg class="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div>
+                                <h3 class="text-lg font-semibold text-yellow-800 mb-2">Important Note</h3>
+                                <p class="text-yellow-700 leading-relaxed">
+                                    We encourage you to use our free plan to evaluate the service before upgrading to a
+                                    paid subscription. This allows you to experience the core features and ensure
+                                    YoppyChat meets your needs.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        Billing Errors
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-6">
+                        If you believe you have been charged in error, please contact our support team immediately. We
+                        will investigate the issue and work with you to resolve it promptly.
+                    </p>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        How to Cancel Your Subscription
+                    </h2>
+                    <div class="space-y-4 mb-6">
+                        <div class="flex items-start gap-4">
+                            <div
+                                class="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <span class="text-primary font-bold">1</span>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-text-primary mb-1">Log into Your Account</h3>
+                                <p class="text-text-secondary leading-relaxed">Sign in to your YoppyChat account using
+                                    your credentials.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-4">
+                            <div
+                                class="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <span class="text-primary font-bold">2</span>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-text-primary mb-1">Navigate to Settings</h3>
+                                <p class="text-text-secondary leading-relaxed">Go to your account settings or
+                                    subscription management page.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-4">
+                            <div
+                                class="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <span class="text-primary font-bold">3</span>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-text-primary mb-1">Cancel Subscription</h3>
+                                <p class="text-text-secondary leading-relaxed">Click the "Cancel Subscription" button
+                                    and follow the prompts to confirm.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        Contact Us
+                    </h2>
+                    <div
+                        class="bg-gradient-to-br from-primary/5 to-secondary/5 border border-primary/20 rounded-2xl p-6">
+                        <p class="text-text-secondary leading-relaxed mb-4">
+                            If you have any questions about our Cancellation and Refund Policy, or if you need
+                            assistance with your subscription, please don't hesitate to reach out to our support team.
+                        </p>
+                        <div class="flex items-center gap-3">
+                            <svg class="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <a href="mailto:support@yoppychat.softvait.in"
+                                class="text-primary hover:underline font-semibold text-lg">
+                                support@yoppychat.softvait.in
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Back to Home -->
+            <div class="text-center mt-12">
+                <a href="{{ url_for('home') }}"
+                    class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white border-2 border-neutral-200 text-text-primary font-semibold hover:border-primary hover:text-primary transform hover:-translate-y-0.5 transition-all duration-300 shadow-lg">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Home
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative z-10 bg-white border-t border-neutral-200 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="text-center text-text-muted text-sm">
+                <p>&copy; 2025 YoppyChat. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>

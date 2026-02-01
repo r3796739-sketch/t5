@@ -32,6 +32,152 @@ function formatSubscribersJS(num) {
 }
 // --- END: NEW HELPER FUNCTION ---
 
+const renderSourcesAndActions = (sources, answerBoxElement) => {
+    if (!answerBoxElement) return;
+    let sourcesSection = answerBoxElement.querySelector('.sources-section');
+    if (!sourcesSection) return;
+    sourcesSection.innerHTML = ''; // Clear previous content
+
+    let sourcesButtonHTML = '';
+    let sourcesListHTML = '';
+    if (sources && sources.length > 0) {
+        sourcesButtonHTML = `<button class="toggle-sources-btn" onclick="toggleSources(this)"><svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M4,6H2V20a2,2 0 0,0 2,2H18V18H4V6M20,2H8A2,2 0 0,0 6,4V16a2,2 0 0,0 2,2H20a2,2 0 0,0 2-2V4a2,2 0 0,0-2-2Z"></path></svg>Sources (${sources.length})<span class="toggle-indicator">▼</span></button>`;
+        const sourceLinks = sources.map(s => `<div class="source-item"><a href="${escapeHtml(s.url)}" target="_blank" class="source-link"><span class="source-title">${escapeHtml(s.title)}</span></a></div>`).join('');
+        sourcesListHTML = `<div class="sources-list" style="display: none;">${sourceLinks}</div>`;
+    }
+
+    const regenerateButtonHTML = `<button class="toggle-sources-btn regenerate-btn-js" onclick="regenerateAnswer(this)"><svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>Regenerate</button>`;
+    const copyButtonHTML = `<button class="copy-answer-btn" onclick="copyAnswer(this)" data-tooltip="Copy answer"><svg class="icon-copy-default" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><svg class="icon-copy-check" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>`;
+
+    sourcesSection.innerHTML = `
+        <div class="source-buttons">
+            ${sourcesButtonHTML}
+            ${regenerateButtonHTML}
+            ${copyButtonHTML}
+        </div>
+        ${sourcesListHTML}
+    `;
+};
+
+const processStream = (reader, answerContent, typingContainer, aiAnswerBox) => {
+    const decoder = new TextDecoder();
+    let fullAnswerText = '';
+    let foundSources = [];
+    let buffer = '';
+
+    const push = () => {
+        reader.read().then(({ done, value }) => {
+            if (done) {
+                if (typingContainer) typingContainer.classList.remove('active');
+                renderSourcesAndActions(foundSources, aiAnswerBox);
+                if (buffer.startsWith('data: ')) {
+                    const data = buffer.substring(6);
+                    if (data.trim() !== '[DONE]' && data.trim()) {
+                        try {
+                            const parsed = JSON.parse(data);
+                            if (parsed.answer) {
+                                fullAnswerText += parsed.answer;
+                                answerContent.innerHTML = marked.parse(fullAnswerText);
+                            }
+                        } catch (e) {
+                            console.error('Error parsing final buffered chunk:', e, 'Chunk:', buffer);
+                        }
+                    }
+                }
+                return;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            let boundary = buffer.lastIndexOf('\n\n');
+            if (boundary !== -1) {
+                const completeMessages = buffer.substring(0, boundary);
+                const lines = completeMessages.split('\n\n');
+
+                lines.forEach(line => {
+                    if (line.startsWith('data: ')) {
+                        const data = line.substring(6);
+                        if (data.trim() === '[DONE]') return;
+                        try {
+                            const parsed = JSON.parse(data);
+                            if (parsed.error) throw new Error(parsed.message || 'An unknown error occurred.');
+                            if (parsed.answer) {
+                                fullAnswerText += parsed.answer;
+                                answerContent.innerHTML = marked.parse(fullAnswerText);
+                            }
+                            if (parsed.sources) foundSources = parsed.sources;
+                            if (parsed.updated_query_string) {
+                                const planQueriesElement = document.querySelector('.plan-queries');
+                                if (planQueriesElement) planQueriesElement.innerHTML = parsed.updated_query_string;
+                            }
+                        } catch (e) { console.error('Error parsing stream data:', e); throw e; }
+                    }
+                });
+                buffer = buffer.substring(boundary + 2);
+            }
+            const chatContainer = document.getElementById('conversation-history');
+            if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+            push();
+
+        }).catch(error => {
+            console.error("Stream reading error:", error);
+            answerContent.innerHTML = `<p class="error-message">${escapeHtml(error.message || 'An error occurred during generation.')}</p>`;
+            if (typingContainer) typingContainer.classList.remove('active');
+            renderSourcesAndActions([], aiAnswerBox);
+            if (reader) reader.cancel();
+        });
+    };
+    push();
+};
+
+window.regenerateAnswer = function (btn) {
+    if (btn.disabled) return;
+
+    const lastQnaPair = btn.closest('.qna-pair');
+    if (!lastQnaPair) return;
+
+    let questionContent = lastQnaPair.querySelector('.question-box .question-content');
+    // Fallback: If question is not in the same container (e.g. dynamic split rendering), check previous sibling
+    if (!questionContent) {
+        const prev = lastQnaPair.previousElementSibling;
+        if (prev && prev.classList.contains('qna-pair')) {
+            questionContent = prev.querySelector('.question-box .question-content');
+        }
+    }
+
+    const answerBox = lastQnaPair.querySelector('.answer-box');
+    if (!questionContent || !answerBox) return;
+    const lastQuestion = questionContent.textContent;
+
+    btn.disabled = true;
+    const originalBtnContent = btn.innerHTML;
+    btn.innerHTML = `<div class="button-spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></div>Regenerating...`;
+
+    const answerContent = answerBox.querySelector('.answer-content');
+    const typingContainer = answerBox.querySelector('.typing-container');
+
+    answerContent.innerHTML = '';
+    if (typingContainer) typingContainer.classList.add('active');
+
+    const sourcesSection = answerBox.querySelector('.sources-section');
+    if (sourcesSection) {
+        sourcesSection.innerHTML = '';
+    }
+
+    const formData = new FormData();
+    formData.append('question', lastQuestion);
+    formData.append('channel_name', document.getElementById('chat-page-data').dataset.channelName || '');
+    formData.append('is_regenerating', 'true');
+
+    fetch('/stream_answer', { method: 'POST', body: formData })
+        .then(response => response.ok ? response.body.getReader() : response.json().then(err => Promise.reject(err)))
+        .then(reader => processStream(reader, answerContent, typingContainer, answerBox))
+        .catch(err => {
+            answerContent.innerHTML = `<p class="error-message">Failed to regenerate: ${err.message || 'Unknown error'}</p>`;
+            if (typingContainer) typingContainer.classList.remove('active');
+            renderSourcesAndActions([], answerBox);
+        });
+};
+
 
 const showBannerNotice = (message, showUpgradeButton = true) => {
     const notice = document.getElementById('c-banner-notice');
@@ -85,7 +231,7 @@ async function localizeCurrency() {
 function updatePricingDisplay() {
     // --- START: MODIFIED PRICING ---
     const prices = {
-        free:     { INR: '₹0', USD: '$0' },
+        free: { INR: '₹0', USD: '$0' },
         personal: { INR: '₹299', USD: '$7' },
         creator: { INR: '₹2,799', USD: '$35' }
     };
@@ -130,19 +276,19 @@ function buySubscription(planType, buttonElement) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ plan_type: planType })
         })
-        .then(res => res.ok ? res.json() : Promise.reject(new Error('Failed to create PayPal subscription.'))) // <--- And this line
-        .then(data => {
-            if (data.status === 'success' && data.paypal_checkout_url) {
-                window.location.href = data.paypal_checkout_url;
-            } else {
-                throw new Error(data.message || 'Could not initiate PayPal subscription.'); // <--- And this line
-            }
-        })
-        .catch(error => {
-            showNotification(error.message, 'error');
-            buttonElement.disabled = false;
-            buttonElement.innerHTML = originalContent;
-        });
+            .then(res => res.ok ? res.json() : Promise.reject(new Error('Failed to create PayPal subscription.'))) // <--- And this line
+            .then(data => {
+                if (data.status === 'success' && data.paypal_checkout_url) {
+                    window.location.href = data.paypal_checkout_url;
+                } else {
+                    throw new Error(data.message || 'Could not initiate PayPal subscription.'); // <--- And this line
+                }
+            })
+            .catch(error => {
+                showNotification(error.message, 'error');
+                buttonElement.disabled = false;
+                buttonElement.innerHTML = originalContent;
+            });
 
     } else {
         // Existing Razorpay logic for INR users
@@ -151,45 +297,45 @@ function buySubscription(planType, buttonElement) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ plan_type: planType, currency: 'INR' })
         })
-        .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
-        .then(data => {
-            if (data.status === 'success') {
-const options = {
-    key: data.razorpay_key_id,
-    subscription_id: data.subscription_id,
-    name: 'YoppyChat AI',
-    description: `Subscription for ${data.plan_name} plan`,
-    handler: function (response) {
-        showNotification('Payment successful! Your plan has been updated.', 'success');
-        buttonElement.disabled = false;
-        buttonElement.innerHTML = originalContent;
-        setTimeout(() => window.location.reload(), 2000);
-    },
-    prefill: { 
-        name: data.user_name || "", 
-        email: data.user_email || "" 
-    },
-    theme: { color: "#ff9a56" },
-    modal: {
-        ondismiss: function() {
-            showNotification('Payment was cancelled.', 'info');
-            buttonElement.disabled = false;
-            buttonElement.innerHTML = originalContent;
-        }
-    }
-    // No config block for subscriptions
-};
-                const rzp = new Razorpay(options);
-                rzp.open();
-            } else {
-                throw new Error(data.message);
-            }
-        })
-        .catch(error => {
-            showNotification(error.message || 'An error occurred.', 'error');
-            buttonElement.disabled = false;
-            buttonElement.innerHTML = originalContent;
-        });
+            .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
+            .then(data => {
+                if (data.status === 'success') {
+                    const options = {
+                        key: data.razorpay_key_id,
+                        subscription_id: data.subscription_id,
+                        name: 'YoppyChat AI',
+                        description: `Subscription for ${data.plan_name} plan`,
+                        handler: function (response) {
+                            showNotification('Payment successful! Your plan has been updated.', 'success');
+                            buttonElement.disabled = false;
+                            buttonElement.innerHTML = originalContent;
+                            setTimeout(() => window.location.reload(), 2000);
+                        },
+                        prefill: {
+                            name: data.user_name || "",
+                            email: data.user_email || ""
+                        },
+                        theme: { color: "#ff9a56" },
+                        modal: {
+                            ondismiss: function () {
+                                showNotification('Payment was cancelled.', 'info');
+                                buttonElement.disabled = false;
+                                buttonElement.innerHTML = originalContent;
+                            }
+                        }
+                        // No config block for subscriptions
+                    };
+                    const rzp = new Razorpay(options);
+                    rzp.open();
+                } else {
+                    throw new Error(data.message);
+                }
+            })
+            .catch(error => {
+                showNotification(error.message || 'An error occurred.', 'error');
+                buttonElement.disabled = false;
+                buttonElement.innerHTML = originalContent;
+            });
     }
     // --- END: NEW CONDITIONAL LOGIC ---
 }
@@ -219,7 +365,7 @@ function closeSidebar() {
 // --- END: NEW HELPER FUNCTION ---
 
 function initializeSpaNavigation() {
-    document.body.addEventListener('click', function(event) {
+    document.body.addEventListener('click', function (event) {
         const link = event.target.closest('.channel-link');
         if (!link) return;
 
@@ -244,7 +390,7 @@ function initializeSpaNavigation() {
                 if (notice) {
                     notice.style.display = 'none';
                 }
-                history.pushState({channel: channelName}, '', channelUrl);
+                history.pushState({ channel: channelName }, '', channelUrl);
                 return fetch(`/api/chat_history/${channelName}`);
             })
             .then(response => response.ok ? response.json() : Promise.reject('Failed to load chat history.'))
@@ -384,7 +530,7 @@ function renderChatHistory(history) {
 // (From ask.js)
 // =================================================================
 
-window.copyAnswer = function(buttonElement) {
+window.copyAnswer = function (buttonElement) {
     const answerBox = buttonElement.closest('.answer-box');
     if (!answerBox) return;
     const answerContent = answerBox.querySelector('.answer-content');
@@ -392,12 +538,18 @@ window.copyAnswer = function(buttonElement) {
     navigator.clipboard.writeText(answerContent.innerText).then(() => {
         const iconCopy = buttonElement.querySelector('.icon-copy-default');
         const iconCheck = buttonElement.querySelector('.icon-copy-check');
-        if(iconCopy) iconCopy.style.display = 'none';
-        if(iconCheck) iconCheck.style.display = 'inline-block';
+
+        // Add visual feedback class
+        buttonElement.classList.add('copied');
+
+        if (iconCopy) iconCopy.style.display = 'none';
+        if (iconCheck) iconCheck.style.display = 'inline-block';
         if (window.showNotification) window.showNotification('Answer copied to clipboard!', 'success');
+
         setTimeout(() => {
-            if(iconCopy) iconCopy.style.display = 'inline-block';
-            if(iconCheck) iconCheck.style.display = 'none';
+            buttonElement.classList.remove('copied');
+            if (iconCopy) iconCopy.style.display = 'inline-block';
+            if (iconCheck) iconCheck.style.display = 'none';
         }, 2000);
     }).catch(err => {
         console.error('Failed to copy text: ', err);
@@ -405,7 +557,7 @@ window.copyAnswer = function(buttonElement) {
     });
 }
 
-window.showCustomConfirm = function(title, message, confirmText, onConfirm) {
+window.showCustomConfirm = function (title, message, confirmText, onConfirm) {
     const dialog = document.createElement('div');
     dialog.className = 'confirm-dialog';
     dialog.innerHTML = `<div class="confirm-content"><h3>${title}</h3><p>${message}</p><div class="confirm-actions"><button class="cancel-btn">Cancel</button><button class="confirm-btn">${confirmText}</button></div></div>`;
@@ -418,17 +570,32 @@ window.showCustomConfirm = function(title, message, confirmText, onConfirm) {
     confirmBtn.onclick = () => { onConfirm(); closeDialog(); };
 }
 
-window.clearChat = function(channel) {
+window.clearChat = function (channel) {
     window.showCustomConfirm('Clear Chat History', 'Are you sure you want to clear this chat? This action cannot be undone.', 'Clear', () => {
         const formData = new FormData();
         formData.append('channel_name', channel);
         fetch('/clear_chat', { method: 'POST', body: formData })
-            .then(res => { if (res.ok) window.location.reload(); else Promise.reject('Failed to clear chat.'); })
-            .catch(err => { if (window.showNotification) window.showNotification(err.toString(), 'error'); });
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(data => Promise.reject(data.message || 'Failed to clear chat.'));
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    if (window.showNotification) window.showNotification('Chat history cleared successfully!', 'success');
+                    setTimeout(() => window.location.reload(), 500);
+                } else {
+                    return Promise.reject(data.message || 'Failed to clear chat.');
+                }
+            })
+            .catch(err => {
+                if (window.showNotification) window.showNotification(err.toString(), 'error');
+            });
     });
 }
 
-window.setDefaultChannel = function(channelId, buttonElement) {
+window.setDefaultChannel = function (channelId, buttonElement) {
     if (!buttonElement || buttonElement.disabled) return;
     const originalContent = buttonElement.innerHTML;
     buttonElement.disabled = true;
@@ -446,23 +613,23 @@ window.setDefaultChannel = function(channelId, buttonElement) {
         });
 }
 
-window.toggleChannelPrivacy = function(channelId, isShared) {
+window.toggleChannelPrivacy = function (channelId, isShared) {
     const toggle = document.getElementById('shareToggle');
-    if(toggle) toggle.disabled = true;
+    if (toggle) toggle.disabled = true;
     fetch(`/api/toggle_channel_privacy/${channelId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
-    .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
-    .then(data => {
-        if (window.showNotification) window.showNotification(data.message, 'success');
-        setTimeout(() => window.location.reload(), 1500);
-    })
-    .catch(err => {
-        if (window.showNotification) window.showNotification(err.message || 'An error occurred.', 'error');
-        if(toggle) toggle.checked = !isShared;
-    })
-    .finally(() => { if(toggle && !document.querySelector('.notification.success')) toggle.disabled = false; });
+        .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
+        .then(data => {
+            if (window.showNotification) window.showNotification(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        })
+        .catch(err => {
+            if (window.showNotification) window.showNotification(err.message || 'An error occurred.', 'error');
+            if (toggle) toggle.checked = !isShared;
+        })
+        .finally(() => { if (toggle && !document.querySelector('.notification.success')) toggle.disabled = false; });
 }
 
-window.toggleSources = function(btn) {
+window.toggleSources = function (btn) {
     const sourcesSection = btn.closest('.sources-section');
     if (!sourcesSection) return;
     const list = sourcesSection.querySelector('.sources-list');
@@ -473,7 +640,7 @@ window.toggleSources = function(btn) {
     if (indicator) indicator.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
 }
 
-window.refreshChannel = function(channelId, buttonElement) {
+window.refreshChannel = function (channelId, buttonElement) {
     if (!buttonElement || buttonElement.disabled) return;
     const originalContent = buttonElement.innerHTML;
     buttonElement.disabled = true;
@@ -518,7 +685,7 @@ function restoreButton(button, originalHTML) {
     button.disabled = false;
 }
 
-window.askExample = function(element) {
+window.askExample = function (element) {
     const questionText = document.getElementById('questionText');
     const questionForm = document.getElementById('questionForm');
     if (questionText && questionForm) {
@@ -528,7 +695,7 @@ window.askExample = function(element) {
     }
 }
 
-window.askTopic = function(element) {
+window.askTopic = function (element) {
     const topic = element.textContent;
     const question = `Tell me more about ${topic}`;
     const questionText = document.getElementById('questionText');
@@ -551,7 +718,7 @@ let shareHistoryId = null;
 function openShareModal() {
     const channelName = document.getElementById('chat-page-data')?.dataset.channelName;
     if (channelName === undefined) { // Check for undefined for general chat page
-        if(window.showNotification) showNotification('Sharing is only available for specific channels.', 'info');
+        if (window.showNotification) showNotification('Sharing is only available for specific channels.', 'info');
         return;
     }
     const modal = document.getElementById('shareModal');
@@ -582,7 +749,7 @@ function closeShareModal() {
     if (modal) modal.style.display = 'none';
 }
 
-window.copyShareLinkFromModal = function(wrapperElement) {
+window.copyShareLinkFromModal = function (wrapperElement) {
     const input = wrapperElement.querySelector('#shareLinkInput');
     const copyText = wrapperElement.querySelector('.copy-text');
     const iconDefault = wrapperElement.querySelector('.icon-copy-default');
@@ -593,13 +760,13 @@ window.copyShareLinkFromModal = function(wrapperElement) {
     input.select();
     navigator.clipboard.writeText(input.value).then(() => {
         wrapperElement.classList.add('copied');
-        if(copyText) copyText.textContent = 'Copied!';
-        if(iconDefault) iconDefault.style.display = 'none';
-        if(iconCheck) iconCheck.style.display = 'block';
+        if (copyText) copyText.textContent = 'Copied!';
+        if (iconDefault) iconDefault.style.display = 'none';
+        if (iconCheck) iconCheck.style.display = 'block';
         setTimeout(() => {
-            if(copyText) copyText.textContent = 'Copy';
-            if(iconDefault) iconDefault.style.display = 'block';
-            if(iconCheck) iconCheck.style.display = 'none';
+            if (copyText) copyText.textContent = 'Copy';
+            if (iconDefault) iconDefault.style.display = 'block';
+            if (iconCheck) iconCheck.style.display = 'none';
             wrapperElement.classList.remove('copied');
         }, 2000);
     }).catch(err => {
@@ -612,11 +779,13 @@ window.copyShareLinkFromModal = function(wrapperElement) {
 // 7. DOMContentLoaded - MAIN INITIALIZATION LOGIC
 // (Consolidated from app.js and ask.js)
 // =================================================================
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
 
     // --- A. Global Initializations ---
     localizeCurrency();
     initializeSpaNavigation();
+
+
 
     // Resume action after login
     if (typeof IS_USER_LOGGED_IN !== 'undefined' && IS_USER_LOGGED_IN) {
@@ -709,109 +878,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return role === 'ai' ? qnaPair.querySelector('.answer-box') : null;
         };
 
-        const renderSourcesAndActions = (sources, answerBoxElement) => {
-            if (!answerBoxElement) return;
-            let sourcesSection = answerBoxElement.querySelector('.sources-section');
-            if (!sourcesSection) return;
-            sourcesSection.innerHTML = ''; // Clear previous content
 
-            let sourcesButtonHTML = '';
-            let sourcesListHTML = '';
-            if (sources && sources.length > 0) {
-                sourcesButtonHTML = `<button class="toggle-sources-btn" onclick="toggleSources(this)"><svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M4,6H2V20a2,2 0 0,0 2,2H18V18H4V6M20,2H8A2,2 0 0,0 6,4V16a2,2 0 0,0 2,2H20a2,2 0 0,0 2-2V4a2,2 0 0,0-2-2Z"></path></svg>Sources (${sources.length})<span class="toggle-indicator">▼</span></button>`;
-                const sourceLinks = sources.map(s => `<div class="source-item"><a href="${escapeHtml(s.url)}" target="_blank" class="source-link"><span class="source-title">${escapeHtml(s.title)}</span></a></div>`).join('');
-                sourcesListHTML = `<div class="sources-list" style="display: none;">${sourceLinks}</div>`;
-            }
 
-            const regenerateButtonHTML = `<button class="toggle-sources-btn regenerate-btn-js" onclick="regenerateAnswer(this)"><svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>Regenerate</button>`;
-            const copyButtonHTML = `<button class="copy-answer-btn" onclick="copyAnswer(this)" data-tooltip="Copy answer"><svg class="icon-copy-default" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><svg class="icon-copy-check" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>`;
 
-            // Correctly structure the HTML
-            sourcesSection.innerHTML = `
-                <div class="source-buttons">
-                    ${sourcesButtonHTML}
-                    ${regenerateButtonHTML}
-                    ${copyButtonHTML}
-                </div>
-                ${sourcesListHTML}
-            `;
-        };
-
-        const processStream = (reader, answerContent, typingContainer, aiAnswerBox) => {
-            const decoder = new TextDecoder();
-            let fullAnswerText = '';
-            let foundSources = [];
-            let buffer = ''; // Buffer to store incomplete chunks
-        
-            const push = () => {
-                reader.read().then(({ done, value }) => {
-                    if (done) {
-                        if (typingContainer) typingContainer.classList.remove('active');
-                        renderSourcesAndActions(foundSources, aiAnswerBox);
-                        // Process any remaining data in the buffer when the stream is done
-                        if (buffer.startsWith('data: ')) {
-                            const data = buffer.substring(6);
-                            if (data.trim() !== '[DONE]' && data.trim()) {
-                                 try {
-                                    const parsed = JSON.parse(data);
-                                    if (parsed.answer) {
-                                        fullAnswerText += parsed.answer;
-                                        answerContent.innerHTML = marked.parse(fullAnswerText);
-                                    }
-                                } catch (e) {
-                                    console.error('Error parsing final buffered chunk:', e, 'Chunk:', buffer);
-                                }
-                            }
-                        }
-                        return;
-                    }
-                
-                    // Append new data to the buffer
-                    buffer += decoder.decode(value, { stream: true });
-                    
-                    // Process all complete messages in the buffer
-                    let boundary = buffer.lastIndexOf('\n\n');
-                    if (boundary !== -1) {
-                        const completeMessages = buffer.substring(0, boundary);
-                        const lines = completeMessages.split('\n\n');
-                    
-                        lines.forEach(line => {
-                            if (line.startsWith('data: ')) {
-                                const data = line.substring(6);
-                                if (data.trim() === '[DONE]') return;
-                                try {
-                                    const parsed = JSON.parse(data);
-                                    if (parsed.error) throw new Error(parsed.message || 'An unknown error occurred.');
-                                    if (parsed.answer) {
-                                        fullAnswerText += parsed.answer;
-                                        answerContent.innerHTML = marked.parse(fullAnswerText);
-                                    }
-                                    if (parsed.sources) foundSources = parsed.sources;
-                                    if (parsed.updated_query_string) {
-                                        const planQueriesElement = document.querySelector('.plan-queries');
-                                        if (planQueriesElement) planQueriesElement.innerHTML = parsed.updated_query_string;
-                                    }
-                                } catch (e) { console.error('Error parsing stream data:', e); throw e; }
-                            }
-                        });
-                    
-                        // Keep the incomplete part for the next chunk
-                        buffer = buffer.substring(boundary + 2);
-                    }
-                    
-                    conversationHistory.scrollTop = conversationHistory.scrollHeight;
-                    push();
-                
-                }).catch(error => {
-                    console.error("Stream reading error:", error);
-                    answerContent.innerHTML = `<p class="error-message">${escapeHtml(error.message || 'An error occurred during generation.')}</p>`;
-                    if (typingContainer) typingContainer.classList.remove('active');
-                    renderSourcesAndActions([], aiAnswerBox);
-                    if (reader) reader.cancel();
-                });
-            };
-            push();
-        };
 
         const handleFormSubmit = (event) => {
             event.preventDefault();
@@ -847,11 +916,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (err.status === 'limit_reached') {
                         showBannerNotice(message);
                         // Clean up the temporary answer box that was created
-                        if(aiAnswerBox.closest('.qna-pair')) {
+                        if (aiAnswerBox.closest('.qna-pair')) {
                             aiAnswerBox.closest('.qna-pair').remove();
                         }
                     } else {
                         answerContent.innerHTML = `<p class="error-message">${escapeHtml(message)}</p>`;
+                        // Render action buttons even on error so user can retry
+                        renderSourcesAndActions([], aiAnswerBox);
                     }
                     typingContainer.classList.remove('active');
                 });
@@ -862,7 +933,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (questionText) {
             questionText.addEventListener('input', () => {
                 const hasText = questionText.value.trim().length > 0;
-                if(submitBtn) {
+                if (submitBtn) {
                     submitBtn.disabled = !hasText;
                     submitBtn.classList.toggle('active', hasText);
                 }
@@ -877,44 +948,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        window.regenerateAnswer = function(btn) {
-            const lastQnaPair = btn.closest('.qna-pair');
-            if (!lastQnaPair) return;
-            const questionContent = lastQnaPair.querySelector('.question-box .question-content');
-            const answerBox = lastQnaPair.querySelector('.answer-box');
-            if (!questionContent || !answerBox) return;
-            const lastQuestion = questionContent.textContent;
 
-            // Store the question before clearing anything
-            const answerContent = answerBox.querySelector('.answer-content');
-            const typingContainer = answerBox.querySelector('.typing-container');
-            
-            // Clear the answer content and show typing indicator
-            answerContent.innerHTML = '';
-            if (typingContainer) typingContainer.classList.add('active');
-            
-            // Clear the sources section (this removes all buttons including the regenerate button)
-            const sourcesSection = answerBox.querySelector('.sources-section');
-            if (sourcesSection) {
-                sourcesSection.innerHTML = '';
-            }
-    
-    // Make the API call
-    const formData = new FormData();
-    formData.append('question', lastQuestion);
-    formData.append('channel_name', document.getElementById('chat-page-data').dataset.channelName || '');
-    formData.append('is_regenerating', 'true');
-    
-    fetch('/stream_answer', { method: 'POST', body: formData })
-        .then(response => response.ok ? response.body.getReader() : response.json().then(err => Promise.reject(err)))
-        .then(reader => processStream(reader, answerContent, typingContainer, answerBox))
-        .catch(err => {
-            answerContent.innerHTML = `<p class="error-message">Failed to regenerate: ${err.message || 'Unknown error'}</p>`;
-            if (typingContainer) typingContainer.classList.remove('active');
-            // Even on failure, render a fresh set of action buttons
-            renderSourcesAndActions([], answerBox);
-        });
-};
 
         if (includeHistoryToggle && shareLinkInput) {
             const subtitle = document.getElementById('shareModalSubtitle');
@@ -954,7 +988,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (shareModal) {
-            shareModal.addEventListener('click', function(event) {
+            shareModal.addEventListener('click', function (event) {
                 if (event.target === shareModal) closeShareModal();
             });
         }

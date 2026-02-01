@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Privacy Policy for YoppyChat - Learn how we collect, use, and protect your data.">
+    <title>Privacy Policy - YoppyChat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#ff9a56',
+                        secondary: '#ff8c42',
+                        purple: '#9333ea',
+                        'purple-light': '#a855f7',
+                        success: '#4caf50',
+                        'text-primary': '#2a1f16',
+                        'text-secondary': '#5a4a32',
+                        'text-muted': '#7d6847',
+                        'neutral-100': '#f8f1e8',
+                        'neutral-200': '#f0e6d6',
+                        'neutral-300': '#e6d5c1',
+                        'neutral-400': '#c4a882',
+                        cream: '#fdf8f3',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #fdf8f3;
+            color: #2a1f16;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #ff9a56 0%, #ff8c42 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f8f1e8;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c4a882;
+            border-radius: 9999px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ff9a56;
+        }
+
+        ::selection {
+            background: rgba(255, 154, 86, 0.3);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen overflow-x-hidden">
+    <!-- Background decorations -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+        <div class="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full opacity-30"
+            style="background: radial-gradient(circle, rgba(255,154,86,0.3) 0%, transparent 70%);"></div>
+        <div class="absolute top-1/3 -left-40 w-[500px] h-[500px] rounded-full opacity-20"
+            style="background: radial-gradient(circle, rgba(147,51,234,0.25) 0%, transparent 70%);"></div>
+        <div class="absolute inset-0 opacity-[0.015]"
+            style="background-image: linear-gradient(#c4a882 1px, transparent 1px), linear-gradient(90deg, #c4a882 1px, transparent 1px); background-size: 60px 60px;">
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-neutral-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav class="flex items-center justify-between h-16 lg:h-20">
+                <a href="{{ url_for('home') }}" class="flex items-center gap-2 group">
+                    <img src="{{ url_for('static', filename='images/logo/primiry__logo.png') }}" alt="YoppyChat Logo"
+                        class="h-12 lg:h-14 w-auto">
+                </a>
+
+                <div class="flex items-center gap-4">
+                    <a href="{{ url_for('channel') }}"
+                        class="px-6 py-2.5 rounded-full bg-gradient-to-r from-primary to-secondary text-white font-semibold shadow-lg hover:shadow-xl hover:shadow-primary/30 transform hover:-translate-y-0.5 transition-all duration-300">
+                        Try Free
+                    </a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="relative z-10 pt-24 pb-16">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Page Header -->
+            <div class="text-center mb-12">
+                <div
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
+                    <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <span class="text-sm font-medium text-primary">Legal</span>
+                </div>
+                <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold text-text-primary mb-4">
+                    Privacy <span class="gradient-text">Policy</span>
+                </h1>
+                <p class="text-lg text-text-muted">Last Updated: July 11, 2025</p>
+            </div>
+
+            <!-- Content -->
+            <div class="bg-white rounded-3xl shadow-xl border border-neutral-200 p-8 lg:p-12">
+                <div class="prose prose-lg max-w-none">
+                    <p class="text-text-secondary leading-relaxed mb-6">
+                        Your privacy is important to us. This Privacy Policy explains how YoppyChat AI ("we," "us," or
+                        "our") collects, uses, and discloses information about you when you use our web application and
+                        services (collectively, the "Service").
+                    </p>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        1. Information We Collect
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-4">We collect information in a few different ways:
+                    </p>
+
+                    <h3 class="text-xl font-semibold text-text-primary mt-6 mb-3">Information You Provide to Us</h3>
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong class="text-text-primary">Account
+                                    Information:</strong> When you register for an account using Google OAuth, we
+                                receive your name, email address, and profile picture from Google.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong class="text-text-primary">YouTube
+                                    Channel Information:</strong> We collect the YouTube channel URLs that you submit to
+                                the Service for processing.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong class="text-text-primary">Chat
+                                    History:</strong> We store the questions you ask the AI and the answers it generates
+                                to provide a continuous conversation history.</span>
+                        </li>
+                    </ul>
+
+                    <h3 class="text-xl font-semibold text-text-primary mt-6 mb-3">Information We Collect Automatically
+                    </h3>
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong class="text-text-primary">Usage
+                                    Information:</strong> We track your activity in connection with the Service, such as
+                                the number of channels you process and the number of queries you make, to enforce
+                                subscription limits and improve our service.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong class="text-text-primary">Cookies
+                                    and Session Data:</strong> We use cookies and similar technologies to keep you
+                                logged in and to maintain your session.</span>
+                        </li>
+                    </ul>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        2. How We Use Your Information
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-4">We use the information we collect to:</p>
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed">Provide, operate, and maintain our
+                                Service.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed">Process your requests, such as fetching
+                                and embedding video transcripts.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed">Manage your account, subscriptions, and
+                                billing.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed">Communicate with you, including sending
+                                service-related notifications.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed">Improve and personalize the Service and to
+                                develop new features.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed">Monitor and analyze trends, usage, and
+                                activities in connection with our Service.</span>
+                        </li>
+                    </ul>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        3. How We Share Your Information
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-4">We do not sell your personal information. We may
+                        share information about you in the following circumstances:</p>
+                    <ul class="space-y-4 mb-6">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div class="text-text-secondary leading-relaxed">
+                                <strong class="text-text-primary">With Third-Party Service Providers:</strong> We use
+                                trusted third-party vendors and service providers to help us deliver our services. These
+                                providers assist with hosting, database management, authentication, AI processing, and
+                                other essential functions. When you ask a question, your query and relevant video
+                                transcript context are processed by AI services to generate answers. We do not share
+                                your personal account information with these AI providers.
+                            </div>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong class="text-text-primary">For
+                                    Legal Reasons:</strong> We may disclose your information if we believe it's required
+                                by law, subpoena, or other legal process.</span>
+                        </li>
+                    </ul>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        4. Data Storage and Security
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-6">
+                        We use industry-standard security measures to protect your information. While we take reasonable
+                        measures to help protect your data, no security system is impenetrable, and we cannot guarantee
+                        the security of our systems 100%.
+                    </p>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        5. Your Data Rights and Choices
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-4">You have rights concerning your personal data:
+                    </p>
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong class="text-text-primary">Access
+                                    and Correction:</strong> You can review and update your account information through
+                                your account settings.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong
+                                    class="text-text-primary">Deletion:</strong> You can delete your processed channels
+                                and associated chat history directly through the application interface. Deleting a
+                                channel will remove its associated data from our primary databases.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong class="text-text-primary">Account
+                                    Deletion:</strong> If you wish to delete your entire account, please contact us at
+                                the email address below.</span>
+                        </li>
+                    </ul>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        6. Children's Privacy
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-6">
+                        Our Service is not directed to individuals under 13. We do not knowingly collect personal
+                        information from children under 13. If we become aware that a child under 13 has provided us
+                        with personal information, we will take steps to delete such information.
+                    </p>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        7. Changes to This Privacy Policy
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-6">
+                        We may change this Privacy Policy from time to time. If we make changes, we will notify you by
+                        revising the date at the top of the policy and, in some cases, we may provide you with
+                        additional notice (such as adding a statement to our homepage or sending you a notification).
+                    </p>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        8. Contact Us
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed">
+                        If you have any questions about this Privacy Policy, please contact us at: <strong
+                            class="text-primary">support@YoppyChatai.com</strong>.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Back to Home -->
+            <div class="text-center mt-12">
+                <a href="{{ url_for('home') }}"
+                    class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white border-2 border-neutral-200 text-text-primary font-semibold hover:border-primary hover:text-primary transform hover:-translate-y-0.5 transition-all duration-300 shadow-lg">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Home
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative z-10 bg-white border-t border-neutral-200 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="text-center text-text-muted text-sm">
+                <p>&copy; 2025 YoppyChat. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>
