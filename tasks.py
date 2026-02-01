@@ -105,15 +105,37 @@ def process_channel_task(channel_id, task=None):
         
         update_task_progress(task_id, 'processing', 10, 'Scanning for long-form videos...')
         
+        # Define a callback to update progress during the long-running transcription process
+        def progress_callback(msg):
+            pct = 10
+            if "Scanning" in msg:
+                 pct = 10 
+            elif "Downloading" in msg:
+                 # msg format: "Downloading transcripts: {completed}/{total} videos processed"
+                 try:
+                     parts = msg.split(':')[1].strip().split(' videos')[0].split('/')
+                     current = int(parts[0])
+                     total = int(parts[1])
+                     # Scale 10% -> 75%
+                     pct = 10 + int((current / total) * 65)
+                 except:
+                     pct = 30 
+            update_task_progress(task_id, 'processing', pct, msg)
+
         # This now correctly unpacks the list of failed long-form videos
         transcripts, thumbnail, subs, skipped_videos = get_transcripts_from_channel(
             youtube_api, 
             channel_url, 
-            target_video_count=300
+            target_video_count=300,
+            progress_callback=progress_callback
         )
         
         if not transcripts:
-            raise ValueError("Could not find any long-form videos with transcripts.")
+            # Check if we found long-form videos but couldn't get transcripts (rate limiting or no captions)
+            if skipped_videos:
+                raise ValueError(f"Found {len(skipped_videos)} long-form videos but could not fetch any transcripts. This may be due to YouTube rate limiting or videos without captions. Please try again in a few minutes.")
+            else:
+                raise ValueError("Could not find any long-form videos with transcripts on this channel.")
 
         update_task_progress(task_id, 'processing', 75, 'Building AI knowledge base...')
         create_and_store_embeddings(transcripts, None, user_id_who_submitted)
