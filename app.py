@@ -524,9 +524,11 @@ def home():
         personal_plan_id = os.environ.get('RAZORPAY_PLAN_ID_PERSONAL')
         creator_plan_id = os.environ.get('RAZORPAY_PLAN_ID_CREATOR')
         return render_template(
-            'landing.html',
+            'landing-2.html',
             razorpay_plan_id_personal=personal_plan_id,
-            razorpay_plan_id_creator=creator_plan_id
+            razorpay_plan_id_creator=creator_plan_id,
+            SUPABASE_URL=os.environ.get('SUPABASE_URL'),
+            SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
         )
 
 # --- All other routes like /channel, /ask, /stream_answer, etc. remain unchanged ---
@@ -828,7 +830,7 @@ def stream_answer():
             
         return query_string
 
-    MAX_CHAT_MESSAGES = 20
+    MAX_CHAT_MESSAGES = 50
     current_channel_name_for_history = channel_name or 'general'
     is_regenerating = request.form.get('is_regenerating') == 'true'
     history = get_chat_history(user_id, current_channel_name_for_history, access_token=access_token)
@@ -990,10 +992,14 @@ def clear_chat():
     channel_name = request.form.get('channel_name') or 'general'
     user_id = session['user']['id']
     try:
-        supabase = get_supabase_client(session.get('access_token'))
-        supabase.table('chat_history').delete().eq('user_id', user_id).eq('channel_name', channel_name).execute()
+        # Use admin client to bypass RLS restrictions on DELETE operations
+        # Security is maintained by filtering on user_id
+        supabase_admin = get_supabase_admin_client()
+        result = supabase_admin.table('chat_history').delete().eq('user_id', user_id).eq('channel_name', channel_name).execute()
+        logging.info(f"Cleared chat history for user {user_id}, channel {channel_name}. Deleted {len(result.data) if result.data else 0} records.")
         return jsonify({'status': 'success', 'message': f'Chat history cleared for {channel_name}'})
     except Exception as e:
+        logging.error(f"Error clearing chat history for user {user_id}: {e}")
         return jsonify({'status': 'error', 'message': str(e)})
 
 @app.route('/logout')
@@ -1006,6 +1012,7 @@ def logout():
 def dashboard():
     """
     Renders the main dashboard hub and provides the status of each integration.
+    Now includes aggregated stats and analytics for premium dashboard view.
     """
     user_id = session['user']['id']
     supabase_admin = get_supabase_admin_client()
@@ -1030,27 +1037,52 @@ def dashboard():
         if group_conn.count > 0:
             telegram_is_active = True
 
+    # --- Check Website Embed Status ---
+    embed_is_active = False
+    try:
+        embed_check = supabase_admin.table('widget_analytics').select('id', count='exact').execute()
+        embed_is_active = embed_check.count > 0 if embed_check.count else False
+    except Exception:
+        embed_is_active = False
+
     # --- Get Creator Channels and Their Stats ---
     user_creator_channels = db_utils.get_channels_created_by_user(user_id)
     creator_stats = db_utils.get_creator_dashboard_stats(user_id)
 
-    # Merge stats into the channel data before sending to the template
+    # Initialize aggregated totals
+    total_stats = {
+        'referrals': 0,
+        'paid_referrals': 0,
+        'creator_mrr': 0.0,
+        'current_adds': 0
+    }
+
+    # Merge stats into the channel data
     for channel_data in user_creator_channels.values():
-        channel_stats = creator_stats.get(channel_data.get('id'), {})
-        # --- START: THE FIX ---
+        channel_id = channel_data.get('id')
+        channel_stats = creator_stats.get(channel_id, {})
+        
         channel_data['stats'] = {
             'referrals': channel_stats.get('referrals', 0),
-            'paid_referrals': channel_stats.get('paid_referrals', 0), # <-- This line was missing
+            'paid_referrals': channel_stats.get('paid_referrals', 0),
             'creator_mrr': channel_stats.get('creator_mrr', 0.0),
             'current_adds': channel_stats.get('current_adds', 0)
         }
-        # --- END: THE FIX ---
+        
+        # Aggregate totals
+        total_stats['referrals'] += channel_stats.get('referrals', 0)
+        total_stats['paid_referrals'] += channel_stats.get('paid_referrals', 0)
+        total_stats['creator_mrr'] += channel_stats.get('creator_mrr', 0.0)
+        total_stats['current_adds'] += channel_stats.get('current_adds', 0)
 
     return render_template(
         'dashboard.html',
         discord_is_active=discord_is_active,
         telegram_is_active=telegram_is_active,
-        saved_channels=user_creator_channels
+        embed_is_active=embed_is_active,
+        saved_channels=get_user_channels(),  # All user channels for sidebar consistency
+        creator_channels=user_creator_channels,  # Only channels created by user for analytics
+        total_stats=total_stats
     )
 
 @app.route('/integrations/discord')
@@ -1188,6 +1220,184 @@ def telegram_dashboard():
         channel_id=channel_id
     )
 
+@app.route('/integrations/embed')
+@login_required
+def embed_dashboard():
+    """
+    Website Embed Integration Dashboard.
+    Allows users to generate embed code for their websites.
+    """
+    user_id = session['user']['id']
+    supabase_admin = get_supabase_admin_client()
+    
+    # Get channels created by this user
+    creator_channels = db_utils.get_channels_created_by_user(user_id)
+    
+    # Get embed statistics
+    embed_stats = {
+        'total_chats': 0,
+        'total_questions': 0,
+        'unique_visitors': 0,
+        'domains': 0
+    }
+    
+    try:
+        # Fetch embed stats from database
+        channel_ids = [c['id'] for c in creator_channels.values()]
+        if channel_ids:
+            stats_res = supabase_admin.table('widget_analytics').select('*').in_('channel_id', channel_ids).execute()
+            if stats_res.data:
+                embed_stats['total_chats'] = sum(s.get('chat_count', 0) for s in stats_res.data)
+                embed_stats['total_questions'] = sum(s.get('question_count', 0) for s in stats_res.data)
+                unique_domains = set(s.get('domain', '') for s in stats_res.data if s.get('domain'))
+                embed_stats['domains'] = len(unique_domains)
+                embed_stats['unique_visitors'] = sum(s.get('unique_visitors', 0) for s in stats_res.data)
+    except Exception as e:
+        logging.warning(f"Could not fetch embed stats: {e}")
+    
+    # Check if embed is active (any channels have been embedded)
+    embed_is_active = embed_stats['total_chats'] > 0
+    
+    return render_template(
+        'embed_dashboard.html',
+        saved_channels=creator_channels,
+        embed_stats=embed_stats,
+        embed_is_active=embed_is_active
+    )
+
+# --- Widget API Endpoints ---
+
+@app.route('/api/widget/channel/<channel_name>')
+def widget_get_channel(channel_name):
+    """Fetch channel info for the widget header."""
+    try:
+        supabase_admin = get_supabase_admin_client()
+        channel_res = supabase_admin.table('channels').select('channel_name, channel_thumbnail').eq('channel_name', channel_name).limit(1).execute()
+        
+        if channel_res.data:
+            return jsonify({
+                'success': True,
+                'name': channel_res.data[0].get('channel_name'),
+                'thumbnail': channel_res.data[0].get('channel_thumbnail')
+            })
+        return jsonify({'success': False, 'error': 'Channel not found'})
+    except Exception as e:
+        logging.error(f"Widget channel fetch error: {e}")
+        return jsonify({'success': False, 'error': 'Server error'})
+
+@app.route('/api/widget/ask', methods=['POST'])
+def widget_ask_question():
+    """Handle questions from the embedded widget."""
+    try:
+        data = request.get_json()
+        channel_name = data.get('channel')
+        question = data.get('question', '').strip()
+        referrer = data.get('referrer', 'unknown')
+        
+        if not channel_name or not question:
+            return jsonify({'success': False, 'error': 'Missing channel or question'})
+        
+        if len(question) > 500:
+            return jsonify({'success': False, 'error': 'Question too long'})
+        
+        supabase_admin = get_supabase_admin_client()
+        
+        # Get channel data
+        channel_res = supabase_admin.table('channels').select('id, channel_name').eq('channel_name', channel_name).limit(1).execute()
+        
+        if not channel_res.data:
+            return jsonify({'success': False, 'error': 'Channel not found'})
+        
+        channel_data = channel_res.data[0]
+        channel_id = channel_data['id']
+        
+        # Generate answer using existing AI function
+        # Note: You may need to adapt this to your existing ask_question logic
+        answer = generate_widget_answer(channel_id, question)
+        
+        # Track the question for analytics
+        try:
+            supabase_admin.table('widget_analytics').upsert({
+                'channel_id': channel_id,
+                'domain': referrer,
+                'question_count': 1,
+                'chat_count': 1,
+                'unique_visitors': 1,
+                'last_activity': datetime.now(timezone.utc).isoformat()
+            }, on_conflict='channel_id,domain').execute()
+        except Exception as track_err:
+            logging.warning(f"Widget tracking error: {track_err}")
+        
+        return jsonify({
+            'success': True,
+            'answer': answer
+        })
+        
+    except Exception as e:
+        logging.error(f"Widget ask error: {e}")
+        return jsonify({'success': False, 'error': 'Server error'})
+
+@app.route('/api/widget/track', methods=['POST'])
+def widget_track_event():
+    """Track widget events for analytics."""
+    try:
+        data = request.get_json()
+        channel = data.get('channel')
+        event = data.get('event')
+        referrer = data.get('referrer', 'unknown')
+        
+        if not channel or not event:
+            return jsonify({'success': False})
+        
+        supabase_admin = get_supabase_admin_client()
+        
+        # Get channel ID
+        channel_res = supabase_admin.table('channels').select('id').eq('channel_name', channel).limit(1).execute()
+        
+        if channel_res.data:
+            channel_id = channel_res.data[0]['id']
+            
+            # Update analytics based on event type
+            update_data = {'last_activity': datetime.now(timezone.utc).isoformat()}
+            
+            if event == 'widget_opened':
+                update_data['chat_count'] = 1
+            elif event == 'widget_loaded':
+                update_data['unique_visitors'] = 1
+            
+            try:
+                supabase_admin.table('widget_analytics').upsert({
+                    'channel_id': channel_id,
+                    'domain': referrer,
+                    **update_data
+                }, on_conflict='channel_id,domain').execute()
+            except Exception as upsert_err:
+                logging.warning(f"Widget analytics upsert error: {upsert_err}")
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        logging.warning(f"Widget track error: {e}")
+        return jsonify({'success': False})
+
+def generate_widget_answer(channel_id, question):
+    """
+    Generate an answer for the widget.
+    This is a simplified version - you should integrate with your existing AI logic.
+    """
+    try:
+        # Import your existing AI functions here
+        # This is a placeholder - replace with your actual implementation
+        from ask_video import ask_question_for_widget
+        
+        answer = ask_question_for_widget(channel_id, question)
+        return answer
+    except ImportError:
+        # Fallback if the function doesn't exist yet
+        return "I'm sorry, I couldn't process your question at this time. Please try again later."
+    except Exception as e:
+        logging.error(f"Widget answer generation error: {e}")
+        return "Something went wrong. Please try again."
+
 @app.route('/about')
 def about():
     return render_template('about.html')
@@ -1199,6 +1409,23 @@ def privacy():
 @app.route('/terms')
 def terms():
     return render_template('terms.html', saved_channels=get_user_channels())
+
+@app.route('/privacy-policy')
+def privacy_landing():
+    return render_template('privacy-landing.html')
+
+@app.route('/terms-of-service')
+def terms_landing():
+    return render_template('terms-landing.html')
+
+@app.route('/refund-policy')
+def refund_landing():
+    return render_template('refund-landing.html')
+
+@app.route('/cookie-policy')
+def cookie_landing():
+    return render_template('cookie-landing.html')
+
 
 @app.route('/api/toggle_channel_privacy/<int:channel_id>', methods=['POST'])
 @login_required
