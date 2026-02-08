@@ -132,9 +132,9 @@ def create_and_store_embeddings(transcripts, _unused_config, user_id, progress_c
             return True
         
         # --- START OF FIX: Reduced batch size for database insertion ---
-        # Changed from 100 to 50 to prevent statement timeouts on large channels.
+        # Changed from 50 to 20 to prevent statement timeouts on large channels.
         # This is the key change to solve the error.
-        insert_batch_size = 50
+        insert_batch_size = 20
         # --- END OF FIX ---
         
         total_batches = (len(vectors_to_insert) + insert_batch_size - 1) // insert_batch_size
@@ -147,7 +147,22 @@ def create_and_store_embeddings(transcripts, _unused_config, user_id, progress_c
             batch = vectors_to_insert[start_index:end_index]
             
             logging.info(f"Inserting batch {i + 1}/{total_batches} ({len(batch)} vectors)...")
-            supabase.table('embeddings').insert(batch).execute()
+            
+            # Retry logic for database insertion
+            max_db_retries = 3
+            for attempt in range(max_db_retries):
+                try:
+                    supabase.table('embeddings').insert(batch).execute()
+                    break # Success, exit retry loop
+                except Exception as db_err:
+                    if attempt < max_db_retries - 1:
+                        wait = 2 * (attempt + 1)
+                        logging.warning(f"DB Insert failed (Attempt {attempt+1}/{max_db_retries}). Retrying in {wait}s... Error: {db_err}")
+                        time.sleep(wait)
+                    else:
+                        logging.error(f"Failed to insert batch {i+1} after all retries. Skipping this batch. Error: {db_err}")
+                        # We continue to the next batch even if this one fails to avoid total task failure
+
             if progress_callback:
                 progress_callback(i + 1, total_batches)
                 

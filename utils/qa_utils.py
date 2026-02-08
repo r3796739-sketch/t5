@@ -654,14 +654,16 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
     
     if channel_data:
         creator_name = channel_data.get('creator_name', channel_data.get('channel_name', 'the creator'))
+        speaking_style = channel_data.get('speaking_style', 'No specific speaking style analysis available. Speak naturally.')
         prompt_template = prompts.HYBRID_PERSONA_PROMPT
-        print("Using HYBRID Persona Prompt")
+        print("Using HYBRID Persona Prompt with Style Guidance")
         prompt = prompt_template.format(
             creator_name=creator_name, 
             context=context, 
             question=original_question,
             chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
-            word_count=word_count_guideline
+            word_count=word_count_guideline,
+            speaking_style=speaking_style
         )
     else:
         prompt = prompts.NEUTRAL_ASSISTANT_PROMPT.format(context=context, question=original_question)
@@ -810,6 +812,40 @@ def generate_channel_summary(text_sample: str) -> str:
     summary = _get_openai_answer_non_stream(prompt, model, api_key, base_url=base_url, temperature=0.5, max_tokens=250)
 
     return summary.strip() if summary else ""
+
+def extract_speaking_style(text_sample: str) -> str:
+    """
+    Analyzes transcripts to extract the creator's unique speaking style,
+    catchphrases, and vocabulary using an LLM.
+    """
+    print("Extracting speaking style from transcript sample...")
+    llm_provider = os.environ.get('STYLE_LLM_PROVIDER', os.environ.get('LLM_PROVIDER', 'openai'))
+    
+    # Use a higher quality model for style extraction if possible
+    model = os.environ.get('STYLE_MODEL_NAME', os.environ.get('MODEL_NAME'))
+    
+    api_key = _get_api_key(llm_provider)
+
+    # Correct base_url handling
+    if llm_provider == 'groq':
+        base_url = 'https://api.groq.com/openai/v1'
+    else:
+        base_url = os.environ.get('OPENAI_API_BASE_URL', None)
+
+    if not all([llm_provider, model, api_key]):
+        logging.warning("Style extraction LLM not fully configured.")
+        return ""
+
+    prompt = prompts.SPEAKING_STYLE_EXTRACTION_PROMPT.format(context=text_sample)
+    
+    # We want a fairly comprehensive analysis, so allow more tokens
+    style_analysis = _get_openai_answer_non_stream(prompt, model, api_key, base_url=base_url, temperature=0.4, max_tokens=400)
+
+    if style_analysis:
+        print("Speaking style extracted successfully.")
+        return style_analysis.strip()
+    
+    return ""
 
 def _get_transcript_summary(text: str) -> str:
     """
