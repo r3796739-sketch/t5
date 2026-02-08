@@ -17,7 +17,7 @@ from utils.embed_utils import create_and_store_embeddings
 from utils.supabase_client import get_supabase_admin_client
 from utils.telegram_utils import send_message, create_channel_keyboard
 from utils.config_utils import load_config
-from utils.qa_utils import answer_question_stream, extract_topics_from_text,generate_channel_summary
+from utils.qa_utils import answer_question_stream, extract_topics_from_text, generate_channel_summary, extract_speaking_style
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import logging
@@ -141,8 +141,9 @@ def process_channel_task(channel_id, task=None):
         create_and_store_embeddings(transcripts, None, user_id_who_submitted)
         
         text_sample = " ".join([t['transcript'] for t in transcripts[:5]])[:10000]
-        update_task_progress(task_id, 'processing', 90, 'Identifying topics...')
+        update_task_progress(task_id, 'processing', 90, 'Identifying topics and analyzing style...')
         topics = extract_topics_from_text(text_sample)
+        speaking_style = extract_speaking_style(text_sample)
         
         update_task_progress(task_id, 'processing', 95, 'Finalizing...')
         summary = generate_channel_summary(text_sample)
@@ -159,6 +160,7 @@ def process_channel_task(channel_id, task=None):
             'videos': video_data,
             'subscriber_count': subs,
             'topics': topics,
+            'speaking_style': speaking_style,
             'summary': summary,
             'status': 'ready'
         }).eq('id', channel_id).execute()
@@ -225,7 +227,7 @@ def sync_channel_task(channel_id, task=None):
         print(f"--- [SYNC TASK STARTED] Syncing channel_id: {channel_id} ---")
         update_task_progress(task_id, 'syncing', 5, 'Checking for new content...')
 
-        channel_resp = supabase_admin.table('channels').select('channel_url, videos, creator_id').eq('id', channel_id).single().execute()
+        channel_resp = supabase_admin.table('channels').select('channel_url, videos, creator_id, speaking_style').eq('id', channel_id).single().execute()
         if not channel_resp.data:
             raise ValueError("Channel not found.")
         
@@ -240,32 +242,62 @@ def sync_channel_task(channel_id, task=None):
         # We must first find ALL recent videos and then determine which ones are new.
         # Note: 'extract_channel_videos' is no longer in youtube_utils, so we replicate its core logic here.
         
-        # 1. Get the uploads playlist ID
-        match = re.search(r'(?:channel/|c/|@|user/)([^/?\s]+)', channel_url)
-        if not match: raise ValueError("Could not parse channel identifier.")
-        search_resp = youtube_api.search().list(q=match.group(1), type='channel', part='id', maxResults=1).execute()
-        if not search_resp.get('items'): raise ValueError("Channel not found via search.")
-        yt_channel_id = search_resp['items'][0]['id']['channelId']
-        channel_details = youtube_api.channels().list(part="contentDetails", id=yt_channel_id).execute()
-        uploads_id = channel_details['items'][0]['contentDetails']['relatedPlaylists']['uploads']
+        try:
+            # 1. Get the uploads playlist ID
+            match = re.search(r'(?:channel/|c/|@|user/)([^/?\s]+)', channel_url)
+            if not match: raise ValueError("Could not parse channel identifier.")
+            search_resp = youtube_api.search().list(q=match.group(1), type='channel', part='id', maxResults=1).execute()
+            if not search_resp.get('items'): raise ValueError("Channel not found via search.")
+            yt_channel_id = search_resp['items'][0]['id']['channelId']
+            channel_details = youtube_api.channels().list(part="contentDetails", id=yt_channel_id).execute()
+            uploads_id = channel_details['items'][0]['contentDetails']['relatedPlaylists']['uploads']
 
-        # 2. Get recent video IDs from the playlist
-        latest_video_ids = []
-        next_page_token = None
-        # We scan up to 250 recent videos to check for new ones
-        for _ in range(10): # 5 pages * 50 results = 250 videos
-            playlist_resp = youtube_api.playlistItems().list(
-                part="contentDetails", playlistId=uploads_id, maxResults=50, pageToken=next_page_token
-            ).execute()
-            latest_video_ids.extend([item['contentDetails']['videoId'] for item in playlist_resp.get('items', [])])
-            next_page_token = playlist_resp.get('nextPageToken')
-            if not next_page_token:
-                break
-        
-        new_video_ids = [vid for vid in latest_video_ids if vid not in existing_videos]
+            # 2. Get recent video IDs from the playlist
+            latest_video_ids = []
+            next_page_token = None
+            # We scan up to 250 recent videos to check for new ones
+            for _ in range(10): # 5 pages * 50 results = 250 videos
+                playlist_resp = youtube_api.playlistItems().list(
+                    part="contentDetails", playlistId=uploads_id, maxResults=50, pageToken=next_page_token
+                ).execute()
+                latest_video_ids.extend([item['contentDetails']['videoId'] for item in playlist_resp.get('items', [])])
+                next_page_token = playlist_resp.get('nextPageToken')
+                if not next_page_token:
+                    break
+            
+            new_video_ids = [vid for vid in latest_video_ids if vid not in existing_videos]
+            print(f"Found {len(new_video_ids)} new videos to check.")
+
+        except Exception as yt_error:
+            print(f"Warning: YouTube API check failed ({yt_error}). Proceeding to check for metadata updates only.")
+            new_video_ids = []
 
         if not new_video_ids:
-            print("No new videos to process.")
+            print("No new videos to process. Checking if metadata needs refresh...")
+            
+            # --- START: METADATA REFRESH LOGIC ---
+            # Even if no new videos, check if we need to backfill speaking_style
+            current_style = channel_resp.data.get('speaking_style')
+            if not current_style:
+                update_task_progress(task_id, 'syncing', 50, 'Analyzing speaking style for the first time...')
+                print("Backfilling speaking style for existing channel...")
+                
+                # Fetch a sample of text from existing embeddings
+                # We grab up to 20 random chunks to form a decent sample
+                embeddings_resp = supabase_admin.table('embeddings').select('metadata').eq('channel_id', channel_id).limit(20).execute()
+                
+                if embeddings_resp.data:
+                     text_sample = " ".join([row['metadata'].get('chunk_text', '') for row in embeddings_resp.data])
+                     new_style = extract_speaking_style(text_sample)
+                     
+                     if new_style:
+                         supabase_admin.table('channels').update({'speaking_style': new_style}).eq('id', channel_id).execute()
+                         print("Successfully backfilled speaking style.")
+                         update_task_progress(task_id, 'complete', 100, 'Channel synced and speaking style updated!')
+                         return "Channel synced and speaking style updated."
+            # --- END: METADATA REFRESH LOGIC ---
+
+            print("Channel is already up-to-date.")
             update_task_progress(task_id, 'complete', 100, 'Channel is already up-to-date.')
             return "Channel is already up-to-date."
 

@@ -68,7 +68,7 @@ PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET')
 # --- END: SESSION FIX ---
 
 Compress(app)
-app.secret_key = os.environ.get('SECRET_KEY', 'a_default_dev_secret_key')
+app.secret_key = os.environ.get('SECRET_KEY')
 mail.init_app(app)
 
 # --- PayPal Configuration ---
@@ -516,6 +516,7 @@ def contact():
 @app.route('/refund-policy')
 def refund_policy():
     return render_template('refund_policy.html', saved_channels=get_user_channels())
+
 @app.route('/')
 def home():
     if 'user' in session:
@@ -1460,7 +1461,7 @@ def toggle_channel_privacy(channel_id):
 if os.environ.get("FLASK_ENV") == "development":
     @app.route('/dev/login')
     def dev_login():
-        user_id = 'a_test_user_id'
+        user_id = os.environ.get('DEV_TEST_USER_ID', 'a_test_user_id')
         session['user'] = {'id': user_id, 'user_metadata': {'full_name': 'Test User', 'avatar_url': 'https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png'}, 'email': 'test@example.com'}
         session['access_token'] = 'test_access_token'
         session['refresh_token'] = 'test_refresh_token'
@@ -1474,7 +1475,7 @@ def admin_required(f):
     def decorated_function(*args, **kwargs):
         if 'user' not in session:
             return redirect(url_for('home'))
-        admin_user_id = '2f092c41-e0c5-4533-98a2-9e5da027d0ed'
+        admin_user_id = os.environ.get('ADMIN_USER_ID')
         if str(session['user']['id']) != admin_user_id:
             flash('You do not have permission to access this page.', 'error')
             return redirect(url_for('channel'))
