@@ -143,6 +143,8 @@ The platform employs a **hybrid monetization strategy**:
    - Transcript extraction with yt-dlp
    - Embedding generation and storage
    - Intelligent long-form content filtering
+   - Speaking style analysis and extraction
+   - Topic extraction and channel summarization
 
 2. **AI Interaction Service**
    - Retrieval-Augmented Generation (RAG)
@@ -199,7 +201,8 @@ The platform employs a **hybrid monetization strategy**:
 1. **Web Application** - Primary dashboard at yoppychat.softvait.in
 2. **Discord Bots** - Branded and shared bot deployments
 3. **Telegram Bots** - Personal and group integrations
-4. **Email Notifications** - Processing completion, updates
+4. **Website Embed Widgets** - Floating chat and embedded forms for creator websites
+5. **Email Notifications** - Processing completion, updates
 
 ---
 
@@ -235,11 +238,14 @@ The platform employs a **hybrid monetization strategy**:
 │ • process_channel   │ │ • Embedding Gen     │ │ • Discord Bot Service       │
 │ • sync_channel      │ │   (Gemini/OpenAI)   │ │ • Telegram Bot Handlers     │
 │ • delete_channel    │ │ • LLM Queries       │ │ • Whop Integration          │
-│ • update_bot_profile│ │   (Groq/OpenAI)     │ │ • YouTube Data API          │
-│ • process_telegram  │ │ • RAG Pipeline      │ └─────────────────────────────┘
-│ • post_answer_proc  │ │ • Topic Extraction  │
-└─────────────────────┘ │ • Summarization     │
-                        └─────────────────────┘
+│ • update_bot_profile│ │   (Groq/OpenAI)     │ │ • Website Embed Support     │
+│ • process_telegram  │ │ • RAG Pipeline      │ │ • YouTube Data API          │
+│ • post_answer_proc  │ │   (Gemini TaskTypes)│ └─────────────────────────────┘
+│                     │ │ • Topic Extraction  │
+│                     │ │ • Style Analysis    │
+│                     │ │ • Summarization     │
+│                     │ │                     │
+└─────────────────────┘ └─────────────────────┘
                                         │
                                         ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -305,11 +311,13 @@ The platform employs a **hybrid monetization strategy**:
 4. Extracts transcripts using yt-dlp
 5. Generates embeddings and stores in pgvector
 6. Extracts topics and generates summary
-7. Updates channel status to "ready"
-8. Sends email notification to creator
+7. Analyzes creator's speaking style (vocabulary, tone, sentence structure)
+8. Updates channel status to "ready"
+9. Sends email notification to creator
 
 **Key Features:**
 - Intelligent long-form video detection
+- Speaking style authentication
 - Retry logic for failed channels
 - Progress tracking via Redis
 - Email notifications on completion
@@ -328,6 +336,7 @@ The platform employs a **hybrid monetization strategy**:
 **Features:**
 - Streaming responses with SSE
 - Chat history context (last 5 messages)
+- Dynamic Persona Adaptation (matches creator's speaking style)
 - Source citations with video links
 - Regeneration capability
 - Query limit enforcement
@@ -346,7 +355,12 @@ The platform employs a **hybrid monetization strategy**:
 - **Channel Context:** Persistent channel selection
 - **Connection Codes:** Secure account linking
 
-### 4. Subscription & Payment System
+### 4. Website Integration
+- **Embeddable Widget:** JavaScript snippet for any website
+- **Floating Chat:** Corner widget for visitor engagement
+- **Analytics:** Tracking for external embeds
+
+### 5. Subscription & Payment System
 
 **Payment Flow:**
 1. User initiates subscription (Razorpay/PayPal)
@@ -573,6 +587,6 @@ Recommended:
 
 ---
 
-*Document Version: 1.0*  
-*Last Updated: January 29, 2026*  
+*Document Version: 1.1*  
+*Last Updated: February 05, 2026*  
 *Platform: YoppyChat AI*
