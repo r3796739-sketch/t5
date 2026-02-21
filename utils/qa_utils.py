@@ -272,13 +272,39 @@ def get_routed_context(question: str, channel_data: Optional[dict], user_id: str
                 'video_url': channel_data.get('channel_url', '#'),
                 'video_id': 'intro_chunk'
             })
-        semantic_chunks = search_and_rerank_chunks(question, user_id, access_token, channel_data.get('videos'))
+        video_ids = {v['video_id'] for v in (channel_data.get('videos') or [])} if channel_data else None
+        
+        # If multi-source, search everything (don't restrict to YouTube IDs)
+        if channel_data and (channel_data.get('has_website') or channel_data.get('has_whatsapp')):
+            video_ids = None
+        
+        # CRITICAL: Get channel_id for data isolation
+        # For backward compatibility with old YouTube embeddings (which have channel_id=NULL),
+        # we can omit p_channel_id if we rely entirely on globally unique YouTube p_video_ids.
+        if video_ids is not None:
+            effective_channel_id = None
+        else:
+            effective_channel_id = channel_data.get('id') if channel_data else None
+            
+        semantic_chunks = search_and_rerank_chunks(question, user_id, access_token, video_ids, effective_channel_id)
         return identity_context + semantic_chunks
 
-    # --- Default Intent: Semantic Search (no changes needed here) ---
     print("Query routed to: semantic_search")
-    video_ids = {v['video_id'] for v in channel_data.get('videos', [])} if channel_data else None
-    return search_and_rerank_chunks(question, user_id, access_token, video_ids)
+    video_ids = {v['video_id'] for v in (channel_data.get('videos') or [])} if channel_data else None
+    
+    # If multi-source, search everything (don't restrict to YouTube IDs)
+    if channel_data and (channel_data.get('has_website') or channel_data.get('has_whatsapp')):
+        video_ids = None
+    
+    # CRITICAL: Get channel_id for data isolation
+    # For backward compatibility with old YouTube embeddings (which have channel_id=NULL),
+    # we can omit p_channel_id if we rely entirely on globally unique YouTube p_video_ids.
+    if video_ids is not None:
+        effective_channel_id = None
+    else:
+        effective_channel_id = channel_data.get('id') if channel_data else None
+
+    return search_and_rerank_chunks(question, user_id, access_token, video_ids, effective_channel_id)
 
 # --- Provider-Specific LLM STREAMING FUNCTIONS ---
 def _get_openai_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
@@ -457,7 +483,7 @@ def rerank_with_cross_encoder(query: str, chunks: List[Dict[str, Any]]) -> List[
     print(f"[TIME_LOG] Re-ranking with Cross-Encoder took {end_time - start_time:.4f} seconds.")
     return sorted_chunks
 
-def search_and_rerank_chunks(query: str, user_id: str, access_token: str, video_ids: Optional[set] = None):
+def search_and_rerank_chunks(query: str, user_id: str, access_token: str, video_ids: Optional[set] = None, channel_id: Optional[int] = None):
     total_start_time = time.perf_counter()
     
     def create_query_embedding(query_text: str):
@@ -498,12 +524,13 @@ def search_and_rerank_chunks(query: str, user_id: str, access_token: str, video_
             'query_embedding': query_embedding.tolist(),
             'match_threshold': float(os.environ.get('MATCH_THRESHOLD', 0.4)),
             'match_count': int(os.environ.get('MATCH_COUNT', 50)),
-            'p_video_ids': list(video_ids) if video_ids else None
+            'p_video_ids': list(video_ids) if video_ids else None,
+            'p_channel_id': channel_id  # CRITICAL: Filter by channel to isolate chatbot data
         }
         
         print(f"Calling 'match_embeddings' with params:")
         print(f"  - user_id: {user_id}")
-        #print(f"  - video_ids: {'All' if not video_ids else list(video_ids)}")
+        print(f"  - channel_id: {channel_id}")
         print(f"  - match_threshold: {match_params['match_threshold']}")
         
         rpc_start_time = time.perf_counter()
@@ -641,32 +668,94 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
     sources_dict = {}
     for chunk in relevant_chunks:
         try:
-            url = chunk.get('video_url')
+            # Handle different source types
+            source_type = chunk.get('source_type')
+            
+            # extract URL and Title
+            url = chunk.get('video_url') or chunk.get('url')
+            title = chunk.get('video_title') or chunk.get('title') or 'Unknown Source'
+            
+            if source_type == 'whatsapp':
+                # WhatsApp doesn't have a real URL, so we create a distinct placeholder or use the title
+                url = url or "whatsapp://chat"
+                title = title if title != 'Unknown Source' else "WhatsApp Chat"
+            
             if url and url not in sources_dict:
-                sources_dict[url] = {'title': chunk.get('video_title', 'Unknown Title'), 'url': url}
+                sources_dict[url] = {'title': title, 'url': url}
         except Exception:
             continue
     formatted_sources = sorted(list(sources_dict.values()), key=lambda s: s['title'])
     yield f"data: {json.dumps({'sources': formatted_sources})}\n\n"
 
-    context_parts = [f"From video '{chunk.get('video_title', 'Unknown')}' (uploaded on {chunk.get('upload_date', 'N/A')}): {chunk.get('chunk_text', '')}" for chunk in relevant_chunks]
+    # Format context based on source type
+    context_parts = []
+    for chunk in relevant_chunks:
+        source_type = chunk.get('source_type', 'youtube')
+        title = chunk.get('video_title') or chunk.get('title') or 'Unknown Source'
+        date = chunk.get('upload_date') or chunk.get('date') or 'N/A'
+        text = chunk.get('chunk_text', '')
+
+        if source_type == 'whatsapp':
+            context_parts.append(f"From WhatsApp Chat '{title}' (Date: {date}): {text}")
+        elif source_type == 'website':
+            context_parts.append(f"From Website Page '{title}' (URL: {chunk.get('url')}): {text}")
+        else:
+            context_parts.append(f"From video '{title}' (uploaded on {date}): {text}")
     context = '\n\n'.join(context_parts)
     
     if channel_data:
         creator_name = channel_data.get('creator_name', channel_data.get('channel_name', 'the creator'))
-        speaking_style = channel_data.get('speaking_style', 'No specific speaking style analysis available. Speak naturally.')
-        prompt_template = prompts.HYBRID_PERSONA_PROMPT
-        print("Using HYBRID Persona Prompt with Style Guidance")
-        prompt = prompt_template.format(
-            creator_name=creator_name, 
-            context=context, 
-            question=original_question,
-            chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
-            word_count=word_count_guideline,
-            speaking_style=speaking_style
-        )
+        speaking_style = channel_data.get('speaking_style', 'Professional and helpful. Provide clear, accurate information.')
+        bot_type = channel_data.get('bot_type', 'youtuber')  # Default to youtuber for legacy bots
+        
+        # Select prompt based on bot type
+        if bot_type == 'business':
+            prompt_template = prompts.BUSINESS_SUPPORT_PROMPT
+            print("Using BUSINESS SUPPORT Persona Prompt")
+            prompt = prompt_template.format(
+                business_name=creator_name,
+                context=context,
+                question=original_question,
+                chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
+                word_count=word_count_guideline,
+                speaking_style=speaking_style
+            )
+        elif bot_type == 'general':
+            prompt_template = prompts.GENERAL_ASSISTANT_PROMPT
+            print("Using GENERAL ASSISTANT Persona Prompt")
+            prompt = prompt_template.format(
+                bot_name=creator_name,
+                context=context,
+                question=original_question,
+                chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
+                word_count=word_count_guideline,
+                speaking_style=speaking_style
+            )
+        else:  # youtuber (default)
+            prompt_template = prompts.HYBRID_PERSONA_PROMPT
+            print("Using YOUTUBER/CREATOR Persona Prompt with Style Guidance")
+            prompt = prompt_template.format(
+                creator_name=creator_name, 
+                context=context, 
+                question=original_question,
+                chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
+                word_count=word_count_guideline,
+                speaking_style=speaking_style
+            )
     else:
         prompt = prompts.NEUTRAL_ASSISTANT_PROMPT.format(context=context, question=original_question)
+
+    # --- Lead Capture Mode: prepend lead instructions to the prompt ---
+    if channel_data and channel_data.get('lead_capture_enabled'):
+        lead_fields = channel_data.get('lead_capture_fields') or []
+        try:
+            from utils.lead_capture_utils import build_lead_prompt
+            lead_instructions = build_lead_prompt(lead_fields)
+            if lead_instructions:
+                prompt = lead_instructions + "\n" + prompt
+                print("[LEAD_CAPTURE] Lead capture mode active — instructions prepended to prompt.")
+        except Exception as lc_err:
+            logging.warning(f"[LEAD_CAPTURE] Could not build lead prompt: {lc_err}")
 
     model = os.environ.get('MODEL_NAME')
     ollama_url = os.environ.get('OLLAMA_URL')
@@ -813,12 +902,16 @@ def generate_channel_summary(text_sample: str) -> str:
 
     return summary.strip() if summary else ""
 
-def extract_speaking_style(text_sample: str) -> str:
+def extract_speaking_style(text_sample: str, source_type: str = 'youtube') -> str:
     """
-    Analyzes transcripts to extract the creator's unique speaking style,
+    Analyzes transcripts/chats to extract the speaker's unique speaking style,
     catchphrases, and vocabulary using an LLM.
+    
+    Args:
+        text_sample: Text to analyze
+        source_type: 'youtube' for creator content, 'whatsapp' for customer service chats
     """
-    print("Extracting speaking style from transcript sample...")
+    print(f"Extracting speaking style from {source_type} sample...")
     llm_provider = os.environ.get('STYLE_LLM_PROVIDER', os.environ.get('LLM_PROVIDER', 'openai'))
     
     # Use a higher quality model for style extraction if possible
@@ -836,7 +929,11 @@ def extract_speaking_style(text_sample: str) -> str:
         logging.warning("Style extraction LLM not fully configured.")
         return ""
 
-    prompt = prompts.SPEAKING_STYLE_EXTRACTION_PROMPT.format(context=text_sample)
+    # Use appropriate prompt based on source type
+    if source_type == 'whatsapp':
+        prompt = prompts.BUSINESS_STYLE_EXTRACTION_PROMPT.format(context=text_sample)
+    else:
+        prompt = prompts.SPEAKING_STYLE_EXTRACTION_PROMPT.format(context=text_sample)
     
     # We want a fairly comprehensive analysis, so allow more tokens
     style_analysis = _get_openai_answer_non_stream(prompt, model, api_key, base_url=base_url, temperature=0.4, max_tokens=400)

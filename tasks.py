@@ -87,8 +87,11 @@ def process_channel_task(channel_id, task=None):
     """
     task_id = task.id if task else None
     supabase_admin = get_supabase_admin_client()
-    logger.info(f"Clearing any previous data for channel_id: {channel_id}")
-    supabase_admin.table('embeddings').delete().eq('channel_id', channel_id).execute()
+    # FIXED: Only clear YouTube embeddings, not WhatsApp/Website embeddings
+    # Use metadata filter to only delete YouTube-type embeddings
+    logger.info(f"Clearing previous YouTube data for channel_id: {channel_id}")
+    # Delete embeddings that are YouTube type (video_id pattern) or have no source_id (legacy)
+    supabase_admin.table('embeddings').delete().eq('channel_id', channel_id).is_('source_id', 'null').execute()
     
     try:
         update_task_progress(task_id, 'processing', 5, 'Fetching channel details...')
@@ -138,7 +141,7 @@ def process_channel_task(channel_id, task=None):
                 raise ValueError("Could not find any long-form videos with transcripts on this channel.")
 
         update_task_progress(task_id, 'processing', 75, 'Building AI knowledge base...')
-        create_and_store_embeddings(transcripts, None, user_id_who_submitted)
+        create_and_store_embeddings(transcripts, None, user_id_who_submitted, channel_id)
         
         text_sample = " ".join([t['transcript'] for t in transcripts[:5]])[:10000]
         update_task_progress(task_id, 'processing', 90, 'Identifying topics and analyzing style...')
@@ -314,7 +317,7 @@ def sync_channel_task(channel_id, task=None):
             return "No new long-form content to add."
         
         update_task_progress(task_id, 'syncing', 70, 'Updating the AI knowledge base...')
-        create_and_store_embeddings(new_transcripts, None, user_id)
+        create_and_store_embeddings(new_transcripts, None, user_id, channel_id)
         
         update_task_progress(task_id, 'syncing', 95, 'Finalizing...')
         new_video_data = [
@@ -765,3 +768,11 @@ def owner_delete_channel_task(channel_id: int):
         print(f"--- [OWNER DELETE TASK FAILED] Error for channel {channel_id}: {error_message} ---")
         logger.error(f"Owner delete task failed for channel {channel_id}: {e}", exc_info=True)
         raise
+
+
+# --- MULTI-SOURCE TASK REGISTRATION ---
+# Import multi-source tasks to register them with Huey
+from tasks_multi_source import (
+    process_whatsapp_source_task,
+    process_website_source_task
+)

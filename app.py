@@ -40,6 +40,8 @@ from extensions import mail
 from flask_mail import Message
 import paypalrestsdk
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.utils import secure_filename
+from tasks_multi_source import process_whatsapp_source_task, process_website_source_task
 logger = logging.getLogger(__name__)
 
 load_dotenv()
@@ -69,7 +71,28 @@ PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET')
 
 Compress(app)
 app.secret_key = os.environ.get('SECRET_KEY')
+if not app.secret_key:
+    raise RuntimeError("SECRET_KEY environment variable is required. Set it before starting the app.")
 mail.init_app(app)
+
+# Register WhatsApp Blueprint
+from routes_whatsapp import whatsapp_bp
+app.register_blueprint(whatsapp_bp)
+
+
+# --- File Upload Configuration for Multi-Source Chatbots ---
+UPLOAD_FOLDER = 'uploads/whatsapp_chats'
+ALLOWED_EXTENSIONS = {'txt'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# Ensure upload directory exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    """Check if uploaded file has allowed extension."""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 # --- PayPal Configuration ---
 paypalrestsdk.configure({
@@ -703,6 +726,246 @@ def set_default_channel(channel_id):
     supabase_admin.table('communities').update({'default_channel_id': channel_id}).eq('id', active_community_id).execute()
     return jsonify({'status': 'success', 'message': 'Default channel has been updated.'})
 
+
+# --- MULTI-SOURCE CHATBOT ROUTES ---
+
+@app.route('/chatbot/create-ui', methods=['GET'])
+@login_required
+def chatbot_create_ui():
+    """Render the multi-source chatbot creation page."""
+    return render_template('chatbot_create.html')
+
+
+@app.route('/chatbot/create', methods=['POST'])
+@login_required
+def create_multi_source_chatbot():
+    """
+    Create a new chatbot with multiple data sources.
+    Accepts YouTube URLs, WhatsApp file upload, and Website URLs.
+    """
+    try:
+        if 'user' not in session:
+            return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+        
+        user_id = session['user']['id']
+        active_community_id = session.get('active_community_id')
+        user_status = get_user_status(user_id, active_community_id)
+        
+        if not user_status:
+            return jsonify({'status': 'error', 'message': 'Could not verify user status.'}), 500
+        
+        # Get form data
+        youtube_urls = request.form.getlist('youtube_urls[]')  # Multiple YouTube URLs
+        website_url = request.form.get('website_url', '').strip()
+        whatsapp_file = request.files.get('whatsapp_file')
+        chatbot_name = request.form.get('chatbot_name', '').strip()
+        
+        # Validate at least one source
+        has_youtube = bool(youtube_urls and any(url.strip() for url in youtube_urls))
+        has_website = bool(website_url)
+        has_whatsapp = bool(whatsapp_file and whatsapp_file.filename)
+        
+        if not (has_youtube or has_website or has_whatsapp):
+            return jsonify({
+                'status': 'error',
+                'message': 'Please provide at least one data source (YouTube, WhatsApp, or Website).'
+            }), 400
+        
+        # Check plan limits
+        if not user_status.get('is_active_community_owner'):
+            max_channels = user_status['limits'].get('max_channels', 0)
+            current_channels = user_status['usage'].get('channels_processed', 0)
+            if max_channels != float('inf') and current_channels >= max_channels:
+                message = f"You have reached the maximum of {int(max_channels)} chatbots for your plan."
+                return jsonify({'status': 'limit_reached', 'message': message}), 403
+        
+        supabase = get_supabase_admin_client()
+        
+        # Step 1: Create the parent chatbot/channel record
+        community_id_for_chatbot = active_community_id if user_status.get('is_active_community_owner') else None
+        
+        # Use first YouTube URL for initial channel record (backward compatibility)
+        initial_youtube_url = None
+        if has_youtube:
+            initial_youtube_url = youtube_urls[0].strip()
+            if is_youtube_video_url(initial_youtube_url):
+                initial_youtube_url = get_channel_url_from_video_url(initial_youtube_url)
+            initial_youtube_url = clean_youtube_url(initial_youtube_url)
+        
+        # Create chatbot record
+        chatbot_data = {
+            'creator_id': user_id,  # Fixed: use creator_id instead of user_id
+            'channel_url': initial_youtube_url,  # Can be null if only WhatsApp/Website
+            'status': 'processing',
+            'is_shared': False,
+            'community_id': community_id_for_chatbot,
+            'channel_name': chatbot_name or 'New Chatbot',
+            'has_youtube': has_youtube,
+            'has_whatsapp': has_whatsapp,
+            'has_website': has_website,
+            'is_ready': False
+        }
+        
+        chatbot_resp = supabase.table('channels').insert(chatbot_data).execute()
+        chatbot = chatbot_resp.data[0]
+        chatbot_id = chatbot['id']
+        
+        # Link chatbot to user
+        db_utils.link_user_to_channel(user_id, chatbot_id)
+        db_utils.increment_channels_processed(user_id)
+        
+        # Invalidate cache
+        if redis_client:
+            cache_key = f"user_visible_channels:{user_id}:community:{active_community_id or 'none'}"
+            redis_client.delete(cache_key)
+        
+        task_ids = []
+        
+        # Step 2: Create data_sources and schedule tasks for each source
+        
+        # Process YouTube sources
+        if has_youtube:
+            for youtube_url in youtube_urls:
+                youtube_url = youtube_url.strip()
+                if not youtube_url:
+                    continue
+                
+                # Handle video URLs
+                if is_youtube_video_url(youtube_url):
+                    youtube_url = get_channel_url_from_video_url(youtube_url)
+                
+                youtube_url = clean_youtube_url(youtube_url)
+                
+                # Create data source record
+                source_resp = supabase.table('data_sources').insert({
+                    'chatbot_id': chatbot_id,
+                    'source_type': 'youtube',
+                    'source_url': youtube_url,
+                    'status': 'pending'
+                }).execute()
+                
+                source_id = source_resp.data[0]['id']
+                
+                # Schedule YouTube processing task (use existing process_channel_task)
+                task = process_channel_task.schedule(args=(chatbot_id,), delay=1)
+                task_ids.append({'type': 'youtube', 'task_id': task.id, 'source_id': source_id})
+        
+        # Process Website source
+        if has_website:
+            # Create data source record
+            source_resp = supabase.table('data_sources').insert({
+                'chatbot_id': chatbot_id,
+                'source_type': 'website',
+                'source_url': website_url,
+                'status': 'pending'
+            }).execute()
+            
+            source_id = source_resp.data[0]['id']
+            
+            # Schedule website processing task
+            task = process_website_source_task.schedule(args=(source_id,), delay=1)
+            task_ids.append({'type': 'website', 'task_id': task.id, 'source_id': source_id})
+        
+        # Process WhatsApp source
+        if has_whatsapp:
+            # Validate file
+            if not allowed_file(whatsapp_file.filename):
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Invalid file type. Please upload a .txt file.'
+                }), 400
+            
+            # Save file with unique name
+            filename = secure_filename(whatsapp_file.filename)
+            unique_filename = f"{user_id}_{chatbot_id}_{int(time.time())}_{filename}"
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            whatsapp_file.save(file_path)
+            
+            # Create data source record
+            source_resp = supabase.table('data_sources').insert({
+                'chatbot_id': chatbot_id,
+                'source_type': 'whatsapp',
+                'source_url': f"file://{unique_filename}",
+                'status': 'pending',
+                'metadata': {'original_filename': filename}
+            }).execute()
+            
+            source_id = source_resp.data[0]['id']
+            
+            # Schedule WhatsApp processing task
+            task = process_whatsapp_source_task.schedule(args=(source_id, file_path), delay=1)
+            task_ids.append({'type': 'whatsapp', 'task_id': task.id, 'source_id': source_id})
+        
+        return jsonify({
+            'status': 'processing',
+            'chatbot_id': chatbot_id,
+            'task_ids': task_ids,
+            'message': f'Processing {len(task_ids)} data source(s)...'
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to create multi-source chatbot: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/chatbot/<int:chatbot_id>/sources', methods=['GET'])
+@login_required
+def get_chatbot_sources(chatbot_id):
+    """
+    Get all data sources for a chatbot with their processing status.
+    """
+    try:
+        user_id = session['user']['id']
+        supabase = get_supabase_admin_client()
+        
+        # Verify user has access to this chatbot
+        access_check = supabase.table('user_channels').select('channel_id').eq(
+            'user_id', user_id
+        ).eq('channel_id', chatbot_id).execute()
+        
+        if not access_check.data:
+            return jsonify({'status': 'error', 'message': 'Access denied'}), 403
+        
+        # Get all sources
+        sources_resp = supabase.table('data_sources').select('*').eq(
+            'chatbot_id', chatbot_id
+        ).execute()
+        
+        return jsonify({
+            'status': 'success',
+            'sources': sources_resp.data
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to get chatbot sources: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/source/<int:source_id>/status', methods=['GET'])
+@login_required
+def get_source_status(source_id):
+    """
+    Get the processing status of a specific data source.
+    """
+    try:
+        supabase = get_supabase_admin_client()
+        
+        source_resp = supabase.table('data_sources').select('*').eq('id', source_id).single().execute()
+        
+        if not source_resp.data:
+            return jsonify({'status': 'error', 'message': 'Source not found'}), 404
+        
+        return jsonify({
+            'status': 'success',
+            'source': source_resp.data
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to get source status: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+
 @app.route('/ask', defaults={'channel_name': None})
 @app.route('/ask/channel/<path:channel_name>')
 def ask(channel_name):
@@ -878,7 +1141,8 @@ def stream_answer():
         # --- END: THE FIX ---
 
         if channel_data:
-            video_ids = {v['video_id'] for v in channel_data.get('videos', [])}
+            videos = channel_data.get('videos') or []
+            video_ids = {v['video_id'] for v in videos if v and 'video_id' in v}
             
     stream = answer_question_stream(
         question_for_prompt=final_question_with_history, 
@@ -902,12 +1166,11 @@ def delete_channel_route(channel_id):
         cache_key_to_delete = f"user_visible_channels:{user_id}:community:{active_community_id or 'none'}"
         if redis_client:
             redis_client.delete(cache_key_to_delete)
-        channel_response = supabase_admin.table('channels').select('user_id').eq('id', channel_id).single().execute()
-
+        channel_response = supabase_admin.table('channels').select('creator_id, user_id').eq('id', channel_id).maybe_single().execute()
         if not channel_response.data:
             return jsonify({'status': 'error', 'message': 'Channel not found.'}), 404
 
-        channel_owner_id = channel_response.data.get('user_id')
+        channel_owner_id = channel_response.data.get('creator_id') or channel_response.data.get('user_id')
 
         # If the user is the owner, trigger the permanent deletion task
         if str(channel_owner_id) == str(user_id):
@@ -1008,6 +1271,352 @@ def logout():
     session.clear()
     return redirect(url_for('home'))
 
+
+# ==========================================
+# CHATBOT SETTINGS ROUTES
+# ==========================================
+
+@app.route('/chatbot/<int:chatbot_id>/settings', methods=['GET'])
+@login_required
+def chatbot_settings(chatbot_id):
+    """Display chatbot settings page for editing chatbot configuration."""
+    try:
+        user_id = session['user']['id']
+        supabase = get_supabase_admin_client()
+        
+        # Get chatbot details
+        chatbot_resp = supabase.table('channels').select('*').eq('id', chatbot_id).maybe_single().execute()
+        
+        if not chatbot_resp.data:
+            return redirect(url_for('dashboard'))
+        
+        chatbot = chatbot_resp.data
+        
+        # Verify ownership
+        owner_id = chatbot.get('creator_id') or chatbot.get('user_id')
+        if str(owner_id) != str(user_id):
+            return redirect(url_for('dashboard'))
+        
+        # Get data sources
+        sources_resp = supabase.table('data_sources').select('*').eq('chatbot_id', chatbot_id).execute()
+        data_sources = sources_resp.data or []
+        
+        return render_template('chatbot_settings.html', chatbot=chatbot, data_sources=data_sources)
+        
+    except Exception as e:
+        logger.error(f"Error loading chatbot settings for {chatbot_id}: {e}", exc_info=True)
+        return redirect(url_for('dashboard'))
+
+
+@app.route('/chatbot/<int:chatbot_id>/settings', methods=['POST'])
+@login_required
+def update_chatbot_settings(chatbot_id):
+    """Update chatbot settings (name, bot_type, speaking_style, etc.)"""
+    try:
+        user_id = session['user']['id']
+        supabase = get_supabase_admin_client()
+        
+        # Verify ownership
+        chatbot_resp = supabase.table('channels').select('creator_id, user_id').eq('id', chatbot_id).maybe_single().execute()
+        
+        if not chatbot_resp.data:
+            return jsonify({'status': 'error', 'message': 'Chatbot not found'}), 404
+        
+        owner_id = chatbot_resp.data.get('creator_id') or chatbot_resp.data.get('user_id')
+        if str(owner_id) != str(user_id):
+            return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
+        
+        # Get update data
+        data = request.get_json()
+        
+        # Allowed fields to update
+        allowed_fields = ['channel_name', 'creator_name', 'bot_type', 'speaking_style',
+                          'lead_capture_enabled', 'lead_capture_email', 'lead_capture_fields']
+        update_data = {k: v for k, v in data.items() if k in allowed_fields}
+        
+        if not update_data:
+            return jsonify({'status': 'error', 'message': 'No valid fields to update'}), 400
+        
+        # Validate bot_type
+        if 'bot_type' in update_data:
+            if update_data['bot_type'] not in ['youtuber', 'business', 'general']:
+                return jsonify({'status': 'error', 'message': 'Invalid bot type'}), 400
+        
+        # Validate lead_capture_fields — must be a list if provided
+        if 'lead_capture_fields' in update_data:
+            if not isinstance(update_data['lead_capture_fields'], list):
+                return jsonify({'status': 'error', 'message': 'lead_capture_fields must be an array'}), 400
+            # Store as JSON array in Supabase (jsonb column)
+            import json as _json
+            update_data['lead_capture_fields'] = update_data['lead_capture_fields']
+        
+        # Validate lead_capture_email if provided
+        if 'lead_capture_email' in update_data:
+            email_val = update_data.get('lead_capture_email', '')
+            if email_val and '@' not in str(email_val):
+                return jsonify({'status': 'error', 'message': 'Invalid lead capture email address'}), 400
+        
+        # Update chatbot
+        supabase.table('channels').update(update_data).eq('id', chatbot_id).execute()
+        
+        # Clear cache
+        if redis_client:
+            active_community_id = session.get('active_community_id')
+            cache_key = f"user_visible_channels:{user_id}:community:{active_community_id or 'none'}"
+            redis_client.delete(cache_key)
+        
+        logger.info(f"Updated chatbot {chatbot_id} settings: {list(update_data.keys())}")
+        
+        return jsonify({'status': 'success', 'message': 'Settings updated successfully'})
+        
+    except Exception as e:
+        logger.error(f"Error updating chatbot settings for {chatbot_id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/chatbot/<int:chatbot_id>/upload-avatar', methods=['POST'])
+@login_required
+def upload_chatbot_avatar(chatbot_id):
+    """Upload or update chatbot profile picture."""
+    try:
+        user_id = session['user']['id']
+        supabase = get_supabase_admin_client()
+        
+        # Verify ownership
+        chatbot_resp = supabase.table('channels').select('creator_id, user_id, channel_thumbnail').eq('id', chatbot_id).maybe_single().execute()
+        
+        if not chatbot_resp.data:
+            return jsonify({'status': 'error', 'message': 'Chatbot not found'}), 404
+        
+        owner_id = chatbot_resp.data.get('creator_id') or chatbot_resp.data.get('user_id')
+        if str(owner_id) != str(user_id):
+            return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
+        
+        # Check if file was uploaded
+        if 'avatar' not in request.files:
+            return jsonify({'status': 'error', 'message': 'No file uploaded'}), 400
+        
+        file = request.files['avatar']
+        if file.filename == '':
+            return jsonify({'status': 'error', 'message': 'No file selected'}), 400
+        
+        # Validate file type
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+        file_ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+        if file_ext not in allowed_extensions:
+            return jsonify({'status': 'error', 'message': f'Invalid file type. Allowed: {", ".join(allowed_extensions)}'}), 400
+        
+        # Validate file size (max 5MB)
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(0)  # Reset to beginning
+        if file_size > 5 * 1024 * 1024:
+            return jsonify({'status': 'error', 'message': 'File too large. Maximum size is 5MB.'}), 400
+        
+        # Save file
+        import uuid
+        avatar_dir = os.path.join('static', 'uploads', 'avatars')
+        os.makedirs(avatar_dir, exist_ok=True)
+        
+        unique_filename = f"chatbot_{chatbot_id}_{uuid.uuid4().hex[:8]}.{file_ext}"
+        file_path = os.path.join(avatar_dir, unique_filename)
+        file.save(file_path)
+        
+        # Delete old avatar if it was a local upload
+        old_thumbnail = chatbot_resp.data.get('channel_thumbnail', '')
+        if old_thumbnail and '/static/uploads/avatars/' in old_thumbnail:
+            old_filename = old_thumbnail.split('/static/uploads/avatars/')[-1]
+            old_path = os.path.join(avatar_dir, old_filename)
+            if os.path.exists(old_path):
+                os.remove(old_path)
+        
+        # Build URL for the avatar
+        avatar_url = url_for('static', filename=f'uploads/avatars/{unique_filename}', _external=False)
+        
+        # Update database
+        supabase.table('channels').update({
+            'channel_thumbnail': avatar_url
+        }).eq('id', chatbot_id).execute()
+        
+        logger.info(f"Updated avatar for chatbot {chatbot_id}: {avatar_url}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Profile picture updated!',
+            'avatar_url': avatar_url
+        })
+        
+    except Exception as e:
+        logger.error(f"Error uploading avatar for chatbot {chatbot_id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/chatbot/<int:chatbot_id>/add-website', methods=['POST'])
+@login_required
+def add_website_source(chatbot_id):
+    """Add a new website URL as a data source to an existing chatbot."""
+    try:
+        user_id = session['user']['id']
+        supabase = get_supabase_admin_client()
+        
+        # Verify ownership
+        chatbot_resp = supabase.table('channels').select('creator_id, user_id').eq('id', chatbot_id).maybe_single().execute()
+        
+        if not chatbot_resp.data:
+            return jsonify({'status': 'error', 'message': 'Chatbot not found'}), 404
+        
+        owner_id = chatbot_resp.data.get('creator_id') or chatbot_resp.data.get('user_id')
+        if str(owner_id) != str(user_id):
+            return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
+        
+        # Get website URL from request
+        data = request.get_json()
+        website_url = data.get('website_url', '').strip()
+        crawl_mode = data.get('crawl_mode', 'auto')  # 'auto', 'single_page', 'full_crawl'
+        
+        if not website_url:
+            return jsonify({'status': 'error', 'message': 'Please provide a website URL'}), 400
+        
+        # Validate URL format
+        if not website_url.startswith(('http://', 'https://')):
+            website_url = 'https://' + website_url
+        
+        # Validate crawl_mode
+        if crawl_mode not in ('auto', 'single_page', 'full_crawl'):
+            crawl_mode = 'auto'
+        
+        # Create data source record with crawl_mode in metadata
+        source_resp = supabase.table('data_sources').insert({
+            'chatbot_id': chatbot_id,
+            'source_type': 'website',
+            'source_url': website_url,
+            'status': 'pending',
+            'metadata': {'crawl_mode': crawl_mode}
+        }).execute()
+        
+        source_id = source_resp.data[0]['id']
+        
+        # Schedule website processing task
+        from tasks_multi_source import process_website_source_task
+        task = process_website_source_task.schedule(args=(source_id,), delay=1)
+        
+        # Update chatbot to indicate it has website sources
+        supabase.table('channels').update({
+            'has_website': True
+        }).eq('id', chatbot_id).execute()
+        
+        logger.info(f"Added website source {website_url} to chatbot {chatbot_id}, task={task.id}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Website "{website_url}" is being scraped...',
+            'source_id': source_id,
+            'task_id': task.id
+        })
+        
+    except Exception as e:
+        logger.error(f"Error adding website source to chatbot {chatbot_id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/chatbot/<int:chatbot_id>/delete', methods=['POST'])
+@login_required
+def delete_chatbot(chatbot_id):
+    """Delete a chatbot and all its associated data."""
+    try:
+        user_id = session['user']['id']
+        supabase = get_supabase_admin_client()
+        
+        # Verify ownership
+        chatbot_resp = supabase.table('channels').select('creator_id, user_id').eq('id', chatbot_id).maybe_single().execute()
+        
+        if not chatbot_resp.data:
+            return jsonify({'status': 'error', 'message': 'Chatbot not found'}), 404
+        
+        owner_id = chatbot_resp.data.get('creator_id') or chatbot_resp.data.get('user_id')
+        if str(owner_id) != str(user_id):
+            return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
+        
+        # Delete embeddings
+        supabase.table('embeddings').delete().eq('channel_id', chatbot_id).execute()
+        
+        # Delete data sources
+        supabase.table('data_sources').delete().eq('chatbot_id', chatbot_id).execute()
+        
+        # Delete channel
+        supabase.table('channels').delete().eq('id', chatbot_id).execute()
+        
+        # Clear cache
+        if redis_client:
+            active_community_id = session.get('active_community_id')
+            cache_key = f"user_visible_channels:{user_id}:community:{active_community_id or 'none'}"
+            redis_client.delete(cache_key)
+        
+        logger.info(f"Deleted chatbot {chatbot_id} by user {user_id}")
+        
+        return jsonify({'status': 'success', 'message': 'Chatbot deleted successfully'})
+        
+    except Exception as e:
+        logger.error(f"Error deleting chatbot {chatbot_id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# ==========================================
+# LEAD CAPTURE ROUTES
+# ==========================================
+
+@app.route('/api/submit-lead', methods=['POST'])
+def submit_lead():
+    """Public endpoint — receives a completed lead from the chatbot widget and emails it."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+        
+        chatbot_id = data.get('chatbot_id')
+        responses = data.get('responses', {})
+        submitted_at = data.get('submitted_at', '')
+        
+        if not chatbot_id or not responses:
+            return jsonify({'status': 'error', 'message': 'chatbot_id and responses are required'}), 400
+        
+        supabase_admin = get_supabase_admin_client()
+        chatbot_resp = supabase_admin.table('channels').select(
+            'channel_name, lead_capture_email, lead_capture_enabled'
+        ).eq('id', chatbot_id).maybe_single().execute()
+        
+        if not chatbot_resp.data:
+            return jsonify({'status': 'error', 'message': 'Chatbot not found'}), 404
+        
+        chatbot_data = chatbot_resp.data
+        if not chatbot_data.get('lead_capture_enabled'):
+            return jsonify({'status': 'error', 'message': 'Lead capture is not enabled for this chatbot'}), 400
+        
+        recipient_email = chatbot_data.get('lead_capture_email')
+        if not recipient_email:
+            return jsonify({'status': 'error', 'message': 'No recipient email configured for lead capture'}), 400
+        
+        chatbot_name = chatbot_data.get('channel_name', 'Your Chatbot')
+        
+        from utils.lead_capture_utils import send_lead_email
+        from extensions import mail
+        
+        success = send_lead_email(
+            mail=mail,
+            chatbot_name=chatbot_name,
+            recipient_email=recipient_email,
+            responses=responses,
+            submitted_at=submitted_at
+        )
+        
+        if success:
+            logger.info(f"Lead submitted for chatbot {chatbot_id} ({chatbot_name}) -> {recipient_email}")
+            return jsonify({'status': 'success', 'message': 'Lead submitted successfully'})
+        else:
+            return jsonify({'status': 'error', 'message': 'Failed to send lead email'}), 500
+    
+    except Exception as e:
+        logger.error(f"Error in submit_lead: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -1046,6 +1655,14 @@ def dashboard():
     except Exception:
         embed_is_active = False
 
+    # --- Check WhatsApp Status ---
+    whatsapp_is_active = False
+    try:
+        whatsapp_check = supabase_admin.table('whatsapp_configs').select('id', count='exact').eq('user_id', user_id).eq('is_active', True).execute()
+        whatsapp_is_active = whatsapp_check.count > 0 if whatsapp_check.count else False
+    except Exception:
+        whatsapp_is_active = False
+
     # --- Get Creator Channels and Their Stats ---
     user_creator_channels = db_utils.get_channels_created_by_user(user_id)
     creator_stats = db_utils.get_creator_dashboard_stats(user_id)
@@ -1081,6 +1698,7 @@ def dashboard():
         discord_is_active=discord_is_active,
         telegram_is_active=telegram_is_active,
         embed_is_active=embed_is_active,
+        whatsapp_is_active=whatsapp_is_active,
         saved_channels=get_user_channels(),  # All user channels for sidebar consistency
         creator_channels=user_creator_channels,  # Only channels created by user for analytics
         total_stats=total_stats
@@ -1264,6 +1882,30 @@ def embed_dashboard():
         saved_channels=creator_channels,
         embed_stats=embed_stats,
         embed_is_active=embed_is_active
+    )
+
+
+@app.route('/integrations/whatsapp')
+@login_required
+def whatsapp_dashboard():
+    """
+    WhatsApp Business Integration Dashboard.
+    Allows users to set up their AI bot for WhatsApp Business.
+    """
+    user_id = session['user']['id']
+    
+    # Get channels created by this user
+    creator_channels = db_utils.get_channels_created_by_user(user_id)
+    
+    # Check if WhatsApp is configured (placeholder for future implementation)
+    whatsapp_config = None
+    whatsapp_is_active = False
+    
+    return render_template(
+        'whatsapp_dashboard.html',
+        saved_channels=creator_channels,
+        whatsapp_config=whatsapp_config,
+        whatsapp_is_active=whatsapp_is_active
     )
 
 # --- Widget API Endpoints ---

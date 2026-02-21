@@ -328,7 +328,8 @@ def create_channel(channel_url: str, user_id: str, is_shared: bool = False, comm
             'creator_id': user_id, # Changed from 'user_id' to 'creator_id'
             'status': 'pending',
             'is_shared': is_shared,
-            'community_id': community_id
+            'community_id': community_id,
+            'has_youtube': True  # Required by constraint
         }
         response = supabase.table('channels').insert(channel_payload).execute()
         return response.data[0] if response.data else None
