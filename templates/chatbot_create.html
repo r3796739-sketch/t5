@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+
+{% block title %}Create AI Chatbot - YoppyChat{% endblock %}
+
+{% block page_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chatbot_create.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="hero-content">
+        <h1 class="hero-title">Create Your AI Persona</h1>
+        <p class="hero-subtitle">
+            Build an intelligent AI chatbot from multiple data sources. Combine YouTube videos, WhatsApp conversations,
+            and website content to create a comprehensive knowledge base.
+        </p>
+
+        <div class="plan-usage-display">
+            <p>Processing usually takes <strong>5-15 minutes</strong> depending on content size.
+                We'll notify you by <strong>Email</strong> when it's ready!</p>
+        </div>
+
+        <!-- Multi-Source Form -->
+        <form id="chatbotForm" class="chatbot-form" enctype="multipart/form-data">
+
+            <!-- Chatbot Name -->
+            <div class="form-section">
+                <div class="section-header">
+                    <span class="section-icon">🤖</span>
+                    <h3>Chatbot Name</h3>
+                </div>
+                <div class="form-group">
+                    <input type="text" name="chatbot_name" id="chatbot_name" class="text-input"
+                        placeholder="My AI Assistant" required>
+                    <div class="input-hint">Give your chatbot a memorable name</div>
+                </div>
+            </div>
+
+            <!-- YouTube Sources -->
+            <div class="form-section">
+                <div class="section-header">
+                    <span class="section-icon">📹</span>
+                    <h3>YouTube Channels <span class="optional-badge">Optional</span></h3>
+                </div>
+
+                <div id="youtubeInputs" class="dynamic-inputs">
+                    <div class="form-group input-with-remove">
+                        <div class="input-container">
+                            <input type="url" name="youtube_urls[]" class="channel-input youtube-input"
+                                placeholder="https://youtube.com/@channelname">
+                            <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2">
+                                <path
+                                    d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.42a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .54 5.33A2.78 2.78 0 0 0 3.46 19c1.72.42 8.6.42 8.6.42s6.88 0 8.6-.42a2.78 2.78 0 0 0 1.94-2A29 29 0 0 0 23 11.75a29 29 0 0 0-.46-5.33z" />
+                                <path d="M10 15.25l5-3.5-5-3.5v7z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="add-more-btn" onclick="addYouTubeInput()">
+                    <span>+</span> Add Another YouTube Channel
+                </button>
+            </div>
+
+            <!-- WhatsApp Chat -->
+            <div class="form-section">
+                <div class="section-header">
+                    <span class="section-icon">💬</span>
+                    <h3>WhatsApp Chat <span class="optional-badge">Optional</span></h3>
+                </div>
+
+                <div class="form-group">
+                    <div class="file-upload-container" id="fileUploadContainer">
+                        <input type="file" name="whatsapp_file" id="whatsapp_file" accept=".txt" class="file-input"
+                            onchange="handleFileSelect(this)">
+                        <label for="whatsapp_file" class="file-upload-label">
+                            <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="17 8 12 3 7 8" />
+                                <line x1="12" y1="3" x2="12" y2="15" />
+                            </svg>
+                            <span class="upload-text">
+                                <strong>Choose a file</strong> or drag it here
+                            </span>
+                            <span class="upload-hint">WhatsApp chat export (.txt), max 16MB</span>
+                        </label>
+                        <div class="file-info" id="fileInfo" style="display: none;">
+                            <span class="file-name" id="fileName"></span>
+                            <button type="button" class="remove-file-btn" onclick="removeFile()">✕</button>
+                        </div>
+                    </div>
+                    <div class="input-hint">
+                        Export your WhatsApp chat: Chat → More → Export Chat → Without Media
+                    </div>
+                </div>
+
+                <!-- Agent Name Field -->
+                <div class="form-group" id="agentNameGroup" style="display: none;">
+                    <label for="whatsapp_agent_name" class="form-label">
+                        👤 Your Support Agent's Name <span class="optional-badge">Optional</span>
+                    </label>
+                    <input type="text" name="whatsapp_agent_name" id="whatsapp_agent_name" class="form-input"
+                        placeholder="e.g. Divi, Support Team, John">
+                    <div class="input-hint">
+                        💡 Enter the name of your receptionist/support agent as it appears in the chat.
+                        The bot will learn their communication style. If left empty, we'll auto-detect.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Website -->
+            <div class="form-section">
+                <div class="section-header">
+                    <span class="section-icon">🌐</span>
+                    <h3>Website <span class="optional-badge">Optional</span></h3>
+                </div>
+
+                <div class="form-group">
+                    <div class="input-container">
+                        <input type="url" name="website_url" id="website_url" class="channel-input"
+                            placeholder="https://myblog.com">
+                        <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="2" y1="12" x2="22" y2="12" />
+                            <path
+                                d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                        </svg>
+                    </div>
+                    <div class="input-hint">
+                        We'll scrape up to 50 pages to build a knowledge base
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="process-btn">
+                <span class="btn-icon">🚀</span>
+                <span>Create Chatbot</span>
+            </button>
+
+            <div class="form-note">
+                At least one data source is required. You can combine multiple sources for better results!
+            </div>
+        </form>
+
+        <!-- Processing Display -->
+        <div id="processingContainer" class="processing-display" style="display: none;">
+            <div class="processing-header">
+                <h2>Processing Your Data Sources</h2>
+                <p>This may take a few minutes. You can close this page—we'll email you when ready!</p>
+            </div>
+
+            <div id="sourcesProgress" class="sources-progress">
+                <!-- Dynamic source cards will be inserted here -->
+            </div>
+
+            <div class="processing-actions">
+                <a href="/dashboard" class="secondary-btn">Go to Dashboard</a>
+                <button type="button" class="process-btn" onclick="location.reload()">Create Another</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('chatbotForm');
+        const processingContainer = document.getElementById('processingContainer');
+        const sourcesProgress = document.getElementById('sourcesProgress');
+        const pollingIntervals = {};
+
+        // Add YouTube input dynamically
+        window.addYouTubeInput = function () {
+            const container = document.getElementById('youtubeInputs');
+            const newInput = document.createElement('div');
+            newInput.className = 'form-group input-with-remove';
+            newInput.innerHTML = `
+            <div class="input-container">
+                <input type="url" name="youtube_urls[]" 
+                       class="channel-input youtube-input" 
+                       placeholder="https://youtube.com/@channelname">
+                <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.42a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .54 5.33A2.78 2.78 0 0 0 3.46 19c1.72.42 8.6.42 8.6.42s6.88 0 8.6-.42a2.78 2.78 0 0 0 1.94-2A29 29 0 0 0 23 11.75a29 29 0 0 0-.46-5.33z"/>
+                    <path d="M10 15.25l5-3.5-5-3.5v7z"/>
+                </svg>
+                <button type="button" class="remove-input-btn" onclick="this.closest('.input-with-remove').remove()">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+        `;
+            container.appendChild(newInput);
+        };
+
+        // Handle file selection
+        window.handleFileSelect = function (input) {
+            const file = input.files[0];
+            if (file) {
+                document.getElementById('fileName').textContent = file.name;
+                document.getElementById('fileInfo').style.display = 'flex';
+                document.querySelector('.file-upload-label').style.display = 'none';
+                // Show agent name field when file is selected
+                document.getElementById('agentNameGroup').style.display = 'block';
+            }
+        };
+
+        // Remove selected file
+        window.removeFile = function () {
+            document.getElementById('whatsapp_file').value = '';
+            document.getElementById('fileInfo').style.display = 'none';
+            document.querySelector('.file-upload-label').style.display = 'flex';
+            // Hide and clear agent name field
+            document.getElementById('agentNameGroup').style.display = 'none';
+            document.getElementById('whatsapp_agent_name').value = '';
+        };
+
+        // Form submission
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            // Validate at least one source
+            const youtubeInputs = Array.from(document.querySelectorAll('.youtube-input'))
+                .filter(input => input.value.trim());
+            const whatsappFile = document.getElementById('whatsapp_file').files[0];
+            const websiteUrl = document.getElementById('website_url').value.trim();
+
+            if (youtubeInputs.length === 0 && !whatsappFile && !websiteUrl) {
+                showNotification('Please provide at least one data source', 'error');
+                return;
+            }
+
+            const formData = new FormData(form);
+
+            // Show processing view
+            form.style.display = 'none';
+            processingContainer.style.display = 'block';
+
+            fetch('/chatbot/create', {
+                method: 'POST',
+                body: formData
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'processing') {
+                        // Create progress cards for each source
+                        data.task_ids.forEach(task => {
+                            createSourceCard(task);
+                            startPolling(task.source_id);
+                        });
+                    } else if (data.status === 'error') {
+                        throw new Error(data.message);
+                    }
+                })
+                .catch(error => {
+                    showNotification(error.message || 'Failed to create chatbot', 'error');
+                    form.style.display = 'block';
+                    processingContainer.style.display = 'none';
+                });
+        });
+
+        function createSourceCard(task) {
+            const icons = {
+                'youtube': '📹',
+                'whatsapp': '💬',
+                'website': '🌐'
+            };
+
+            const card = document.createElement('div');
+            card.className = 'source-card processing';
+            card.id = `source-${task.source_id}`;
+            card.innerHTML = `
+            <div class="source-header">
+                <span class="source-icon">${icons[task.type]}</span>
+                <div class="source-info">
+                    <div class="source-title">${task.type.charAt(0).toUpperCase() + task.type.slice(1)}</div>
+                    <div class="source-status">Processing...</div>
+                </div>
+                <div class="source-badge processing">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-bar-inner" style="width: 0%"></div>
+                </div>
+                <div class="progress-text">0%</div>
+            </div>
+        `;
+            sourcesProgress.appendChild(card);
+        }
+
+        function startPolling(sourceId) {
+            pollingIntervals[sourceId] = setInterval(() => {
+                fetch(`/source/${sourceId}/status`)
+                    .then(res => res.json())
+                    .then(data => {
+                        updateSourceCard(sourceId, data.source);
+
+                        if (data.source.status === 'ready' || data.source.status === 'failed') {
+                            clearInterval(pollingIntervals[sourceId]);
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Polling error:', err);
+                        clearInterval(pollingIntervals[sourceId]);
+                    });
+            }, 2000);
+        }
+
+        function updateSourceCard(sourceId, source) {
+            const card = document.getElementById(`source-${sourceId}`);
+            if (!card) return;
+
+            const progressBar = card.querySelector('.progress-bar-inner');
+            const progressText = card.querySelector('.progress-text');
+            const statusText = card.querySelector('.source-status');
+            const badge = card.querySelector('.source-badge');
+
+            progressBar.style.width = `${source.progress}%`;
+            progressText.textContent = `${source.progress}%`;
+
+            if (source.status === 'ready') {
+                card.className = 'source-card ready';
+                statusText.textContent = 'Ready!';
+                badge.innerHTML = '✓';
+                badge.className = 'source-badge ready';
+            } else if (source.status === 'failed') {
+                card.className = 'source-card failed';
+                statusText.textContent = source.error_message || 'Failed';
+                badge.innerHTML = '✕';
+                badge.className = 'source-badge failed';
+            } else {
+                statusText.textContent = 'Processing...';
+            }
+        }
+    });
+</script>
+{% endblock %}
