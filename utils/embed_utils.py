@@ -14,9 +14,9 @@ from .qa_utils import EMBEDDING_PROVIDER_MAP
 load_dotenv()
 
 # --- START: THE FIX ---
-# The function signature is updated to accept user_id.
+# The function signature is updated to accept user_id and channel_id.
 # The _unused_config parameter is kept for compatibility with the sync task.
-def create_and_store_embeddings(transcripts, _unused_config, user_id, progress_callback=None):
+def create_and_store_embeddings(transcripts, _unused_config, user_id, channel_id=None, progress_callback=None):
 # --- END: THE FIX ---
     """Create embeddings for transcript chunks in parallel and upsert to the vector store."""
     try:
@@ -118,9 +118,10 @@ def create_and_store_embeddings(transcripts, _unused_config, user_id, progress_c
             if embedding is None: continue # Ensure we don't process failed embeddings
             meta = all_metadata[i]
             # --- START: THE FIX ---
-            # The user_id is now correctly included in the data to be inserted.
+            # The user_id and channel_id are now correctly included in the data to be inserted.
             vectors_to_insert.append({
                 'user_id': user_id,
+                'channel_id': channel_id,
                 'video_id': meta['video_id'],
                 'embedding': embedding.tolist(),
                 'metadata': meta

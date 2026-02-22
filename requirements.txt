@@ -39,6 +39,7 @@ python-dotenv
 Markdown
 MarkupSafe
 PyJWT
+cryptography
 
 
 grpcio

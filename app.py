@@ -686,8 +686,103 @@ def channel():
             razorpay_plan_id_creator=creator_plan_id
         )
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"Error in /channel: {e}")
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
+
+
+# --- CREATOR SUBMIT ROUTE ---
+@app.route('/creator-submit', methods=['GET', 'POST'])
+def creator_submit():
+    """
+    GET: Renders the creator submission form with optional pre-filled channel URL.
+    POST: Accepts JSON, sends notification email to admin in a background thread,
+          and returns a fast JSON response.
+    """
+    if request.method == 'GET':
+        prefilled_url = request.args.get('channel_url', '')
+        return render_template('creator-submit.html', prefilled_channel_url=prefilled_url)
+
+    # POST handling (JSON)
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'status': 'error', 'message': 'Invalid request.'}), 400
+
+        creator_email = data.get('email', '').strip()
+        channel_link = data.get('channel_link', '').strip()
+
+        # Basic validation
+        if not creator_email or '@' not in creator_email:
+            return jsonify({'status': 'error', 'message': 'Please enter a valid email address.'}), 400
+
+        if not channel_link:
+            return jsonify({'status': 'error', 'message': 'Please enter your YouTube channel link.'}), 400
+
+        def send_email_async(app_to_use, admin_email, creator_email, channel_link):
+            print(f">>> STARTING EMAIL THREAD. Admin: {admin_email}")
+            try:
+                with app_to_use.app_context():
+                    print(">>> APP CONTEXT ACQUIRED")
+                    msg = Message(
+                        subject=f"🎬 New Creator Submission: {channel_link}",
+                        recipients=[admin_email],
+                        reply_to=creator_email,
+                        html=f"""
+                        <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                            <div style="background: linear-gradient(135deg, #ff9a56, #ff8c42); padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
+                                <h1 style="color: white; margin: 0; font-size: 24px;">🎬 New Creator Submission</h1>
+                            </div>
+                            <div style="background: white; padding: 30px; border: 1px solid #f0e6d6; border-top: none; border-radius: 0 0 16px 16px;">
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <tr>
+                                        <td style="padding: 12px 0; font-weight: 600; color: #2a1f16; width: 140px;">Creator Email:</td>
+                                        <td style="padding: 12px 0; color: #5a4a32;">
+                                            <a href="mailto:{creator_email}" style="color: #ff9a56; text-decoration: none;">{creator_email}</a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 12px 0; font-weight: 600; color: #2a1f16;">Channel Link:</td>
+                                        <td style="padding: 12px 0; color: #5a4a32;">
+                                            <a href="{channel_link}" style="color: #ff9a56; text-decoration: none;">{channel_link}</a>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <hr style="border: none; border-top: 1px solid #f0e6d6; margin: 20px 0;">
+                                <p style="color: #7d6847; font-size: 14px; margin: 0;">
+                                    💡 <strong>Tip:</strong> Click the email address above to reply directly to the creator.
+                                </p>
+                            </div>
+                        </div>
+                        """
+                    )
+                    print(">>> MESSAGE CREATED, SENDING...")
+                    mail.send(msg)
+                    print(f">>> EMAIL SENT SUCCESSFULLY for {creator_email} - {channel_link}")
+                    logging.info(f"Creator submission email sent for {creator_email} - {channel_link}")
+            except Exception as email_error:
+                print(f">>> ERROR SENDING EMAIL: {email_error}")
+                import traceback
+                traceback.print_exc()
+                logging.warning(f"Failed to send creator submission email: {email_error}", exc_info=True)
+
+        admin_email = os.environ.get('ADMIN_NOTIFICATION_EMAIL', os.environ.get('MAIL_DEFAULT_SENDER'))
+
+        import threading
+
+        if admin_email:
+            # Fire and forget — don't block the response
+            thread = threading.Thread(target=send_email_async, args=(app, admin_email, creator_email, channel_link))
+            thread.start()
+        else:
+            logging.warning("ADMIN_NOTIFICATION_EMAIL or MAIL_DEFAULT_SENDER not configured. Skipping email.")
+
+        return jsonify({'status': 'success', 'message': 'Your channel has been submitted successfully! We\'ll review it and get back to you within 24 hours.'})
+
+    except Exception as e:
+        logging.error(f"Error in /creator-submit: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': 'Something went wrong. Please try again.'}), 500
 
 
 @app.route('/add_shared_channel', methods=['POST'])
@@ -1330,7 +1425,8 @@ def update_chatbot_settings(chatbot_id):
         data = request.get_json()
         
         # Allowed fields to update
-        allowed_fields = ['channel_name', 'creator_name', 'bot_type', 'speaking_style']
+        allowed_fields = ['channel_name', 'creator_name', 'bot_type', 'speaking_style',
+                          'lead_capture_enabled', 'lead_capture_email', 'lead_capture_fields']
         update_data = {k: v for k, v in data.items() if k in allowed_fields}
         
         if not update_data:
@@ -1340,6 +1436,20 @@ def update_chatbot_settings(chatbot_id):
         if 'bot_type' in update_data:
             if update_data['bot_type'] not in ['youtuber', 'business', 'general']:
                 return jsonify({'status': 'error', 'message': 'Invalid bot type'}), 400
+        
+        # Validate lead_capture_fields — must be a list if provided
+        if 'lead_capture_fields' in update_data:
+            if not isinstance(update_data['lead_capture_fields'], list):
+                return jsonify({'status': 'error', 'message': 'lead_capture_fields must be an array'}), 400
+            # Store as JSON array in Supabase (jsonb column)
+            import json as _json
+            update_data['lead_capture_fields'] = update_data['lead_capture_fields']
+        
+        # Validate lead_capture_email if provided
+        if 'lead_capture_email' in update_data:
+            email_val = update_data.get('lead_capture_email', '')
+            if email_val and '@' not in str(email_val):
+                return jsonify({'status': 'error', 'message': 'Invalid lead capture email address'}), 400
         
         # Update chatbot
         supabase.table('channels').update(update_data).eq('id', chatbot_id).execute()
@@ -1542,6 +1652,65 @@ def delete_chatbot(chatbot_id):
     except Exception as e:
         logger.error(f"Error deleting chatbot {chatbot_id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# ==========================================
+# LEAD CAPTURE ROUTES
+# ==========================================
+
+@app.route('/api/submit-lead', methods=['POST'])
+def submit_lead():
+    """Public endpoint — receives a completed lead from the chatbot widget and emails it."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+        
+        chatbot_id = data.get('chatbot_id')
+        responses = data.get('responses', {})
+        submitted_at = data.get('submitted_at', '')
+        
+        if not chatbot_id or not responses:
+            return jsonify({'status': 'error', 'message': 'chatbot_id and responses are required'}), 400
+        
+        supabase_admin = get_supabase_admin_client()
+        chatbot_resp = supabase_admin.table('channels').select(
+            'channel_name, lead_capture_email, lead_capture_enabled'
+        ).eq('id', chatbot_id).maybe_single().execute()
+        
+        if not chatbot_resp.data:
+            return jsonify({'status': 'error', 'message': 'Chatbot not found'}), 404
+        
+        chatbot_data = chatbot_resp.data
+        if not chatbot_data.get('lead_capture_enabled'):
+            return jsonify({'status': 'error', 'message': 'Lead capture is not enabled for this chatbot'}), 400
+        
+        recipient_email = chatbot_data.get('lead_capture_email')
+        if not recipient_email:
+            return jsonify({'status': 'error', 'message': 'No recipient email configured for lead capture'}), 400
+        
+        chatbot_name = chatbot_data.get('channel_name', 'Your Chatbot')
+        
+        from utils.lead_capture_utils import send_lead_email
+        from extensions import mail
+        
+        success = send_lead_email(
+            mail=mail,
+            chatbot_name=chatbot_name,
+            recipient_email=recipient_email,
+            responses=responses,
+            submitted_at=submitted_at
+        )
+        
+        if success:
+            logger.info(f"Lead submitted for chatbot {chatbot_id} ({chatbot_name}) -> {recipient_email}")
+            return jsonify({'status': 'success', 'message': 'Lead submitted successfully'})
+        else:
+            return jsonify({'status': 'error', 'message': 'Failed to send lead email'}), 500
+    
+    except Exception as e:
+        logger.error(f"Error in submit_lead: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 
 @app.route('/dashboard')
 @login_required

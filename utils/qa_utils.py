@@ -279,9 +279,14 @@ def get_routed_context(question: str, channel_data: Optional[dict], user_id: str
             video_ids = None
         
         # CRITICAL: Get channel_id for data isolation
-        channel_id = channel_data.get('id') if channel_data else None
+        # For backward compatibility with old YouTube embeddings (which have channel_id=NULL),
+        # we can omit p_channel_id if we rely entirely on globally unique YouTube p_video_ids.
+        if video_ids is not None:
+            effective_channel_id = None
+        else:
+            effective_channel_id = channel_data.get('id') if channel_data else None
             
-        semantic_chunks = search_and_rerank_chunks(question, user_id, access_token, video_ids, channel_id)
+        semantic_chunks = search_and_rerank_chunks(question, user_id, access_token, video_ids, effective_channel_id)
         return identity_context + semantic_chunks
 
     print("Query routed to: semantic_search")
@@ -292,9 +297,14 @@ def get_routed_context(question: str, channel_data: Optional[dict], user_id: str
         video_ids = None
     
     # CRITICAL: Get channel_id for data isolation
-    channel_id = channel_data.get('id') if channel_data else None
+    # For backward compatibility with old YouTube embeddings (which have channel_id=NULL),
+    # we can omit p_channel_id if we rely entirely on globally unique YouTube p_video_ids.
+    if video_ids is not None:
+        effective_channel_id = None
+    else:
+        effective_channel_id = channel_data.get('id') if channel_data else None
 
-    return search_and_rerank_chunks(question, user_id, access_token, video_ids, channel_id)
+    return search_and_rerank_chunks(question, user_id, access_token, video_ids, effective_channel_id)
 
 # --- Provider-Specific LLM STREAMING FUNCTIONS ---
 def _get_openai_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
@@ -734,6 +744,18 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
             )
     else:
         prompt = prompts.NEUTRAL_ASSISTANT_PROMPT.format(context=context, question=original_question)
+
+    # --- Lead Capture Mode: prepend lead instructions to the prompt ---
+    if channel_data and channel_data.get('lead_capture_enabled'):
+        lead_fields = channel_data.get('lead_capture_fields') or []
+        try:
+            from utils.lead_capture_utils import build_lead_prompt
+            lead_instructions = build_lead_prompt(lead_fields)
+            if lead_instructions:
+                prompt = lead_instructions + "\n" + prompt
+                print("[LEAD_CAPTURE] Lead capture mode active — instructions prepended to prompt.")
+        except Exception as lc_err:
+            logging.warning(f"[LEAD_CAPTURE] Could not build lead prompt: {lc_err}")
 
     model = os.environ.get('MODEL_NAME')
     ollama_url = os.environ.get('OLLAMA_URL')

@@ -166,11 +166,21 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- NEW: Function for personal query usage
+-- NEW: Function for personal query usage (Updated with Monthly Reset)
 CREATE OR REPLACE FUNCTION public.increment_personal_query_usage(p_user_id UUID)
 RETURNS VOID AS $$
 BEGIN
+  -- Auto-reset if we are in a new month
   UPDATE public.usage_stats
-  SET queries_this_month = queries_this_month + 1
+  SET 
+    queries_this_month = CASE 
+      WHEN last_reset_date < DATE_TRUNC('month', CURRENT_DATE) THEN 1
+      ELSE queries_this_month + 1
+    END,
+    last_reset_date = CASE
+      WHEN last_reset_date < DATE_TRUNC('month', CURRENT_DATE) THEN CURRENT_DATE
+      ELSE last_reset_date
+    END
   WHERE user_id = p_user_id;
 END;
 $$ LANGUAGE plpgsql;
