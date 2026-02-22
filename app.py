@@ -528,32 +528,12 @@ def set_auth_cookie():
     except Exception as e:
         print(f"Error in set-cookie: {e}")
         return jsonify({'status': 'error', 'message': 'An internal error occurred.'}), 500
-@app.route('/shipping-policy')
-def shipping_policy():
-    return render_template('shipping_policy.html', saved_channels=get_user_channels())
-
-@app.route('/contact')
-def contact():
-    return render_template('contact.html', saved_channels=get_user_channels())
-
-@app.route('/refund-policy')
-def refund_policy():
-    return render_template('refund_policy.html', saved_channels=get_user_channels())
 
 @app.route('/')
 def home():
-    if 'user' in session:
-        return redirect(url_for('channel'))
-    else:
-        personal_plan_id = os.environ.get('RAZORPAY_PLAN_ID_PERSONAL')
-        creator_plan_id = os.environ.get('RAZORPAY_PLAN_ID_CREATOR')
-        return render_template(
-            'landing-2.html',
-            razorpay_plan_id_personal=personal_plan_id,
-            razorpay_plan_id_creator=creator_plan_id,
-            SUPABASE_URL=os.environ.get('SUPABASE_URL'),
-            SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
-        )
+    # If the user hits app.yoppychat.com/ they should be forced to /channel
+    # The /channel route handles unauthenticated users nicely by showing a sign up page.
+    return redirect(url_for('channel'))
 
 # --- All other routes like /channel, /ask, /stream_answer, etc. remain unchanged ---
 # ... (The rest of your app.py file from /channel downwards remains the same)
@@ -2379,7 +2359,18 @@ def api_admin_remove_plan():
             update_data = {'plan_id': 'basic_community', 'shared_channel_limit': default_plan['shared_channels_allowed'], 'query_limit': default_plan['queries_per_month']}
             supabase_admin.table('communities').update(update_data).eq('id', target_id).execute()
         elif target_type == 'user':
-            supabase_admin.table('profiles').update({'direct_subscription_plan': None}).eq('id', target_id).execute()
+            supabase_admin.table('profiles').update({
+                'direct_subscription_plan': None,
+                'personal_plan_id': None
+            }).eq('id', target_id).execute()
+            # Also invalidate the Redis cache so the change takes effect immediately
+            if redis_client:
+                from utils.subscription_utils import redis_client as sub_redis
+                cache_key = f"user_status:{target_id}:community:none"
+                try:
+                    sub_redis.delete(cache_key)
+                except Exception:
+                    pass
         return jsonify({'status': 'success', 'message': 'Plan removed successfully.'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -2940,19 +2931,17 @@ def razorpay_webhook():
             if user_id and plan_id:
                 logging.info(f"UPDATING PLAN for user {user_id} to plan {plan_id}.")
                 
-                # --- START OF FIX 2: Correct function name and cache invalidation ---
-                profile = db_utils.get_profile(user_id) # Correct function name is get_profile
+                profile = db_utils.get_profile(user_id)
                 if profile:
                     db_utils.create_or_update_profile({
                         'id': user_id, 
-                        'email': profile.get('email'), # Preserve the email
+                        'email': profile.get('email'),
                         'direct_subscription_plan': plan_id
                     })
                     if redis_client:
                         cache_key = f"user_status:{user_id}:community:none"
                         redis_client.delete(cache_key)
                         logging.info(f"Cache invalidated for user {user_id}")
-                # --- END OF FIX 2 ---
 
                 db_utils.update_razorpay_subscription(user_id, subscription_details)
                 db_utils.record_creator_earning(referred_user_id=user_id, plan_id=plan_id)
@@ -2961,6 +2950,41 @@ def razorpay_webhook():
         except Exception as e:
             logging.error(f"Error processing 'invoice.paid' webhook: {e}")
             return jsonify({'status': 'error', 'message': 'Internal processing error'}), 500
+
+    # --- FIX: Handle subscription cancellation/expiry to downgrade user to free plan ---
+    elif event['event'] in ('subscription.cancelled', 'subscription.halted', 'subscription.completed'):
+        try:
+            subscription_entity = event['payload']['subscription']['entity']
+            customer_id = subscription_entity.get('customer_id')
+            subscription_id = subscription_entity.get('id')
+
+            if not customer_id:
+                logging.warning(f"Webhook '{event['event']}' missing customer_id.")
+                return jsonify({'status': 'ok'})
+
+            user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
+
+            if user_id:
+                logging.info(f"Subscription ended (event={event['event']}) for user {user_id}. Downgrading to free plan.")
+                profile = db_utils.get_profile(user_id)
+                if profile:
+                    db_utils.create_or_update_profile({
+                        'id': user_id,
+                        'email': profile.get('email'),
+                        'direct_subscription_plan': None,  # Clear the plan → free tier
+                        'personal_plan_id': None
+                    })
+                    if redis_client:
+                        # Invalidate the user status cache so they see the change immediately
+                        cache_key = f"user_status:{user_id}:community:none"
+                        redis_client.delete(cache_key)
+                        logging.info(f"Cache invalidated for user {user_id} after subscription end.")
+            else:
+                logging.error(f"Webhook '{event['event']}': Could not find user for customer_id {customer_id}.")
+        except Exception as e:
+            logging.error(f"Error processing '{event['event']}' webhook: {e}")
+            return jsonify({'status': 'error', 'message': 'Internal processing error'}), 500
+    # --- END FIX ---
 
     return jsonify({'status': 'ok'})
 
