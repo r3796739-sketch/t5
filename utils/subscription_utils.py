@@ -1,6 +1,9 @@
 # yoppychat2/utils/subscription_utils.py
 
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from functools import wraps
 from flask import session, jsonify
 import redis
