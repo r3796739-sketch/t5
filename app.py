@@ -1,9 +1,11 @@
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 import logging
 from functools import wraps
 from utils.youtube_utils import is_youtube_video_url, is_youtube_channel_url, clean_youtube_url, get_channel_url_from_video_url
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, Response
-import os
-import json
 import secrets
 from datetime import datetime, timezone
 from tasks import huey, process_channel_task, sync_channel_task, process_telegram_update_task, delete_channel_task,update_bot_profile_task,owner_delete_channel_task
@@ -43,8 +45,6 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 from tasks_multi_source import process_whatsapp_source_task, process_website_source_task
 logger = logging.getLogger(__name__)
-
-load_dotenv()
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
@@ -2926,7 +2926,12 @@ def razorpay_webhook():
 
             subscription_details = razorpay_client.subscription.fetch(subscription_id)
             plan_id = subscription_details.get('plan_id')
-            user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
+            
+            # Extract user_id from notes if available!
+            user_id = subscription_details.get('notes', {}).get('user_id')
+            if not user_id:
+                # fallback to customer_id lookup for older subscriptions
+                user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
             
             if user_id and plan_id:
                 logging.info(f"UPDATING PLAN for user {user_id} to plan {plan_id}.")
@@ -2962,7 +2967,9 @@ def razorpay_webhook():
                 logging.warning(f"Webhook '{event['event']}' missing customer_id.")
                 return jsonify({'status': 'ok'})
 
-            user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
+            user_id = subscription_entity.get('notes', {}).get('user_id')
+            if not user_id:
+                user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
 
             if user_id:
                 logging.info(f"Subscription ended (event={event['event']}) for user {user_id}. Downgrading to free plan.")
@@ -3055,6 +3062,9 @@ def create_razorpay_subscription():
             "customer_id": customer_id,
             "total_count": 12, # This means the plan will run for 12 months
             "quantity": 1,
+            "notes": {
+                "user_id": str(user_id)
+            }
         })
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Could not create subscription: {e}'}), 500
