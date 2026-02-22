@@ -1330,8 +1330,7 @@ def update_chatbot_settings(chatbot_id):
         data = request.get_json()
         
         # Allowed fields to update
-        allowed_fields = ['channel_name', 'creator_name', 'bot_type', 'speaking_style',
-                          'lead_capture_enabled', 'lead_capture_email', 'lead_capture_fields']
+        allowed_fields = ['channel_name', 'creator_name', 'bot_type', 'speaking_style']
         update_data = {k: v for k, v in data.items() if k in allowed_fields}
         
         if not update_data:
@@ -1341,20 +1340,6 @@ def update_chatbot_settings(chatbot_id):
         if 'bot_type' in update_data:
             if update_data['bot_type'] not in ['youtuber', 'business', 'general']:
                 return jsonify({'status': 'error', 'message': 'Invalid bot type'}), 400
-        
-        # Validate lead_capture_fields — must be a list if provided
-        if 'lead_capture_fields' in update_data:
-            if not isinstance(update_data['lead_capture_fields'], list):
-                return jsonify({'status': 'error', 'message': 'lead_capture_fields must be an array'}), 400
-            # Store as JSON array in Supabase (jsonb column)
-            import json as _json
-            update_data['lead_capture_fields'] = update_data['lead_capture_fields']
-        
-        # Validate lead_capture_email if provided
-        if 'lead_capture_email' in update_data:
-            email_val = update_data.get('lead_capture_email', '')
-            if email_val and '@' not in str(email_val):
-                return jsonify({'status': 'error', 'message': 'Invalid lead capture email address'}), 400
         
         # Update chatbot
         supabase.table('channels').update(update_data).eq('id', chatbot_id).execute()
@@ -1557,65 +1542,6 @@ def delete_chatbot(chatbot_id):
     except Exception as e:
         logger.error(f"Error deleting chatbot {chatbot_id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': str(e)}), 500
-
-# ==========================================
-# LEAD CAPTURE ROUTES
-# ==========================================
-
-@app.route('/api/submit-lead', methods=['POST'])
-def submit_lead():
-    """Public endpoint — receives a completed lead from the chatbot widget and emails it."""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'status': 'error', 'message': 'No data provided'}), 400
-        
-        chatbot_id = data.get('chatbot_id')
-        responses = data.get('responses', {})
-        submitted_at = data.get('submitted_at', '')
-        
-        if not chatbot_id or not responses:
-            return jsonify({'status': 'error', 'message': 'chatbot_id and responses are required'}), 400
-        
-        supabase_admin = get_supabase_admin_client()
-        chatbot_resp = supabase_admin.table('channels').select(
-            'channel_name, lead_capture_email, lead_capture_enabled'
-        ).eq('id', chatbot_id).maybe_single().execute()
-        
-        if not chatbot_resp.data:
-            return jsonify({'status': 'error', 'message': 'Chatbot not found'}), 404
-        
-        chatbot_data = chatbot_resp.data
-        if not chatbot_data.get('lead_capture_enabled'):
-            return jsonify({'status': 'error', 'message': 'Lead capture is not enabled for this chatbot'}), 400
-        
-        recipient_email = chatbot_data.get('lead_capture_email')
-        if not recipient_email:
-            return jsonify({'status': 'error', 'message': 'No recipient email configured for lead capture'}), 400
-        
-        chatbot_name = chatbot_data.get('channel_name', 'Your Chatbot')
-        
-        from utils.lead_capture_utils import send_lead_email
-        from extensions import mail
-        
-        success = send_lead_email(
-            mail=mail,
-            chatbot_name=chatbot_name,
-            recipient_email=recipient_email,
-            responses=responses,
-            submitted_at=submitted_at
-        )
-        
-        if success:
-            logger.info(f"Lead submitted for chatbot {chatbot_id} ({chatbot_name}) -> {recipient_email}")
-            return jsonify({'status': 'success', 'message': 'Lead submitted successfully'})
-        else:
-            return jsonify({'status': 'error', 'message': 'Failed to send lead email'}), 500
-    
-    except Exception as e:
-        logger.error(f"Error in submit_lead: {e}", exc_info=True)
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
 
 @app.route('/dashboard')
 @login_required
