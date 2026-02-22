@@ -638,6 +638,175 @@
             flex-direction: column;
         }
     }
+
+    /* ===== Lead Capture Styles ===== */
+    .lc-toggle {
+        position: relative;
+        display: inline-block;
+        width: 48px;
+        height: 26px;
+        flex-shrink: 0;
+    }
+
+    .lc-toggle input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .lc-toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        inset: 0;
+        background: var(--neutral-200);
+        border-radius: 26px;
+        transition: 0.3s;
+    }
+
+    .lc-toggle-slider:before {
+        content: "";
+        position: absolute;
+        height: 20px;
+        width: 20px;
+        left: 3px;
+        bottom: 3px;
+        background: white;
+        border-radius: 50%;
+        transition: 0.3s;
+    }
+
+    .lc-toggle input:checked+.lc-toggle-slider {
+        background: #667eea;
+    }
+
+    .lc-toggle input:checked+.lc-toggle-slider:before {
+        transform: translateX(22px);
+    }
+
+    .lc-field-card {
+        background: var(--surface-medium);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-md);
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 0.75rem;
+        align-items: start;
+    }
+
+    .lc-field-main {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .lc-field-row {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .lc-field-label {
+        flex: 1;
+        min-width: 140px;
+        padding: 0.45rem 0.75rem;
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-sm);
+        background: var(--surface-light);
+        color: var(--text-primary);
+        font-size: 0.9rem;
+    }
+
+    .lc-field-type {
+        padding: 0.45rem 0.75rem;
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-sm);
+        background: var(--surface-light);
+        color: var(--text-primary);
+        font-size: 0.9rem;
+    }
+
+    .lc-field-options-row {
+        display: none;
+        margin-top: 0.4rem;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .lc-field-options-row.visible {
+        display: flex;
+    }
+
+    .lc-field-options {
+        flex: 1;
+        padding: 0.4rem 0.75rem;
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-sm);
+        background: var(--surface-light);
+        color: var(--text-primary);
+        font-size: 0.85rem;
+    }
+
+    .lc-required-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+        white-space: nowrap;
+    }
+
+    .lc-remove-btn {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        transition: color 0.2s, background 0.2s;
+    }
+
+    .lc-remove-btn:hover {
+        color: #EF4444;
+        background: rgba(239, 68, 68, 0.08);
+    }
+
+    .lc-drag-handle {
+        cursor: grab;
+        color: var(--text-muted);
+        padding: 4px;
+        font-size: 1rem;
+        line-height: 1;
+    }
+
+    .lc-add-field-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.55rem 1rem;
+        background: var(--surface-medium);
+        border: 1.5px dashed var(--neutral-200);
+        border-radius: var(--radius-md);
+        color: var(--accent-primary);
+        font-weight: 600;
+        font-size: 0.88rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-top: 0.25rem;
+    }
+
+    .lc-add-field-btn:hover {
+        background: rgba(102, 126, 234, 0.07);
+        border-color: var(--accent-primary);
+    }
+
+    @media (max-width: 600px) {
+        .lc-field-card {
+            grid-template-columns: 1fr auto;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -875,6 +1044,59 @@
             <div class="add-source-hint" id="crawlModeHint">
                 <strong>Auto-detect:</strong> Specific page URLs (e.g. /about) scrape only that page. Root URLs (e.g.
                 example.com) crawl the full site.
+            </div>
+        </div>
+    </div>
+
+    <!-- Lead Capture Section -->
+    <div class="settings-section" id="leadCaptureSection">
+        <div class="section-header">
+            <div class="section-icon">🎯</div>
+            <div>
+                <h2 class="section-title">Lead Capture</h2>
+                <p class="section-subtitle">Collect visitor information automatically and send it to your inbox.</p>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                <div>
+                    <label class="form-label" style="margin-bottom:0;">Enable Lead Capture</label>
+                    <p style="color:var(--text-secondary);font-size:0.85rem;margin:2px 0 0;">When enabled, the chatbot
+                        will collect visitor details using your custom fields below.</p>
+                </div>
+                <label class="lc-toggle">
+                    <input type="checkbox" id="leadCaptureEnabled" {% if chatbot.lead_capture_enabled %}checked{% endif
+                        %}>
+                    <span class="lc-toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div id="leadCaptureConfig" style="{% if not chatbot.lead_capture_enabled %}display:none;{% endif %}">
+            <div class="form-group">
+                <label class="form-label">Send Leads To (Email)</label>
+                <input type="email" id="leadCaptureEmail" class="form-input"
+                    value="{{ chatbot.lead_capture_email or '' }}" placeholder="e.g. leads@yourbusiness.com">
+                <p style="color:var(--text-secondary);font-size:0.8rem;margin:4px 0 0;">All collected leads will be
+                    emailed here.</p>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Fields to Collect</label>
+                <p style="color:var(--text-secondary);font-size:0.85rem;margin:0 0 1rem;">The chatbot will ask these
+                    questions one-by-one, in order.</p>
+
+                <div id="leadFieldsList"></div>
+
+                <button type="button" class="lc-add-field-btn" onclick="addLeadField()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    Add Field
+                </button>
             </div>
         </div>
     </div>
@@ -1146,11 +1368,27 @@
 
     // Save settings
     async function saveSettings() {
+        // Collect lead capture fields
+        const leadFields = [];
+        document.querySelectorAll('.lc-field-card').forEach(card => {
+            const label = card.querySelector('.lc-field-label')?.value?.trim();
+            const type = card.querySelector('.lc-field-type')?.value;
+            const required = card.querySelector('.lc-field-required')?.checked ?? true;
+            const optionsRaw = card.querySelector('.lc-field-options')?.value || '';
+            const options = type === 'select'
+                ? optionsRaw.split(',').map(o => o.trim()).filter(Boolean)
+                : [];
+            if (label) leadFields.push({ label, type, required, options });
+        });
+
         const data = {
             channel_name: document.getElementById('channel_name').value,
             creator_name: document.getElementById('creator_name').value,
             bot_type: document.querySelector('input[name="bot_type"]:checked')?.value || 'business',
-            speaking_style: document.getElementById('speaking_style').value
+            speaking_style: document.getElementById('speaking_style').value,
+            lead_capture_enabled: document.getElementById('leadCaptureEnabled')?.checked || false,
+            lead_capture_email: document.getElementById('leadCaptureEmail')?.value?.trim() || null,
+            lead_capture_fields: leadFields
         };
 
         try {
@@ -1224,5 +1462,75 @@
         }
     `;
     document.head.appendChild(style);
+
+    // ===== LEAD CAPTURE LOGIC =====
+
+    // Existing fields from server (Jinja2 passes them as JSON)
+    const existingLeadFields = {{ (chatbot.lead_capture_fields or[]) | tojson }};
+
+    // Toggle show/hide of config panel
+    document.getElementById('leadCaptureEnabled')?.addEventListener('change', function () {
+        const config = document.getElementById('leadCaptureConfig');
+        if (config) config.style.display = this.checked ? '' : 'none';
+    });
+
+    // Render existing fields on page load
+    (existingLeadFields || []).forEach(f => addLeadField(f));
+
+    function addLeadField(existing) {
+        const id = 'lf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        const label = existing?.label || '';
+        const type = existing?.type || 'text';
+        const required = existing?.required !== false;
+        const options = (existing?.options || []).join(', ');
+
+        const card = document.createElement('div');
+        card.className = 'lc-field-card';
+        card.dataset.id = id;
+        card.innerHTML = `
+            <div class="lc-field-main">
+                <div class="lc-field-row">
+                    <input type="text" class="lc-field-label form-input" placeholder="Field label (e.g. Travel Dates)"
+                           value="${_esc(label)}" style="flex:1;margin-bottom:0;">
+                    <select class="lc-field-type" onchange="updateFieldOptions(this)">
+                        <option value="text"   ${type === 'text' ? 'selected' : ''}>Text</option>
+                        <option value="number" ${type === 'number' ? 'selected' : ''}>Number</option>
+                        <option value="date"   ${type === 'date' ? 'selected' : ''}>Date</option>
+                        <option value="select" ${type === 'select' ? 'selected' : ''}>Select (choices)</option>
+                    </select>
+                    <label class="lc-required-wrap">
+                        <input type="checkbox" class="lc-field-required" ${required ? 'checked' : ''}>
+                        Required
+                    </label>
+                </div>
+                <div class="lc-field-options-row${type === 'select' ? ' visible' : ''}">
+                    <span style="font-size:0.8rem;color:var(--text-secondary);white-space:nowrap;">Choices:</span>
+                    <input type="text" class="lc-field-options"
+                           placeholder="e.g. Budget, Standard, Luxury  (comma-separated)"
+                           value="${_esc(options)}">
+                </div>
+            </div>
+            <span class="lc-drag-handle" title="Drag to reorder">☰</span>
+            <button type="button" class="lc-remove-btn" onclick="removeLeadField(this)" title="Remove field">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/>
+                </svg>
+            </button>
+        `;
+        document.getElementById('leadFieldsList').appendChild(card);
+    }
+
+    function removeLeadField(btn) {
+        btn.closest('.lc-field-card').remove();
+    }
+
+    function updateFieldOptions(select) {
+        const optRow = select.closest('.lc-field-main').querySelector('.lc-field-options-row');
+        if (optRow) optRow.classList.toggle('visible', select.value === 'select');
+    }
+
+    function _esc(s) {
+        return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
 </script>
 {% endblock %}
