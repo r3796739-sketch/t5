@@ -516,12 +516,11 @@ def create_payout_request(creator_id: str, amount: float, payout_details: dict):
     
 def get_user_by_razorpay_customer_id(customer_id: str):
     """
-    Finds a user by their Razorpay customer ID. Handle duplicates safely.
+    Finds a user by their Razorpay customer ID.
     """
     try:
-        response = supabase.table('profiles').select('id').eq('razorpay_customer_id', customer_id).execute()
-        # Return the first match if it exists. Note: notes user_id replaces this exactness requirement.
-        return response.data[0]['id'] if response.data else None
+        response = supabase.table('profiles').select('id').eq('razorpay_customer_id', customer_id).single().execute()
+        return response.data['id'] if response.data else None
     except Exception as e:
         log.error(f"Error getting user by Razorpay customer ID: {e}")
         return None

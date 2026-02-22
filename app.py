@@ -2926,12 +2926,7 @@ def razorpay_webhook():
 
             subscription_details = razorpay_client.subscription.fetch(subscription_id)
             plan_id = subscription_details.get('plan_id')
-            
-            # Extract user_id from notes if available!
-            user_id = subscription_details.get('notes', {}).get('user_id')
-            if not user_id:
-                # fallback to customer_id lookup for older subscriptions
-                user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
+            user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
             
             if user_id and plan_id:
                 logging.info(f"UPDATING PLAN for user {user_id} to plan {plan_id}.")
@@ -2967,9 +2962,7 @@ def razorpay_webhook():
                 logging.warning(f"Webhook '{event['event']}' missing customer_id.")
                 return jsonify({'status': 'ok'})
 
-            user_id = subscription_entity.get('notes', {}).get('user_id')
-            if not user_id:
-                user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
+            user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
 
             if user_id:
                 logging.info(f"Subscription ended (event={event['event']}) for user {user_id}. Downgrading to free plan.")
@@ -3062,9 +3055,6 @@ def create_razorpay_subscription():
             "customer_id": customer_id,
             "total_count": 12, # This means the plan will run for 12 months
             "quantity": 1,
-            "notes": {
-                "user_id": str(user_id)
-            }
         })
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Could not create subscription: {e}'}), 500
