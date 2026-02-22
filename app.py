@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 load_dotenv()
-import json
+
 import logging
 from functools import wraps
 from utils.youtube_utils import is_youtube_video_url, is_youtube_channel_url, clean_youtube_url, get_channel_url_from_video_url
@@ -3026,24 +3026,35 @@ def create_razorpay_subscription():
     # This block makes the customer lookup and creation process robust.
     if not customer_id:
         try:
-            # First, check if a customer exists on Razorpay with this email
-            customers = razorpay_client.customer.all({'email': user_email})
-            if customers['count'] > 0:
-                # If they exist, use their ID and save it to our database
-                customer_id = customers['items'][0]['id']
+            matched_customer_id = None
+            if user_email:
+                # Razorpay's API ignores the email filter in .all(), so we must manually check the returned items
+                # We fetch the latest customers. If it's a huge list, ideally we'd paginate, 
+                # but for immediate protection against the bug, we just check the first page (or create a new one).
+                customers_response = razorpay_client.customer.all()
+                for c in customers_response.get('items', []):
+                    if c.get('email') == user_email:
+                        matched_customer_id = c['id']
+                        break
+            
+            if matched_customer_id:
+                customer_id = matched_customer_id
                 print(f"Found existing Razorpay customer {customer_id} for email {user_email}")
-                # This update now INCLUDES the email, fixing the null constraint error
                 db_utils.create_or_update_profile({'id': user_id, 'email': user_email, 'razorpay_customer_id': customer_id})
             else:
-                # If they don't exist on Razorpay, create a new one
-                print(f"No existing Razorpay customer for {user_email}. Creating new customer.")
-                customer = razorpay_client.customer.create({
-                    "name": user_name,
-                    "email": user_email,
-                })
+                # If they don't exist on Razorpay, or we didn't have an email to check, create a new one
+                print(f"No existing Razorpay customer precisely matching {user_email}. Creating new customer.")
+                
+                customer_payload = {}
+                if user_name: customer_payload['name'] = user_name
+                if user_email: customer_payload['email'] = user_email
+                
+                customer = razorpay_client.customer.create(customer_payload)
                 customer_id = customer['id']
-                # This update also INCLUDES the email
-                db_utils.create_or_update_profile({'id': user_id, 'email': user_email, 'razorpay_customer_id': customer_id})
+                
+                update_payload = {'id': user_id, 'razorpay_customer_id': customer_id}
+                if user_email: update_payload['email'] = user_email
+                db_utils.create_or_update_profile(update_payload)
         except Exception as e:
             logger.error(f"Razorpay customer handling error: {e}")
             return jsonify({'status': 'error', 'message': f"Razorpay error: {e}"}), 500
@@ -3497,4 +3508,3 @@ def paypal_webhook():
 if __name__ == '__main__':
 
     app.run(debug=True, host='0.0.0.0', port=5000)
-
