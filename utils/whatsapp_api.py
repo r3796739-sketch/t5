@@ -3,6 +3,7 @@ WhatsApp Business API Utilities
 Handles sending/receiving messages via Meta's WhatsApp Cloud API
 """
 
+import os
 import requests
 import logging
 import hmac
@@ -12,7 +13,7 @@ from typing import Optional, Dict, Any
 logger = logging.getLogger(__name__)
 
 WHATSAPP_API_URL = "https://graph.facebook.com/v18.0"
-
+YCLOUD_API_URL = "https://api.ycloud.com/v2/whatsapp/messages/sendDirectly"
 
 def verify_webhook_signature(payload: bytes, signature: str, app_secret: str) -> bool:
     """
@@ -31,49 +32,38 @@ def verify_webhook_signature(payload: bytes, signature: str, app_secret: str) ->
 
 
 def send_whatsapp_message(
-    phone_number_id: str,
-    access_token: str,
-    to_phone: str,
+    phone_number_id: str, 
+    to_phone: str, 
     message_text: str
 ) -> Dict[str, Any]:
     """
-    Send a text message via WhatsApp Business API.
-    
-    Args:
-        phone_number_id: The WhatsApp Phone Number ID
-        access_token: User's WhatsApp access token
-        to_phone: Recipient's phone number (with country code)
-        message_text: The message to send
-        
-    Returns:
-        API response dict
+    Send a text message via YCloud WhatsApp API.
     """
-    url = f"{WHATSAPP_API_URL}/{phone_number_id}/messages"
+    # Fetch your Master Key from the .env file
+    api_key = os.environ.get("YCLOUD_API_KEY")
     
     headers = {
-        "Authorization": f"Bearer {access_token}",
+        "X-API-Key": api_key,
         "Content-Type": "application/json"
     }
     
+    # YCloud's simplified payload format
     payload = {
-        "messaging_product": "whatsapp",
-        "recipient_type": "individual",
+        "from": phone_number_id,  # This is the user's specific phone ID
         "to": to_phone,
         "type": "text",
         "text": {
-            "preview_url": False,
             "body": message_text
         }
     }
     
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        response = requests.post(YCLOUD_API_URL, headers=headers, json=payload, timeout=10)
         response.raise_for_status()
-        result = response.json()
-        logger.info(f"WhatsApp message sent to {to_phone}: {result.get('messages', [{}])[0].get('id')}")
-        return {"success": True, "data": result}
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to send WhatsApp message: {e}")
+        # Return in a format compatible with existing code expecting {"success": True, "data": ...}
+        return {"success": True, "data": response.json()}
+    except Exception as e:
+        logger.error(f"Failed to send YCloud message: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -147,38 +137,35 @@ def mark_message_as_read(
 
 def parse_webhook_message(data: Dict) -> Optional[Dict]:
     """
-    Parse incoming webhook data from WhatsApp.
+    Parse incoming webhook data from YCloud/WhatsApp.
     
-    Returns parsed message dict or None if not a message event.
+    YCloud payload format:
+    {
+      "id": "wamid.HBgL...",
+      "from": "1234567890",
+      "to": "0987654321",
+      "type": "text",
+      "text": {
+        "body": "Hello!"
+      },
+      "timestamp": "1691234567"
+    }
     """
     try:
-        entry = data.get('entry', [{}])[0]
-        changes = entry.get('changes', [{}])[0]
-        value = changes.get('value', {})
-        
-        # Get phone number ID this message was sent to
-        phone_number_id = value.get('metadata', {}).get('phone_number_id')
-        
-        # Check if this is a message event
-        messages = value.get('messages', [])
-        if not messages:
+        # Check if this is a YCloud message event
+        if 'id' not in data or 'from' not in data or 'to' not in data:
             return None
         
-        message = messages[0]
-        
-        # Get sender info
-        contacts = value.get('contacts', [{}])
-        sender_name = contacts[0].get('profile', {}).get('name', 'Unknown') if contacts else 'Unknown'
-        
+        # YCloud directly sends the message object
         return {
-            'phone_number_id': phone_number_id,
-            'message_id': message.get('id'),
-            'from_phone': message.get('from'),
-            'sender_name': sender_name,
-            'timestamp': message.get('timestamp'),
-            'type': message.get('type'),
-            'text': message.get('text', {}).get('body', '') if message.get('type') == 'text' else None,
-            'raw': message
+            'phone_number_id': data.get('to'),      # User's bot number
+            'message_id': data.get('id'),
+            'from_phone': data.get('from'),         # Customer's number
+            'sender_name': data.get('profile', {}).get('name', 'Unknown'), # YCloud might include this
+            'timestamp': data.get('timestamp'),
+            'type': data.get('type'),
+            'text': data.get('text', {}).get('body', '') if data.get('type') == 'text' else None,
+            'raw': data
         }
     except Exception as e:
         logger.error(f"Error parsing webhook message: {e}")
@@ -188,22 +175,7 @@ def parse_webhook_message(data: Dict) -> Optional[Dict]:
 def get_phone_number_info(phone_number_id: str, access_token: str) -> Optional[Dict]:
     """
     Get information about a WhatsApp phone number.
+    Since we are using YCloud, we don't have a direct equivalent to the Meta API for this 
+    that works with the same token, so we return None to allow the config to save.
     """
-    url = f"{WHATSAPP_API_URL}/{phone_number_id}"
-    
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
-    
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        return {
-            'display_phone_number': data.get('display_phone_number'),
-            'verified_name': data.get('verified_name'),
-            'quality_rating': data.get('quality_rating')
-        }
-    except Exception as e:
-        logger.error(f"Error fetching phone number info: {e}")
-        return None
+    return None

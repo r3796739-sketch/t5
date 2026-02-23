@@ -173,14 +173,15 @@ def receive_message():
                 if response_text:
                     send_result = send_whatsapp_message(
                         phone_number_id=phone_number_id,
-                        access_token=decrypted_token,
                         to_phone=from_phone,
                         message_text=response_text
                     )
                     
                     # Store outgoing message
                     if conversation_id and send_result.get('success'):
-                        outbound_msg_id = send_result.get('data', {}).get('messages', [{}])[0].get('id')
+                        data = send_result.get('data', {})
+                        # Handle Meta format or YCloud format
+                        outbound_msg_id = data.get('id') or data.get('messages', [{}])[0].get('id')
                         supabase.table('whatsapp_messages').insert({
                             'conversation_id': conversation_id,
                             'message_id': outbound_msg_id,
@@ -231,7 +232,7 @@ def save_config():
     user_id = session['user']['id']
     data = request.get_json()
     
-    required_fields = ['phone_number_id', 'access_token', 'channel_id']
+    required_fields = ['phone_number_id', 'channel_id']
     for field in required_fields:
         if not data.get(field):
             return jsonify({'status': 'error', 'message': f'{field} is required'}), 400
@@ -248,16 +249,15 @@ def save_config():
     verify_token = secrets.token_urlsafe(32)
     
     # Try to get phone number info from Meta (use plain token for the API call)
-    phone_info = get_phone_number_info(data['phone_number_id'], data['access_token'])
+    phone_info = get_phone_number_info(data['phone_number_id'], data.get('access_token', ''))
     
-    # Encrypt the access token before storing in database
-    encrypted_access_token = encrypt_token(data['access_token'])
+    # Encrypt a dummy token or provided token before storing in database
+    encrypted_access_token = encrypt_token(data.get('access_token', 'master_key_used'))
     
     config_data = {
         'user_id': user_id,
         'channel_id': data['channel_id'],
         'phone_number_id': data['phone_number_id'],
-        'business_account_id': data.get('business_account_id'),
         'access_token': encrypted_access_token,
         'verify_token': verify_token,
         'display_phone_number': phone_info.get('display_phone_number') if phone_info else None,

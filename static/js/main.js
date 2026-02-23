@@ -64,7 +64,6 @@ const processStream = (reader, answerContent, typingContainer, aiAnswerBox) => {
     let fullAnswerText = '';
     let foundSources = [];
     let buffer = '';
-    let leadSubmitted = false; // prevent double-submission
 
     const push = () => {
         reader.read().then(({ done, value }) => {
@@ -78,18 +77,12 @@ const processStream = (reader, answerContent, typingContainer, aiAnswerBox) => {
                             const parsed = JSON.parse(data);
                             if (parsed.answer) {
                                 fullAnswerText += parsed.answer;
+                                answerContent.innerHTML = marked.parse(fullAnswerText);
                             }
                         } catch (e) {
                             console.error('Error parsing final buffered chunk:', e, 'Chunk:', buffer);
                         }
                     }
-                }
-                // Final render pass with LEAD_COMPLETE stripped
-                const { cleanText, leadData } = extractLeadComplete(fullAnswerText);
-                answerContent.innerHTML = marked.parse(cleanText);
-                if (leadData && !leadSubmitted) {
-                    leadSubmitted = true;
-                    submitLeadData(leadData, answerContent);
                 }
                 return;
             }
@@ -109,9 +102,7 @@ const processStream = (reader, answerContent, typingContainer, aiAnswerBox) => {
                             if (parsed.error) throw new Error(parsed.message || 'An unknown error occurred.');
                             if (parsed.answer) {
                                 fullAnswerText += parsed.answer;
-                                // Stream render: strip marker while typing so user doesn't see the raw JSON
-                                const { cleanText } = extractLeadComplete(fullAnswerText);
-                                answerContent.innerHTML = marked.parse(cleanText);
+                                answerContent.innerHTML = marked.parse(fullAnswerText);
                             }
                             if (parsed.sources) foundSources = parsed.sources;
                             if (parsed.updated_query_string) {
@@ -137,57 +128,6 @@ const processStream = (reader, answerContent, typingContainer, aiAnswerBox) => {
     };
     push();
 };
-
-/**
- * Detects and extracts [LEAD_COMPLETE: {...}] from the answer text.
- * Returns { cleanText, leadData } where cleanText has the marker removed.
- */
-function extractLeadComplete(text) {
-    const MARKER_RE = /\[LEAD_COMPLETE:\s*(\{[\s\S]*?\})\]/;
-    const match = text.match(MARKER_RE);
-    if (!match) return { cleanText: text, leadData: null };
-    let leadData = null;
-    try { leadData = JSON.parse(match[1]); } catch (e) { /* malformed JSON, ignore */ }
-    const cleanText = text.replace(MARKER_RE, '').trim();
-    return { cleanText, leadData };
-}
-
-/**
- * Posts the collected lead responses to /api/submit-lead.
- * The chatbot_id is read from data-chatbot-id on #chat-page-data.
- */
-async function submitLeadData(responses, answerContentElement) {
-    const pageData = document.getElementById('chat-page-data');
-    const chatbotId = pageData ? pageData.dataset.chatbotId : null;
-    if (!chatbotId) {
-        console.warn('[LEAD_CAPTURE] No chatbot_id found on #chat-page-data — cannot submit lead.');
-        return;
-    }
-    try {
-        const res = await fetch('/api/submit-lead', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chatbot_id: chatbotId,
-                responses: responses,
-                submitted_at: new Date().toISOString()
-            })
-        });
-        const json = await res.json();
-        if (res.ok && json.status === 'success') {
-            console.log('[LEAD_CAPTURE] Lead submitted successfully.');
-            if (answerContentElement) {
-                answerContentElement.insertAdjacentHTML('beforeend',
-                    '<p style="font-size:0.8rem;color:#22c55e;margin-top:0.5rem;">✅ Your information has been received!</p>');
-            }
-        } else {
-            console.error('[LEAD_CAPTURE] Failed to submit lead:', json.message);
-        }
-    } catch (e) {
-        console.error('[LEAD_CAPTURE] Error submitting lead:', e);
-    }
-}
-
 
 window.regenerateAnswer = function (btn) {
     if (btn.disabled) return;
@@ -575,8 +515,7 @@ function renderChatHistory(history) {
             let regenerateHtml = isLast ? `<button class="toggle-sources-btn regenerate-btn-js" onclick="regenerateAnswer(this)"><svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>Regenerate</button>` : '';
             const copyButtonHtml = `<button class="copy-answer-btn" onclick="copyAnswer(this)" data-tooltip="Copy answer"><svg class="icon-copy-default" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><svg class="icon-copy-check" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>`;
             const sourcesSectionHtml = `<div class="sources-section"><div class="source-buttons">${sourcesButtonHtml}${regenerateHtml}${copyButtonHtml}</div>${sourcesListHtml}</div>`;
-            const renderedAnswer = window.marked ? window.marked.parse(extractLeadComplete(qa.answer || '').cleanText) : extractLeadComplete(qa.answer || '').cleanText;
-            qnaPair.innerHTML = `<div class="question-box"><div class="question-content">${escapeHtml(qa.question)}</div></div><div class="answer-box"><div class="answer-header">${avatarHtml}<span class="answer-label">${answerLabel}</span></div><div class="answer-content">${renderedAnswer}</div><div class="typing-container"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>${sourcesSectionHtml}</div>`;
+            qnaPair.innerHTML = `<div class="question-box"><div class="question-content">${escapeHtml(qa.question)}</div></div><div class="answer-box"><div class="answer-header">${avatarHtml}<span class="answer-label">${answerLabel}</span></div><div class="answer-content">${window.marked ? window.marked.parse(qa.answer || '') : qa.answer}</div><div class="typing-container"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>${sourcesSectionHtml}</div>`;
             chatContainer.appendChild(qnaPair);
         });
     } else {
