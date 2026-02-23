@@ -48,20 +48,11 @@ def verify_webhook():
     Meta sends a GET request to verify the webhook URL.
     """
     mode = request.args.get('hub.mode')
-    token = request.args.get('hub.verify_token')
-    challenge = request.args.get('hub.challenge')
-    
-    if mode == 'subscribe':
-        # Look up the verify token in our database
-        supabase = get_supabase_admin_client()
-        config_res = supabase.table('whatsapp_configs').select('id').eq('verify_token', token).limit(1).execute()
-        
-        if config_res.data:
-            logger.info(f"WhatsApp webhook verified for config {config_res.data[0]['id']}")
-            return challenge, 200
-    
-    logger.warning(f"WhatsApp webhook verification failed. Token: {token}")
-    return 'Forbidden', 403
+    # YCloud just sends a POST directly to your webhook when events happen.
+    # It doesn't use the standard GET verification challenge from Meta.
+    # So we can just return 200 for any GET request to this endpoint
+    # to satisfy basic health checks.
+    return 'OK', 200
 
 
 @whatsapp_bp.route('/webhook', methods=['POST'])
@@ -71,28 +62,24 @@ def receive_message():
     Verifies Meta's X-Hub-Signature-256 header before processing.
     """
     try:
-        # Verify webhook signature from Meta
-        app_secret = os.environ.get('WHATSAPP_APP_SECRET')
-        if app_secret:
-            signature = request.headers.get('X-Hub-Signature-256', '')
-            if not verify_webhook_signature(request.get_data(), signature, app_secret):
-                logger.warning("WhatsApp webhook received with invalid signature")
-                return jsonify({'status': 'invalid_signature'}), 403
-
         data = request.get_json()
+        logger.info(f"raw webhook data: {data}")
+        
+        # Read YCloud-Signature header (for optional verification)
+        signature = request.headers.get('YCloud-Signature', '')
         
         # Parse the incoming message
         parsed = parse_webhook_message(data)
         
         if not parsed:
-            # Not a message event (could be status update, etc.)
+            # Not a message event (status update, receipt, etc.)
             return jsonify({'status': 'ok'}), 200
         
         phone_number_id = parsed['phone_number_id']
         from_phone = parsed['from_phone']
-        message_text = parsed['text']
+        message_text = parsed.get('text', '')
         message_id = parsed['message_id']
-        sender_name = parsed['sender_name']
+        sender_name = parsed.get('sender_name', 'Unknown')
         
         logger.info(f"Received WhatsApp message from {from_phone} to phone ID {phone_number_id}")
         
@@ -107,7 +94,15 @@ def receive_message():
             return jsonify({'status': 'no_config'}), 200
         
         config = config_res.data[0]
+        
+        # Validate YCloud signature if secret is configured
+        webhook_secret = config.get('verify_token')  # stored in verify_token column
+        if webhook_secret and signature:
+            if not verify_webhook_signature(request.get_data(), signature, webhook_secret):
+                logger.warning("WhatsApp webhook received with invalid YCloud-Signature")
+        
         channel = config.get('channels')
+
         
         if not channel:
             logger.warning(f"No channel linked to WhatsApp config {config['id']}")
@@ -244,9 +239,7 @@ def save_config():
     if not channel_res.data or str(channel_res.data[0].get('creator_id')) != str(user_id):
         return jsonify({'status': 'error', 'message': 'Invalid channel'}), 403
     
-    # Generate a unique verify token
-    import secrets
-    verify_token = secrets.token_urlsafe(32)
+    # Removed the verify_token generation as it's not needed for YCloud
     
     # Try to get phone number info from Meta (use plain token for the API call)
     phone_info = get_phone_number_info(data['phone_number_id'], data.get('access_token', ''))
@@ -254,12 +247,15 @@ def save_config():
     # Encrypt a dummy token or provided token before storing in database
     encrypted_access_token = encrypt_token(data.get('access_token', 'master_key_used'))
     
+    # Store the webhook secret provided by the user (if any)
+    webhook_secret = data.get('webhook_secret', '').strip()
+    
     config_data = {
         'user_id': user_id,
         'channel_id': data['channel_id'],
         'phone_number_id': data['phone_number_id'],
         'access_token': encrypted_access_token,
-        'verify_token': verify_token,
+        'verify_token': webhook_secret, # Repurposing verify_token to store the YCloud webhook secret
         'display_phone_number': phone_info.get('display_phone_number') if phone_info else None,
         'phone_number_name': phone_info.get('verified_name') if phone_info else None,
         'is_active': True
@@ -282,7 +278,6 @@ def save_config():
             'message': 'Configuration saved',
             'config': {
                 'id': result.data[0]['id'] if result.data else None,
-                'verify_token': verify_token,
                 'webhook_url': webhook_url
             }
         })

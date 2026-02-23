@@ -15,20 +15,38 @@ logger = logging.getLogger(__name__)
 WHATSAPP_API_URL = "https://graph.facebook.com/v18.0"
 YCLOUD_API_URL = "https://api.ycloud.com/v2/whatsapp/messages/sendDirectly"
 
-def verify_webhook_signature(payload: bytes, signature: str, app_secret: str) -> bool:
+def verify_webhook_signature(payload: bytes, signature: str, webhook_secret: str) -> bool:
     """
-    Verify that webhook payload came from Meta.
+    Verify that a webhook payload came from YCloud.
+    YCloud-Signature format: t={timestamp},s={hmac_sha256_hex}
+    The signed payload is: "{timestamp}.{raw_body}"
     """
-    if not signature or not signature.startswith('sha256='):
+    if not signature:
         return False
     
-    expected_signature = hmac.new(
-        app_secret.encode('utf-8'),
-        payload,
-        hashlib.sha256
-    ).hexdigest()
-    
-    return hmac.compare_digest(signature[7:], expected_signature)
+    try:
+        # Parse: "t=1234567890,s=abcdef..."
+        parts = dict(p.split('=', 1) for p in signature.split(','))
+        timestamp = parts.get('t', '')
+        received_sig = parts.get('s', '')
+        
+        if not timestamp or not received_sig:
+            return False
+        
+        # Build the signed payload string
+        signed_payload = f"{timestamp}.{payload.decode('utf-8')}"
+        
+        expected_sig = hmac.new(
+            webhook_secret.encode('utf-8'),
+            signed_payload.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+        
+        return hmac.compare_digest(expected_sig, received_sig)
+    except Exception as e:
+        logger.error(f"Error verifying YCloud webhook signature: {e}")
+        return False
+
 
 
 def send_whatsapp_message(
