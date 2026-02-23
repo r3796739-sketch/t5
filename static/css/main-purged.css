@@ -153,6 +153,25 @@ h4,
     flex: 1;
     padding: var(--spacing-lg);
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--neutral-300) transparent;
+}
+
+.sidebar-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb {
+    background-color: var(--neutral-300);
+    border-radius: 99px;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb:hover {
+    background-color: var(--neutral-400);
 }
 
 .sidebar-footer {
@@ -268,7 +287,8 @@ h4,
 }
 
 .delete-btn {
-    background-color: transparent;
+    background: transparent;
+    box-shadow: none;
     color: #474747;
     opacity: 0;
     transform: scale(0.9);
@@ -285,6 +305,15 @@ h4,
 .channel-item-wrapper:hover .delete-btn {
     opacity: 1;
     transform: scale(1);
+}
+
+/* On touch/mobile devices, always show delete btn subtly */
+@media (hover: none) {
+    .delete-btn {
+        opacity: 0.45;
+        transform: scale(1);
+        color: var(--text-muted);
+    }
 }
 
 .delete-btn:hover {
@@ -620,6 +649,10 @@ h4,
 
 /* Desktop specific adjustments for header elements */
 @media (min-width: 769px) {
+
+    body {
+        zoom: 0.8;
+    }
 
     .channel-info-banner,
     .general-qa-header {

@@ -440,6 +440,12 @@
                     <div class="form-hint">Found in YCloud Dashboard → WhatsApp API → Numbers</div>
                 </div>
 
+                <div class="form-group">
+                    <label class="form-label">Webhook Secret</label>
+                    <input type="text" class="form-input" id="webhookSecret" placeholder="whsec_..." required>
+                    <div class="form-hint">Paste the secret you got from YCloud after adding the webhook URL</div>
+                </div>
+
                 <button type="submit" class="btn btn-primary" id="saveBtn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2">
@@ -459,10 +465,8 @@
                     <span id="webhookUrl">Loading...</span>
                     <button class="copy-btn" onclick="copyWebhookUrl()">Copy</button>
                 </div>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
-                    Verify Token: <code id="verifyToken"
-                        style="background: var(--surface-medium); padding: 2px 6px; border-radius: 4px;">-</code>
-                    <button class="copy-btn" style="margin-left: 0.5rem;" onclick="copyVerifyToken()">Copy</button>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem; display: none;">
+                    <!-- Verify Token UI removed since it's no longer used for YCloud -->
                 </p>
             </div>
         </div>
@@ -523,7 +527,8 @@
 
         const data = {
             channel_id: document.getElementById('channelId').value,
-            phone_number_id: document.getElementById('phoneNumberId').value
+            phone_number_id: document.getElementById('phoneNumberId').value,
+            webhook_secret: document.getElementById('webhookSecret').value
         };
 
         try {
@@ -541,7 +546,7 @@
                 // Show webhook info
                 document.getElementById('webhookInfo').style.display = 'block';
                 document.getElementById('webhookUrl').textContent = result.config.webhook_url;
-                document.getElementById('verifyToken').textContent = result.config.verify_token;
+                // document.getElementById('verifyToken').textContent = result.config.verify_token; // Removed for YCloud
 
                 // Reload configs
                 loadData();
