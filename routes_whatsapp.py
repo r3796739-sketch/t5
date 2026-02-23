@@ -1,6 +1,6 @@
 """
-WhatsApp Integration Routes
-Handles webhook, configuration, and dashboard for WhatsApp Business integration
+WhatsApp Integration Routes (YCloud)
+Handles webhook, configuration, and dashboard for WhatsApp Business integration via YCloud.
 """
 
 from flask import Blueprint, request, jsonify, render_template, session, redirect, url_for
@@ -14,7 +14,6 @@ from utils.whatsapp_api import (
     parse_webhook_message,
     send_whatsapp_message,
     mark_message_as_read,
-    get_phone_number_info,
     verify_webhook_signature
 )
 from utils.qa_utils import answer_question_stream
@@ -38,28 +37,24 @@ def login_required(f):
 
 
 # ==========================================
-# WEBHOOK ENDPOINTS (Called by Meta)
+# WEBHOOK ENDPOINTS (Called by YCloud)
 # ==========================================
 
 @whatsapp_bp.route('/webhook', methods=['GET'])
 def verify_webhook():
     """
     Webhook verification endpoint.
-    Meta sends a GET request to verify the webhook URL.
+    YCloud sends POST requests directly; this GET handler
+    returns 200 for basic health checks.
     """
-    mode = request.args.get('hub.mode')
-    # YCloud just sends a POST directly to your webhook when events happen.
-    # It doesn't use the standard GET verification challenge from Meta.
-    # So we can just return 200 for any GET request to this endpoint
-    # to satisfy basic health checks.
     return 'OK', 200
 
 
 @whatsapp_bp.route('/webhook', methods=['POST'])
 def receive_message():
     """
-    Webhook endpoint to receive messages from WhatsApp.
-    Verifies Meta's X-Hub-Signature-256 header before processing.
+    Webhook endpoint to receive inbound messages from YCloud.
+    Validates YCloud-Signature header and processes incoming WhatsApp messages.
     """
     try:
         data = request.get_json()
@@ -68,7 +63,7 @@ def receive_message():
         # Read YCloud-Signature header (for optional verification)
         signature = request.headers.get('YCloud-Signature', '')
         
-        # Parse the incoming message
+        # Parse the incoming webhook event
         parsed = parse_webhook_message(data)
         
         if not parsed:
@@ -95,24 +90,23 @@ def receive_message():
         
         config = config_res.data[0]
         
-        # Validate YCloud signature if secret is configured
-        webhook_secret = config.get('verify_token')  # stored in verify_token column
+        # Validate YCloud signature if webhook secret is configured
+        webhook_secret = config.get('verify_token')
         if webhook_secret and signature:
             if not verify_webhook_signature(request.get_data(), signature, webhook_secret):
                 logger.warning("WhatsApp webhook received with invalid YCloud-Signature")
         
         channel = config.get('channels')
-
         
         if not channel:
             logger.warning(f"No channel linked to WhatsApp config {config['id']}")
             return jsonify({'status': 'no_channel'}), 200
         
-        # Decrypt the access token for API calls
-        decrypted_token = decrypt_token(config['access_token'])
+        # Decrypt the user's YCloud API key
+        api_key = decrypt_token(config['access_token'])
         
-        # Mark message as read
-        mark_message_as_read(phone_number_id, decrypted_token, message_id)
+        # Mark message as read (blue checkmarks)
+        mark_message_as_read(message_id, api_key)
         
         # Get or create conversation
         conv_res = supabase.table('whatsapp_conversations').upsert({
@@ -154,29 +148,55 @@ def receive_message():
                             role = 'user' if msg['direction'] == 'inbound' else 'assistant'
                             history.append({'role': role, 'content': msg['content']})
                 
-                # Get AI response
+                # Build chat history prompt (matching app.py pattern)
+                chat_history_for_prompt = ""
+                for h in history[:-1]:  # Exclude current message
+                    prefix = "Human" if h['role'] == 'user' else "AI"
+                    chat_history_for_prompt += f"{prefix}: {h['content']}\n\n"
+                
+                final_question = message_text
+                if chat_history_for_prompt:
+                    final_question = (
+                        f"Given the following conversation history:\n{chat_history_for_prompt}"
+                        f"--- End History ---\n\n"
+                        f"Now, answer this new question, considering the history as context:\n{message_text}"
+                    )
+                
+                # Get channel data dict (answer_question_stream expects the full dict)
+                channel_data = channel  # already fetched from DB via channels(*)
+                
+                # Get AI response (returns SSE-formatted strings)
+                import json as _json
                 response_text = ""
                 for chunk in answer_question_stream(
-                    question=message_text,
-                    channel_id=channel['id'],
-                    user_id=config['user_id'],
-                    chat_history=history[:-1] if history else []  # Exclude current message
+                    question_for_prompt=final_question,
+                    question_for_search=message_text,
+                    channel_data=channel_data,
+                    user_id=config['user_id']
                 ):
-                    response_text += chunk
+                    if chunk.startswith('data: '):
+                        data_str = chunk.replace('data: ', '').strip()
+                        if data_str == "[DONE]":
+                            break
+                        try:
+                            parsed_data = _json.loads(data_str)
+                            if parsed_data.get('answer'):
+                                response_text += parsed_data['answer']
+                        except _json.JSONDecodeError:
+                            continue
                 
-                # Send response back to WhatsApp
+                # Send response back via YCloud
                 if response_text:
                     send_result = send_whatsapp_message(
                         phone_number_id=phone_number_id,
                         to_phone=from_phone,
-                        message_text=response_text
+                        message_text=response_text,
+                        api_key=api_key
                     )
                     
                     # Store outgoing message
                     if conversation_id and send_result.get('success'):
-                        data = send_result.get('data', {})
-                        # Handle Meta format or YCloud format
-                        outbound_msg_id = data.get('id') or data.get('messages', [{}])[0].get('id')
+                        outbound_msg_id = send_result.get('data', {}).get('id')
                         supabase.table('whatsapp_messages').insert({
                             'conversation_id': conversation_id,
                             'message_id': outbound_msg_id,
@@ -211,11 +231,11 @@ def get_config():
     
     configs = config_res.data or []
     
-    # Mask access tokens for security (decrypt first, then mask)
+    # Mask API keys for security
     for config in configs:
         if config.get('access_token'):
             plain_token = decrypt_token(config['access_token'])
-            config['access_token'] = plain_token[:10] + '...' + plain_token[-4:]
+            config['access_token'] = plain_token[:8] + '...' + plain_token[-4:]
     
     return jsonify({'status': 'success', 'configs': configs})
 
@@ -227,7 +247,7 @@ def save_config():
     user_id = session['user']['id']
     data = request.get_json()
     
-    required_fields = ['phone_number_id', 'channel_id']
+    required_fields = ['phone_number_id', 'channel_id', 'api_key']
     for field in required_fields:
         if not data.get(field):
             return jsonify({'status': 'error', 'message': f'{field} is required'}), 400
@@ -239,13 +259,8 @@ def save_config():
     if not channel_res.data or str(channel_res.data[0].get('creator_id')) != str(user_id):
         return jsonify({'status': 'error', 'message': 'Invalid channel'}), 403
     
-    # Removed the verify_token generation as it's not needed for YCloud
-    
-    # Try to get phone number info from Meta (use plain token for the API call)
-    phone_info = get_phone_number_info(data['phone_number_id'], data.get('access_token', ''))
-    
-    # Encrypt a dummy token or provided token before storing in database
-    encrypted_access_token = encrypt_token(data.get('access_token', 'master_key_used'))
+    # Encrypt the user's YCloud API key before storing
+    encrypted_api_key = encrypt_token(data['api_key'])
     
     # Store the webhook secret provided by the user (if any)
     webhook_secret = data.get('webhook_secret', '').strip()
@@ -254,10 +269,8 @@ def save_config():
         'user_id': user_id,
         'channel_id': data['channel_id'],
         'phone_number_id': data['phone_number_id'],
-        'access_token': encrypted_access_token,
-        'verify_token': webhook_secret, # Repurposing verify_token to store the YCloud webhook secret
-        'display_phone_number': phone_info.get('display_phone_number') if phone_info else None,
-        'phone_number_name': phone_info.get('verified_name') if phone_info else None,
+        'access_token': encrypted_api_key,
+        'verify_token': webhook_secret,
         'is_active': True
     }
     
@@ -270,7 +283,7 @@ def save_config():
         
         logger.info(f"WhatsApp config saved for user {user_id}")
         
-        # Return the webhook URL they need to configure in Meta
+        # Return the webhook URL they need to configure in YCloud
         webhook_url = request.host_url.rstrip('/') + '/api/whatsapp/webhook'
         
         return jsonify({

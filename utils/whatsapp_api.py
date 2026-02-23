@@ -1,6 +1,7 @@
 """
-WhatsApp Business API Utilities
-Handles sending/receiving messages via Meta's WhatsApp Cloud API
+WhatsApp Business API Utilities (YCloud)
+Handles sending/receiving messages via YCloud's WhatsApp Cloud API.
+Each user provides their own YCloud API key.
 """
 
 import os
@@ -12,8 +13,17 @@ from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
-WHATSAPP_API_URL = "https://graph.facebook.com/v18.0"
-YCLOUD_API_URL = "https://api.ycloud.com/v2/whatsapp/messages/sendDirectly"
+YCLOUD_BASE_URL = "https://api.ycloud.com/v2"
+YCLOUD_SEND_URL = f"{YCLOUD_BASE_URL}/whatsapp/messages/sendDirectly"
+
+
+def _ycloud_headers(api_key: str) -> Dict[str, str]:
+    """Build standard YCloud API headers with the user's API key."""
+    return {
+        "X-API-Key": api_key,
+        "Content-Type": "application/json"
+    }
+
 
 def verify_webhook_signature(payload: bytes, signature: str, webhook_secret: str) -> bool:
     """
@@ -23,62 +33,63 @@ def verify_webhook_signature(payload: bytes, signature: str, webhook_secret: str
     """
     if not signature:
         return False
-    
+
     try:
         # Parse: "t=1234567890,s=abcdef..."
         parts = dict(p.split('=', 1) for p in signature.split(','))
         timestamp = parts.get('t', '')
         received_sig = parts.get('s', '')
-        
+
         if not timestamp or not received_sig:
             return False
-        
+
         # Build the signed payload string
         signed_payload = f"{timestamp}.{payload.decode('utf-8')}"
-        
+
         expected_sig = hmac.new(
             webhook_secret.encode('utf-8'),
             signed_payload.encode('utf-8'),
             hashlib.sha256
         ).hexdigest()
-        
+
         return hmac.compare_digest(expected_sig, received_sig)
     except Exception as e:
         logger.error(f"Error verifying YCloud webhook signature: {e}")
         return False
 
 
-
 def send_whatsapp_message(
-    phone_number_id: str, 
-    to_phone: str, 
-    message_text: str
+    phone_number_id: str,
+    to_phone: str,
+    message_text: str,
+    api_key: str
 ) -> Dict[str, Any]:
     """
     Send a text message via YCloud WhatsApp API.
+
+    Args:
+        phone_number_id: The sender's WhatsApp phone number (e.g. "+14155552671")
+        to_phone: The recipient's phone number
+        message_text: The text message body
+        api_key: The user's YCloud API key
     """
-    # Fetch your Master Key from the .env file
-    api_key = os.environ.get("YCLOUD_API_KEY")
-    
-    headers = {
-        "X-API-Key": api_key,
-        "Content-Type": "application/json"
-    }
-    
-    # YCloud's simplified payload format
     payload = {
-        "from": phone_number_id,  # This is the user's specific phone ID
+        "from": phone_number_id,
         "to": to_phone,
         "type": "text",
         "text": {
             "body": message_text
         }
     }
-    
+
     try:
-        response = requests.post(YCLOUD_API_URL, headers=headers, json=payload, timeout=10)
+        response = requests.post(
+            YCLOUD_SEND_URL,
+            headers=_ycloud_headers(api_key),
+            json=payload,
+            timeout=10
+        )
         response.raise_for_status()
-        # Return in a format compatible with existing code expecting {"success": True, "data": ...}
         return {"success": True, "data": response.json()}
     except Exception as e:
         logger.error(f"Failed to send YCloud message: {e}")
@@ -87,37 +98,48 @@ def send_whatsapp_message(
 
 def send_whatsapp_template(
     phone_number_id: str,
-    access_token: str,
     to_phone: str,
     template_name: str,
-    language_code: str = "en"
+    api_key: str,
+    language_code: str = "en",
+    components: list = None
 ) -> Dict[str, Any]:
     """
-    Send a template message via WhatsApp Business API.
-    Templates are pre-approved messages required for initiating conversations.
+    Send a template message via YCloud WhatsApp API.
+    Templates are pre-approved messages required for initiating conversations
+    outside the 24-hour customer service window.
+
+    Args:
+        phone_number_id: The sender's WhatsApp phone number
+        to_phone: The recipient's phone number
+        template_name: Name of the approved template
+        api_key: The user's YCloud API key
+        language_code: Language code for the template (default: "en")
+        components: Optional template components (header, body, button params)
     """
-    url = f"{WHATSAPP_API_URL}/{phone_number_id}/messages"
-    
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "messaging_product": "whatsapp",
-        "recipient_type": "individual",
-        "to": to_phone,
-        "type": "template",
-        "template": {
-            "name": template_name,
-            "language": {
-                "code": language_code
-            }
+    template_obj = {
+        "name": template_name,
+        "language": {
+            "code": language_code
         }
     }
-    
+    if components:
+        template_obj["components"] = components
+
+    payload = {
+        "from": phone_number_id,
+        "to": to_phone,
+        "type": "template",
+        "template": template_obj
+    }
+
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        response = requests.post(
+            YCLOUD_SEND_URL,
+            headers=_ycloud_headers(api_key),
+            json=payload,
+            timeout=30
+        )
         response.raise_for_status()
         return {"success": True, "data": response.json()}
     except requests.exceptions.RequestException as e:
@@ -126,74 +148,101 @@ def send_whatsapp_template(
 
 
 def mark_message_as_read(
-    phone_number_id: str,
-    access_token: str,
-    message_id: str
+    message_id: str,
+    api_key: str
 ) -> bool:
     """
     Mark a received message as read (shows blue checkmarks to sender).
+    Uses YCloud endpoint: POST /v2/whatsapp/inboundMessages/{messageId}/markAsRead
+
+    Args:
+        message_id: The WhatsApp message ID (e.g. "wamid.HBgL...")
+        api_key: The user's YCloud API key
     """
-    url = f"{WHATSAPP_API_URL}/{phone_number_id}/messages"
-    
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "messaging_product": "whatsapp",
-        "status": "read",
-        "message_id": message_id
-    }
-    
+    url = f"{YCLOUD_BASE_URL}/whatsapp/inboundMessages/{message_id}/markAsRead"
+
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        response = requests.post(
+            url,
+            headers=_ycloud_headers(api_key),
+            timeout=10
+        )
         return response.status_code == 200
-    except:
+    except Exception as e:
+        logger.error(f"Failed to mark message as read: {e}")
         return False
 
 
 def parse_webhook_message(data: Dict) -> Optional[Dict]:
     """
-    Parse incoming webhook data from YCloud/WhatsApp.
-    
-    YCloud payload format:
+    Parse incoming webhook data from YCloud.
+
+    YCloud sends webhook events in an envelope format:
     {
-      "id": "wamid.HBgL...",
-      "from": "1234567890",
-      "to": "0987654321",
-      "type": "text",
-      "text": {
-        "body": "Hello!"
-      },
-      "timestamp": "1691234567"
+      "id": "evt_...",
+      "type": "whatsapp.inbound_message.received",
+      "apiVersion": "v2",
+      "createTime": "2024-01-01T00:00:00Z",
+      "whatsappInboundMessage": {
+        "id": "wamid.HBgL...",
+        "wabaId": "...",
+        "from": "1234567890",
+        "to": "0987654321",
+        "customerProfile": {
+          "name": "John Doe"
+        },
+        "type": "text",
+        "text": {
+          "body": "Hello!"
+        },
+        "timestamp": "1691234567"
+      }
     }
+
+    Returns a normalized dict or None if not a message event.
     """
     try:
-        # Check if this is a YCloud message event
-        if 'id' not in data or 'from' not in data or 'to' not in data:
+        event_type = data.get('type', '')
+
+        # Only process inbound message events
+        if event_type != 'whatsapp.inbound_message.received':
+            logger.debug(f"Ignoring non-message webhook event: {event_type}")
             return None
-        
-        # YCloud directly sends the message object
+
+        msg = data.get('whatsappInboundMessage')
+        if not msg:
+            logger.warning("whatsapp.inbound_message.received event with no message body")
+            return None
+
+        msg_type = msg.get('type', 'text')
+
         return {
-            'phone_number_id': data.get('to'),      # User's bot number
-            'message_id': data.get('id'),
-            'from_phone': data.get('from'),         # Customer's number
-            'sender_name': data.get('profile', {}).get('name', 'Unknown'), # YCloud might include this
-            'timestamp': data.get('timestamp'),
-            'type': data.get('type'),
-            'text': data.get('text', {}).get('body', '') if data.get('type') == 'text' else None,
-            'raw': data
+            'phone_number_id': msg.get('to'),           # Bot's phone number
+            'message_id': msg.get('id'),                 # WhatsApp message ID
+            'from_phone': msg.get('from'),               # Customer's phone number
+            'sender_name': msg.get('customerProfile', {}).get('name', 'Unknown'),
+            'timestamp': msg.get('timestamp'),
+            'type': msg_type,
+            'text': msg.get('text', {}).get('body', '') if msg_type == 'text' else None,
+            'waba_id': msg.get('wabaId'),                # WhatsApp Business Account ID
+            'raw': msg
         }
     except Exception as e:
         logger.error(f"Error parsing webhook message: {e}")
         return None
 
 
-def get_phone_number_info(phone_number_id: str, access_token: str) -> Optional[Dict]:
+def get_phone_number_info(phone_number_id: str, api_key: str) -> Optional[Dict]:
     """
-    Get information about a WhatsApp phone number.
-    Since we are using YCloud, we don't have a direct equivalent to the Meta API for this 
-    that works with the same token, so we return None to allow the config to save.
+    Get information about a WhatsApp phone number from YCloud.
+    Note: This requires knowing the WABA ID. Since we may not have it
+    at config time, this returns None gracefully.
+
+    Args:
+        phone_number_id: The phone number to look up
+        api_key: The user's YCloud API key
     """
+    # YCloud's phone number retrieval requires wabaId + phoneNumber path.
+    # We don't store wabaId separately, so we skip this for now.
+    # Phone number display info will come from incoming webhook messages instead.
     return None
