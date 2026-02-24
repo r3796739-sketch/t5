@@ -232,15 +232,25 @@
 .question-box {
     align-self: flex-end;
     max-width: 85%;
-    background: #E3EFFB;
-    color: #0B3C6F;
-    padding: var(--spacing-sm) var(--spacing-md);
+    background: linear-gradient(135deg, #fff3e6, #ffe8d0);
+    color: var(--text-primary);
+    padding: 12px 18px;
     border-radius: 18px 18px 4px 18px;
+    font-size: 1rem;
+    font-weight: 450;
+    line-height: 1.6;
+    letter-spacing: 0.01em;
+    border: 1px solid #ffddb8;
+}
+
+.question-content {
+    font-family: 'Poppins', sans-serif;
 }
 
 html[data-theme='dark'] .question-box {
-    background: #36425E;
+    background: linear-gradient(135deg, #3a2f24, #4a3828);
     color: #E0E0E0;
+    border-color: #5a4832;
 }
 
 .answer-box {
@@ -249,7 +259,7 @@ html[data-theme='dark'] .question-box {
     background: var(--surface-light);
     border: 1px solid var(--neutral-200);
     border-radius: 18px 18px 18px 4px;
-    padding: var(--spacing-md);
+    padding: var(--spacing-md) calc(var(--spacing-md) + 4px);
 }
 
 .answer-header {
@@ -299,9 +309,12 @@ html[data-theme='dark'] .question-box {
 }
 
 .answer-label {
-    font-weight: 600;
-    font-size: 0.9rem;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 650;
+    font-size: 0.875rem;
     color: var(--text-primary);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
 }
 
 .copy-answer-btn {
@@ -346,10 +359,21 @@ html[data-theme='dark'] .copy-answer-btn.copied {
 
 
 /* --- Markdown Content --- */
+.answer-content {
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.95rem;
+    line-height: 1.8;
+    color: var(--text-primary);
+    letter-spacing: 0.01em;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
 .answer-content p,
 .answer-content ul,
 .answer-content ol {
-    margin-bottom: var(--spacing-md);
+    margin-bottom: 0.75em;
 }
 
 .answer-content>*:last-child {
@@ -358,11 +382,16 @@ html[data-theme='dark'] .copy-answer-btn.copied {
 
 .answer-content ul,
 .answer-content ol {
-    padding-left: 25px;
+    padding-left: 24px;
 }
 
 .answer-content li {
-    margin-bottom: var(--spacing-sm);
+    margin-bottom: 0.35em;
+}
+
+.answer-content strong {
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
 .answer-content blockquote {
@@ -371,6 +400,7 @@ html[data-theme='dark'] .copy-answer-btn.copied {
     border-left: 3px solid var(--accent-primary);
     color: var(--text-secondary);
     font-style: italic;
+    font-size: 0.875rem;
 }
 
 /* --- Sources & Regenerate --- */
@@ -475,13 +505,11 @@ html[data-theme='dark'] .copy-answer-btn.copied {
 .question-form {
     flex-shrink: 0;
     padding: var(--spacing-sm);
-}
-
-.form-group {
-    margin: 0;
-    display: flex;
-    gap: var(--spacing-sm);
-    align-items: flex-end;
+    background-color: transparent;
+    z-index: 10;
+    position: relative;
+    bottom: 0;
+    width: 100%;
 }
 
 .textarea-wrapper {
@@ -955,6 +983,26 @@ html[data-theme='dark'] .copy-answer-btn.copied {
 }
 
 @media (min-width: 769px) {
+
+    /* body has zoom:0.8 applied globally on desktop.
+       100vh only covers 80% of the visual viewport, so we use 125vh (= 100/0.8)
+       to fill the full screen with no dead space below. */
+    html,
+    body {
+        height: 125vh;
+        overflow: hidden;
+    }
+
+    .app-layout {
+        height: 125vh;
+        min-height: unset;
+        overflow: hidden;
+    }
+
+    .main-content.has-mobile-nav {
+        height: 125vh;
+    }
+
     .desktop-chat-layout {
         grid-template-columns: 1fr 320px;
     }
