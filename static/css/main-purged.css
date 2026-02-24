@@ -651,7 +651,7 @@ h4,
 @media (min-width: 769px) {
 
     body {
-        zoom: 0.8;
+        zoom: 0.9;
     }
 
     .channel-info-banner,
@@ -2060,4 +2060,5 @@ body {
     .channel-name {
         max-width: calc(100% - 50px);
     }
+
 }
