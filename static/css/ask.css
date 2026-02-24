@@ -989,18 +989,18 @@ html[data-theme='dark'] .copy-answer-btn.copied {
        to fill the full screen with no dead space below. */
     html,
     body {
-        height: 125vh;
+        height: 111.11vh;
         overflow: hidden;
     }
 
     .app-layout {
-        height: 125vh;
+        height: 111.11vh;
         min-height: unset;
         overflow: hidden;
     }
 
     .main-content.has-mobile-nav {
-        height: 125vh;
+        height: 111.11vh;
     }
 
     .desktop-chat-layout {
