@@ -31,7 +31,12 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user' not in session:
-            return redirect(url_for('login'))
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' \
+                      or 'application/json' in request.headers.get('Accept', '') \
+                      or request.content_type == 'application/json'
+            if is_ajax or request.method != 'GET':
+                return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+            return redirect(url_for('channel') + '?login=1')
         return f(*args, **kwargs)
     return decorated_function
 

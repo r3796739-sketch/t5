@@ -168,6 +168,19 @@ def process_channel_task(channel_id, task=None):
             'status': 'ready'
         }).eq('id', channel_id).execute()
 
+        # Update associated youtube data_source if it exists (for multi-source bots)
+        supabase_admin.table('data_sources').update({
+            'status': 'ready',
+            'progress': 100
+        }).eq('chatbot_id', channel_id).eq('source_type', 'youtube').execute()
+
+        # Update parent chatbot readiness (same as WhatsApp/Website sources)
+        try:
+            from utils.multi_source_tasks import update_chatbot_readiness
+            update_chatbot_readiness(channel_id)
+        except Exception as readiness_err:
+            logger.warning(f"update_chatbot_readiness failed for channel {channel_id}: {readiness_err}")
+
         # --- START: ISOLATED AND CORRECTED EMAIL HANDLING ---
         try:
             creator_profile_resp = supabase_admin.table('profiles').select('email, full_name').eq('id', user_id_who_submitted).single().execute()
@@ -214,6 +227,11 @@ def process_channel_task(channel_id, task=None):
         # This block will now only catch critical processing errors.
         logging.error(f"Task failed for channel ID {channel_id}: {e}", exc_info=True)
         supabase_admin.table('channels').update({'status': 'failed'}).eq('id', channel_id).execute()
+        # Also fail the associated data source
+        supabase_admin.table('data_sources').update({
+            'status': 'failed',
+            'error_message': str(e)
+        }).eq('chatbot_id', channel_id).eq('source_type', 'youtube').execute()
         update_task_progress(task_id, 'failed', 0, str(e))
         raise e
 

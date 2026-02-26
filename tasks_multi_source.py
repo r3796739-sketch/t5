@@ -5,6 +5,7 @@ from tasks import huey, update_task_progress
 from utils.multi_source_tasks import (
     process_whatsapp_source as _process_whatsapp,
     process_website_source as _process_website,
+    process_pdf_source as _process_pdf,
     update_chatbot_readiness
 )
 
@@ -63,5 +64,33 @@ def process_website_source_task(source_id: int, task=None):
         
     except Exception as e:
         logger.error(f"[WEBSITE TASK] Failed for source {source_id}: {e}", exc_info=True)
+        update_task_progress(task_id, 'failed', 0, str(e))
+        raise
+
+
+@huey.task(context=True)
+def process_pdf_source_task(source_id: int, file_path: str, task=None):
+    """
+    Huey task wrapper for processing PDF file uploads.
+
+    Args:
+        source_id: ID of the data source record
+        file_path: Path to the uploaded PDF file
+        task: Huey task context
+    """
+    task_id = task.id if task else None
+
+    try:
+        logger.info(f"[PDF TASK] Starting processing for source {source_id}")
+        update_task_progress(task_id, 'processing', 5, 'Reading PDF...')
+
+        result = _process_pdf(source_id, file_path, task_id)
+
+        update_task_progress(task_id, 'complete', 100, 'PDF processed successfully!')
+        logger.info(f"[PDF TASK] Completed: {result}")
+        return result
+
+    except Exception as e:
+        logger.error(f"[PDF TASK] Failed for source {source_id}: {e}", exc_info=True)
         update_task_progress(task_id, 'failed', 0, str(e))
         raise
