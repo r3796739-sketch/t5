@@ -46,10 +46,24 @@
 
 
 
-            <button type="submit" class="process-btn">
-                <span class="btn-icon">🚀</span>
-                <span>Process Channel</span>
-            </button>
+            <div style="display: flex; gap: 1rem; flex-direction: column; max-width: 100%;">
+                <button type="submit" class="process-btn">
+                    <span class="btn-icon">🚀</span>
+                    <span>Process Channel</span>
+                </button>
+
+                <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin: 0.5rem 0;">
+                    <div style="flex: 1; height: 1px; background: var(--neutral-200);"></div>
+                    <span style="color: var(--text-secondary); font-size: 0.875rem; font-weight: 500;">OR</span>
+                    <div style="flex: 1; height: 1px; background: var(--neutral-200);"></div>
+                </div>
+
+                <a href="/chatbot/create-ui" class="process-btn"
+                    style="background: var(--surface-light); color: var(--text-primary); border: 2px solid var(--neutral-200); box-shadow: none; text-decoration: none;">
+                    <span class="btn-icon">🤖</span>
+                    <span>Create Custom Chatbot</span>
+                </a>
+            </div>
         </form>
 
         <div id="processingContainer" class="processing-display" style="display: none;">

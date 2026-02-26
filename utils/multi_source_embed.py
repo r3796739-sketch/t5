@@ -82,7 +82,6 @@ def create_embeddings_batch(texts, channel_id, source_id, user_id, metadata_list
                 supabase.table('embeddings').insert({
                     'channel_id': channel_id,
                     'source_id': source_id,
-                    'chatbot_id': channel_id,
                     'user_id': user_id,
                     'video_id': metadata.get('video_id', f'chunk_{i+j}'),
                     'embedding': embedding,

@@ -25,6 +25,7 @@ def process_whatsapp_source(source_id: int, file_path: str, task_id: str = None,
         preferred_agent: Optional name of the support agent/receptionist to learn from
     """
     supabase = get_supabase_admin_client()
+    chatbot_id = None
     
     try:
         # Update status to processing
@@ -92,7 +93,7 @@ def process_whatsapp_source(source_id: int, file_path: str, task_id: str = None,
         
         # Get chatbot owner (use creator_id, not user_id)
         chatbot_resp = supabase.table('channels').select('creator_id').eq('id', chatbot_id).maybe_single().execute()
-        if not chatbot_resp.data:
+        if not chatbot_resp or not chatbot_resp.data:
             raise ValueError(f"Chatbot {chatbot_id} not found - may have been deleted")
         user_id = chatbot_resp.data['creator_id']
         
@@ -155,8 +156,12 @@ def process_whatsapp_source(source_id: int, file_path: str, task_id: str = None,
         logger.error(f"WhatsApp source {source_id} failed: {e}", exc_info=True)
         supabase.table('data_sources').update({
             'status': 'failed',
-            'error_message': str(e)
+            'metadata': {'error': str(e)}
         }).eq('id', source_id).execute()
+        
+        if chatbot_id:
+            update_chatbot_readiness(chatbot_id)
+            
         raise
 
 
@@ -169,6 +174,7 @@ def process_website_source(source_id: int, task_id: str = None):
         task_id: Optional task ID for progress tracking
     """
     supabase = get_supabase_admin_client()
+    chatbot_id = None
     
     try:
         # Update status to processing
@@ -223,7 +229,7 @@ def process_website_source(source_id: int, task_id: str = None):
         
         # Get chatbot owner (use creator_id, not user_id)
         chatbot_resp = supabase.table('channels').select('creator_id').eq('id', chatbot_id).maybe_single().execute()
-        if not chatbot_resp.data:
+        if not chatbot_resp or not chatbot_resp.data:
             raise ValueError(f"Chatbot {chatbot_id} not found - may have been deleted")
         user_id = chatbot_resp.data['creator_id']
         
@@ -259,9 +265,9 @@ def process_website_source(source_id: int, task_id: str = None):
         
         logger.info(f"Created {total_chunks} total chunks from website")
         
-        # Build list of scraped page details for display
+        # Build list of scraped page details for display (limit to 50 to avoid huge payloads)
         scraped_pages = []
-        for page in pages:
+        for page in pages[:50]:
             page_info = {
                 'url': page.get('url', ''),
                 'title': page.get('title', 'Untitled'),
@@ -270,20 +276,36 @@ def process_website_source(source_id: int, task_id: str = None):
             }
             scraped_pages.append(page_info)
         
-        # Mark as ready
-        supabase.table('data_sources').update({
-            'status': 'ready',
-            'progress': 100,
-            'metadata': {
-                'page_count': len(pages),
-                'total_words': stats['total_words'],
-                'failed_pages': stats['failed_pages'],
-                'scraping_method': method,
-                'website_url': website_url,
-                'total_chunks': total_chunks,
-                'scraped_pages': scraped_pages
-            }
-        }).eq('id', source_id).execute()
+        # Mark as ready — set progress first as a safety measure, then mark ready
+        try:
+            supabase.table('data_sources').update({
+                'status': 'ready',
+                'progress': 100,
+                'metadata': {
+                    'page_count': len(pages),
+                    'total_words': stats['total_words'],
+                    'failed_pages': stats['failed_pages'],
+                    'scraping_method': method,
+                    'website_url': website_url,
+                    'total_chunks': total_chunks,
+                    'scraped_pages': scraped_pages
+                }
+            }).eq('id', source_id).execute()
+        except Exception as update_err:
+            logger.warning(f"Full metadata update failed ({update_err}), retrying without scraped_pages...")
+            # Retry with minimal metadata to ensure status is marked ready
+            supabase.table('data_sources').update({
+                'status': 'ready',
+                'progress': 100,
+                'metadata': {
+                    'page_count': len(pages),
+                    'total_words': stats['total_words'],
+                    'failed_pages': stats['failed_pages'],
+                    'scraping_method': method,
+                    'website_url': website_url,
+                    'total_chunks': total_chunks
+                }
+            }).eq('id', source_id).execute()
         
         # Update parent chatbot
         update_chatbot_readiness(chatbot_id)
@@ -295,8 +317,12 @@ def process_website_source(source_id: int, task_id: str = None):
         logger.error(f"Website source {source_id} failed: {e}", exc_info=True)
         supabase.table('data_sources').update({
             'status': 'failed',
-            'error_message': str(e)
+            'metadata': {'error': str(e)}
         }).eq('id', source_id).execute()
+        
+        if chatbot_id:
+            update_chatbot_readiness(chatbot_id)
+            
         raise
 
 
@@ -323,6 +349,7 @@ def update_chatbot_readiness(chatbot_id: int):
         
         # Count ready sources
         ready_count = sum(1 for s in sources if s['status'] == 'ready')
+        pending_count = sum(1 for s in sources if s['status'] in ['pending', 'processing'])
         
         # Check what source types are ready
         has_youtube = any(s['source_type'] == 'youtube' and s['status'] == 'ready' for s in sources)
@@ -341,7 +368,12 @@ def update_chatbot_readiness(chatbot_id: int):
         
         # Update chatbot
         is_ready = ready_count > 0
-        status = 'ready' if is_ready else 'processing'
+        if pending_count > 0:
+            status = 'processing'
+        elif ready_count > 0:
+            status = 'ready'
+        else:
+            status = 'failed'
         
         update_data = {
             'is_ready': is_ready,
@@ -361,3 +393,118 @@ def update_chatbot_readiness(chatbot_id: int):
         
     except Exception as e:
         logger.error(f"Failed to update chatbot readiness for {chatbot_id}: {e}", exc_info=True)
+
+
+def process_pdf_source(source_id: int, file_path: str, task_id: str = None):
+    """
+    Process a PDF file as a data source.
+
+    Args:
+        source_id: ID of the data source record
+        file_path: Path to the uploaded PDF file
+        task_id: Optional task ID for progress tracking
+    """
+    from utils.pdf_parser import extract_text_from_pdf, chunk_pdf_pages
+    from utils.multi_source_embed import chunk_and_embed_text
+
+    supabase = get_supabase_admin_client()
+    chatbot_id = None
+
+    try:
+        supabase.table('data_sources').update({
+            'status': 'processing',
+            'progress': 10
+        }).eq('id', source_id).execute()
+
+        logger.info(f"Starting PDF processing for source {source_id}")
+
+        source_resp = supabase.table('data_sources').select('*').eq('id', source_id).single().execute()
+        source = source_resp.data
+        chatbot_id = source['chatbot_id']
+
+        # --- Extract text ---
+        logger.info(f"Extracting text from PDF: {file_path}")
+        result = extract_text_from_pdf(file_path)
+        pages = result['pages']
+        doc_title = result['title']
+        total_words = result['total_words']
+        total_pages = result['total_pages']
+
+        if not pages:
+            raise ValueError("No readable text found in the PDF. It may be image-only or password-protected.")
+
+        logger.info(f"Extracted {len(pages)} pages ({total_words} words) from '{doc_title}'")
+        supabase.table('data_sources').update({'progress': 30}).eq('id', source_id).execute()
+
+        # --- Chunk pages ---
+        chunks = chunk_pdf_pages(pages, chunk_size=5, overlap=1)
+        logger.info(f"Created {len(chunks)} page-groups for embedding")
+        supabase.table('data_sources').update({'progress': 50}).eq('id', source_id).execute()
+
+        # --- Get chatbot owner ---
+        chatbot_resp = supabase.table('channels').select('creator_id').eq('id', chatbot_id).maybe_single().execute()
+        if not chatbot_resp or not chatbot_resp.data:
+            raise ValueError(f"Chatbot {chatbot_id} not found")
+        user_id = chatbot_resp.data['creator_id']
+
+        # --- Create embeddings ---
+        logger.info(f"Creating embeddings for {len(chunks)} PDF chunks")
+        total_embedded = 0
+        for i, chunk in enumerate(chunks):
+            chunks_created = chunk_and_embed_text(
+                text=chunk['text'],
+                video_id=f"pdf_chunk_{i}",
+                channel_id=chatbot_id,
+                source_id=source_id,
+                user_id=user_id,
+                source_type='pdf',
+                additional_metadata={
+                    'title': doc_title,
+                    'page_range': chunk['page_range'],
+                    'chunk_index': i,
+                }
+            )
+            total_embedded += chunks_created
+            progress = 50 + int(((i + 1) / len(chunks)) * 45)
+            supabase.table('data_sources').update({'progress': min(progress, 95)}).eq('id', source_id).execute()
+
+        logger.info(f"Created {total_embedded} embeddings for PDF source {source_id}")
+
+        # --- Mark ready ---
+        supabase.table('data_sources').update({
+            'status': 'ready',
+            'progress': 100,
+            'metadata': {
+                'pdf_title': doc_title,
+                'page_count': total_pages,
+                'total_words': total_words,
+                'chunks': len(chunks),
+            }
+        }).eq('id', source_id).execute()
+
+        # --- Update parent chatbot ---
+        update_chatbot_readiness(chatbot_id)
+
+        # --- Clean up file ---
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                logger.info(f"Deleted temporary PDF file: {file_path}")
+        except Exception as del_err:
+            logger.warning(f"Could not delete temporary file {file_path}: {del_err}")
+
+        logger.info(f"PDF source {source_id} processed successfully")
+        return f"Successfully processed PDF '{doc_title}' ({total_pages} pages, {total_words} words)"
+
+    except Exception as e:
+        logger.error(f"PDF source {source_id} failed: {e}", exc_info=True)
+        supabase.table('data_sources').update({
+            'status': 'failed',
+            'metadata': {'error': str(e)}
+        }).eq('id', source_id).execute()
+        
+        if chatbot_id:
+            update_chatbot_readiness(chatbot_id)
+            
+        raise
+

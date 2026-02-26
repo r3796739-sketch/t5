@@ -21,8 +21,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 40px;
-        height: 40px;
+        padding: 0 1rem;
+        gap: 0.5rem;
         border-radius: var(--radius-md);
         background: var(--surface-light);
         border: 1px solid var(--neutral-200);
@@ -348,11 +348,14 @@
 <div class="whatsapp-container">
     <!-- Header -->
     <div class="page-header">
-        <a href="{{ url_for('dashboard') }}" class="back-btn">
+        {% set bg_url = url_for('chatbot_settings', chatbot_id=request.args.get('from_bot')) ~ '#integrations' if
+        request.args.get('from_bot') else url_for('dashboard') %}
+        <a href="{{ bg_url }}" class="back-btn">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2">
                 <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
+            Back to All Integrations
         </a>
         <h1>
             <svg class="whatsapp-logo" viewBox="0 0 24 24" fill="#25D366">

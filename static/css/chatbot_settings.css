@@ -1,0 +1,1155 @@
+/* ===== Chatbot Settings — Full Page Tabbed Layout ===== */
+
+.cs-layout {
+    display: flex;
+    height: calc(110vh - 10px);
+    overflow: hidden;
+    gap: 0;
+}
+
+.cs-layout * {
+    box-sizing: border-box;
+}
+
+/* --- Left Sidebar Tabs --- */
+.cs-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--surface-light);
+    border-right: 1px solid var(--neutral-200);
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem 0;
+    overflow-y: auto;
+}
+
+.cs-sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0 1.25rem 1.25rem;
+    border-bottom: 1px solid var(--neutral-200);
+    margin-bottom: 0.5rem;
+}
+
+.cs-sidebar-header .cs-bot-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.cs-sidebar-header .cs-bot-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cs-tab-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex: 1;
+}
+
+.cs-tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    padding: 0.7rem 1.25rem;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+    border-left: 3px solid transparent;
+}
+
+.cs-tab-btn:hover {
+    background: var(--surface-medium);
+    color: var(--text-primary);
+}
+
+.cs-tab-btn.active {
+    background: rgba(255, 107, 53, 0.06);
+    color: var(--accent-primary);
+    border-left-color: var(--accent-primary);
+    font-weight: 600;
+}
+
+.cs-tab-btn svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.cs-sidebar-actions {
+    padding: 1rem 1.25rem 0;
+    border-top: 1px solid var(--neutral-200);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* --- Right Content Area --- */
+.cs-content {
+    flex: 1;
+    padding: 2rem 2.5rem;
+    overflow-y: auto;
+    max-width: 900px;
+    height: 100%;
+}
+
+.cs-panel {
+    display: none;
+}
+
+.cs-panel.active {
+    display: block;
+    animation: csFadeIn 0.2s ease;
+}
+
+@keyframes csFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.cs-panel-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.35rem;
+}
+
+.cs-panel-desc {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.75rem;
+}
+
+/* --- Form Elements --- */
+.cs-section {
+    background: var(--surface-light);
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-sizing: border-box;
+}
+
+.cs-section-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.cs-section-title svg {
+    width: 18px;
+    height: 18px;
+    color: var(--accent-primary);
+}
+
+.cs-form-group {
+    margin-bottom: 1.25rem;
+}
+
+.cs-form-group:last-child {
+    margin-bottom: 0;
+}
+
+.cs-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.cs-input,
+.cs-select,
+.cs-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.9rem;
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-md);
+    background: var(--background);
+    color: var(--text-primary);
+    transition: border-color 0.2s;
+    font-family: inherit;
+}
+
+.cs-input:focus,
+.cs-select:focus,
+.cs-textarea:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.cs-textarea {
+    min-height: 90px;
+    resize: vertical;
+}
+
+.cs-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
+}
+
+/* Avatar Upload */
+.cs-avatar-area {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--surface-medium);
+    border-radius: var(--radius-md);
+    border: 2px dashed var(--neutral-200);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cs-avatar-area:hover {
+    border-color: var(--accent-primary);
+    background: var(--surface-light);
+}
+
+.cs-avatar-area.dragging {
+    border-color: var(--accent-primary);
+    background: rgba(255, 107, 53, 0.04);
+}
+
+.cs-avatar-preview {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--neutral-200);
+    flex-shrink: 0;
+}
+
+.cs-avatar-text .primary-text {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.cs-avatar-text .secondary-text {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.1rem;
+}
+
+.cs-avatar-spinner {
+    display: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--neutral-200);
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.cs-avatar-area.uploading .cs-avatar-spinner {
+    display: block;
+}
+
+/* Bot Type Cards */
+.cs-type-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+}
+
+.cs-type-card {
+    padding: 0.9rem;
+    border: 2px solid var(--neutral-200);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.cs-type-card:hover {
+    border-color: var(--accent-primary);
+    background: var(--surface-medium);
+}
+
+.cs-type-card.selected {
+    border-color: var(--accent-primary);
+    background: rgba(255, 107, 53, 0.06);
+}
+
+.cs-type-card input {
+    display: none;
+}
+
+.cs-type-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.35rem;
+}
+
+.cs-type-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.cs-type-desc {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-top: 0.15rem;
+}
+
+/* --- Integration Cards --- */
+.cs-integrations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.cs-int-card {
+    background: var(--surface-light);
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+}
+
+.cs-int-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    border-color: var(--neutral-300, #d0d0d0);
+}
+
+.cs-int-header {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-bottom: 0.6rem;
+}
+
+.cs-int-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+.cs-int-icon img {
+    width: 100%;
+    height: 100%;
+}
+
+.cs-int-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.cs-int-badge {
+    margin-left: auto;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+}
+
+.cs-int-badge.active {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10B981;
+}
+
+.cs-int-badge.inactive {
+    background: var(--surface-medium);
+    color: var(--text-muted);
+    border: 1px solid var(--neutral-200);
+}
+
+.cs-int-desc {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    flex: 1;
+    margin-bottom: 0.75rem;
+    line-height: 1.45;
+}
+
+.cs-int-action {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--accent-primary);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+}
+
+.cs-int-action:hover {
+    opacity: 0.8;
+}
+
+/* --- Data Source Items --- */
+.cs-source-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem;
+    background: var(--surface-medium);
+    border-radius: var(--radius-md);
+    margin-bottom: 0.65rem;
+    flex-wrap: wrap;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.cs-source-item:hover {
+    background: var(--surface-light);
+}
+
+.cs-source-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.cs-source-icon.website {
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.cs-source-icon.whatsapp {
+    background: rgba(37, 211, 102, 0.1);
+}
+
+.cs-source-icon.youtube {
+    background: rgba(255, 0, 0, 0.1);
+}
+
+.cs-source-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.cs-source-type {
+    font-weight: 500;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+}
+
+.cs-source-url {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    word-break: break-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cs-source-meta {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-top: 0.1rem;
+}
+
+.cs-source-status {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+}
+
+.cs-source-status.ready {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10B981;
+}
+
+.cs-source-status.processing {
+    background: rgba(245, 158, 11, 0.15);
+    color: #F59E0B;
+}
+
+.cs-source-status.pending {
+    background: rgba(99, 102, 241, 0.15);
+    color: #6366F1;
+}
+
+.cs-source-status.failed {
+    background: rgba(239, 68, 68, 0.15);
+    color: #EF4444;
+}
+
+.cs-expand-toggle {
+    font-size: 0.7rem;
+    color: var(--accent-primary);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.cs-expand-toggle svg {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.2s;
+}
+
+.cs-source-item.expanded .cs-expand-toggle svg {
+    transform: rotate(180deg);
+}
+
+/* Scraped Pages */
+.cs-pages-wrap {
+    width: 100%;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.cs-source-item.expanded .cs-pages-wrap {
+    max-height: 800px;
+    overflow-y: auto;
+}
+
+.cs-pages-list {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: var(--background);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--neutral-200);
+}
+
+.cs-pages-header {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--neutral-200);
+    margin-bottom: 0.35rem;
+    display: flex;
+    justify-content: space-between;
+}
+
+.cs-page-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.25rem;
+    font-size: 0.75rem;
+    border-bottom: 1px solid var(--neutral-100);
+}
+
+.cs-page-item:last-child {
+    border-bottom: none;
+}
+
+.cs-page-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.cs-page-dot.success {
+    background: #10B981;
+}
+
+.cs-page-dot.failed {
+    background: #EF4444;
+}
+
+.cs-page-link {
+    flex: 1;
+    color: var(--text-primary);
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.cs-page-link:hover {
+    color: var(--accent-primary);
+}
+
+.cs-page-words {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+/* Add Website Form */
+.cs-add-source {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--neutral-200);
+}
+
+.cs-add-form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+.cs-add-form .cs-input {
+    flex: 1;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.85rem;
+}
+
+.cs-add-btn {
+    padding: 0.6rem 1rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: var(--accent-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all 0.2s;
+}
+
+.cs-add-btn:hover {
+    opacity: 0.9;
+}
+
+.cs-add-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.cs-add-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.cs-crawl-modes {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.cs-crawl-opt {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--neutral-200);
+    background: var(--surface-medium);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.cs-crawl-opt:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+.cs-crawl-opt.selected {
+    background: rgba(255, 107, 53, 0.08);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    font-weight: 600;
+}
+
+/* --- Buttons --- */
+.cs-btn {
+    padding: 0.7rem 1.4rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: none;
+    font-family: inherit;
+}
+
+.cs-btn-primary {
+    background: var(--accent-primary);
+    color: white;
+}
+
+.cs-btn-primary:hover {
+    opacity: 0.9;
+}
+
+.cs-btn-secondary {
+    background: var(--surface-medium);
+    color: var(--text-primary);
+    border: 1px solid var(--neutral-200);
+}
+
+.cs-btn-secondary:hover {
+    background: var(--surface-light);
+}
+
+.cs-btn-ghost {
+    background: none;
+    color: var(--accent-primary);
+    border: 1px solid var(--accent-primary);
+}
+
+.cs-btn-ghost:hover {
+    background: rgba(255, 107, 53, 0.06);
+}
+
+.cs-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Danger Zone */
+.cs-danger-zone {
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    margin-top: 2rem;
+}
+
+.cs-danger-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #EF4444;
+    margin-bottom: 0.5rem;
+}
+
+.cs-btn-danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: #EF4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.cs-btn-danger:hover {
+    background: #EF4444;
+    color: white;
+}
+
+/* Lead Capture Toggle */
+.cs-toggle {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.cs-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.cs-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: var(--neutral-200);
+    border-radius: 24px;
+    transition: 0.3s;
+}
+
+.cs-toggle-slider:before {
+    content: "";
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.3s;
+}
+
+.cs-toggle input:checked+.cs-toggle-slider {
+    background: var(--accent-primary);
+}
+
+.cs-toggle input:checked+.cs-toggle-slider:before {
+    transform: translateX(20px);
+}
+
+/* Lead Capture Fields */
+.cs-lc-card {
+    background: var(--surface-medium);
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-md);
+    padding: 0.9rem;
+    margin-bottom: 0.65rem;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 0.6rem;
+    align-items: start;
+}
+
+.cs-lc-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.cs-lc-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.cs-lc-row input,
+.cs-lc-row select {
+    padding: 0.4rem 0.65rem;
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-sm);
+    background: var(--surface-light);
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    font-family: inherit;
+}
+
+.cs-lc-options-row {
+    display: none;
+    margin-top: 0.3rem;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.cs-lc-options-row.visible {
+    display: flex;
+}
+
+.cs-lc-required-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.cs-lc-remove-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.cs-lc-remove-btn:hover {
+    color: #EF4444;
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.cs-lc-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.5rem 0.9rem;
+    background: var(--surface-medium);
+    border: 1.5px dashed var(--neutral-200);
+    border-radius: var(--radius-md);
+    color: var(--accent-primary);
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cs-lc-add-btn:hover {
+    background: rgba(255, 107, 53, 0.05);
+    border-color: var(--accent-primary);
+}
+
+/* Toast */
+.cs-toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    padding: 0.85rem 1.25rem;
+    border-radius: var(--radius-md);
+    font-weight: 500;
+    font-size: 0.88rem;
+    z-index: 1000;
+    animation: csSlideIn 0.3s ease;
+}
+
+.cs-toast.success {
+    background: #10B981;
+    color: white;
+}
+
+.cs-toast.error {
+    background: #EF4444;
+    color: white;
+}
+
+@keyframes csSlideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+    .cs-layout {
+        flex-direction: column;
+        height: auto;
+        overflow: visible;
+        width: 100%;
+        max-width: 100vw;
+    }
+
+    .cs-sidebar {
+        width: 100%;
+        max-width: 100vw;
+        border-right: none;
+        border-bottom: 1px solid var(--neutral-200);
+        padding: 0;
+        display: block;
+    }
+
+    .cs-sidebar-header {
+        display: none;
+    }
+
+    .cs-tab-list {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 0;
+        padding: 0.75rem 1rem;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .cs-tab-list::-webkit-scrollbar {
+        display: none;
+    }
+
+    .cs-tab-list li {
+        flex: 0 0 auto;
+    }
+
+    .cs-tab-btn {
+        padding: 0.6rem 0.9rem;
+        white-space: nowrap;
+        font-size: 0.82rem;
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        display: flex;
+        align-items: center;
+        width: 100%;
+    }
+
+    .cs-tab-btn.active {
+        border-left-color: transparent;
+        border-bottom-color: var(--accent-primary);
+    }
+
+    .cs-sidebar-actions {
+        display: none;
+    }
+
+    .cs-content {
+        padding: 1rem;
+        width: 100%;
+        max-width: 100vw;
+        box-sizing: border-box;
+        overflow-x: hidden;
+    }
+
+    .cs-section {
+        padding: 1rem;
+    }
+
+
+    .cs-type-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cs-integrations-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cs-add-form {
+        flex-direction: column;
+    }
+
+    .cs-lc-card {
+        grid-template-columns: 1fr auto;
+    }
+}
+
+/* ===== Letter-Based Avatars ===== */
+.cs-letter-avatar {
+    border-radius: 50%;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+/* When used as the sidebar bot avatar */
+.cs-bot-avatar.cs-letter-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+}
+
+/* When used as the larger avatar preview inside the upload area */
+.cs-avatar-preview.cs-letter-avatar {
+    width: 56px;
+    height: 56px;
+    font-size: 1.4rem;
+    border: 2px solid transparent;
+}
+
+/* ===== Source Type Tabs (Website / YouTube / WhatsApp) ===== */
+.cs-source-tabs {
+    display: flex;
+    gap: 0.4rem;
+    margin: 1.25rem 0 0.75rem;
+    border-bottom: 2px solid var(--neutral-200);
+    padding-bottom: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.cs-source-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.cs-source-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.5rem 1rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.18s;
+    font-family: inherit;
+    border-radius: 6px 6px 0 0;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.cs-source-tab:hover {
+    color: var(--text-primary);
+    background: var(--surface-medium);
+}
+
+.cs-source-tab.active {
+    color: var(--accent-primary);
+    border-bottom-color: var(--accent-primary);
+    background: rgba(255, 107, 53, 0.04);
+}
+
+/* YouTube-themed add button */
+.cs-add-btn--youtube {
+    background: #ff0000 !important;
+}
+
+.cs-add-btn--youtube:hover {
+    background: #cc0000 !important;
+    opacity: 1 !important;
+}
+
+/* WhatsApp-themed add button */
+.cs-add-btn--whatsapp {
+    background: #25D366 !important;
+}
+
+.cs-add-btn--whatsapp:hover {
+    background: #1da851 !important;
+    opacity: 1 !important;
+}
+
+/* ===== WhatsApp Upload Area ===== */
+.cs-wa-upload-area {
+    border: 2px dashed var(--neutral-200);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+.cs-wa-upload-area:hover {
+    border-color: #25D366;
+}
+
+.cs-wa-upload-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 1.5rem 1rem;
+    cursor: pointer;
+    text-align: center;
+}

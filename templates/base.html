@@ -9,8 +9,8 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap"
+        media="print" onload="this.media='all'">
 
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo/favicon.png') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/logo/favicon.png') }}">
@@ -67,9 +67,11 @@
                     {% endif %}
                     {% endif %}
 
+                    {% if saved_channels %}
                     {% for name, channel in saved_channels.items() %}
                     {{ render_sidebar_channel_item(channel, name, community_status) }}
                     {% endfor %}
+                    {% endif %}
                 </div>
             </div>
     </div>
@@ -199,34 +201,123 @@
     <div id="login-popup-modal" class="login-popup-overlay">
         <div class="login-popup-content">
             <button class="login-popup-close-btn" onclick="closeLoginPopup()">&times;</button>
-            <div class="login-popup-icon">
-                <img src="{{ url_for('static', filename='images/logo/primiry__logo.png') }}" alt="yoppychat Logo"
-                    class="sidebar-logo-img logo-light" width="60" height="60" style="margin-left: 20%;">
-                <img src="{{ url_for('static', filename='images/logo/primiry_logo_dark.png') }}" alt="yoppychat Logo"
-                    class="sidebar-logo-img logo-dark" width="60" height="60" style="margin-left: 20%;">
+
+            <!-- Header -->
+            <div style="text-align:center; margin-bottom:12px;">
+                <p class="login-popup-title" id="auth-popup-title"
+                    style="font-size:1.25rem; font-weight:700; margin-bottom:8px;">Welcome to</p>
+                <img src="{{ url_for('static', filename='images/logo/primiry__logo.png') }}" alt="YoppyChat"
+                    class="logo-light" style="height:75px; width:auto; margin: 0 auto;">
+                <img src="{{ url_for('static', filename='images/logo/primiry_logo_dark.png') }}" alt="YoppyChat"
+                    class="logo-dark" style="height:75px; width:auto; margin: 0 auto;">
             </div>
-            <h3 class="login-popup-title">Welcome to YoppyChat</h3>
-            <p class="login-popup-subtitle">Create an account or log in to continue</p>
-            <button id="google-login-btn" class="login-popup-google-btn">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path
-                        d="M19.9999 10.2248C19.9999 9.53448 19.9452 8.85345 19.8265 8.18103H10.204V11.8534H15.7516C15.5344 13.069 14.8973 14.1207 13.9648 14.7759V17.2672H16.7137C18.6637 15.4397 19.9999 13.0172 19.9999 10.2248Z"
-                        fill="#4285F4" />
-                    <path
-                        d="M10.2042 20C12.8363 20 15.0432 19.181 16.7137 17.2672L13.9648 14.7759C13.0958 15.3534 11.9053 15.7328 10.2042 15.7328C7.15271 15.7328 4.60271 13.7328 3.70615 11.0603H0.836304V13.6293C2.48115 17.2328 6.09494 20 10.2042 20Z"
-                        fill="#34A853" />
-                    <path
-                        d="M3.70604 11.0603C3.52839 10.5345 3.42839 9.97414 3.42839 9.39655C3.42839 8.81897 3.52839 8.25862 3.70604 7.73276V5.16379H0.836202C0.301636 6.24138 0 7.75862 0 9.39655C0 11.0345 0.301636 12.5517 0.836202 13.6293L3.70604 11.0603Z"
-                        fill="#FBBC05" />
-                    <path
-                        d="M10.2042 3.06034C11.5794 3.06034 12.9139 3.56034 13.9053 4.50862L16.7758 1.63793C15.0349 0.0344827 12.8279 0 10.2042 0C6.09494 0 2.48115 2.76724 0.836304 6.37069L3.70615 8.93966C4.60271 6.26724 7.15271 3.06034 10.2042 3.06034Z"
-                        fill="#EA4335" />
-                </svg>
-                Continue with Google
-            </button>
-            <p class="login-popup-terms">By signing in, you are agreeing to the <strong>Terms of Service</strong> and
-                <strong>Privacy Policy</strong>
-            </p>
+            <p class="login-popup-subtitle" id="auth-popup-subtitle" style="margin-bottom:18px;">Create an account or
+                log in to continue</p>
+
+            <!-- ── MAIN LOGIN PANEL ── -->
+            <div id="auth-main-panel">
+                <!-- Google Login -->
+                <button id="google-login-btn" class="login-popup-google-btn">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M19.9999 10.2248C19.9999 9.53448 19.9452 8.85345 19.8265 8.18103H10.204V11.8534H15.7516C15.5344 13.069 14.8973 14.1207 13.9648 14.7759V17.2672H16.7137C18.6637 15.4397 19.9999 13.0172 19.9999 10.2248Z"
+                            fill="#4285F4" />
+                        <path
+                            d="M10.2042 20C12.8363 20 15.0432 19.181 16.7137 17.2672L13.9648 14.7759C13.0958 15.3534 11.9053 15.7328 10.2042 15.7328C7.15271 15.7328 4.60271 13.7328 3.70615 11.0603H0.836304V13.6293C2.48115 17.2328 6.09494 20 10.2042 20Z"
+                            fill="#34A853" />
+                        <path
+                            d="M3.70604 11.0603C3.52839 10.5345 3.42839 9.97414 3.42839 9.39655C3.42839 8.81897 3.52839 8.25862 3.70604 7.73276V5.16379H0.836202C0.301636 6.24138 0 7.75862 0 9.39655C0 11.0345 0.301636 12.5517 0.836202 13.6293L3.70604 11.0603Z"
+                            fill="#FBBC05" />
+                        <path
+                            d="M10.2042 3.06034C11.5794 3.06034 12.9139 3.56034 13.9053 4.50862L16.7758 1.63793C15.0349 0.0344827 12.8279 0 10.2042 0C6.09494 0 2.48115 2.76724 0.836304 6.37069L3.70615 8.93966C4.60271 6.26724 7.15271 3.06034 10.2042 3.06034Z"
+                            fill="#EA4335" />
+                    </svg>
+                    Continue with Google
+                </button>
+
+                <!-- Divider -->
+                <div style="display:flex; align-items:center; gap:10px; margin:16px 0;">
+                    <div style="flex:1; height:1px; background:var(--border-color, #e5e7eb);"></div>
+                    <span style="font-size:0.8rem; color:var(--text-muted, #9ca3af); white-space:nowrap;">or continue
+                        with email</span>
+                    <div style="flex:1; height:1px; background:var(--border-color, #e5e7eb);"></div>
+                </div>
+
+                <!-- Email / Password Form -->
+                <form id="email-auth-form" onsubmit="handleEmailAuth(event)" novalidate>
+                    <div id="email-auth-error"
+                        style="display:none; background:#fee2e2; color:#b91c1c; padding:8px 12px; border-radius:8px; font-size:0.85rem; margin-bottom:10px;">
+                    </div>
+                    <div id="email-auth-success"
+                        style="display:none; background:#d1fae5; color:#065f46; padding:8px 12px; border-radius:8px; font-size:0.85rem; margin-bottom:10px;">
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <input id="email-auth-email" type="email" placeholder="Email address" autocomplete="email"
+                            required
+                            style="width:100%; padding:10px 14px; border:1px solid var(--border-color, #d1d5db); border-radius:8px; font-size:0.95rem; background:var(--bg-primary, #fff); color:var(--text-primary, #111); box-sizing:border-box; outline:none; transition:border-color 0.2s;"
+                            onfocus="this.style.borderColor='var(--accent-primary, #ff9a56)'"
+                            onblur="this.style.borderColor='var(--border-color, #d1d5db)'">
+                        <div style="position:relative;">
+                            <input id="email-auth-password" type="password" placeholder="Password"
+                                autocomplete="current-password" required
+                                style="width:100%; padding:10px 14px; border:1px solid var(--border-color, #d1d5db); border-radius:8px; font-size:0.95rem; background:var(--bg-primary, #fff); color:var(--text-primary, #111); box-sizing:border-box; outline:none; transition:border-color 0.2s;"
+                                onfocus="this.style.borderColor='var(--accent-primary, #ff9a56)'"
+                                onblur="this.style.borderColor='var(--border-color, #d1d5db)'">
+                        </div>
+                        <!-- Forgot Password link -->
+                        <div style="text-align:right; margin-top:-4px;">
+                            <a href="#" onclick="showForgotPassword(event)"
+                                style="font-size:0.82rem; color:var(--accent-primary, #ff9a56); text-decoration:none;">Forgot
+                                password?</a>
+                        </div>
+                    </div>
+                    <button type="submit" id="email-auth-submit"
+                        style="width:100%; margin-top:12px; padding:10px 14px; background:var(--accent-primary, #ff9a56); color:#fff; font-weight:600; border:none; border-radius:8px; font-size:0.95rem; cursor:pointer; transition:opacity 0.2s;">
+                        Sign In
+                    </button>
+                </form>
+
+                <!-- Toggle Sign In / Sign Up -->
+                <p style="text-align:center; margin-top:12px; font-size:0.85rem; color:var(--text-muted, #6b7280);">
+                    <span id="auth-toggle-text">Don't have an account?</span>
+                    <a href="#" id="auth-toggle-link" onclick="toggleAuthMode(event)"
+                        style="color:var(--accent-primary, #ff9a56); font-weight:600; text-decoration:none; margin-left:4px;">Sign
+                        Up</a>
+                </p>
+
+                <p class="login-popup-terms">By signing in, you agree to our <strong>Terms of Service</strong> and
+                    <strong>Privacy Policy</strong>.
+                </p>
+            </div>
+
+            <!-- ── FORGOT PASSWORD PANEL ── -->
+            <div id="auth-forgot-panel" style="display:none;">
+                <p style="font-size:0.9rem; color:var(--text-secondary, #4b5563); margin-bottom:16px; line-height:1.5;">
+                    Enter the email address linked to your account and we'll send you a password reset link.
+                </p>
+                <div id="forgot-pw-error"
+                    style="display:none; background:#fee2e2; color:#b91c1c; padding:8px 12px; border-radius:8px; font-size:0.85rem; margin-bottom:10px;">
+                </div>
+                <div id="forgot-pw-success"
+                    style="display:none; background:#d1fae5; color:#065f46; padding:8px 12px; border-radius:8px; font-size:0.85rem; margin-bottom:10px;">
+                </div>
+                <form id="forgot-pw-form" onsubmit="handleForgotPassword(event)" novalidate>
+                    <input id="forgot-pw-email" type="email" placeholder="Your email address" autocomplete="email"
+                        required
+                        style="width:100%; padding:10px 14px; border:1px solid var(--border-color, #d1d5db); border-radius:8px; font-size:0.95rem; background:var(--bg-primary, #fff); color:var(--text-primary, #111); box-sizing:border-box; outline:none; transition:border-color 0.2s;"
+                        onfocus="this.style.borderColor='var(--accent-primary, #ff9a56)'"
+                        onblur="this.style.borderColor='var(--border-color, #d1d5db)'">
+                    <button type="submit" id="forgot-pw-submit"
+                        style="width:100%; margin-top:12px; padding:10px 14px; background:var(--accent-primary, #ff9a56); color:#fff; font-weight:600; border:none; border-radius:8px; font-size:0.95rem; cursor:pointer; transition:opacity 0.2s;">
+                        Send Reset Link
+                    </button>
+                </form>
+                <p style="text-align:center; margin-top:14px; font-size:0.85rem;">
+                    <a href="#" onclick="hideForgotPassword(event)"
+                        style="color:var(--accent-primary, #ff9a56); text-decoration:none; font-weight:500;">← Back to
+                        sign in</a>
+                </p>
+            </div>
         </div>
     </div>
 
@@ -249,7 +340,7 @@
             <div style="padding: 1rem;">
                 <h3 class="login-popup-title" style="text-align: center;">Simple, Scalable Pricing</h3>
                 <p style="text-align: center; margin-top: 2rem; color: var(--text-muted); font-weight: 500;">
-                    We're committed to making this the best platform for creators and thier Viewers. 90% of all revenue
+                    We're committed to making this the best platform for creators and their Viewers. 90% of all revenue
                     is reinvested directly into improving this project.
                 </p>
                 <div class="pricing-grid-modal">
@@ -335,14 +426,225 @@
             }, 5000);
         }
 
+        // --- Auth Mode: 'signin' | 'signup' | 'forgot' ---
+        let _authMode = 'signin';
+
+        function showForgotPassword(event) {
+            if (event) event.preventDefault();
+            const mainPanel = document.getElementById('auth-main-panel');
+            const forgotPanel = document.getElementById('auth-forgot-panel');
+            const title = document.getElementById('auth-popup-title');
+            const subtitle = document.getElementById('auth-popup-subtitle');
+            if (mainPanel) mainPanel.style.display = 'none';
+            if (forgotPanel) forgotPanel.style.display = 'block';
+            if (title) title.textContent = 'Reset your password';
+            if (subtitle) subtitle.textContent = "We'll email you a secure reset link";
+            // Pre-fill email if typed
+            const emailInput = document.getElementById('email-auth-email');
+            const forgotEmailInput = document.getElementById('forgot-pw-email');
+            if (emailInput && forgotEmailInput && emailInput.value) {
+                forgotEmailInput.value = emailInput.value;
+            }
+            _authMode = 'forgot';
+        }
+
+        function hideForgotPassword(event) {
+            if (event) event.preventDefault();
+            const mainPanel = document.getElementById('auth-main-panel');
+            const forgotPanel = document.getElementById('auth-forgot-panel');
+            const title = document.getElementById('auth-popup-title');
+            const subtitle = document.getElementById('auth-popup-subtitle');
+            // Clear forgot panel state
+            const errDiv = document.getElementById('forgot-pw-error');
+            const okDiv = document.getElementById('forgot-pw-success');
+            if (errDiv) { errDiv.style.display = 'none'; errDiv.textContent = ''; }
+            if (okDiv) { okDiv.style.display = 'none'; okDiv.textContent = ''; }
+            const forgotEmailInput = document.getElementById('forgot-pw-email');
+            if (forgotEmailInput) forgotEmailInput.value = '';
+            // Always restore the form so the input is visible next time the panel opens
+            const forgotForm = document.getElementById('forgot-pw-form');
+            if (forgotForm) forgotForm.style.display = '';
+            if (forgotPanel) forgotPanel.style.display = 'none';
+            if (mainPanel) mainPanel.style.display = 'block';
+            if (title) title.textContent = 'Welcome to';
+            if (subtitle) subtitle.textContent = 'Create an account or log in to continue';
+            _authMode = 'signin';
+        }
+
+        async function handleForgotPassword(event) {
+            event.preventDefault();
+            const email = document.getElementById('forgot-pw-email').value.trim();
+            const errDiv = document.getElementById('forgot-pw-error');
+            const okDiv = document.getElementById('forgot-pw-success');
+            const submitBtn = document.getElementById('forgot-pw-submit');
+
+            if (errDiv) { errDiv.style.display = 'none'; errDiv.textContent = ''; }
+            if (okDiv) { okDiv.style.display = 'none'; okDiv.textContent = ''; }
+
+            if (!email) {
+                if (errDiv) { errDiv.textContent = 'Please enter your email address.'; errDiv.style.display = 'block'; }
+                return;
+            }
+            if (!window.supabaseClient) {
+                if (errDiv) { errDiv.textContent = 'Authentication service not available.'; errDiv.style.display = 'block'; }
+                return;
+            }
+
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending...'; }
+
+            try {
+                const { error } = await window.supabaseClient.auth.resetPasswordForEmail(email, {
+                    redirectTo: window.location.origin + '/auth/reset-password'
+                });
+                if (error) {
+                    const msg = error.message || '';
+                    if (msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('too many')) {
+                        // Supabase rate-limit: the previous email is still valid — tell the user
+                        if (okDiv) {
+                            okDiv.textContent = 'A reset link was already sent to this email. Please check your inbox (and spam folder) — the previous link is still valid for 1 hour.';
+                            okDiv.style.display = 'block';
+                        }
+                        const forgotForm = document.getElementById('forgot-pw-form');
+                        if (forgotForm) forgotForm.style.display = 'none';
+                    } else {
+                        if (errDiv) { errDiv.textContent = msg; errDiv.style.display = 'block'; }
+                    }
+                } else {
+                    if (okDiv) {
+                        okDiv.textContent = 'Reset link sent! Check your inbox (and spam folder). The link expires in 1 hour.';
+                        okDiv.style.display = 'block';
+                    }
+                    const forgotForm = document.getElementById('forgot-pw-form');
+                    if (forgotForm) forgotForm.style.display = 'none';
+                }
+            } catch (err) {
+                console.error('Forgot password error:', err);
+                if (errDiv) { errDiv.textContent = 'An unexpected error occurred. Please try again.'; errDiv.style.display = 'block'; }
+            } finally {
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send Reset Link'; }
+            }
+        }
+
+        function toggleAuthMode(event) {
+            if (event) event.preventDefault();
+            _authMode = (_authMode === 'signin') ? 'signup' : 'signin';
+            const submitBtn = document.getElementById('email-auth-submit');
+            const toggleText = document.getElementById('auth-toggle-text');
+            const toggleLink = document.getElementById('auth-toggle-link');
+            const subtitle = document.getElementById('auth-popup-subtitle');
+            const pwdInput = document.getElementById('email-auth-password');
+            const emailError = document.getElementById('email-auth-error');
+            const emailSuccess = document.getElementById('email-auth-success');
+            if (emailError) { emailError.style.display = 'none'; emailError.textContent = ''; }
+            if (emailSuccess) { emailSuccess.style.display = 'none'; emailSuccess.textContent = ''; }
+            if (_authMode === 'signup') {
+                if (submitBtn) submitBtn.textContent = 'Create Account';
+                if (toggleText) toggleText.textContent = 'Already have an account?';
+                if (toggleLink) toggleLink.textContent = 'Sign In';
+                if (subtitle) subtitle.textContent = 'Create a free account to get started';
+                if (pwdInput) pwdInput.placeholder = 'Password (min. 6 characters)';
+            } else {
+                if (submitBtn) submitBtn.textContent = 'Sign In';
+                if (toggleText) toggleText.textContent = "Don't have an account?";
+                if (toggleLink) toggleLink.textContent = 'Sign Up';
+                if (subtitle) subtitle.textContent = 'Create an account or log in to continue';
+                if (pwdInput) pwdInput.placeholder = 'Password';
+            }
+        }
+
+        async function handleEmailAuth(event) {
+            event.preventDefault();
+            const email = document.getElementById('email-auth-email').value.trim();
+            const password = document.getElementById('email-auth-password').value;
+            const errorDiv = document.getElementById('email-auth-error');
+            const successDiv = document.getElementById('email-auth-success');
+            const submitBtn = document.getElementById('email-auth-submit');
+
+            if (errorDiv) { errorDiv.style.display = 'none'; errorDiv.textContent = ''; }
+            if (successDiv) { successDiv.style.display = 'none'; successDiv.textContent = ''; }
+
+            if (!email || !password) {
+                if (errorDiv) { errorDiv.textContent = 'Please enter your email and password.'; errorDiv.style.display = 'block'; }
+                return;
+            }
+
+            if (!window.supabaseClient) {
+                if (errorDiv) { errorDiv.textContent = 'Authentication service not available. Please try Google login.'; errorDiv.style.display = 'block'; }
+                return;
+            }
+
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Please wait...'; }
+
+            try {
+                let authResult;
+                if (_authMode === 'signup') {
+                    authResult = await window.supabaseClient.auth.signUp({ email, password });
+                } else {
+                    authResult = await window.supabaseClient.auth.signInWithPassword({ email, password });
+                }
+
+                const { data, error } = authResult;
+
+                if (error) {
+                    if (errorDiv) { errorDiv.textContent = error.message; errorDiv.style.display = 'block'; }
+                    return;
+                }
+
+                // Sign up with email confirmation required
+                if (_authMode === 'signup' && data.user && !data.session) {
+                    if (successDiv) {
+                        successDiv.textContent = 'Account created! Please check your email to confirm your account, then sign in.';
+                        successDiv.style.display = 'block';
+                    }
+                    _authMode = 'signin';
+                    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Sign In'; }
+                    return;
+                }
+
+                if (data.session) {
+                    const expiresAt = data.session.expires_at || (Date.now() / 1000 + data.session.expires_in);
+                    const response = await fetch('/auth/set-cookie', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            access_token: data.session.access_token,
+                            refresh_token: data.session.refresh_token,
+                            expires_at: expiresAt
+                        })
+                    });
+                    if (response.ok) {
+                        const redirectUrl = localStorage.getItem('login_redirect_url');
+                        if (redirectUrl) {
+                            localStorage.removeItem('login_redirect_url');
+                            window.location.href = redirectUrl;
+                        } else {
+                            window.location.href = '/channel';
+                        }
+                    } else {
+                        if (errorDiv) { errorDiv.textContent = 'Login succeeded but session sync failed. Please try again.'; errorDiv.style.display = 'block'; }
+                    }
+                }
+            } catch (err) {
+                console.error('Email auth error:', err);
+                if (errorDiv) { errorDiv.textContent = 'An unexpected error occurred. Please try again.'; errorDiv.style.display = 'block'; }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = (_authMode === 'signup') ? 'Create Account' : 'Sign In';
+                }
+            }
+        }
+
         function showLoginPopup() {
             const modal = document.getElementById('login-popup-modal');
             if (modal) {
                 modal.style.display = 'flex';
             }
 
-            // --- START: CORE FIX ---
-            // This logic now runs every time the popup is shown, guaranteeing the button works.
+            // Reset to sign-in mode each time popup opens
+            if (_authMode === 'forgot') hideForgotPassword(null);
+            else if (_authMode !== 'signin') toggleAuthMode(null);
+
             const supabaseUrl = "{{ SUPABASE_URL or '' }}";
             const supabaseAnonKey = "{{ SUPABASE_ANON_KEY or '' }}";
 
@@ -354,22 +656,17 @@
                 const googleLoginBtn = document.getElementById('google-login-btn');
                 if (googleLoginBtn && !googleLoginBtn.dataset.listenerAttached) {
                     googleLoginBtn.addEventListener('click', () => {
-                        // --- START: NEW REDIRECT LOGIC ---
-                        // Save the current URL to localStorage before redirecting to Google
                         localStorage.setItem('login_redirect_url', window.location.href);
-                        // --- END: NEW REDIRECT LOGIC ---
                         window.supabaseClient.auth.signInWithOAuth({
                             provider: 'google',
                             options: { redirectTo: window.location.origin + "/auth/callback" }
                         });
                     });
-                    // Mark the button so we don't attach the listener more than once.
                     googleLoginBtn.dataset.listenerAttached = 'true';
                 }
             } else {
                 console.warn("Supabase credentials not found. Auth features will be disabled.");
             }
-            // --- END: CORE FIX ---
         }
 
         function closeLoginPopup() {
@@ -515,6 +812,15 @@
             // Initialize authentication logic on every page load.
             initializeAuth();
 
+            // Auto-open login popup when redirected from a protected page
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('login') === '1') {
+                showLoginPopup();
+                // Clean the ?login=1 from the URL bar without a page reload
+                const cleanUrl = window.location.pathname + (urlParams.toString().replace('login=1', '').replace(/^&|&$/, '') ? '?' + urlParams.toString().replace('login=1', '').replace(/^&|&$/, '') : '');
+                window.history.replaceState({}, '', cleanUrl);
+            }
+
             // --- Theme Toggle Logic ---
             const themeToggle = document.getElementById('profile-theme-toggle');
             const updateThemeUI = (theme) => {
@@ -566,28 +872,19 @@
             }
         });
     </script>
-    <!-- <script src="{{ url_for('static', filename='js/app.js') }}"></script> -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- PERFORMANCE: Supabase deferred, Razorpay/PayPal/marked lazy-loaded -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    {% block marked_script %}{% endblock %}
 
     <script>
         // Pass server-side data to JavaScript as global constants
         const IS_USER_LOGGED_IN = {{ 'true' if user else 'false' }};
         const SUPABASE_URL = "{{ SUPABASE_URL or '' }}";
         const SUPABASE_ANON_KEY = "{{ SUPABASE_ANON_KEY or '' }}";
-
-
     </script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
 
     {% block page_scripts %}{% endblock %}
-    <div id="paypal-button-container-P-21W95916A8348490TNDR4TEA"></div>
-    <script
-        src="https://www.paypal.com/sdk/js?client-id=AejtEGKgqNoRbnTgBVXBFqAfswLsB8qaro1e9j3W5ACiJc_pQGxOZM8ZJKr0av4A4CY2jewysar6Xoe_&vault=true&intent=subscription"
-        data-sdk-integration-source="button-factory"></script>
-
-    </script>
 </body>
 
 </html>

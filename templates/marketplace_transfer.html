@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+
+{% block title %}Create Transfer Link - YoppyChat AI{% endblock %}
+
+{% block page_styles %}
+<style>
+    .transfer-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1.5rem;
+    }
+
+    .transfer-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .transfer-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .transfer-header p {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+    }
+
+    .chatbot-preview {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1.5rem;
+        background: var(--surface-medium);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        margin-bottom: 2rem;
+    }
+
+    .chatbot-preview img {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .chatbot-details h3 {
+        margin: 0;
+        font-size: 1.25rem;
+    }
+
+    .chatbot-details p {
+        margin: 0.25rem 0 0;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    .pricing-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .pricing-card h2 {
+        font-size: 1.25rem;
+        margin-top: 0;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .tier-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .tier-card {
+        padding: 1rem;
+        border: 2px solid var(--neutral-200);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.2s;
+        background: var(--surface-light);
+    }
+
+    .tier-card:hover {
+        border-color: var(--neutral-300);
+    }
+
+    .tier-card.selected {
+        border-color: var(--accent-primary);
+        background: rgba(99, 102, 241, 0.05);
+        /* indigo tint */
+    }
+
+    .tier-queries {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .tier-price {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin-top: 0.25rem;
+    }
+
+    .input-group {
+        display: flex;
+        align-items: center;
+        background: var(--surface-medium);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+    }
+
+    .input-prefix {
+        padding: 0.75rem 1rem;
+        background: var(--neutral-100);
+        color: var(--text-secondary);
+        font-weight: 500;
+        border-right: 1px solid var(--neutral-200);
+    }
+
+    .input-group input {
+        flex: 1;
+        border: none;
+        padding: 0.75rem;
+        background: transparent;
+        font-size: 1rem;
+    }
+
+    .input-group input:focus {
+        outline: none;
+    }
+
+    .fee-breakdown {
+        background: rgba(255, 107, 53, 0.05);
+        /* Yoppy orange tint */
+        border: 1px dashed rgba(255, 107, 53, 0.3);
+        border-radius: var(--radius-md);
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+
+    .fee-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+        font-size: 0.95rem;
+    }
+
+    .fee-row:last-child {
+        margin-bottom: 0;
+        padding-top: 0.75rem;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+
+    .fee-row.highlight {
+        color: #10B981;
+        /* Green */
+        font-weight: 600;
+    }
+
+    .btn-create {
+        display: block;
+        width: 100%;
+        padding: 1rem;
+        background: var(--accent-primary);
+        color: white;
+        text-align: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+        border-radius: var(--radius-md);
+        border: none;
+        cursor: pointer;
+        transition: opacity 0.2s;
+        margin-top: 2rem;
+    }
+
+    .btn-create:hover {
+        opacity: 0.9;
+    }
+
+    .link-container {
+        display: none;
+        margin-top: 2rem;
+        padding: 2rem;
+        background: #10B981;
+        color: white;
+        text-align: center;
+        border-radius: var(--radius-lg);
+    }
+
+    .link-box {
+        display: flex;
+        background: white;
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        margin-top: 1rem;
+    }
+
+    .link-box input {
+        flex: 1;
+        padding: 1rem;
+        border: none;
+        font-size: 1rem;
+        color: var(--text-primary);
+    }
+
+    .link-box button {
+        padding: 0 1.5rem;
+        border: none;
+        background: var(--neutral-100);
+        color: var(--text-primary);
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .link-box button:hover {
+        background: var(--neutral-200);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="transfer-container">
+    <div class="transfer-header">
+        <h1>Transfer Chatbot</h1>
+        <p>Set a query limit and monthly price for your client.</p>
+    </div>
+
+    <div class="chatbot-preview">
+        <img src="{{ chatbot.channel_thumbnail or url_for('static', filename='images/default-avatar.png') }}"
+            alt="Bot Avatar">
+        <div class="chatbot-details">
+            <h3>{{ chatbot.channel_name or chatbot.creator_name }}</h3>
+            <p>{{ chatbot.bot_type|capitalize }} Assistant</p>
+        </div>
+    </div>
+
+    <div class="pricing-card" id="configurationSection">
+        <h2>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-primary);">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+            Client Pricing
+        </h2>
+
+        <div class="form-group">
+            <label class="form-label">Monthly Query Limit</label>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">Choose how many questions
+                the chatbot can answer per month.</p>
+
+            <div class="tier-options" id="tierSelector">
+                <div class="tier-card selected" data-queries="500" data-basefee="450">
+                    <div class="tier-queries">500</div>
+                    <div class="tier-price">queries/mo</div>
+                </div>
+                <div class="tier-card" data-queries="1000" data-basefee="900">
+                    <div class="tier-queries">1,000</div>
+                    <div class="tier-price">queries/mo</div>
+                </div>
+                <div class="tier-card" data-queries="2500" data-basefee="2250">
+                    <div class="tier-queries">2,500</div>
+                    <div class="tier-price">queries/mo</div>
+                </div>
+                <div class="tier-card" data-queries="5000" data-basefee="4500">
+                    <div class="tier-queries">5,000</div>
+                    <div class="tier-price">queries/mo</div>
+                </div>
+                <div class="tier-card" data-queries="custom">
+                    <div class="tier-queries">Custom</div>
+                    <div class="tier-price">You decide</div>
+                </div>
+            </div>
+
+            <div id="customQueryConfig" style="display: none; margin-top: 1rem;">
+                <div class="input-group">
+                    <div class="input-prefix">Queries</div>
+                    <input type="number" id="customQueriesInput" min="100" placeholder="e.g. 10000">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Client Subscription Price (per month)</label>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">Set the amount your client
+                will be charged each month.</p>
+            <div class="input-group">
+                <div class="input-prefix">₹</div>
+                <input type="number" id="clientPriceInput" min="450" value="999">
+            </div>
+        </div>
+
+        <div class="fee-breakdown">
+            <div class="fee-row">
+                <span>Client Pays:</span>
+                <span id="displayClientPrice">₹999</span>
+            </div>
+            <div class="fee-row" style="color: var(--text-secondary);">
+                <span>Platform Fee (₹{{ "%.2f"|format(cost_per_query / 100) }} × <span id="displayQueries">500</span>
+                    queries):</span>
+                <span id="displayPlatformFee">-₹450</span>
+            </div>
+            <div class="fee-row highlight">
+                <span>Your Monthly Profit:</span>
+                <span id="displayCreatorProfit">₹549</span>
+            </div>
+        </div>
+
+        <button class="btn-create" id="generateLinkBtn" onclick="generateTransferLink()">
+            Generate Transfer Link
+        </button>
+    </div>
+
+    <div class="link-container" id="linkSection">
+        <h2>🎉 Transfer Link Ready!</h2>
+        <p>Send this link to your client. Once they subscribe, the bot will be transferred to their account.</p>
+        <div class="link-box">
+            <input type="text" id="transferLinkInput" readonly>
+            <button onclick="copyLink()">Copy</button>
+        </div>
+        <button class="btn btn-secondary"
+            style="margin-top: 2rem; background: rgba(255,255,255,0.2); color: white; border: none;"
+            onclick="window.location.href='{{ url_for('dashboard') }}'">Return to Dashboard</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+    const platformCostPerQueryPaise = {{ cost_per_query }}; // from server
+    const platformCostPerQueryRs = platformCostPerQueryPaise / 100.0;
+
+    let currentQueries = 500;
+    let currentPlatformFee = 450;
+
+    const tierSelector = document.getElementById('tierSelector');
+    const customQueryConfig = document.getElementById('customQueryConfig');
+    const customQueriesInput = document.getElementById('customQueriesInput');
+    const clientPriceInput = document.getElementById('clientPriceInput');
+
+    const displayClientPrice = document.getElementById('displayClientPrice');
+    const displayQueries = document.getElementById('displayQueries');
+    const displayPlatformFee = document.getElementById('displayPlatformFee');
+    const displayCreatorProfit = document.getElementById('displayCreatorProfit');
+    const generateBtn = document.getElementById('generateLinkBtn');
+
+    function updateBreakdown() {
+        const clientPrice = parseFloat(clientPriceInput.value) || 0;
+        const profit = clientPrice - currentPlatformFee;
+
+        displayClientPrice.textContent = `₹${clientPrice.toLocaleString()}`;
+        displayQueries.textContent = currentQueries.toLocaleString();
+        displayPlatformFee.textContent = `-₹${currentPlatformFee.toLocaleString()}`;
+
+        if (profit < 0) {
+            displayCreatorProfit.textContent = `Error: Price too low`;
+            displayCreatorProfit.parentElement.style.color = 'red';
+            generateBtn.disabled = true;
+            generateBtn.style.opacity = '0.5';
+        } else {
+            displayCreatorProfit.textContent = `₹${profit.toLocaleString()}`;
+            displayCreatorProfit.parentElement.style.color = '#10B981';
+            generateBtn.disabled = false;
+            generateBtn.style.opacity = '1';
+        }
+    }
+
+    // Listen for tier selection
+    tierSelector.addEventListener('click', (e) => {
+        const card = e.target.closest('.tier-card');
+        if (!card) return;
+
+        document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+
+        if (card.dataset.queries === 'custom') {
+            customQueryConfig.style.display = 'block';
+            updateCustomQueries();
+        } else {
+            customQueryConfig.style.display = 'none';
+            currentQueries = parseInt(card.dataset.queries);
+            currentPlatformFee = parseInt(card.dataset.basefee);
+
+            // Suggest a standard retail price (2x platform fee roughly)
+            if (parseFloat(clientPriceInput.value) < currentPlatformFee) {
+                clientPriceInput.value = currentPlatformFee * 2;
+            }
+            updateBreakdown();
+        }
+    });
+
+    function updateCustomQueries() {
+        if (!customQueryConfig.style.display || customQueryConfig.style.display === 'none') return;
+
+        let q = parseInt(customQueriesInput.value) || 0;
+        if (q < 0) q = 0;
+
+        currentQueries = q;
+        currentPlatformFee = q * platformCostPerQueryRs;
+
+        if (parseFloat(clientPriceInput.value) < currentPlatformFee) {
+            clientPriceInput.value = Math.ceil(currentPlatformFee * 1.5);
+        }
+        updateBreakdown();
+    }
+
+    customQueriesInput.addEventListener('input', updateCustomQueries);
+    clientPriceInput.addEventListener('input', updateBreakdown);
+
+    // Initial calculate
+    updateBreakdown();
+
+    async function generateTransferLink() {
+        const clientPrice = parseFloat(clientPriceInput.value);
+        if (clientPrice < currentPlatformFee) {
+            alert(`The minimum price for ${currentQueries} queries is ₹${currentPlatformFee}.`);
+            return;
+        }
+
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = 'Generating...';
+
+        try {
+            const response = await fetch('/api/marketplace/create_transfer', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    chatbot_id: {{ chatbot.id }},
+                query_limit_monthly: currentQueries,
+                creator_price_monthly: clientPrice
+                })
+    });
+
+    const result = await response.json();
+
+    if (result.status === 'success') {
+        document.getElementById('configurationSection').style.display = 'none';
+        document.getElementById('linkSection').style.display = 'block';
+        document.getElementById('transferLinkInput').value = result.transfer_url;
+    } else {
+        alert(result.message || 'An error occurred.');
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = 'Generate Transfer Link';
+    }
+        } catch (error) {
+        console.error(error);
+        alert('Failed to connect to the server.');
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = 'Generate Transfer Link';
+    }
+    }
+
+    function copyLink() {
+        const input = document.getElementById('transferLinkInput');
+        input.select();
+        document.execCommand('copy');
+        alert('Link copied to clipboard!');
+    }
+</script>
+{% endblock %}

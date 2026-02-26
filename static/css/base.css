@@ -670,10 +670,12 @@ input:checked+.slider:before {
 
 .logo-dark {
     display: none;
+    margin: 0 auto;
 }
 
 .logo-light {
     display: block;
+    margin: 0 auto;
 }
 
 html[data-theme='dark'] .logo-dark {

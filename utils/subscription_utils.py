@@ -5,15 +5,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from functools import wraps
-from flask import session, jsonify
+from flask import session, jsonify, request, redirect, url_for, g
 import redis
 import json
+from cachetools import TTLCache
 from .supabase_client import get_supabase_admin_client
 from .db_utils import get_profile, get_usage_stats
 # The direct dependency on whop_api for role checking is now removed.
 # from . import whop_api 
 
-# --- Redis Caching Setup (Unchanged) ---
+# --- Redis Caching Setup ---
 try:
     redis_client = redis.from_url(os.environ.get("REDIS_URL"))
     CACHE_DURATION_SECONDS = 300 # Cache for 5 minutes
@@ -21,6 +22,11 @@ try:
 except Exception as e:
     redis_client = None
     print(f"Could not connect to Redis for caching: {e}. Caching will be disabled.")
+
+# --- PERFORMANCE: In-memory TTL cache as fallback when Redis is unavailable ---
+# maxsize=500 = max 500 cached entries, ttl=60 = expire after 60 seconds
+_memory_cache = TTLCache(maxsize=500, ttl=60)
+
 
 # --- Plan Definitions (Unchanged) ---
 COMMUNITY_PLANS = {
@@ -86,6 +92,9 @@ def get_community_status(community_id: str) -> dict:
                 return json.loads(cached_status)
         except redis.RedisError as e:
             print(f"Redis GET error for community {community_id}: {e}. Fetching from DB.")
+    # --- PERFORMANCE: In-memory fallback when Redis is unavailable ---
+    elif cache_key in _memory_cache:
+        return _memory_cache[cache_key]
 
     supabase_admin = get_supabase_admin_client()
     response = supabase_admin.table('communities').select('*').eq('id', community_id).single().execute()
@@ -114,6 +123,8 @@ def get_community_status(community_id: str) -> dict:
 
     if redis_client:
         redis_client.setex(cache_key, CACHE_DURATION_SECONDS, json.dumps(status))
+    else:
+        _memory_cache[cache_key] = status
 
     return status
 
@@ -137,6 +148,9 @@ def get_user_status(user_id: str, active_community_id: str = None) -> dict:
                 return cached_data
         except redis.RedisError as e:
             print(f"Redis GET error for user {user_id}: {e}. Fetching from DB.")
+    # --- PERFORMANCE: In-memory fallback when Redis is unavailable ---
+    elif cache_key in _memory_cache:
+        return _memory_cache[cache_key]
 
     profile = get_profile(user_id)
     if not profile:
@@ -195,24 +209,43 @@ def get_user_status(user_id: str, active_community_id: str = None) -> dict:
     if redis_client:
         serializable_status = json.loads(json.dumps(status, default=lambda o: 'inf' if o == float('inf') else o))
         redis_client.setex(cache_key, CACHE_DURATION_SECONDS, json.dumps(serializable_status))
+    else:
+        _memory_cache[cache_key] = status
 
     return status
 
-# --- Decorators (Unchanged) ---
+# --- Auth redirect helper ---
+def _auth_redirect_or_json():
+    """Return a redirect for browser navigations, or a JSON 401 for AJAX/POST."""
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' \
+              or 'application/json' in request.headers.get('Accept', '') \
+              or request.content_type == 'application/json'
+    if is_ajax or request.method != 'GET':
+        return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+    return redirect(url_for('channel') + '?login=1')
+
+# --- Decorators ---
 def limit_enforcer(check_type: str):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if 'user' not in session:
-                return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+                return _auth_redirect_or_json()
             user_id = session['user']['id']
             active_community_id = session.get('active_community_id')
-            user_status = get_user_status(user_id, active_community_id)
+            # --- PERFORMANCE: Check g cache from context processor first ---
+            user_status = getattr(g, 'user_status', None)
+            if user_status is None:
+                user_status = get_user_status(user_id, active_community_id)
             if not user_status:
                  return jsonify({'status': 'error', 'message': 'Could not verify user.'}), 500
+            g.user_status = user_status
+            g.community_status = getattr(g, 'community_status', None)
+            # --- END PERFORMANCE ---
             if check_type == 'query':
                 if user_status.get('is_active_community_owner'):
                     community_status = get_community_status(active_community_id)
+                    g.community_status = community_status
                     if community_status:
                         trial_limit = community_status['limits'].get('owner_trial_limit', 0)
                         trial_used = community_status['usage'].get('trial_queries_used', 0)
@@ -223,8 +256,13 @@ def limit_enforcer(check_type: str):
                     queries_used = user_status['usage'].get('queries_this_month', 0)
                     if max_queries != float('inf') and queries_used >= max_queries:
                         return jsonify({'status': 'limit_reached', 'message': f"You've reached your monthly query limit of {int(max_queries)}."}), 403
+                elif user_status.get('is_active_community_owner') and not user_status.get('has_personal_plan'):
+                    # FIX Issue #8: Community owner without a personal plan should be told to upgrade
+                    # instead of consuming from the shared community pool
+                    return jsonify({'status': 'limit_reached', 'message': "Your trial queries have been used. Please upgrade to a personal plan to continue chatting."}), 403
                 elif active_community_id:
                     community_status = get_community_status(active_community_id)
+                    g.community_status = community_status
                     if not community_status:
                         return jsonify({'status': 'error', 'message': 'Could not verify community status.'}), 500
                     max_queries = community_status['limits'].get('query_limit', 0)
@@ -254,7 +292,7 @@ def community_channel_limit_enforcer(_func=None, *, check_on_increase_only=False
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if 'user' not in session:
-                return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+                return _auth_redirect_or_json()
             user_id = session['user']['id']
             active_community_id = session.get('active_community_id')
             if not active_community_id:
@@ -269,10 +307,10 @@ def community_channel_limit_enforcer(_func=None, *, check_on_increase_only=False
                     return jsonify({'status': 'error', 'message': 'Channel not found.'}), 404
                 if channel_res.data['is_shared']:
                     return f(*args, **kwargs)
-            user_status = get_user_status(user_id, active_community_id)
+            user_status = getattr(g, 'user_status', None) if hasattr(g, 'user_status') else get_user_status(user_id, active_community_id)
             if not user_status.get('is_active_community_owner'):
                 return jsonify({'status': 'error', 'message': 'Only community owners can perform this action.'}), 403
-            community_status = get_community_status(active_community_id)
+            community_status = getattr(g, 'community_status', None) or get_community_status(active_community_id)
             if not community_status:
                 return jsonify({'status': 'error', 'message': 'Could not verify community status.'}), 500
             from . import db_utils
@@ -290,15 +328,15 @@ def admin_channel_limit_enforcer(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user' not in session:
-            return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+            return _auth_redirect_or_json()
         user_id = session['user']['id']
         active_community_id = session.get('active_community_id')
         if not active_community_id:
             return jsonify({'status': 'error', 'message': 'No active community context found.'}), 400
-        user_status = get_user_status(user_id, active_community_id)
+        user_status = getattr(g, 'user_status', None) if hasattr(g, 'user_status') else get_user_status(user_id, active_community_id)
         if not user_status.get('is_active_community_owner'):
             return jsonify({'status': 'error', 'message': 'Only community owners can perform this action.'}), 403
-        community_status = get_community_status(active_community_id)
+        community_status = getattr(g, 'community_status', None) or get_community_status(active_community_id)
         if not community_status:
             return jsonify({'status': 'error', 'message': 'Could not verify community status.'}), 500
         from . import db_utils

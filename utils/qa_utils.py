@@ -278,13 +278,8 @@ def get_routed_context(question: str, channel_data: Optional[dict], user_id: str
         if channel_data and (channel_data.get('has_website') or channel_data.get('has_whatsapp')):
             video_ids = None
         
-        # CRITICAL: Get channel_id for data isolation
-        # For backward compatibility with old YouTube embeddings (which have channel_id=NULL),
-        # we can omit p_channel_id if we rely entirely on globally unique YouTube p_video_ids.
-        if video_ids is not None:
-            effective_channel_id = None
-        else:
-            effective_channel_id = channel_data.get('id') if channel_data else None
+        # Always pass channel_id to ensure data isolation between different chatbots.
+        effective_channel_id = channel_data.get('id') if channel_data else None
             
         semantic_chunks = search_and_rerank_chunks(question, user_id, access_token, video_ids, effective_channel_id)
         return identity_context + semantic_chunks
@@ -296,13 +291,8 @@ def get_routed_context(question: str, channel_data: Optional[dict], user_id: str
     if channel_data and (channel_data.get('has_website') or channel_data.get('has_whatsapp')):
         video_ids = None
     
-    # CRITICAL: Get channel_id for data isolation
-    # For backward compatibility with old YouTube embeddings (which have channel_id=NULL),
-    # we can omit p_channel_id if we rely entirely on globally unique YouTube p_video_ids.
-    if video_ids is not None:
-        effective_channel_id = None
-    else:
-        effective_channel_id = channel_data.get('id') if channel_data else None
+    # Always pass channel_id to ensure data isolation between different chatbots.
+    effective_channel_id = channel_data.get('id') if channel_data else None
 
     return search_and_rerank_chunks(question, user_id, access_token, video_ids, effective_channel_id)
 
@@ -368,9 +358,15 @@ def _get_openai_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
 def _get_groq_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
     try:
         headers = {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
-        max_tokens = kwargs.get('max_tokens') # Get max_tokens from kwargs
+        max_tokens = kwargs.get('max_tokens')
         data = {'model': model, 'messages': [{"role": "user", "content": prompt}], 'max_tokens': max_tokens, 'temperature': 1, 'stream': True}
         with requests.post('https://api.groq.com/openai/v1/chat/completions', headers=headers, json=data, stream=True, timeout=DEFAULT_REQUEST_TIMEOUT) as response:
+            # Check for non-200 responses and surface the error clearly
+            if response.status_code != 200:
+                error_body = response.text
+                logging.error(f"Groq API returned HTTP {response.status_code} for model '{model}': {error_body}")
+                yield f"Error: Groq API error {response.status_code}. Model '{model}' may be unavailable or the API key is invalid. Details: {error_body[:200]}"
+                return
             for raw in response.iter_lines():
                 if raw and raw.startswith(b'data: '):
                     chunk_data = raw.decode('utf-8')[6:].strip()
@@ -385,6 +381,7 @@ def _get_groq_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
     except Exception as e:
         logging.error(f"Failed to get Groq stream: {e}", exc_info=True)
         yield "Error: Could not get a response from the provider."
+
 
 def _get_gemini_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
     try:
@@ -525,7 +522,7 @@ def search_and_rerank_chunks(query: str, user_id: str, access_token: str, video_
             'match_threshold': float(os.environ.get('MATCH_THRESHOLD', 0.4)),
             'match_count': int(os.environ.get('MATCH_COUNT', 50)),
             'p_video_ids': list(video_ids) if video_ids else None,
-            'p_channel_id': channel_id  # CRITICAL: Filter by channel to isolate chatbot data
+            'p_channel_id': channel_id
         }
         
         print(f"Calling 'match_embeddings' with params:")
@@ -597,7 +594,7 @@ def count_tokens(text: str, model: str = "gpt-4") -> int:
     
     return len(encoding.encode(text))
 
-def answer_question_stream(question_for_prompt: str, question_for_search: str, channel_data: dict = None, video_ids: set = None, user_id: str = None, access_token: str = None, tone: str = 'Casual', on_complete: callable = None, conversation_id: str = None, active_community_id: str = None) -> Iterator[str]:
+def answer_question_stream(question_for_prompt: str, question_for_search: str, channel_data: dict = None, video_ids: set = None, user_id: str = None, access_token: str = None, tone: str = 'Casual', on_complete: callable = None, conversation_id: str = None, active_community_id: str = None, user_status: dict = None) -> Iterator[str]:
     """
     Finds relevant context and streams an answer. Now deducts bot queries synchronously.
     """
@@ -609,7 +606,9 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
     
     total_request_start_time = time.perf_counter()
 
-    user_status = get_user_status(user_id, active_community_id)
+    # --- PERFORMANCE: Use pre-fetched user_status if available, otherwise fetch ---
+    if user_status is None:
+        user_status = get_user_status(user_id, active_community_id)
     plan_id = user_status.get('plan_name', 'Free') if user_status else 'Free'
     print(f"<<<<<<<<<<<<DEBUG: Answering for user {user_id}. Detected plan_id: '{plan_id}'>>>>>>>>>>>>>>>>>")
     if 'Creator' in plan_id:
@@ -707,6 +706,10 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
         creator_name = channel_data.get('creator_name', channel_data.get('channel_name', 'the creator'))
         speaking_style = channel_data.get('speaking_style', 'Professional and helpful. Provide clear, accurate information.')
         bot_type = channel_data.get('bot_type', 'youtuber')  # Default to youtuber for legacy bots
+        promotion_triggers = channel_data.get('promotion_triggers')
+        
+        if promotion_triggers:
+            speaking_style += f"\n\nCRITICAL INSTRUCTIONS / PROMOTION TRIGGERS:\n{promotion_triggers}"
         
         # Select prompt based on bot type
         if bot_type == 'business':

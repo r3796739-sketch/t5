@@ -1,101 +1,505 @@
 {% extends "base.html" %}
 
-{% block title %}Earnings Dashboard{% endblock %}
+{% block title %}Combined Earnings Dashboard - YoppyChat AI{% endblock %}
 
 {% block page_styles %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/earnings.css') }}">
+<style>
+    .earnings-container {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 0 1.5rem;
+    }
+
+    .earnings-header {
+        margin-bottom: 2rem;
+    }
+
+    .earnings-header h1 {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .earnings-header p {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+    }
+
+    /* Stats Grid For Combined Totals (Top Section) */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 3rem;
+    }
+
+    .stat-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: var(--accent-primary);
+    }
+
+    .stat-card.green::before {
+        background: #10B981;
+    }
+
+    .stat-card.orange::before {
+        background: #F59E0B;
+    }
+
+    .stat-card.blue::before {
+        background: #3B82F6;
+    }
+
+    .stat-title {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-value {
+        font-size: 2.25rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-desc {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    /* Tabs for Detailed Breakdowns */
+    .earnings-tabs {
+        display: flex;
+        border-bottom: 2px solid var(--neutral-200);
+        margin-bottom: 2rem;
+    }
+
+    .earnings-tab {
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        cursor: pointer;
+        position: relative;
+        background: none;
+        border: none;
+        outline: none;
+    }
+
+    .earnings-tab.active {
+        color: var(--accent-primary);
+    }
+
+    .earnings-tab.active::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: var(--accent-primary);
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    /* Action Section */
+    .action-section {
+        background: var(--surface-medium);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 3rem;
+        gap: 2rem;
+    }
+
+    .action-info h2 {
+        font-size: 1.25rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .action-info p {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+    }
+
+    .btn-withdraw {
+        padding: 1rem 2rem;
+        background: #10B981;
+        color: white;
+        font-weight: 700;
+        font-size: 1.1rem;
+        border: none;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: opacity 0.2s;
+        white-space: nowrap;
+    }
+
+    .btn-withdraw:hover:not(:disabled) {
+        opacity: 0.9;
+    }
+
+    .btn-withdraw:disabled {
+        background: var(--neutral-300);
+        cursor: not-allowed;
+    }
+
+    /* Tables */
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+    }
+
+    .table-wrapper {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        overflow-x: auto;
+        margin-bottom: 3rem;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+    }
+
+    th {
+        background: var(--surface-medium);
+        padding: 1rem 1.5rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        border-bottom: 2px solid var(--neutral-200);
+    }
+
+    td {
+        padding: 1rem 1.5rem;
+        font-size: 0.95rem;
+        border-bottom: 1px solid var(--neutral-200);
+        color: var(--text-primary);
+    }
+
+    tr:last-child td {
+        border-bottom: none;
+    }
+
+    .empty-row {
+        text-align: center;
+        padding: 3rem !important;
+        color: var(--text-secondary);
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: var(--radius-full);
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .status-paid {
+        background: rgba(16, 185, 129, 0.15);
+        color: #10B981;
+    }
+
+    .status-pending {
+        background: rgba(245, 158, 11, 0.15);
+        color: #F59E0B;
+    }
+
+    .status-processing {
+        background: rgba(59, 130, 246, 0.15);
+        color: #3B82F6;
+    }
+
+    .status-failed {
+        background: rgba(239, 68, 68, 0.15);
+        color: #EF4444;
+    }
+
+    /* Modal Override */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(4px);
+    }
+
+    .modal-content {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        padding: 2.5rem;
+        max-width: 500px;
+        width: 90%;
+        position: relative;
+    }
+
+    .modal-close-btn {
+        position: absolute;
+        top: 1rem;
+        right: 1.5rem;
+        font-size: 1.5rem;
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+    }
+
+    .payout-info-display {
+        background: var(--surface-medium);
+        padding: 1rem;
+        border-radius: var(--radius-md);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 1.5rem 0;
+    }
+
+    .balance-display {
+        font-size: 1.1rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid var(--neutral-200);
+    }
+
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid var(--neutral-300);
+        border-radius: var(--radius-md);
+        font-size: 1rem;
+        background: var(--background);
+        color: var(--text-primary);
+    }
+
+    .btn-text {
+        background: none;
+        border: none;
+        color: var(--accent-primary);
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    @media (max-width: 768px) {
+        .action-section {
+            flex-direction: column;
+            text-align: center;
+            align-items: stretch;
+        }
+    }
+</style>
 {% endblock %}
 
 {% block content %}
 <div class="earnings-container">
-    <div class="page-header">
-        <h1 class="page-title">Earnings</h1>
-        <p class="page-subtitle">Track your commissions and manage your payouts.</p>
+    <div class="earnings-header">
+        <h1>Your Total Earnings</h1>
+        <p>A comprehensive overview of your Affiliate and Marketplace revenues.</p>
     </div>
 
+    <!-- Overview Stats: Combined -->
     <div class="stats-grid">
-        <div class="stat-card">
-            <h3 class="stat-title">Withdrawable Balance</h3>
-            <p class="stat-value">${{ "%.2f"|format(earnings_data.withdrawable_balance) }}</p>
-            <p class="stat-description">Earnings ready for the next payout.</p>
+        <div class="stat-card green">
+            <div class="stat-title">Total Withdrawable Balance</div>
+            <div class="stat-value" id="val-withdraw-total">₹--</div>
+            <div class="stat-desc">Earnings ready to be paid out across both channels.</div>
         </div>
-        <div class="stat-card">
-            <h3 class="stat-title">Pending Payouts</h3>
-            <p class="stat-value">${{ "%.2f"|format(earnings_data.pending_payouts) }}</p>
-            <p class="stat-description">Requested payouts being processed.</p>
+        <div class="stat-card orange">
+            <div class="stat-title">Total Pending Payouts</div>
+            <div class="stat-value" id="val-pending-total">₹--</div>
+            <div class="stat-desc">Requested payouts currently processing.</div>
         </div>
-        <div class="stat-card">
-            <h3 class="stat-title">Total Earned</h3>
-            <p class="stat-value">${{ "%.2f"|format(earnings_data.total_earned) }}</p>
-            <p class="stat-description">All-time earnings from referrals.</p>
+        <div class="stat-card blue">
+            <div class="stat-title">Total Earned All-Time</div>
+            <div class="stat-value" id="val-earned-total">₹--</div>
+            <div class="stat-desc">Total lifetime revenue from all sources.</div>
         </div>
     </div>
 
-    <div class="payout-action-section">
-        <button id="requestPayoutBtn" class="btn btn-primary" {% if earnings_data.withdrawable_balance <= 0 %}disabled{% endif %}>
-            Request Withdrawal
-        </button>
+    <!-- Tabs for Breakdowns -->
+    <div class="earnings-tabs">
+        <button class="earnings-tab active" onclick="switchTab('affiliate', this)">Affiliate Breakdown</button>
+        <button class="earnings-tab" onclick="switchTab('marketplace', this)">Marketplace Breakdown</button>
     </div>
 
-<div class="history-section">
-    <h2 class="section-title">Payout History</h2>
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>Date Requested</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Transaction ID</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for payout in earnings_data.history %}
-                <tr>
-                    <td>{{ payout.requested_at.split('T')[0] }}</td>
-                    <td>${{ "%.2f"|format(payout.amount_usd) }}</td>
-                    <td><span class="status-badge status-{{ payout.status }}">{{ payout.status|title }}</span></td>
-                    <td class="id-cell">{{ payout.id[:8] }}...</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="4" class="empty-row">You have no payout history yet.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    <!-- AFFILIATE TAB CONTENT -->
+    <div id="affiliate" class="tab-content active">
+        <!-- Action Section -->
+        <div class="action-section">
+            <div class="action-info">
+                <h2>Ready to withdraw your Affiliate Earnings?</h2>
+                <p>You can request a payout to your bank account from your available affiliate balance: <span
+                        id="val-affiliate-withdraw-text" style="font-weight: bold;">₹--</span></p>
+            </div>
+            <button class="btn-withdraw requestPayoutBtn" id="btn-affiliate-payout" data-type="affiliate"
+                data-max-amount="0" disabled>
+                Request Affiliate Payout
+            </button>
+        </div>
+
+        <!-- Payout History Table -->
+        <h2 class="section-title">Affiliate Payout History</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date Requested</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Transaction ID</th>
+                    </tr>
+                </thead>
+                <tbody id="affiliate-payouts-table">
+                    <tr>
+                        <td colspan="4" class="empty-row">Loading payout history...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div> <!-- END AFFILIATE TAB -->
+
+    <!-- MARKETPLACE TAB CONTENT -->
+    <div id="marketplace" class="tab-content">
+        <!-- Action Section -->
+        <div class="action-section">
+            <div class="action-info">
+                <h2>Ready to withdraw your Marketplace Earnings?</h2>
+                <p>You can request a payout to your bank account from your available marketplace balance: <span
+                        id="val-marketplace-withdraw-text" style="font-weight: bold;">₹--</span> (Min. ₹100).</p>
+            </div>
+            <button class="btn-withdraw requestPayoutBtn" id="btn-marketplace-payout" data-type="marketplace"
+                data-max-amount="0" disabled>
+                Request Marketplace Payout
+            </button>
+        </div>
+
+        <!-- Active Transfers Table -->
+        <h2 class="section-title">Your Marketplace Chatbots</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Chatbot</th>
+                        <th>Status</th>
+                        <th>Query Limit</th>
+                        <th>Your Price (Monthly)</th>
+                        <th>Created At</th>
+                    </tr>
+                </thead>
+                <tbody id="marketplace-transfers-table">
+                    <tr>
+                        <td colspan="5" class="empty-row">Loading your marketplace chatbots...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Payout History Table -->
+        <h2 class="section-title">Marketplace Payout History</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date Requested</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Transaction ID</th>
+                    </tr>
+                </thead>
+                <tbody id="marketplace-payouts-table">
+                    <tr>
+                        <td colspan="4" class="empty-row">Loading payout history...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div> <!-- END MARKETPLACE TAB -->
+
 </div>
-</div>
 
-<div id="payoutModal" class="modal-overlay" 
-     data-payout-details="{{ payout_details | tojson | e }}">
+<!-- Single Shared Payout Modal -->
+<div id="payoutModal" class="modal-overlay" data-payout-details="{{ payout_details | tojson | e }}">
     <div class="modal-content">
-        <button class="modal-close-btn login-popup-close-btn" id="closeModalBtn">&times;</button>
-        
+        <button class="modal-close-btn" id="closeModalBtn">&times;</button>
+
         <div id="payoutRequestView">
-            <h3>Request a Withdrawal</h3>
-            <p>Your payout will be sent to the bank account on file.</p>
+            <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Request a <span id="modalPayoutType"></span>
+                Withdrawal</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Your payout will be sent to the bank account
+                on file.</p>
+
             <div class="payout-info-display">
-                <span id="payoutMethodName"></span>
+                <span id="payoutMethodName" style="font-weight: 500;"></span>
                 <button id="editPayoutDetailsBtn" class="btn-text">Edit</button>
             </div>
+
             <div class="balance-display">
-                Available to withdraw: <strong>${{ "%.2f"|format(earnings_data.withdrawable_balance) }}</strong>
+                Available to withdraw: <strong id="modalMaxAmount" style="color: #10B981; font-size: 1.25rem;"></strong>
             </div>
+
             <form id="payoutForm">
+                <input type="hidden" id="payoutContextType" name="payoutContextType">
                 <div class="form-group">
-                    <label for="payoutAmount">Amount (USD)</label>
-                    <input type="number" id="payoutAmount" name="amount" step="0.01" min="1.00" max="{{ earnings_data.withdrawable_balance }}" required placeholder="e.g., 50.00">
+                    <label for="payoutAmount">Amount (₹)</label>
+                    <input type="number" id="payoutAmount" name="amount" step="1" required placeholder="e.g., 500">
                 </div>
-                <button type="submit" class="btn btn-primary">Submit Request</button>
+                <button type="submit" class="btn btn-primary"
+                    style="width: 100%; padding: 1rem; font-size: 1.1rem; margin-top: 1rem;">Submit Request</button>
             </form>
         </div>
 
         <div id="payoutDetailsView" style="display: none;">
-            <h3 id="payoutDetailsTitle">Add Payout Details</h3>
-            <p>Enter your bank account details to receive payouts.</p>
-             <form id="payoutDetailsForm">
+            <h3 id="payoutDetailsTitle" style="font-size: 1.5rem; margin-bottom: 0.5rem;">Add Payout Details</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Enter your Indian bank account details to
+                receive payouts.</p>
+
+            <form id="payoutDetailsForm">
                 <div class="form-group">
                     <label for="bank_account_name">Account Holder Name</label>
                     <input type="text" id="bank_account_name" name="name" required>
@@ -108,14 +512,268 @@
                     <label for="bank_ifsc_code">IFSC Code</label>
                     <input type="text" id="bank_ifsc_code" name="ifsc" required>
                 </div>
-                <button type="submit" class="btn btn-primary">Save and Continue</button>
+                <button type="submit" class="btn btn-primary"
+                    style="width: 100%; padding: 1rem; font-size: 1.1rem; margin-top: 1rem;">Save Details</button>
             </form>
         </div>
-
     </div>
 </div>
 {% endblock %}
 
 {% block page_scripts %}
-    <script src="{{ url_for('static', filename='js/earnings.js') }}"></script>
+<script>
+    function switchTab(tabId, element) {
+        // Hide all tab contents
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        // Deactivate all tab buttons
+        document.querySelectorAll('.earnings-tab').forEach(btn => {
+            btn.classList.remove('active');
+        });
+
+        // Activate the selected tab and content
+        document.getElementById(tabId).classList.add('active');
+        element.classList.add('active');
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const modal = document.getElementById('payoutModal');
+        if (!modal) return;
+
+        const openBtns = document.querySelectorAll('.requestPayoutBtn');
+        const closeBtn = document.getElementById('closeModalBtn');
+
+        const payoutRequestView = document.getElementById('payoutRequestView');
+        const payoutDetailsView = document.getElementById('payoutDetailsView');
+        const payoutDetailsForm = document.getElementById('payoutDetailsForm');
+        const payoutForm = document.getElementById('payoutForm');
+        const editPayoutDetailsBtn = document.getElementById('editPayoutDetailsBtn');
+        const payoutDetailsTitle = document.getElementById('payoutDetailsTitle');
+
+        let creatorPayoutDetails = null;
+
+        // --- Fetch Earnings Data Asynchronously ---
+        fetch('/api/earnings/data')
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // 1. Top Totals
+                    document.getElementById('val-withdraw-total').innerText = '₹' + (data.combined_totals.withdrawable_balance || 0).toFixed(2);
+                    document.getElementById('val-pending-total').innerText = '₹' + (data.combined_totals.pending_payouts || 0).toFixed(2);
+                    document.getElementById('val-earned-total').innerText = '₹' + (data.combined_totals.total_earned || 0).toFixed(2);
+
+                    // 2. Affiliate Action Section
+                    const affWithdrawText = '₹' + (data.affiliate_data.withdrawable_balance || 0).toFixed(2);
+                    document.getElementById('val-affiliate-withdraw-text').innerText = affWithdrawText;
+                    const btnAff = document.getElementById('btn-affiliate-payout');
+                    btnAff.setAttribute('data-max-amount', data.affiliate_data.withdrawable_balance);
+                    if (data.affiliate_data.withdrawable_balance > 0) btnAff.disabled = false;
+
+                    // 3. Marketplace Action Section
+                    const mpWithdrawText = '₹' + (data.marketplace_data.withdrawable_balance || 0).toFixed(2);
+                    document.getElementById('val-marketplace-withdraw-text').innerText = mpWithdrawText;
+                    const btnMp = document.getElementById('btn-marketplace-payout');
+                    btnMp.setAttribute('data-max-amount', data.marketplace_data.withdrawable_balance);
+                    if (data.marketplace_data.withdrawable_balance >= 100) btnMp.disabled = false;
+
+                    // 4. Populate Tables
+                    populateHistoryTable('affiliate-payouts-table', data.affiliate_data.history, 'You have no affiliate payout history yet.');
+                    populateHistoryTable('marketplace-payouts-table', data.marketplace_data.history, 'You have no marketplace payout history yet.');
+                    populateTransfersTable('marketplace-transfers-table', data.transfers);
+
+                    // 5. Set global profile details for modal
+                    if (data.payout_details) {
+                        creatorPayoutDetails = data.payout_details;
+                    }
+                }
+            })
+            .catch(err => console.error('Failed to load earnings data:', err));
+
+        function populateHistoryTable(tableId, historyArray, emptyMessage) {
+            const tbody = document.getElementById(tableId);
+            if (!tbody) return;
+            if (!historyArray || historyArray.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="empty-row">${emptyMessage}</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = historyArray.map(payout => {
+                const date = (payout.requested_at || payout.created_at || '').split('T')[0];
+                const amountVal = payout.amount_inr ? payout.amount_inr : (payout.amount_usd ? payout.amount_usd * 83 : 0);
+                const amount = amountVal.toFixed(2);
+                const statusName = (payout.status || 'unknown').charAt(0).toUpperCase() + (payout.status || 'unknown').slice(1);
+                const idDisplay = (payout.id || '').substring(0, 8);
+                return `
+                    <tr>
+                        <td>${date}</td>
+                        <td style="font-weight: 600;">₹${amount}</td>
+                        <td><span class="status-badge status-${payout.status}">${statusName}</span></td>
+                        <td style="font-family: monospace; color: var(--text-secondary);">${idDisplay}...</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function populateTransfersTable(tableId, transfersArray) {
+            const tbody = document.getElementById(tableId);
+            if (!tbody) return;
+            if (!transfersArray || transfersArray.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="empty-row">You haven't transferred any chatbots yet.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = transfersArray.map(tr => {
+                const name = tr.channels ? tr.channels.channel_name : 'Unknown';
+                const statusName = (tr.status || 'pending').charAt(0).toUpperCase() + (tr.status || 'pending').slice(1);
+                const limit = tr.query_limit_monthly || 0;
+                const price = ((tr.creator_price_monthly || 0) / 100).toFixed(2);
+                const date = (tr.created_at || '').split('T')[0];
+                return `
+                    <tr>
+                        <td style="font-weight: 600;">${name}</td>
+                        <td><span class="status-badge status-${tr.status}">${statusName}</span></td>
+                        <td>${limit}</td>
+                        <td>₹${price}</td>
+                        <td>${date}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        const openModal = (type, maxAmount) => {
+            // Context logic for the modal
+            document.getElementById('modalPayoutType').textContent = type.charAt(0).toUpperCase() + type.slice(1);
+            document.getElementById('modalMaxAmount').textContent = '₹' + parseFloat(maxAmount).toFixed(2);
+            document.getElementById('payoutContextType').value = type;
+
+            const amountInput = document.getElementById('payoutAmount');
+            amountInput.max = maxAmount;
+            if (type === 'marketplace') {
+                amountInput.min = 100;
+            } else {
+                amountInput.min = 1; // affiliate min
+            }
+
+            if (creatorPayoutDetails) {
+                showRequestView(creatorPayoutDetails);
+            } else {
+                showDetailsView();
+            }
+            modal.style.display = 'flex';
+        };
+
+        const closeModal = () => modal.style.display = 'none';
+
+        openBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const type = e.target.getAttribute('data-type');
+                const maxAmount = e.target.getAttribute('data-max-amount');
+                openModal(type, maxAmount);
+            });
+        });
+
+        if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        function showRequestView(details) {
+            const maskedAccount = String(details.account_number).slice(-4).padStart(String(details.account_number).length, 'X');
+            document.getElementById('payoutMethodName').textContent = `Bank Account: ${maskedAccount}`;
+            payoutDetailsView.style.display = 'none';
+            payoutRequestView.style.display = 'block';
+        }
+
+        function showDetailsView(details = null) {
+            if (details) {
+                payoutDetailsTitle.textContent = 'Edit Payout Details';
+                document.getElementById('bank_account_name').value = details.name || '';
+                document.getElementById('bank_account_number').value = details.account_number || '';
+                document.getElementById('bank_ifsc_code').value = details.ifsc || '';
+            } else {
+                payoutDetailsTitle.textContent = 'Add Payout Details';
+                payoutDetailsForm.reset();
+            }
+            payoutRequestView.style.display = 'none';
+            payoutDetailsView.style.display = 'block';
+        }
+
+        if (editPayoutDetailsBtn) {
+            editPayoutDetailsBtn.addEventListener('click', () => {
+                showDetailsView(creatorPayoutDetails);
+            });
+        }
+
+        if (payoutDetailsForm) {
+            payoutDetailsForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+                const data = Object.fromEntries(formData.entries());
+
+                const btn = this.querySelector('button[type="submit"]');
+                const origText = btn.innerHTML;
+                btn.innerHTML = 'Saving...';
+                btn.disabled = true;
+
+                fetch('/api/save_payout_details', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                })
+                    .then(res => res.json())
+                    .then(result => {
+                        if (result.status === 'success') {
+                            alert(result.message);
+                            creatorPayoutDetails = data;
+                            showRequestView(data);
+                        } else {
+                            throw new Error(result.message);
+                        }
+                    })
+                    .catch(error => alert(error.message))
+                    .finally(() => {
+                        btn.innerHTML = origText;
+                        btn.disabled = false;
+                    });
+            });
+        }
+
+        if (payoutForm) {
+            payoutForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                const amount = document.getElementById('payoutAmount').value;
+                const type = document.getElementById('payoutContextType').value;
+
+                let endpoint = '/api/request_payout'; // Default to affiliate
+                if (type === 'marketplace') {
+                    endpoint = '/api/marketplace/request_payout';
+                }
+
+                const btn = this.querySelector('button[type="submit"]');
+                const origText = btn.innerHTML;
+                btn.innerHTML = 'Processing...';
+                btn.disabled = true;
+
+                fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount: amount })
+                })
+                    .then(res => {
+                        if (!res.ok) { return res.json().then(err => Promise.reject(err)); }
+                        return res.json();
+                    })
+                    .then(data => {
+                        alert(data.message);
+                        closeModal();
+                        setTimeout(() => window.location.reload(), 1500);
+                    })
+                    .catch(error => {
+                        alert(error.message || 'An error occurred.');
+                        btn.innerHTML = origText;
+                        btn.disabled = false;
+                    });
+            });
+        }
+    });
+</script>
 {% endblock %}

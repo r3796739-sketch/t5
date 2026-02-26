@@ -3,6 +3,12 @@
 import logging
 from .supabase_client import get_supabase_admin_client
 from datetime import datetime
+from cachetools import TTLCache
+
+# --- PERFORMANCE: In-memory TTL cache to reduce DB hits on every page load ---
+_creator_channels_cache = TTLCache(maxsize=500, ttl=60)
+_dashboard_stats_cache = TTLCache(maxsize=200, ttl=60)
+
 # It's good practice to use the shared admin client for these utility functions
 # as they are often called from background tasks or trusted server-side routes.
 supabase = get_supabase_admin_client()
@@ -43,7 +49,7 @@ def find_channel_by_url(channel_url: str):
     """Checks if a channel already exists in the master channels table."""
     try:
         response = supabase.table('channels').select('id, status').eq('channel_url', channel_url).maybe_single().execute()
-        return response.data
+        return response.data if response else None
     except Exception as e:
         log.error(f"Error finding channel by URL {channel_url}: {e}")
         return None
@@ -154,6 +160,17 @@ def increment_channels_processed(user_id: str):
         supabase.rpc('increment_channel_count', params).execute()
     except Exception as e:
         log.error(f"Error incrementing channels processed for user {user_id}: {e}")
+
+def decrement_channels_processed(user_id: str):
+    """
+    Decrements the channels_processed counter for a specific user.
+    Called when a chatbot is deleted to free up the user's quota.
+    """
+    try:
+        params = {'p_user_id': user_id}
+        supabase.rpc('decrement_channel_count', params).execute()
+    except Exception as e:
+        log.error(f"Error decrementing channels processed for user {user_id}: {e}")
 
 def create_initial_usage_stats(user_id: str):
     """Creates the initial usage_stats row for a new user."""
@@ -339,10 +356,18 @@ def create_channel(channel_url: str, user_id: str, is_shared: bool = False, comm
     
 def get_channels_created_by_user(user_id: str):
     """Fetches all channels where the given user is the creator."""
+    # --- PERFORMANCE: Return from memory cache if available ---
+    cache_key = f"creator_channels:{user_id}"
+    if cache_key in _creator_channels_cache:
+        return _creator_channels_cache[cache_key]
+
     try:
         # This query specifically selects channels where the creator_id matches the user's ID
         response = supabase.table('channels').select('*').eq('creator_id', user_id).execute()
-        return {ch['channel_name']: ch for ch in response.data if ch.get('channel_name')} if response.data else {}
+        result = {ch['channel_name']: ch for ch in response.data if ch.get('channel_name')} if response.data else {}
+        # Store in cache for 60 seconds
+        _creator_channels_cache[cache_key] = result
+        return result
     except Exception as e:
         log.error(f"Error getting creator channels for user {user_id}: {e}")
         return {}
@@ -352,6 +377,10 @@ def get_creator_dashboard_stats(creator_user_id: str):
     Gathers key statistics for a creator's channels, including total referrals,
     paid referrals, MRR, and current user adds.
     """
+    cache_key = f"dashboard_stats:{creator_user_id}"
+    if cache_key in _dashboard_stats_cache:
+        return _dashboard_stats_cache[cache_key]
+
     supabase = get_supabase_admin_client()
     stats = {}
     
@@ -409,6 +438,7 @@ def get_creator_dashboard_stats(creator_user_id: str):
             channel_stats['creator_mrr'] = round(mrr, 2)
             del channel_stats['referred_user_plans']
 
+        _dashboard_stats_cache[cache_key] = stats
         return stats
 
     except Exception as e:
@@ -485,6 +515,97 @@ def get_creator_balance_and_history(creator_id: str):
     except Exception as e:
         log.error(f"Error getting creator balance for {creator_id}: {e}")
         return {'withdrawable_balance': 0.0, 'pending_payouts': 0.0, 'total_earned': 0.0, 'history': []}
+
+def get_monthly_revenue_history(creator_id: str, months_back: int = 6):
+    """
+    Fetches the monthly revenue for the last N months, split by affiliate and marketplace.
+    Returns data formatted for easy use in Chart.js.
+    """
+    cache_key = f"revenue_history:{creator_id}:{months_back}"
+    if cache_key in _dashboard_stats_cache:
+        return _dashboard_stats_cache[cache_key]
+
+    supabase = get_supabase_admin_client()
+    from dateutil.relativedelta import relativedelta
+    
+    try:
+        # Initialize the last N months
+        today = datetime.now()
+        months = []
+        
+        # Build the zeroed-out data structure mapping month string (e.g. "Jan") to revenue
+        for i in range(months_back - 1, -1, -1):
+            dt = today - relativedelta(months=i)
+            # Use 'YYYY-MM' for exact matching, then we will reformat labels for the chart
+            month_key = dt.strftime('%Y-%m')
+            label = dt.strftime('%b') # e.g., 'Jan', 'Feb'
+            months.append({
+                'key': month_key,
+                'label': label,
+                'affiliate': 0.0,
+                'chatbot': 0.0
+            })
+
+        # --- Affiliate Earnings ---
+        # Fetching all earnings without a strict date filter to make the logic robust, 
+        # or we could filter by date >= N months ago. For simplicity, filtering in python.
+        six_months_ago = today - relativedelta(months=months_back - 1)
+        start_date_iso = six_months_ago.replace(day=1, hour=0, minute=0, second=0).isoformat()
+        
+        affiliate_res = supabase.table('creator_earnings') \
+            .select('amount_usd, created_at') \
+            .eq('creator_id', creator_id) \
+            .gte('created_at', start_date_iso) \
+            .execute()
+            
+        if affiliate_res.data:
+            for earning in affiliate_res.data:
+                # 'created_at' e.g. "2024-03-21T10:20:30"
+                date_str = earning.get('created_at')
+                if date_str:
+                    e_month_key = date_str[:7] # Extract 'YYYY-MM'
+                    for m in months:
+                        if m['key'] == e_month_key:
+                            m['affiliate'] += earning.get('amount_usd', 0.0)
+                            break
+                            
+        # --- Marketplace Earnings ---
+        marketplace_res = supabase.table('creator_marketplace_earnings') \
+            .select('creator_amount, payment_date') \
+            .eq('creator_id', creator_id) \
+            .gte('payment_date', start_date_iso) \
+            .execute()
+            
+        if marketplace_res.data:
+            for earning in marketplace_res.data:
+                date_str = earning.get('payment_date')
+                if date_str:
+                    e_month_key = date_str[:7]
+                    for m in months:
+                        if m['key'] == e_month_key:
+                            # Marketplace amounts are in paise, convert to standard currency
+                            m['chatbot'] += (earning.get('creator_amount', 0) / 100.0)
+                            break
+
+        # Format the output for Chart.js
+        labels = [m['label'] for m in months]
+        affiliate_data = [round(m['affiliate'], 2) for m in months]
+        chatbot_data = [round(m['chatbot'], 2) for m in months]
+
+        result = {
+            'labels': labels,
+            'datasets': {
+                'affiliate': affiliate_data,
+                'chatbot': chatbot_data
+            }
+        }
+        _dashboard_stats_cache[cache_key] = result
+        return result
+
+    except Exception as e:
+        log.error(f"Error getting monthly revenue history for {creator_id}: {e}")
+        # Return empty structure if it fails
+        return {'labels': [], 'datasets': {'affiliate': [], 'chatbot': []}}
 
 
 def create_payout_request(creator_id: str, amount: float, payout_details: dict):

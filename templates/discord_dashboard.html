@@ -4,86 +4,102 @@
 {% block title %}Discord Integrations - YoppyChat AI{% endblock %}
 
 {% block page_styles %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/discord.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/discord.css') }}">
 {% endblock %}
 
 {% block content %}
 <div class="integrations-page">
     <div class="page-header">
-        <a href="{{ url_for('dashboard') }}" class="back-link">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-            <span>Back to Dashboard</span>
+        {% if request.args.get('from_bot') %}
+        {% set back_url = url_for('chatbot_settings', chatbot_id=request.args.get('from_bot')) ~ '#integrations' %}
+        {% else %}
+        {% set back_url = url_for('dashboard') %}
+        {% endif %}
+        <a href="{{ back_url }}" class="back-link">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            <span>Back to All Integrations</span>
         </a>
         <div class="header-content">
-            <img src="{{ url_for('static', filename='images/logo/discord-icon.svg') }}" 
-                 alt="Discord Logo" class="page-icon">
+            <img src="{{ url_for('static', filename='images/logo/discord-icon.svg') }}" alt="Discord Logo"
+                class="page-icon">
             <div class="page-header-text">
                 <h1 class="page-title">Discord Integrations</h1>
                 <p class="page-subtitle">Automate your community engagement with custom AI assistants.</p>
             </div>
         </div>
     </div>
-    
+
     {% if discord_account_linked %}
-        <div class="integration-section bot-dashboard">
-            <h2 class="section-title">Your Branded Bots</h2>
-            <p class="section-description">Create and manage your own white-labeled bots with custom names and profile pictures.</p>
-            <div class="grid">
-                {% if not branded_bots %}
-                    <div class="bot-card create-bot-card empty-state" onclick="openCreateBotModal()">
-                        <div class="empty-state-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg>
-                        </div>
-                        <h3 class="empty-state-title">Create Your First Branded Bot</h3>
-                        <p class="empty-state-text">Give your community a custom-named AI assistant.</p>
-                    </div>
-                {% else %}
-                    {% for bot in branded_bots %}
-                        {{ render_bot_card(bot) }}
-                    {% endfor %}
-                    <div class="bot-card create-bot-card-compact" onclick="openCreateBotModal()" title="Create New Branded Bot">
-                        <div class="plus-icon-compact">+</div>
-                        <span>Create New Bot</span>
-                    </div>
-                {% endif %}
+    <div class="integration-section bot-dashboard">
+        <h2 class="section-title">Your Branded Bots</h2>
+        <p class="section-description">Create and manage your own white-labeled bots with custom names and profile
+            pictures.</p>
+        <div class="grid">
+            {% if not branded_bots %}
+            <div class="bot-card create-bot-card empty-state" onclick="openCreateBotModal()">
+                <div class="empty-state-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 5v14m-7-7h14" />
+                    </svg>
+                </div>
+                <h3 class="empty-state-title">Create Your First Branded Bot</h3>
+                <p class="empty-state-text">Give your community a custom-named AI assistant.</p>
             </div>
+            {% else %}
+            {% for bot in branded_bots %}
+            {{ render_bot_card(bot) }}
+            {% endfor %}
+            <div class="bot-card create-bot-card-compact" onclick="openCreateBotModal()" title="Create New Branded Bot">
+                <div class="plus-icon-compact">+</div>
+                <span>Create New Bot</span>
+            </div>
+            {% endif %}
         </div>
-        
-        <div class="integration-section">
-            <h2 class="section-title">Official YoppyChat Bot</h2>
-            <p class="section-description">The easiest way to get started. Invite our official bot and link it to your channel's knowledge.</p>
-            
-            <div class="official-bot-card">
-                <div class="bot-card-header">
-                    <img src="{{ url_for('static', filename='images/logo/favicon.png') }}" alt="YoppyChat Bot" class="bot-avatar">
-                    <div class="bot-info">
-                        <div class="name">YoppyChat Bot</div>
-                        <div class="link">Official Shared Bot</div>
-                    </div>
-                </div>
-                <div class="bot-card-body">
-                    <p class="card-description">
-                        Invite the official bot to your server, then use the <code>/link_channel</code> command to connect it to any of your processed YouTube channels. Perfect for a quick setup.
-                    </p>
-                </div>
-                <div class="bot-card-footer">
-                    <a href="{{ discord_invite_link }}" target="_blank" class="btn btn-primary">Invite to Server</a>
+    </div>
+
+    <div class="integration-section">
+        <h2 class="section-title">Official YoppyChat Bot</h2>
+        <p class="section-description">The easiest way to get started. Invite our official bot and link it to your
+            channel's knowledge.</p>
+
+        <div class="official-bot-card">
+            <div class="bot-card-header">
+                <img src="{{ url_for('static', filename='images/logo/favicon.png') }}" alt="YoppyChat Bot"
+                    class="bot-avatar">
+                <div class="bot-info">
+                    <div class="name">YoppyChat Bot</div>
+                    <div class="link">Official Shared Bot</div>
                 </div>
             </div>
+            <div class="bot-card-body">
+                <p class="card-description">
+                    Invite the official bot to your server, then use the <code>/link_channel</code> command to connect
+                    it to any of your processed YouTube channels. Perfect for a quick setup.
+                </p>
+            </div>
+            <div class="bot-card-footer">
+                <a href="{{ discord_invite_link }}" target="_blank" class="btn btn-primary">Invite to Server</a>
+            </div>
         </div>
+    </div>
     {% else %}
-        <div class="integration-section">
-            <h2 class="section-title">Step 1: Link Your Account</h2>
-            <div class="integration-card" style="max-width: 500px;">
-                <h3>Connect to Discord</h3>
-                <p>To get started, connect your YoppyChat account to your Discord account. This is required before you can add bots or link channels.</p>
-                <div class="form-card" style="padding: 0; background: none; border: none; box-shadow: none;">
-                    <a href="{{ url_for('discord_auth') }}" class="btn btn-primary" style="width: 100%;">
-                        Connect Discord Account
-                    </a>
-                </div>
+    <div class="integration-section">
+        <h2 class="section-title">Step 1: Link Your Account</h2>
+        <div class="integration-card" style="max-width: 500px;">
+            <h3>Connect to Discord</h3>
+            <p>To get started, connect your YoppyChat account to your Discord account. This is required before you can
+                add bots or link channels.</p>
+            <div class="form-card" style="padding: 0; background: none; border: none; box-shadow: none;">
+                <a href="{{ url_for('discord_auth') }}" class="btn btn-primary" style="width: 100%;">
+                    Connect Discord Account
+                </a>
             </div>
         </div>
+    </div>
     {% endif %}
 </div>
 
@@ -101,32 +117,38 @@
             </div>
             <div class="form-group" style="margin-top: 1rem;">
                 <label>Select a Channel</label>
-                <p class="text-muted" style="font-size: 0.85rem; margin-top: -0.5rem; margin-bottom: 0.75rem;">The bot's name and picture will match this channel.</p>
+                <p class="text-muted" style="font-size: 0.85rem; margin-top: -0.5rem; margin-bottom: 0.75rem;">The bot's
+                    name and picture will match this channel.</p>
                 <div class="channel-selector">
                     {% if not saved_channels %}
-                        <p class="text-muted">You need to process a channel first. <a href="{{ url_for('channel') }}">Add one here</a>.</p>
+                    <p class="text-muted">You need to process a channel first. <a href="{{ url_for('channel') }}">Add
+                            one here</a>.</p>
                     {% else %}
-                        {% for channel in saved_channels.values() %}
-                        <div class="channel-card" data-url="{{ channel.channel_url }}">
-                            <img src="{{ channel.channel_thumbnail }}" alt="{{ channel.channel_name }}">
-                            <span class="channel-card-name">{{ channel.channel_name }}</span>
-                        </div>
-                        {% endfor %}
+                    {% for channel in saved_channels.values() %}
+                    <div class="channel-card" data-url="{{ channel.channel_url }}">
+                        <img src="{{ channel.channel_thumbnail }}" alt="{{ channel.channel_name }}">
+                        <span class="channel-card-name">{{ channel.channel_name }}</span>
+                    </div>
+                    {% endfor %}
                     {% endif %}
                 </div>
             </div>
             <input type="hidden" id="youtube_channel_url" name="youtube_channel_url" required>
-            <div class="form-group" style="margin-top: 1.5rem; padding: 1rem; background-color: var(--surface-medium); border-radius: var(--radius-md); border: 1px solid var(--neutral-300);">
-    <label style="font-weight: 600;">Step 3: Enable a Required Setting on Discord</label>
-    <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; margin-top: 0.5rem;">
-        For your bot to read messages, you must enable the <strong>Message Content Intent</strong>.
-    </p>
-    <ol style="font-size: 0.9rem; color: var(--text-secondary); padding-left: 1.2rem; margin-top: 0.75rem;">
-        <li>Go to the <a href="https://discord.com/developers/applications" target="_blank" style="color: var(--accent-primary);">Discord Developer Portal</a>.</li>
-        <li>Select your application, click on the "Bot" tab, and turn on the toggle shown below.</li>
-    </ol>
-    <img src="{{ url_for('static', filename='images/message_content_intent.png') }}" alt="Message Content Intent Toggle in Discord Developer Portal" style="width: 100%; max-width: 400px; margin-top: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--neutral-200);">
-</div>
+            <div class="form-group"
+                style="margin-top: 1.5rem; padding: 1rem; background-color: var(--surface-medium); border-radius: var(--radius-md); border: 1px solid var(--neutral-300);">
+                <label style="font-weight: 600;">Step 3: Enable a Required Setting on Discord</label>
+                <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; margin-top: 0.5rem;">
+                    For your bot to read messages, you must enable the <strong>Message Content Intent</strong>.
+                </p>
+                <ol style="font-size: 0.9rem; color: var(--text-secondary); padding-left: 1.2rem; margin-top: 0.75rem;">
+                    <li>Go to the <a href="https://discord.com/developers/applications" target="_blank"
+                            style="color: var(--accent-primary);">Discord Developer Portal</a>.</li>
+                    <li>Select your application, click on the "Bot" tab, and turn on the toggle shown below.</li>
+                </ol>
+                <img src="{{ url_for('static', filename='images/message_content_intent.png') }}"
+                    alt="Message Content Intent Toggle in Discord Developer Portal"
+                    style="width: 100%; max-width: 400px; margin-top: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--neutral-200);">
+            </div>
             <button type="submit" class="btn btn-primary" style="margin-top: 1.5rem; width: 100%;">Create Bot</button>
         </form>
     </div>
@@ -142,7 +164,8 @@
             <input type="hidden" id="edit_bot_id" name="bot_id">
             <div class="form-group">
                 <label for="edit_youtube_channel_url">Relink to a Different YouTube Channel</label>
-                <input type="url" id="edit_youtube_channel_url" name="youtube_channel_url" class="form-control" placeholder="https://youtube.com/@newchannel" required>
+                <input type="url" id="edit_youtube_channel_url" name="youtube_channel_url" class="form-control"
+                    placeholder="https://youtube.com/@newchannel" required>
             </div>
             <button type="submit" class="btn btn-primary" style="margin-top: 1.5rem; width: 100%;">Save Changes</button>
         </form>
@@ -155,12 +178,14 @@
             <h2 id="shareBotModalTitle">Share Bot</h2>
             <button class="modal-close" onclick="closeBotShareModal()">&times;</button>
         </div>
-        <p style="color: var(--text-secondary); margin-bottom: 1rem;">Use this link to invite your bot to any Discord server where you have administrator permissions.</p>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;">Use this link to invite your bot to any Discord
+            server where you have administrator permissions.</p>
         <div class="form-group" style="display: flex; gap: 0.5rem;">
             <input type="text" id="shareLinkInput" class="form-control" readonly style="flex-grow: 1;">
             <button class="btn btn-secondary" onclick="copyShareLink()">Copy</button>
         </div>
-        <a href="#" id="inviteLinkBtn" target="_blank" class="btn btn-primary" style="width: 100%; margin-top: 1rem; text-align: center;">
+        <a href="#" id="inviteLinkBtn" target="_blank" class="btn btn-primary"
+            style="width: 100%; margin-top: 1rem; text-align: center;">
             Invite to Server
         </a>
     </div>
@@ -168,6 +193,5 @@
 {% endblock %}
 
 {% block page_scripts %}
-    <script src="{{ url_for('static', filename='js/discord.js') }}"></script>
+<script src="{{ url_for('static', filename='js/discord.js') }}"></script>
 {% endblock %}
-

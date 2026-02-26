@@ -478,33 +478,106 @@
             </svg>
           </div>
         </div>
-        <h3 class="text-2xl font-bold text-gray-800 mb-2">Welcome to YoppyChat</h3>
-        <p class="text-gray-600">Create an account or log in to continue</p>
+        <h3 class="text-2xl font-bold text-gray-800 mb-2" id="landing-auth-title">Welcome to YoppyChat</h3>
+        <p class="text-gray-600" id="landing-auth-subtitle">Create an account or log in to continue</p>
       </div>
 
-      <button id="google-login-btn"
-        class="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-xl py-3 px-4 text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-            fill="#4285F4" />
-          <path
-            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-            fill="#34A853" />
-          <path
-            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-            fill="#FBBC05" />
-          <path
-            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-            fill="#EA4335" />
-        </svg>
-        Continue with Google
-      </button>
-      <p class="text-xs text-center text-gray-500 mt-6">
-        By signing in, you are agreeing to the <a href="{{ url_for('terms_landing') }}"
-          class="text-primary hover:underline">Terms of Service</a> and <a href="{{ url_for('privacy_landing') }}"
-          class="text-primary hover:underline">Privacy Policy</a>
-      </p>
+      <!-- MAIN LOGIN PANEL -->
+      <div id="landing-auth-main-panel">
+        <!-- Google Login -->
+        <button id="google-login-btn"
+          class="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-xl py-3 px-4 text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              fill="#4285F4" />
+            <path
+              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              fill="#34A853" />
+            <path
+              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+              fill="#FBBC05" />
+            <path
+              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+              fill="#EA4335" />
+          </svg>
+          Continue with Google
+        </button>
+
+        <!-- Divider -->
+        <div style="display:flex; align-items:center; gap:10px; margin:16px 0;">
+          <div style="flex:1; height:1px; background:#e5e7eb;"></div>
+          <span style="font-size:0.8rem; color:#9ca3af; white-space:nowrap;">or continue with email</span>
+          <div style="flex:1; height:1px; background:#e5e7eb;"></div>
+        </div>
+
+        <!-- Email / Password Form -->
+        <form id="landing-email-auth-form" onsubmit="handleLandingEmailAuth(event)" novalidate>
+          <div id="landing-email-auth-error"
+            style="display:none; background:#fee2e2; color:#b91c1c; padding:8px 12px; border-radius:8px; font-size:0.85rem; margin-bottom:10px;">
+          </div>
+          <div id="landing-email-auth-success"
+            style="display:none; background:#d1fae5; color:#065f46; padding:8px 12px; border-radius:8px; font-size:0.85rem; margin-bottom:10px;">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <input id="landing-email-auth-email" type="email" placeholder="Email address" autocomplete="email" required
+              style="width:100%; padding:10px 14px; border:1px solid #d1d5db; border-radius:8px; font-size:0.95rem; background:#fff; color:#111; box-sizing:border-box; outline:none; transition:border-color 0.2s;"
+              onfocus="this.style.borderColor='#ff9a56'" onblur="this.style.borderColor='#d1d5db'">
+            <input id="landing-email-auth-password" type="password" placeholder="Password"
+              autocomplete="current-password" required
+              style="width:100%; padding:10px 14px; border:1px solid #d1d5db; border-radius:8px; font-size:0.95rem; background:#fff; color:#111; box-sizing:border-box; outline:none; transition:border-color 0.2s;"
+              onfocus="this.style.borderColor='#ff9a56'" onblur="this.style.borderColor='#d1d5db'">
+            <!-- Forgot Password link -->
+            <div style="text-align:right; margin-top:-4px;">
+              <a href="#" onclick="showLandingForgotPassword(event)"
+                style="font-size:0.82rem; color:#ff9a56; text-decoration:none;">Forgot password?</a>
+            </div>
+            <button type="submit" id="landing-email-auth-submit"
+              style="width:100%; margin-top:12px; padding:10px 14px; background:#ff9a56; color:#fff; font-weight:600; border:none; border-radius:8px; font-size:0.95rem; cursor:pointer; transition:opacity 0.2s;">
+              Sign In
+            </button>
+        </form>
+
+        <!-- Toggle Sign In / Sign Up -->
+        <p style="text-align:center; margin-top:12px; font-size:0.85rem; color:#6b7280;">
+          <span id="landing-auth-toggle-text">Don't have an account?</span>
+          <a href="#" id="landing-auth-toggle-link" onclick="toggleLandingAuthMode(event)"
+            style="color:#ff9a56; font-weight:600; text-decoration:none; margin-left:4px;">Sign Up</a>
+        </p>
+
+        <p class="text-xs text-center text-gray-500 mt-4">
+          By signing in, you are agreeing to the <a href="{{ url_for('terms_landing') }}"
+            class="text-primary hover:underline">Terms of Service</a> and <a href="{{ url_for('privacy_landing') }}"
+            class="text-primary hover:underline">Privacy Policy</a>
+        </p>
+      </div><!-- /landing-auth-main-panel -->
+
+      <!-- FORGOT PASSWORD PANEL -->
+      <div id="landing-auth-forgot-panel" style="display:none;">
+        <p style="font-size:0.9rem; color:#4b5563; margin-bottom:16px; line-height:1.5;">
+          Enter the email address linked to your account and we'll send you a password reset link.
+        </p>
+        <div id="landing-forgot-pw-error"
+          style="display:none; background:#fee2e2; color:#b91c1c; padding:8px 12px; border-radius:8px; font-size:0.85rem; margin-bottom:10px;">
+        </div>
+        <div id="landing-forgot-pw-success"
+          style="display:none; background:#d1fae5; color:#065f46; padding:8px 12px; border-radius:8px; font-size:0.85rem; margin-bottom:10px;">
+        </div>
+        <form id="landing-forgot-pw-form" onsubmit="handleLandingForgotPassword(event)" novalidate>
+          <input id="landing-forgot-pw-email" type="email" placeholder="Your email address" autocomplete="email"
+            required
+            style="width:100%; padding:10px 14px; border:1px solid #d1d5db; border-radius:8px; font-size:0.95rem; background:#fff; color:#111; box-sizing:border-box; outline:none; transition:border-color 0.2s;"
+            onfocus="this.style.borderColor='#ff9a56'" onblur="this.style.borderColor='#d1d5db'">
+          <button type="submit" id="landing-forgot-pw-submit"
+            style="width:100%; margin-top:12px; padding:10px 14px; background:#ff9a56; color:#fff; font-weight:600; border:none; border-radius:8px; font-size:0.95rem; cursor:pointer;">
+            Send Reset Link
+          </button>
+        </form>
+        <p style="text-align:center; margin-top:14px; font-size:0.85rem;">
+          <a href="#" onclick="hideLandingForgotPassword(event)"
+            style="color:#ff9a56; text-decoration:none; font-weight:500;">← Back to sign in</a>
+        </p>
+      </div><!-- /landing-auth-forgot-panel -->
     </div>
   </div>
 
@@ -2631,12 +2704,204 @@
       }, 5000);
     }
 
+    // --- Landing page: separate auth state ---
+    let _landingAuthMode = 'signin';
+
+    function showLandingForgotPassword(event) {
+      if (event) event.preventDefault();
+      const mainPanel = document.getElementById('landing-auth-main-panel');
+      const forgotPanel = document.getElementById('landing-auth-forgot-panel');
+      const title = document.getElementById('landing-auth-title');
+      const subtitle = document.getElementById('landing-auth-subtitle');
+      if (mainPanel) mainPanel.style.display = 'none';
+      if (forgotPanel) forgotPanel.style.display = 'block';
+      if (title) title.textContent = 'Reset your password';
+      if (subtitle) subtitle.textContent = "We'll email you a secure reset link";
+      // Pre-fill email
+      const typedEmail = document.getElementById('landing-email-auth-email');
+      const forgotEmail = document.getElementById('landing-forgot-pw-email');
+      if (typedEmail && forgotEmail && typedEmail.value) forgotEmail.value = typedEmail.value;
+      _landingAuthMode = 'forgot';
+    }
+
+    function hideLandingForgotPassword(event) {
+      if (event) event.preventDefault();
+      const mainPanel = document.getElementById('landing-auth-main-panel');
+      const forgotPanel = document.getElementById('landing-auth-forgot-panel');
+      const title = document.getElementById('landing-auth-title');
+      const subtitle = document.getElementById('landing-auth-subtitle');
+      const errDiv = document.getElementById('landing-forgot-pw-error');
+      const okDiv = document.getElementById('landing-forgot-pw-success');
+      if (errDiv) { errDiv.style.display = 'none'; errDiv.textContent = ''; }
+      if (okDiv) { okDiv.style.display = 'none'; okDiv.textContent = ''; }
+      const forgotForm = document.getElementById('landing-forgot-pw-form');
+      if (forgotForm) forgotForm.style.display = 'block';
+      const forgotEmail = document.getElementById('landing-forgot-pw-email');
+      if (forgotEmail) forgotEmail.value = '';
+      if (forgotPanel) forgotPanel.style.display = 'none';
+      if (mainPanel) mainPanel.style.display = 'block';
+      if (title) title.textContent = 'Welcome to YoppyChat';
+      if (subtitle) subtitle.textContent = 'Create an account or log in to continue';
+      _landingAuthMode = 'signin';
+    }
+
+    async function handleLandingForgotPassword(event) {
+      event.preventDefault();
+      const email = document.getElementById('landing-forgot-pw-email').value.trim();
+      const errDiv = document.getElementById('landing-forgot-pw-error');
+      const okDiv = document.getElementById('landing-forgot-pw-success');
+      const submitBtn = document.getElementById('landing-forgot-pw-submit');
+      const forgotForm = document.getElementById('landing-forgot-pw-form');
+
+      if (errDiv) { errDiv.style.display = 'none'; errDiv.textContent = ''; }
+      if (okDiv) { okDiv.style.display = 'none'; okDiv.textContent = ''; }
+
+      if (!email) {
+        if (errDiv) { errDiv.textContent = 'Please enter your email address.'; errDiv.style.display = 'block'; }
+        return;
+      }
+      if (!window.supabaseClient) {
+        if (errDiv) { errDiv.textContent = 'Auth service unavailable.'; errDiv.style.display = 'block'; }
+        return;
+      }
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending...'; }
+      try {
+        const { error } = await window.supabaseClient.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + '/auth/reset-password'
+        });
+        if (error) {
+          const msg = error.message || '';
+          if (msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('too many')) {
+            // Previous email is still valid — tell the user to check inbox
+            if (okDiv) { okDiv.textContent = 'A reset link was already sent to this email. Please check your inbox (and spam folder) — the previous link is still valid for 1 hour.'; okDiv.style.display = 'block'; }
+            if (forgotForm) forgotForm.style.display = 'none';
+          } else {
+            if (errDiv) { errDiv.textContent = msg; errDiv.style.display = 'block'; }
+          }
+        } else {
+          if (okDiv) { okDiv.textContent = 'Reset link sent! Check your inbox and spam folder. The link expires in 1 hour.'; okDiv.style.display = 'block'; }
+          if (forgotForm) forgotForm.style.display = 'none';
+        }
+      } catch (err) {
+        if (errDiv) { errDiv.textContent = 'An unexpected error occurred. Please try again.'; errDiv.style.display = 'block'; }
+      } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send Reset Link'; }
+      }
+    }
+
+    function toggleLandingAuthMode(event) {
+      if (event) event.preventDefault();
+      _landingAuthMode = (_landingAuthMode === 'signin') ? 'signup' : 'signin';
+      const submitBtn = document.getElementById('landing-email-auth-submit');
+      const toggleText = document.getElementById('landing-auth-toggle-text');
+      const toggleLink = document.getElementById('landing-auth-toggle-link');
+      const subtitle = document.getElementById('landing-auth-subtitle');
+      const pwdInput = document.getElementById('landing-email-auth-password');
+      const errDiv = document.getElementById('landing-email-auth-error');
+      const okDiv = document.getElementById('landing-email-auth-success');
+      if (errDiv) { errDiv.style.display = 'none'; errDiv.textContent = ''; }
+      if (okDiv) { okDiv.style.display = 'none'; okDiv.textContent = ''; }
+      if (_landingAuthMode === 'signup') {
+        if (submitBtn) submitBtn.textContent = 'Create Account';
+        if (toggleText) toggleText.textContent = 'Already have an account?';
+        if (toggleLink) toggleLink.textContent = 'Sign In';
+        if (subtitle) subtitle.textContent = 'Create a free account to get started';
+        if (pwdInput) pwdInput.placeholder = 'Password (min. 6 characters)';
+      } else {
+        if (submitBtn) submitBtn.textContent = 'Sign In';
+        if (toggleText) toggleText.textContent = "Don't have an account?";
+        if (toggleLink) toggleLink.textContent = 'Sign Up';
+        if (subtitle) subtitle.textContent = 'Create an account or log in to continue';
+        if (pwdInput) pwdInput.placeholder = 'Password';
+      }
+    }
+
+    async function handleLandingEmailAuth(event) {
+      event.preventDefault();
+      const email = document.getElementById('landing-email-auth-email').value.trim();
+      const password = document.getElementById('landing-email-auth-password').value;
+      const errDiv = document.getElementById('landing-email-auth-error');
+      const okDiv = document.getElementById('landing-email-auth-success');
+      const submitBtn = document.getElementById('landing-email-auth-submit');
+
+      if (errDiv) { errDiv.style.display = 'none'; errDiv.textContent = ''; }
+      if (okDiv) { okDiv.style.display = 'none'; okDiv.textContent = ''; }
+
+      if (!email || !password) {
+        if (errDiv) { errDiv.textContent = 'Please enter your email and password.'; errDiv.style.display = 'block'; }
+        return;
+      }
+      if (!window.supabaseClient) {
+        if (errDiv) { errDiv.textContent = 'Auth service unavailable. Please use Google login.'; errDiv.style.display = 'block'; }
+        return;
+      }
+
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Please wait...'; }
+
+      try {
+        let result;
+        if (_landingAuthMode === 'signup') {
+          result = await window.supabaseClient.auth.signUp({ email, password });
+        } else {
+          result = await window.supabaseClient.auth.signInWithPassword({ email, password });
+        }
+
+        const { data, error } = result;
+        if (error) {
+          if (errDiv) { errDiv.textContent = error.message; errDiv.style.display = 'block'; }
+          return;
+        }
+
+        if (_landingAuthMode === 'signup' && data.user && !data.session) {
+          if (okDiv) {
+            okDiv.textContent = 'Account created! Check your email to confirm, then sign in.';
+            okDiv.style.display = 'block';
+          }
+          _landingAuthMode = 'signin';
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Sign In'; }
+          return;
+        }
+
+        if (data.session) {
+          const expiresAt = data.session.expires_at || (Date.now() / 1000 + data.session.expires_in);
+          const res = await fetch('/auth/set-cookie', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              access_token: data.session.access_token,
+              refresh_token: data.session.refresh_token,
+              expires_at: expiresAt
+            })
+          });
+          if (res.ok) {
+            const redirectUrl = localStorage.getItem('login_redirect_url');
+            if (redirectUrl) { localStorage.removeItem('login_redirect_url'); window.location.href = redirectUrl; }
+            else { window.location.href = '/channel'; }
+          } else {
+            if (errDiv) { errDiv.textContent = 'Login succeeded but session sync failed. Try again.'; errDiv.style.display = 'block'; }
+          }
+        }
+      } catch (err) {
+        console.error('Email auth error:', err);
+        if (errDiv) { errDiv.textContent = 'An unexpected error occurred. Please try again.'; errDiv.style.display = 'block'; }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = (_landingAuthMode === 'signup') ? 'Create Account' : 'Sign In';
+        }
+      }
+    }
+
     function showLoginPopup() {
       const modal = document.getElementById('login-popup-modal');
       if (modal) {
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
       }
+
+      // Reset to sign-in mode each time popup opens
+      if (_landingAuthMode === 'forgot') hideLandingForgotPassword(null);
+      else if (_landingAuthMode !== 'signin') toggleLandingAuthMode(null);
 
       const supabaseUrl = "{{ SUPABASE_URL or '' }}";
       const supabaseAnonKey = "{{ SUPABASE_ANON_KEY or '' }}";

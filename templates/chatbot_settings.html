@@ -3,1137 +3,549 @@
 {% block title %}Edit {{ chatbot.channel_name or chatbot.creator_name }} - YoppyChat AI{% endblock %}
 
 {% block page_styles %}
-<style>
-    .settings-container {
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 2rem 1.5rem;
-    }
-
-    .settings-header {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-
-    .back-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 40px;
-        height: 40px;
-        border-radius: var(--radius-md);
-        background: var(--surface-light);
-        border: 1px solid var(--neutral-200);
-        color: var(--text-secondary);
-        text-decoration: none;
-        transition: all 0.2s ease;
-    }
-
-    .back-btn:hover {
-        background: var(--surface-medium);
-        color: var(--text-primary);
-    }
-
-    .settings-header h1 {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: var(--text-primary);
-    }
-
-    .chatbot-avatar {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        object-fit: cover;
-    }
-
-    .avatar-upload-wrapper {
-        position: relative;
-        cursor: pointer;
-        flex-shrink: 0;
-    }
-
-    .avatar-upload-wrapper:hover .avatar-overlay {
-        opacity: 1;
-    }
-
-    .avatar-overlay {
-        position: absolute;
-        inset: 0;
-        border-radius: 50%;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        opacity: 0;
-        transition: opacity 0.2s;
-    }
-
-    .avatar-overlay svg {
-        width: 18px;
-        height: 18px;
-        color: white;
-    }
-
-    /* Avatar upload area in form */
-    .avatar-upload-area {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 1rem;
-        background: var(--surface-medium);
-        border-radius: var(--radius-md);
-        border: 2px dashed var(--neutral-200);
-        transition: all 0.2s;
-        cursor: pointer;
-    }
-
-    .avatar-upload-area:hover {
-        border-color: var(--accent-primary);
-        background: var(--surface-light);
-    }
-
-    .avatar-upload-area.dragging {
-        border-color: var(--accent-primary);
-        background: rgba(99, 102, 241, 0.05);
-    }
-
-    .avatar-preview {
-        width: 64px;
-        height: 64px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 2px solid var(--neutral-200);
-        flex-shrink: 0;
-    }
-
-    .avatar-upload-text {
-        flex: 1;
-    }
-
-    .avatar-upload-text .primary-text {
-        font-weight: 600;
-        font-size: 0.85rem;
-        color: var(--text-primary);
-        margin-bottom: 0.15rem;
-    }
-
-    .avatar-upload-text .secondary-text {
-        font-size: 0.7rem;
-        color: var(--text-muted);
-    }
-
-    .avatar-upload-spinner {
-        display: none;
-        width: 20px;
-        height: 20px;
-        border: 2px solid var(--neutral-200);
-        border-top-color: var(--accent-primary);
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-    }
-
-    .avatar-upload-area.uploading .avatar-upload-spinner {
-        display: block;
-    }
-
-    /* Form Sections */
-    .settings-section {
-        background: var(--surface-light);
-        border: 1px solid var(--neutral-200);
-        border-radius: var(--radius-lg);
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .section-title {
-        font-size: 1rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 1rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .section-title svg {
-        width: 18px;
-        height: 18px;
-        color: var(--accent-primary);
-    }
-
-    .form-group {
-        margin-bottom: 1.25rem;
-    }
-
-    .form-group:last-child {
-        margin-bottom: 0;
-    }
-
-    .form-label {
-        display: block;
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: var(--text-primary);
-        margin-bottom: 0.5rem;
-    }
-
-    .form-input,
-    .form-select,
-    .form-textarea {
-        width: 100%;
-        padding: 0.75rem 1rem;
-        font-size: 0.9rem;
-        border: 1px solid var(--neutral-200);
-        border-radius: var(--radius-md);
-        background: var(--background);
-        color: var(--text-primary);
-        transition: border-color 0.2s;
-    }
-
-    .form-input:focus,
-    .form-select:focus,
-    .form-textarea:focus {
-        outline: none;
-        border-color: var(--accent-primary);
-    }
-
-    .form-textarea {
-        min-height: 100px;
-        resize: vertical;
-    }
-
-    .form-hint {
-        font-size: 0.75rem;
-        color: var(--text-muted);
-        margin-top: 0.35rem;
-    }
-
-    /* Bot Type Cards */
-    .bot-type-options {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 0.75rem;
-    }
-
-    .bot-type-card {
-        padding: 1rem;
-        border: 2px solid var(--neutral-200);
-        border-radius: var(--radius-md);
-        cursor: pointer;
-        transition: all 0.2s;
-        text-align: center;
-    }
-
-    .bot-type-card:hover {
-        border-color: var(--accent-primary);
-        background: var(--surface-medium);
-    }
-
-    .bot-type-card.selected {
-        border-color: var(--accent-primary);
-        background: rgba(255, 107, 53, 0.08);
-    }
-
-    .bot-type-card input {
-        display: none;
-    }
-
-    .bot-type-icon {
-        font-size: 1.75rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .bot-type-name {
-        font-weight: 600;
-        font-size: 0.9rem;
-        color: var(--text-primary);
-    }
-
-    .bot-type-desc {
-        font-size: 0.75rem;
-        color: var(--text-secondary);
-        margin-top: 0.25rem;
-    }
-
-    /* Data Sources */
-    .data-source-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
-    .data-source-item {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.75rem;
-        background: var(--surface-medium);
-        border-radius: var(--radius-md);
-    }
-
-    .data-source-item.expandable {
-        flex-wrap: wrap;
-        cursor: pointer;
-    }
-
-    .data-source-item.expandable:hover {
-        background: var(--surface-light);
-    }
-
-    .source-icon {
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: var(--radius-sm);
-        font-size: 1.25rem;
-        flex-shrink: 0;
-    }
-
-    .source-icon.youtube {
-        background: rgba(255, 0, 0, 0.1);
-    }
-
-    .source-icon.whatsapp {
-        background: rgba(37, 211, 102, 0.1);
-    }
-
-    .source-icon.website {
-        background: rgba(99, 102, 241, 0.1);
-    }
-
-    .source-info {
-        flex: 1;
-    }
-
-    .source-type {
-        font-weight: 500;
-        font-size: 0.9rem;
-        color: var(--text-primary);
-    }
-
-    .source-url {
-        font-size: 0.75rem;
-        color: var(--text-muted);
-        word-break: break-all;
-    }
-
-    .source-meta {
-        font-size: 0.7rem;
-        color: var(--text-secondary);
-        margin-top: 0.15rem;
-    }
-
-    .source-status {
-        font-size: 0.7rem;
-        font-weight: 600;
-        padding: 4px 8px;
-        border-radius: var(--radius-full);
-        flex-shrink: 0;
-    }
-
-    .source-status.ready {
-        background: rgba(16, 185, 129, 0.15);
-        color: #10B981;
-    }
-
-    .source-status.processing {
-        background: rgba(245, 158, 11, 0.15);
-        color: #F59E0B;
-    }
-
-    .source-status.pending {
-        background: rgba(99, 102, 241, 0.15);
-        color: #6366F1;
-    }
-
-    .source-status.failed {
-        background: rgba(239, 68, 68, 0.15);
-        color: #EF4444;
-    }
-
-    .expand-toggle {
-        font-size: 0.7rem;
-        color: var(--accent-primary);
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-        flex-shrink: 0;
-    }
-
-    .expand-toggle svg {
-        width: 14px;
-        height: 14px;
-        transition: transform 0.2s;
-    }
-
-    .data-source-item.expanded .expand-toggle svg {
-        transform: rotate(180deg);
-    }
-
-    /* Scraped Pages List */
-    .scraped-pages-container {
-        width: 100%;
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s ease;
-    }
-
-    .data-source-item.expanded .scraped-pages-container {
-        max-height: 600px;
-        overflow-y: auto;
-    }
-
-    .scraped-pages-list {
-        margin-top: 0.5rem;
-        padding: 0.5rem;
-        background: var(--background);
-        border-radius: var(--radius-md);
-        border: 1px solid var(--neutral-200);
-    }
-
-    .scraped-pages-header {
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--text-secondary);
-        margin-bottom: 0.5rem;
-        padding-bottom: 0.35rem;
-        border-bottom: 1px solid var(--neutral-200);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .scraped-page-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.35rem 0.25rem;
-        font-size: 0.75rem;
-        border-bottom: 1px solid var(--neutral-100);
-    }
-
-    .scraped-page-item:last-child {
-        border-bottom: none;
-    }
-
-    .page-status-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        flex-shrink: 0;
-    }
-
-    .page-status-dot.success {
-        background: #10B981;
-    }
-
-    .page-status-dot.failed {
-        background: #EF4444;
-    }
-
-    .page-link {
-        flex: 1;
-        color: var(--text-primary);
-        text-decoration: none;
-        word-break: break-all;
-        transition: color 0.2s;
-    }
-
-    .page-link:hover {
-        color: var(--accent-primary);
-    }
-
-    .page-words {
-        font-size: 0.65rem;
-        color: var(--text-muted);
-        flex-shrink: 0;
-    }
-
-    /* Add Website Form */
-    .add-source-section {
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 1px solid var(--neutral-200);
-    }
-
-    .add-source-form {
-        display: flex;
-        gap: 0.5rem;
-        align-items: stretch;
-    }
-
-    .add-source-form .form-input {
-        flex: 1;
-        padding: 0.6rem 0.75rem;
-        font-size: 0.85rem;
-    }
-
-    .btn-add-source {
-        padding: 0.6rem 1rem;
-        font-size: 0.8rem;
-        font-weight: 600;
-        background: var(--accent-primary);
-        color: white;
-        border: none;
-        border-radius: var(--radius-md);
-        cursor: pointer;
-        white-space: nowrap;
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
-        transition: all 0.2s;
-    }
-
-    .btn-add-source:hover {
-        opacity: 0.9;
-    }
-
-    .btn-add-source:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .btn-add-source svg {
-        width: 14px;
-        height: 14px;
-    }
-
-    .add-source-hint {
-        font-size: 0.7rem;
-        color: var(--text-muted);
-        margin-top: 0.35rem;
-    }
-
-    .crawl-mode-option {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.35rem 0.65rem;
-        font-size: 0.7rem;
-        font-weight: 500;
-        border-radius: var(--radius-full);
-        border: 1px solid var(--neutral-200);
-        background: var(--surface-medium);
-        color: var(--text-secondary);
-        cursor: pointer;
-        transition: all 0.2s;
-        user-select: none;
-    }
-
-    .crawl-mode-option:hover {
-        border-color: var(--accent-primary);
-        color: var(--accent-primary);
-    }
-
-    .crawl-mode-option.selected {
-        background: rgba(99, 102, 241, 0.1);
-        border-color: var(--accent-primary);
-        color: var(--accent-primary);
-        font-weight: 600;
-    }
-
-    /* Action Buttons */
-    .settings-actions {
-        display: flex;
-        gap: 1rem;
-        margin-top: 2rem;
-    }
-
-    .btn {
-        padding: 0.75rem 1.5rem;
-        font-size: 0.9rem;
-        font-weight: 600;
-        border-radius: var(--radius-md);
-        cursor: pointer;
-        transition: all 0.2s;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        border: none;
-    }
-
-    .btn-primary {
-        background: var(--accent-primary);
-        color: white;
-    }
-
-    .btn-primary:hover {
-        opacity: 0.9;
-    }
-
-    .btn-secondary {
-        background: var(--surface-medium);
-        color: var(--text-primary);
-        border: 1px solid var(--neutral-200);
-    }
-
-    .btn-secondary:hover {
-        background: var(--surface-light);
-    }
-
-    .btn-danger {
-        background: rgba(239, 68, 68, 0.1);
-        color: #EF4444;
-        border: 1px solid rgba(239, 68, 68, 0.3);
-    }
-
-    .btn-danger:hover {
-        background: #EF4444;
-        color: white;
-    }
-
-    .spacer {
-        flex: 1;
-    }
-
-    /* Toast notification */
-    .toast {
-        position: fixed;
-        bottom: 2rem;
-        right: 2rem;
-        padding: 1rem 1.5rem;
-        border-radius: var(--radius-md);
-        font-weight: 500;
-        z-index: 1000;
-        animation: slideIn 0.3s ease;
-    }
-
-    .toast.success {
-        background: #10B981;
-        color: white;
-    }
-
-    .toast.error {
-        background: #EF4444;
-        color: white;
-    }
-
-    @keyframes slideIn {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-
-    @media (max-width: 768px) {
-        .bot-type-options {
-            grid-template-columns: 1fr;
-        }
-
-        .settings-actions {
-            flex-direction: column;
-        }
-
-        .add-source-form {
-            flex-direction: column;
-        }
-    }
-
-    /* ===== Lead Capture Styles ===== */
-    .lc-toggle {
-        position: relative;
-        display: inline-block;
-        width: 48px;
-        height: 26px;
-        flex-shrink: 0;
-    }
-
-    .lc-toggle input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-    }
-
-    .lc-toggle-slider {
-        position: absolute;
-        cursor: pointer;
-        inset: 0;
-        background: var(--neutral-200);
-        border-radius: 26px;
-        transition: 0.3s;
-    }
-
-    .lc-toggle-slider:before {
-        content: "";
-        position: absolute;
-        height: 20px;
-        width: 20px;
-        left: 3px;
-        bottom: 3px;
-        background: white;
-        border-radius: 50%;
-        transition: 0.3s;
-    }
-
-    .lc-toggle input:checked+.lc-toggle-slider {
-        background: #667eea;
-    }
-
-    .lc-toggle input:checked+.lc-toggle-slider:before {
-        transform: translateX(22px);
-    }
-
-    .lc-field-card {
-        background: var(--surface-medium);
-        border: 1px solid var(--neutral-200);
-        border-radius: var(--radius-md);
-        padding: 1rem;
-        margin-bottom: 0.75rem;
-        display: grid;
-        grid-template-columns: 1fr auto auto;
-        gap: 0.75rem;
-        align-items: start;
-    }
-
-    .lc-field-main {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .lc-field-row {
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-        flex-wrap: wrap;
-    }
-
-    .lc-field-label {
-        flex: 1;
-        min-width: 140px;
-        padding: 0.45rem 0.75rem;
-        border: 1px solid var(--neutral-200);
-        border-radius: var(--radius-sm);
-        background: var(--surface-light);
-        color: var(--text-primary);
-        font-size: 0.9rem;
-    }
-
-    .lc-field-type {
-        padding: 0.45rem 0.75rem;
-        border: 1px solid var(--neutral-200);
-        border-radius: var(--radius-sm);
-        background: var(--surface-light);
-        color: var(--text-primary);
-        font-size: 0.9rem;
-    }
-
-    .lc-field-options-row {
-        display: none;
-        margin-top: 0.4rem;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .lc-field-options-row.visible {
-        display: flex;
-    }
-
-    .lc-field-options {
-        flex: 1;
-        padding: 0.4rem 0.75rem;
-        border: 1px solid var(--neutral-200);
-        border-radius: var(--radius-sm);
-        background: var(--surface-light);
-        color: var(--text-primary);
-        font-size: 0.85rem;
-    }
-
-    .lc-required-wrap {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        font-size: 0.82rem;
-        color: var(--text-secondary);
-        white-space: nowrap;
-    }
-
-    .lc-remove-btn {
-        background: none;
-        border: none;
-        color: var(--text-muted);
-        cursor: pointer;
-        padding: 4px;
-        border-radius: 4px;
-        transition: color 0.2s, background 0.2s;
-    }
-
-    .lc-remove-btn:hover {
-        color: #EF4444;
-        background: rgba(239, 68, 68, 0.08);
-    }
-
-    .lc-drag-handle {
-        cursor: grab;
-        color: var(--text-muted);
-        padding: 4px;
-        font-size: 1rem;
-        line-height: 1;
-    }
-
-    .lc-add-field-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        padding: 0.55rem 1rem;
-        background: var(--surface-medium);
-        border: 1.5px dashed var(--neutral-200);
-        border-radius: var(--radius-md);
-        color: var(--accent-primary);
-        font-weight: 600;
-        font-size: 0.88rem;
-        cursor: pointer;
-        transition: all 0.2s;
-        margin-top: 0.25rem;
-    }
-
-    .lc-add-field-btn:hover {
-        background: rgba(102, 126, 234, 0.07);
-        border-color: var(--accent-primary);
-    }
-
-    @media (max-width: 600px) {
-        .lc-field-card {
-            grid-template-columns: 1fr auto;
-        }
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chatbot_settings.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="settings-container">
-    <!-- Header -->
-    <div class="settings-header">
-        <a href="{{ url_for('dashboard') }}" class="back-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-        </a>
-        <div class="avatar-upload-wrapper" onclick="document.getElementById('avatarFileInput').click()"
-            title="Click to change profile picture">
-            <img src="{{ chatbot.channel_thumbnail or url_for('static', filename='images/default-avatar.png') }}"
-                alt="{{ chatbot.channel_name }}" class="chatbot-avatar" id="headerAvatar">
-            <div class="avatar-overlay">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                    <circle cx="12" cy="13" r="4" />
+<input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none"
+    onchange="uploadAvatar(this)">
+
+<div class="cs-layout">
+    <!-- Left Sidebar Tabs -->
+    <nav class="cs-sidebar">
+        <div class="cs-sidebar-header">
+            {% if chatbot.channel_thumbnail %}
+            <img src="{{ chatbot.channel_thumbnail }}" alt="{{ chatbot.channel_name }}" class="cs-bot-avatar"
+                id="sidebarAvatar">
+            {% else %}
+            <div class="cs-bot-avatar cs-letter-avatar" id="sidebarAvatar"
+                data-name="{{ chatbot.channel_name or chatbot.creator_name or 'C' }}"></div>
+            {% endif %}
+            <span class="cs-bot-name">{{ chatbot.channel_name or chatbot.creator_name }}</span>
+        </div>
+        <ul class="cs-tab-list">
+            <li><button class="cs-tab-btn active" data-tab="general" onclick="switchTab('general', this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                    </svg>
+                    General</button></li>
+            <li><button class="cs-tab-btn" data-tab="sources" onclick="switchTab('sources', this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                    </svg>
+                    Data Sources</button></li>
+            <li><button class="cs-tab-btn" data-tab="integrations" onclick="switchTab('integrations', this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M16 16v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h1" />
+                        <rect x="9" y="3" width="13" height="13" rx="2" />
+                    </svg>
+                    Integrations</button></li>
+            <li><button class="cs-tab-btn" data-tab="leads" onclick="switchTab('leads', this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    Lead Capture</button></li>
+            <li><button class="cs-tab-btn" data-tab="transfer" onclick="switchTab('transfer', this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                        <polyline points="16 6 12 2 8 6" />
+                        <line x1="12" y1="2" x2="12" y2="15" />
+                    </svg>
+                    Transfer</button></li>
+        </ul>
+        <div class="cs-sidebar-actions">
+            <button class="cs-btn cs-btn-primary" onclick="saveSettings()" style="width:100%;justify-content:center;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                    <polyline points="17 21 17 13 7 13 7 21" />
+                    <polyline points="7 3 7 8 15 8" />
                 </svg>
-            </div>
+                Save Changes</button>
+            <a href="{{ url_for('public_chat_page', channel_name=chatbot.channel_name) }}" target="_blank"
+                class="cs-btn cs-btn-secondary" style="width:100%;justify-content:center;text-decoration:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+                Preview Chat</a>
         </div>
-        <input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none"
-            onchange="uploadAvatar(this)">
-        <h1>Edit {{ chatbot.channel_name or chatbot.creator_name }}</h1>
-    </div>
+    </nav>
 
-    <!-- Basic Info Section -->
-    <div class="settings-section">
-        <h2 class="section-title">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="16" x2="12" y2="12" />
-                <line x1="12" y1="8" x2="12.01" y2="8" />
-            </svg>
-            Basic Information
-        </h2>
+    <!-- Right Content -->
+    <div class="cs-content">
 
-        <div class="form-group">
-            <label class="form-label">Profile Picture</label>
-            <div class="avatar-upload-area" id="avatarDropArea"
-                onclick="document.getElementById('avatarFileInput').click()">
-                <img src="{{ chatbot.channel_thumbnail or url_for('static', filename='images/default-avatar.png') }}"
-                    alt="Avatar" class="avatar-preview" id="avatarPreview">
-                <div class="avatar-upload-text">
-                    <div class="primary-text">Click to upload or drag & drop</div>
-                    <div class="secondary-text">PNG, JPG, GIF or WebP. Max 5MB.</div>
-                </div>
-                <div class="avatar-upload-spinner"></div>
-            </div>
-        </div>
+        <!-- ============ GENERAL TAB ============ -->
+        <div class="cs-panel active" id="panel-general">
+            <h2 class="cs-panel-title">General Settings</h2>
+            <p class="cs-panel-desc">Configure your chatbot's identity and personality.</p>
 
-        <div class="form-group">
-            <label class="form-label" for="channel_name">Chatbot Name</label>
-            <input type="text" id="channel_name" class="form-input" value="{{ chatbot.channel_name or '' }}"
-                placeholder="e.g. SUZU Travel Customer Agent">
-            <div class="form-hint">This name appears in conversations and on your public chat page.</div>
-        </div>
-
-        <div class="form-group">
-            <label class="form-label" for="creator_name">Display Name / Business Name</label>
-            <input type="text" id="creator_name" class="form-input" value="{{ chatbot.creator_name or '' }}"
-                placeholder="e.g. SUZU Travel">
-            <div class="form-hint">The name the bot will use to identify itself.</div>
-        </div>
-    </div>
-
-    <!-- Persona Section -->
-    <div class="settings-section">
-        <h2 class="section-title">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-            </svg>
-            Bot Personality
-        </h2>
-
-        <div class="form-group">
-            <label class="form-label">Bot Type</label>
-            <div class="bot-type-options">
-                <label
-                    class="bot-type-card {{ 'selected' if chatbot.bot_type == 'business' or not chatbot.bot_type else '' }}"
-                    data-type="business">
-                    <input type="radio" name="bot_type" value="business" {{ 'checked' if chatbot.bot_type=='business' or
-                        not chatbot.bot_type else '' }}>
-                    <div class="bot-type-icon">🏢</div>
-                    <div class="bot-type-name">Business Support</div>
-                    <div class="bot-type-desc">Customer service agent</div>
-                </label>
-
-                <label class="bot-type-card {{ 'selected' if chatbot.bot_type == 'youtuber' else '' }}"
-                    data-type="youtuber">
-                    <input type="radio" name="bot_type" value="youtuber" {{ 'checked' if chatbot.bot_type=='youtuber'
-                        else '' }}>
-                    <div class="bot-type-icon">🎬</div>
-                    <div class="bot-type-name">Creator / YouTuber</div>
-                    <div class="bot-type-desc">Talks like a content creator</div>
-                </label>
-
-                <label class="bot-type-card {{ 'selected' if chatbot.bot_type == 'general' else '' }}"
-                    data-type="general">
-                    <input type="radio" name="bot_type" value="general" {{ 'checked' if chatbot.bot_type=='general'
-                        else '' }}>
-                    <div class="bot-type-icon">🤖</div>
-                    <div class="bot-type-name">General Assistant</div>
-                    <div class="bot-type-desc">Balanced, informative</div>
-                </label>
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label class="form-label" for="speaking_style">Speaking Style / Tone</label>
-            <textarea id="speaking_style" class="form-textarea"
-                placeholder="Describe how the bot should communicate...">{{ chatbot.speaking_style or '' }}</textarea>
-            <div class="form-hint">Describe the tone, vocabulary, and communication style the bot should use. Leave
-                empty for auto-detected style.</div>
-        </div>
-    </div>
-
-    <!-- Data Sources Section -->
-    <div class="settings-section">
-        <h2 class="section-title">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path
-                    d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-            </svg>
-            Data Sources
-        </h2>
-
-        {% if data_sources %}
-        <div class="data-source-list" id="dataSourceList">
-            {% for source in data_sources %}
-            {% set has_scraped_pages = source.metadata and source.metadata.scraped_pages %}
-            <div class="data-source-item {% if has_scraped_pages %}expandable{% endif %}" {% if has_scraped_pages
-                %}onclick="toggleScrapedPages(this)" {% endif %} data-source-id="{{ source.id }}">
-                <div class="source-icon {{ source.source_type }}">
-                    {% if source.source_type == 'youtube' %}📺
-                    {% elif source.source_type == 'whatsapp' %}💬
-                    {% elif source.source_type == 'website' %}🌐
-                    {% endif %}
-                </div>
-                <div class="source-info">
-                    <div class="source-type">{{ source.source_type|capitalize }}</div>
-                    <div class="source-url">{{ source.source_url or 'File uploaded' }}</div>
-                    {% if source.metadata %}
-                    {% if source.source_type == 'website' and source.metadata.page_count %}
-                    <div class="source-meta">
-                        {{ source.metadata.page_count }} pages scraped · {{ source.metadata.total_words|default(0) }}
-                        words
-                        {% if source.metadata.failed_pages %} · {{ source.metadata.failed_pages }} failed{% endif %}
-                    </div>
-                    {% elif source.source_type == 'whatsapp' and source.metadata.message_count %}
-                    <div class="source-meta">
-                        {{ source.metadata.message_count }} messages · {{ source.metadata.unique_senders|default(0) }}
-                        senders
-                    </div>
-                    {% endif %}
-                    {% endif %}
-                </div>
-                <span class="source-status {{ source.status }}">{{ source.status|upper }}</span>
-
-                {% if has_scraped_pages %}
-                <div class="expand-toggle">
-                    View pages
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="6 9 12 15 18 9" />
+            <div class="cs-section">
+                <h3 class="cs-section-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
                     </svg>
-                </div>
-
-                <div class="scraped-pages-container">
-                    <div class="scraped-pages-list">
-                        <div class="scraped-pages-header">
-                            <span>Scraped Pages ({{ source.metadata.scraped_pages|length }})</span>
-                            <span style="font-weight: 400;">Click a link to open</span>
+                    Basic Information
+                </h3>
+                <div class="cs-form-group">
+                    <label class="cs-label">Profile Picture</label>
+                    <div class="cs-avatar-area" id="avatarDropArea"
+                        onclick="document.getElementById('avatarFileInput').click()">
+                        {% if chatbot.channel_thumbnail %}
+                        <img src="{{ chatbot.channel_thumbnail }}" alt="Avatar" class="cs-avatar-preview"
+                            id="avatarPreview">
+                        {% else %}
+                        <div class="cs-avatar-preview cs-letter-avatar" id="avatarPreview"
+                            data-name="{{ chatbot.channel_name or chatbot.creator_name or 'C' }}"></div>
+                        {% endif %}
+                        <div class="cs-avatar-text">
+                            <div class="primary-text">Click to upload or drag & drop</div>
+                            <div class="secondary-text">PNG, JPG, GIF or WebP. Max 5MB.</div>
                         </div>
-                        {% for page in source.metadata.scraped_pages %}
-                        <div class="scraped-page-item">
-                            <div class="page-status-dot {{ page.status }}"></div>
-                            <a href="{{ page.url }}" target="_blank" class="page-link"
-                                onclick="event.stopPropagation()">
-                                {{ page.title or page.url }}
-                            </a>
-                            {% if page.word_count %}
-                            <span class="page-words">{{ page.word_count }} words</span>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
+                        <div class="cs-avatar-spinner"></div>
                     </div>
                 </div>
-                {% endif %}
+                <div class="cs-form-group">
+                    <label class="cs-label" for="channel_name">Chatbot Name</label>
+                    <input type="text" id="channel_name" class="cs-input" value="{{ chatbot.channel_name or '' }}"
+                        placeholder="e.g. SUZU Travel Customer Agent">
+                    <div class="cs-hint">This name appears in conversations and on your public chat page.</div>
+                </div>
+                <div class="cs-form-group">
+                    <label class="cs-label" for="creator_name">Display Name / Business Name</label>
+                    <input type="text" id="creator_name" class="cs-input" value="{{ chatbot.creator_name or '' }}"
+                        placeholder="e.g. SUZU Travel">
+                    <div class="cs-hint">The name the bot will use to identify itself.</div>
+                </div>
             </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <p style="color: var(--text-muted); font-size: 0.9rem;">No data sources configured yet.</p>
-        {% endif %}
 
-        <!-- Add Website Source -->
-        <div class="add-source-section">
-            <label class="form-label">Add Website Source</label>
-            <div class="add-source-form">
-                <input type="url" id="newWebsiteUrl" class="form-input"
-                    placeholder="https://example.com or https://example.com/specific-page"
-                    onkeypress="if(event.key==='Enter') addWebsiteSource()">
-                <button type="button" class="btn-add-source" id="addWebsiteBtn" onclick="addWebsiteSource()">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
+            <div class="cs-section">
+                <h3 class="cs-section-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
                     </svg>
-                    Add Website
+                    Bot Personality
+                </h3>
+                <div class="cs-form-group">
+                    <label class="cs-label">Bot Type</label>
+                    <div class="cs-type-grid">
+                        <label
+                            class="cs-type-card {{ 'selected' if chatbot.bot_type == 'business' or not chatbot.bot_type else '' }}"
+                            data-type="business">
+                            <input type="radio" name="bot_type" value="business" {{ 'checked' if
+                                chatbot.bot_type=='business' or not chatbot.bot_type else '' }}>
+                            <div class="cs-type-icon">🏢</div>
+                            <div class="cs-type-name">Business Support</div>
+                            <div class="cs-type-desc">Customer service agent</div>
+                        </label>
+                        <label class="cs-type-card {{ 'selected' if chatbot.bot_type == 'youtuber' else '' }}"
+                            data-type="youtuber">
+                            <input type="radio" name="bot_type" value="youtuber" {{ 'checked' if
+                                chatbot.bot_type=='youtuber' else '' }}>
+                            <div class="cs-type-icon">🎬</div>
+                            <div class="cs-type-name">Creator / YouTuber</div>
+                            <div class="cs-type-desc">Talks like a content creator</div>
+                        </label>
+                        <label class="cs-type-card {{ 'selected' if chatbot.bot_type == 'general' else '' }}"
+                            data-type="general">
+                            <input type="radio" name="bot_type" value="general" {{ 'checked' if
+                                chatbot.bot_type=='general' else '' }}>
+                            <div class="cs-type-icon">🤖</div>
+                            <div class="cs-type-name">General Assistant</div>
+                            <div class="cs-type-desc">Balanced, informative</div>
+                        </label>
+                    </div>
+                </div>
+                <div class="cs-form-group">
+                    <label class="cs-label" for="speaking_style">Speaking Style / Tone</label>
+                    <textarea id="speaking_style" class="cs-textarea"
+                        placeholder="Describe how the bot should communicate...">{{ chatbot.speaking_style or '' }}</textarea>
+                    <div class="cs-hint">Describe the tone, vocabulary, and communication style. Leave empty for
+                        auto-detected style.</div>
+                </div>
+                <div class="cs-form-group" style="margin-top: 1.5rem;">
+                    <label class="cs-label" for="promotion_triggers" style="color: var(--purple, #9333ea);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"
+                            height="16" style="vertical-align: middle; margin-right: 4px; margin-bottom: 2px;">
+                            <path
+                                d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                        </svg>
+                        Promotion Triggers & Actions
+                    </label>
+                    <textarea id="promotion_triggers" class="cs-textarea"
+                        style="border-color: rgba(147, 51, 234, 0.3); background-color: rgba(147, 51, 234, 0.02);"
+                        placeholder="Instruct the bot with specific outcomes. e.g. 'If someone asks for consulting, drop my Calendly link: https://calendly.com/'">{{ chatbot.promotion_triggers or '' }}</textarea>
+                    <div class="cs-hint">Turn questions into conversions. Instruct the bot to share links, discount
+                        codes, or booking pages when relevant intent is detected.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ DATA SOURCES TAB ============ -->
+        <div class="cs-panel" id="panel-sources">
+            <h2 class="cs-panel-title">Data Sources</h2>
+            <p class="cs-panel-desc">Manage the knowledge base that powers your chatbot's answers.</p>
+
+            <div id="dataSourceList">
+                <div class="cs-loading">
+                    <div class="cs-spinner"></div> Loading data sources...
+                </div>
+            </div>
+
+            <!-- Source Type Tabs -->
+            <div class="cs-source-tabs" id="sourceTypeTabs">
+                <button type="button" class="cs-source-tab active" data-tab="website"
+                    onclick="switchSourceTab('website', this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="2" y1="12" x2="22" y2="12" />
+                        <path
+                            d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg>
+                    Website
+                </button>
+                <button type="button" class="cs-source-tab" data-tab="youtube"
+                    onclick="switchSourceTab('youtube', this)">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+                        <path
+                            d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"
+                            fill="#FF0000" />
+                    </svg>
+                    YouTube
+                </button>
+                <button type="button" class="cs-source-tab" data-tab="whatsapp"
+                    onclick="switchSourceTab('whatsapp', this)">
+                    <svg viewBox="0 0 24 24" fill="#25D366" width="16" height="16">
+                        <path
+                            d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                    </svg>
+                    WhatsApp
+                </button>
+                <button type="button" class="cs-source-tab" data-tab="pdf" onclick="switchSourceTab('pdf', this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#e53e3e" stroke-width="2" width="16" height="16">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                    PDF
                 </button>
             </div>
-            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
-                <label class="crawl-mode-option selected" data-mode="auto" onclick="selectCrawlMode(this, 'auto')">
-                    <input type="radio" name="crawl_mode" value="auto" checked style="display:none">
-                    <span>&#128269; Auto-detect</span>
-                </label>
-                <label class="crawl-mode-option" data-mode="single_page" onclick="selectCrawlMode(this, 'single_page')">
-                    <input type="radio" name="crawl_mode" value="single_page" style="display:none">
-                    <span>&#128196; This page only</span>
-                </label>
-                <label class="crawl-mode-option" data-mode="full_crawl" onclick="selectCrawlMode(this, 'full_crawl')">
-                    <input type="radio" name="crawl_mode" value="full_crawl" style="display:none">
-                    <span>&#127760; Crawl entire site</span>
-                </label>
-            </div>
-            <div class="add-source-hint" id="crawlModeHint">
-                <strong>Auto-detect:</strong> Specific page URLs (e.g. /about) scrape only that page. Root URLs (e.g.
-                example.com) crawl the full site.
-            </div>
-        </div>
-    </div>
 
-    <!-- Lead Capture Section -->
-    <div class="settings-section" id="leadCaptureSection">
-        <div class="section-header">
-            <div class="section-icon">🎯</div>
-            <div>
-                <h2 class="section-title">Lead Capture</h2>
-                <p class="section-subtitle">Collect visitor information automatically and send it to your inbox.</p>
-            </div>
-        </div>
-
-        <div class="form-group">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-                <div>
-                    <label class="form-label" style="margin-bottom:0;">Enable Lead Capture</label>
-                    <p style="color:var(--text-secondary);font-size:0.85rem;margin:2px 0 0;">When enabled, the chatbot
-                        will collect visitor details using your custom fields below.</p>
+            <!-- Website Add Source Panel -->
+            <div class="cs-add-source" id="sourcePanel-website">
+                <label class="cs-label">Add Website Source</label>
+                <div class="cs-add-form">
+                    <input type="url" id="newWebsiteUrl" class="cs-input"
+                        placeholder="https://example.com or https://example.com/specific-page"
+                        onkeypress="if(event.key==='Enter') addWebsiteSource()">
+                    <button type="button" class="cs-add-btn" id="addWebsiteBtn" onclick="addWebsiteSource()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        Add Website
+                    </button>
                 </div>
-                <label class="lc-toggle">
-                    <input type="checkbox" id="leadCaptureEnabled" {% if chatbot.lead_capture_enabled %}checked{% endif
-                        %}>
-                    <span class="lc-toggle-slider"></span>
-                </label>
+                <div class="cs-crawl-modes">
+                    <label class="cs-crawl-opt selected" data-mode="auto" onclick="selectCrawlMode(this, 'auto')">
+                        <input type="radio" name="crawl_mode" value="auto" checked style="display:none">
+                        🔍 Auto-detect
+                    </label>
+                    <label class="cs-crawl-opt" data-mode="single_page" onclick="selectCrawlMode(this, 'single_page')">
+                        <input type="radio" name="crawl_mode" value="single_page" style="display:none">
+                        📄 This page only
+                    </label>
+                    <label class="cs-crawl-opt" data-mode="full_crawl" onclick="selectCrawlMode(this, 'full_crawl')">
+                        <input type="radio" name="crawl_mode" value="full_crawl" style="display:none">
+                        🌐 Crawl entire site
+                    </label>
+                </div>
+                <div class="cs-hint" id="crawlModeHint" style="margin-top:0.4rem;">
+                    <strong>Auto-detect:</strong> Specific page URLs scrape only that page. Root URLs crawl the full
+                    site.
+                </div>
+            </div>
+
+            <!-- YouTube Add Source Panel -->
+            <div class="cs-add-source" id="sourcePanel-youtube" style="display:none;">
+                <label class="cs-label">Add YouTube Channel</label>
+                <div class="cs-add-form">
+                    <input type="url" id="newYoutubeUrl" class="cs-input"
+                        placeholder="https://youtube.com/@channelname or video URL"
+                        onkeypress="if(event.key==='Enter') addYoutubeSource()">
+                    <button type="button" class="cs-add-btn cs-add-btn--youtube" id="addYoutubeBtn"
+                        onclick="addYoutubeSource()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        Add YouTube
+                    </button>
+                </div>
+                <div class="cs-hint" style="margin-top:0.4rem;">
+                    <strong>Tip:</strong> You can add a channel URL (e.g. <code>youtube.com/@channel</code>) or a
+                    specific video URL. The bot will learn from the transcripts.
+                </div>
+            </div>
+
+            <!-- WhatsApp Add Source Panel -->
+            <div class="cs-add-source" id="sourcePanel-whatsapp" style="display:none;">
+                <label class="cs-label">Add WhatsApp Chat Export</label>
+                <div class="cs-wa-upload-area" id="waUploadArea">
+                    <input type="file" id="newWhatsappFile" accept=".txt" style="display:none"
+                        onchange="handleWaFileSelect(this)">
+                    <label for="newWhatsappFile" class="cs-wa-upload-label" id="waUploadLabel">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32"
+                            height="32" style="color:var(--primary,#ff9a56);margin-bottom:8px;">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        <span style="font-weight:600;color:var(--primary,#ff9a56);">Choose a file</span>
+                        <span style="font-size:0.82rem;color:var(--text-secondary);">WhatsApp chat export (.txt), max
+                            16MB</span>
+                    </label>
+                    <div id="waFileSelected"
+                        style="display:none;padding:12px 16px;display:none;align-items:center;gap:10px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#25D366" stroke-width="2" width="20" height="20">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        <span id="waFileName" style="font-size:0.9rem;font-weight:500;flex:1;"></span>
+                        <button type="button" onclick="clearWaFile()"
+                            style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;padding:0;">✕</button>
+                    </div>
+                </div>
+                <div class="cs-add-form" style="margin-top:0.75rem;">
+                    <input type="text" id="newWaAgentName" class="cs-input"
+                        placeholder="Agent name (optional, e.g. Support Team)" style="flex:1;">
+                    <button type="button" class="cs-add-btn cs-add-btn--whatsapp" id="addWhatsappBtn"
+                        onclick="addWhatsappSource()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        Upload & Add
+                    </button>
+                </div>
+                <div class="cs-hint" style="margin-top:0.4rem;">
+                    Export chat: <strong>WhatsApp → Chat → More → Export Chat → Without Media</strong>
+                </div>
+            </div>
+
+            <!-- PDF Add Source Panel -->
+            <div class="cs-add-source" id="sourcePanel-pdf" style="display:none;">
+                <label class="cs-label">Upload PDF Document</label>
+                <div class="cs-wa-upload-area" id="pdfUploadArea">
+                    <input type="file" id="newPdfFile" accept=".pdf,application/pdf" style="display:none"
+                        onchange="handlePdfFileSelect(this)">
+                    <label for="newPdfFile" class="cs-wa-upload-label" id="pdfUploadLabel">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#e53e3e" stroke-width="2" width="32" height="32"
+                            style="margin-bottom:8px;">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                        </svg>
+                        <span style="font-weight:600;color:#e53e3e;">Choose a PDF file</span>
+                        <span style="font-size:0.82rem;color:var(--text-secondary);">PDF documents up to 32MB ·
+                            Text-based PDFs only</span>
+                    </label>
+                    <div id="pdfFileSelected" style="display:none;padding:12px 16px;align-items:center;gap:10px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#e53e3e" stroke-width="2" width="20" height="20">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        <span id="pdfFileName" style="font-size:0.9rem;font-weight:500;flex:1;"></span>
+                        <button type="button" onclick="clearPdfFile()"
+                            style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;padding:0;">✕</button>
+                    </div>
+                </div>
+                <div style="margin-top:0.75rem;">
+                    <button type="button" class="cs-add-btn cs-add-btn--pdf" id="addPdfBtn" onclick="addPdfSource()"
+                        style="width:100%;justify-content:center;padding:0.75rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"
+                            height="16">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        Upload PDF & Add to Chatbot
+                    </button>
+                </div>
+                <div class="cs-hint" style="margin-top:0.5rem;">
+                    <strong>Note:</strong> Only text-based PDFs are supported. Scanned/image PDFs without OCR will not
+                    extract correctly.
+                </div>
             </div>
         </div>
 
-        <div id="leadCaptureConfig" style="{% if not chatbot.lead_capture_enabled %}display:none;{% endif %}">
-            <div class="form-group">
-                <label class="form-label">Send Leads To (Email)</label>
-                <input type="email" id="leadCaptureEmail" class="form-input"
-                    value="{{ chatbot.lead_capture_email or '' }}" placeholder="e.g. leads@yourbusiness.com">
-                <p style="color:var(--text-secondary);font-size:0.8rem;margin:4px 0 0;">All collected leads will be
-                    emailed here.</p>
+        <!-- ============ INTEGRATIONS TAB ============ -->
+        <div class="cs-panel" id="panel-integrations">
+            <h2 class="cs-panel-title">Integrations</h2>
+            <p class="cs-panel-desc">Deploy your AI chatbot across multiple platforms.</p>
+
+            <div class="cs-integrations-grid">
+                <!-- Discord -->
+                <div class="cs-int-card" id="int-discord">
+                    <div class="cs-int-header">
+                        <div class="cs-int-icon">
+                            <img src="{{ url_for('static', filename='images/logo/discord-icon.svg') }}" alt="Discord">
+                        </div>
+                        <span class="cs-int-name">Discord</span>
+                        <span class="cs-int-badge inactive" id="badge-discord">Checking...</span>
+                    </div>
+                    <p class="cs-int-desc">Deploy your AI bot to Discord servers.</p>
+                    <a href="{{ url_for('discord_dashboard', from_bot=chatbot.id) }}" class="cs-int-action"
+                        id="action-discord">Manage
+                        Discord →</a>
+                </div>
+
+                <!-- Telegram -->
+                <div class="cs-int-card" id="int-telegram">
+                    <div class="cs-int-header">
+                        <div class="cs-int-icon">
+                            <img src="{{ url_for('static', filename='images/logo/telegram.svg') }}" alt="Telegram">
+                        </div>
+                        <span class="cs-int-name">Telegram</span>
+                        <span class="cs-int-badge inactive" id="badge-telegram">Checking...</span>
+                    </div>
+                    <p class="cs-int-desc">Connect to Telegram for instant Q&A.</p>
+                    <a href="{{ url_for('telegram_dashboard', from_bot=chatbot.id) }}" class="cs-int-action"
+                        id="action-telegram">Manage
+                        Telegram →</a>
+                </div>
+
+                <!-- Website Embed -->
+                <div class="cs-int-card" id="int-embed">
+                    <div class="cs-int-header">
+                        <div class="cs-int-icon" style="font-size:1.5rem;">‹›</div>
+                        <span class="cs-int-name">Website Embed</span>
+                        <span class="cs-int-badge inactive" id="badge-embed">Checking...</span>
+                    </div>
+                    <p class="cs-int-desc">Add chat widget to your website.</p>
+                    <a href="{{ url_for('embed_dashboard', from_bot=chatbot.id) }}" class="cs-int-action"
+                        id="action-embed">Get Embed Code →</a>
+                </div>
+
+                <!-- WhatsApp -->
+                <div class="cs-int-card" id="int-whatsapp">
+                    <div class="cs-int-header">
+                        <div class="cs-int-icon">
+                            <svg viewBox="0 0 24 24" fill="#25D366" width="28" height="28">
+                                <path
+                                    d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                            </svg>
+                        </div>
+                        <span class="cs-int-name">WhatsApp</span>
+                        <span class="cs-int-badge inactive" id="badge-whatsapp">Checking...</span>
+                    </div>
+                    <p class="cs-int-desc">Deploy your AI bot to WhatsApp Business.</p>
+                    <a href="{{ url_for('whatsapp_dashboard', from_bot=chatbot.id) }}" class="cs-int-action"
+                        id="action-whatsapp">Set Up
+                        WhatsApp →</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ LEAD CAPTURE TAB ============ -->
+        <div class="cs-panel" id="panel-leads">
+            <h2 class="cs-panel-title">Lead Capture</h2>
+            <p class="cs-panel-desc">Collect visitor information automatically and send it to your inbox.</p>
+
+            <div class="cs-section">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                    <div>
+                        <label class="cs-label" style="margin-bottom:0;">Enable Lead Capture</label>
+                        <p style="color:var(--text-secondary);font-size:0.82rem;margin:2px 0 0;">The chatbot will
+                            collect visitor details using your custom fields below.</p>
+                    </div>
+                    <label class="cs-toggle">
+                        <input type="checkbox" id="leadCaptureEnabled" {% if chatbot.lead_capture_enabled %}checked{%
+                            endif %}>
+                        <span class="cs-toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div id="leadCaptureConfig" style="{% if not chatbot.lead_capture_enabled %}display:none;{% endif %}">
+                    <div class="cs-form-group">
+                        <label class="cs-label">Send Leads To (Email)</label>
+                        <input type="email" id="leadCaptureEmail" class="cs-input"
+                            value="{{ chatbot.lead_capture_email or '' }}" placeholder="e.g. leads@yourbusiness.com">
+                        <p class="cs-hint">All collected leads will be emailed here.</p>
+                    </div>
+
+                    <div class="cs-form-group">
+                        <label class="cs-label">Fields to Collect</label>
+                        <p style="color:var(--text-secondary);font-size:0.82rem;margin:0 0 0.75rem;">The chatbot
+                            will
+                            ask these questions one-by-one, in order.</p>
+                        <div id="leadFieldsList"></div>
+                        <button type="button" class="cs-lc-add-btn" onclick="addLeadField()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                            Add Field
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ TRANSFER TAB ============ -->
+        <div class="cs-panel" id="panel-transfer">
+            <h2 class="cs-panel-title">Marketplace Transfer</h2>
+            <p class="cs-panel-desc">Transfer ownership of this chatbot to a client and earn recurring revenue.</p>
+
+            <div class="cs-section">
+                <p style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:1rem;">
+                    When you transfer a chatbot, it will be moved to the client's account along with all its
+                    integrations
+                    (Discord, Telegram, WhatsApp, Website Embed). They will be charged a monthly subscription based
+                    on
+                    their
+                    usage, and you will receive a monthly payout after platform fees.
+                </p>
+                <a href="{{ url_for('marketplace_transfer', chatbot_id=chatbot.id) }}" class="cs-btn cs-btn-ghost">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                        <polyline points="16 6 12 2 8 6" />
+                        <line x1="12" y1="2" x2="12" y2="15" />
+                    </svg>
+                    Create Transfer Link
+                </a>
             </div>
 
-            <div class="form-group">
-                <label class="form-label">Fields to Collect</label>
-                <p style="color:var(--text-secondary);font-size:0.85rem;margin:0 0 1rem;">The chatbot will ask these
-                    questions one-by-one, in order.</p>
-
-                <div id="leadFieldsList"></div>
-
-                <button type="button" class="lc-add-field-btn" onclick="addLeadField()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2.5">
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
+            <!-- Danger Zone -->
+            <div class="cs-danger-zone">
+                <div class="cs-danger-title">⚠️ Danger Zone</div>
+                <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.75rem;">Permanently delete
+                    this
+                    chatbot and all its data. This action cannot be undone.</p>
+                <button type="button" class="cs-btn cs-btn-danger" onclick="deleteChatbot()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                     </svg>
-                    Add Field
+                    Delete Chatbot
                 </button>
             </div>
         </div>
-    </div>
 
-    <!-- Action Buttons -->
-    <div class="settings-actions">
-        <button type="button" class="btn btn-primary" onclick="saveSettings()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                <polyline points="17 21 17 13 7 13 7 21" />
-                <polyline points="7 3 7 8 15 8" />
-            </svg>
-            Save Changes
-        </button>
-
-        <a href="{{ url_for('public_chat_page', channel_name=chatbot.channel_name) }}" class="btn btn-secondary"
-            target="_blank">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                <polyline points="15 3 21 3 21 9" />
-                <line x1="10" y1="14" x2="21" y2="3" />
-            </svg>
-            Preview Chat
-        </a>
-
-        <div class="spacer"></div>
-
-        <button type="button" class="btn btn-danger" onclick="deleteChatbot()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            </svg>
-            Delete Chatbot
-        </button>
+        <!-- Mobile-only save button -->
+        <div style="display:none;margin-top:1.5rem;" class="cs-mobile-actions">
+            <button class="cs-btn cs-btn-primary" onclick="saveSettings()"
+                style="width:100%;justify-content:center;">Save Changes</button>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -1142,242 +554,404 @@
 <script>
     const chatbotId = {{ chatbot.id }};
 
-    // Bot type card selection
-    document.querySelectorAll('.bot-type-card').forEach(card => {
+    // ===== TAB SWITCHING =====
+    function switchTab(tabId, btn) {
+        document.querySelectorAll('.cs-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.cs-tab-btn').forEach(b => b.classList.remove('active'));
+        const panel = document.getElementById('panel-' + tabId);
+        if (panel) panel.classList.add('active');
+        if (btn) btn.classList.add('active');
+    }
+
+    // ===== DATA SOURCS & INTEGRATIONS FETCH =====
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.location.hash) {
+            const tabName = window.location.hash.substring(1);
+            const btn = document.querySelector(`.cs-tab-btn[data-tab="${tabName}"]`);
+            if (btn) switchTab(tabName, btn);
+        }
+
+        fetch(`/api/chatbot/${chatbotId}/integrations`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.status !== 'success') return;
+
+                // 1. Populate Settings Integrations
+                const ints = data.integrations;
+
+                // Discord
+                const bDiscord = document.getElementById('badge-discord');
+                if (ints.discord_bot) {
+                    bDiscord.textContent = 'Active';
+                    bDiscord.className = 'cs-int-badge active';
+                } else {
+                    bDiscord.textContent = 'Not Set Up';
+                    bDiscord.className = 'cs-int-badge inactive';
+                }
+
+                // Telegram
+                const bTelegram = document.getElementById('badge-telegram');
+                if (ints.telegram_is_active) {
+                    bTelegram.textContent = 'Active';
+                    bTelegram.className = 'cs-int-badge active';
+                } else {
+                    bTelegram.textContent = 'Not Set Up';
+                    bTelegram.className = 'cs-int-badge inactive';
+                }
+
+                // Embed
+                const bEmbed = document.getElementById('badge-embed');
+                if (ints.embed_is_active) {
+                    bEmbed.textContent = 'Active';
+                    bEmbed.className = 'cs-int-badge active';
+                } else {
+                    bEmbed.textContent = 'Not Set Up';
+                    bEmbed.className = 'cs-int-badge inactive';
+                }
+
+                // WhatsApp
+                const bWhatsapp = document.getElementById('badge-whatsapp');
+                const aWhatsapp = document.getElementById('action-whatsapp');
+                if (ints.whatsapp_config) {
+                    bWhatsapp.textContent = 'Active';
+                    bWhatsapp.className = 'cs-int-badge active';
+                    aWhatsapp.textContent = 'Manage WhatsApp →';
+                } else {
+                    bWhatsapp.textContent = 'Not Set Up';
+                    bWhatsapp.className = 'cs-int-badge inactive';
+                    aWhatsapp.textContent = 'Set Up WhatsApp →';
+                }
+
+                // 2. Populate Data Sources
+                const sourceList = document.getElementById('dataSourceList');
+                if (!data.data_sources || data.data_sources.length === 0) {
+                    sourceList.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem;">No data sources configured yet.</p>';
+                    return;
+                }
+
+                sourceList.innerHTML = data.data_sources.map(source => {
+                    const hasPages = source.metadata && source.metadata.scraped_pages;
+
+                    let icon = '🌐';
+                    if (source.source_type === 'youtube') icon = '📺';
+                    else if (source.source_type === 'whatsapp') icon = '💬';
+                    else if (source.source_type === 'pdf') icon = '📄';
+
+                    let metaHtml = '';
+                    if (source.metadata) {
+                        if (source.source_type === 'website' && source.metadata.page_count) {
+                            metaHtml = `<div class="cs-source-meta">${source.metadata.page_count} pages scraped · ${source.metadata.total_words || 0} words${source.metadata.failed_pages ? ' · ' + source.metadata.failed_pages + ' failed' : ''}</div>`;
+                        } else if (source.source_type === 'whatsapp' && source.metadata.message_count) {
+                            metaHtml = `<div class="cs-source-meta">${source.metadata.message_count} messages · ${source.metadata.unique_senders || 0} senders</div>`;
+                        } else if (source.source_type === 'pdf' && source.metadata.page_count) {
+                            metaHtml = `<div class="cs-source-meta">${source.metadata.page_count} pages · ${source.metadata.total_words || 0} words · "${source.metadata.pdf_title || 'Document'}"</div>`;
+                        }
+                    }
+
+                    let pagesHtml = '';
+                    if (hasPages) {
+                        const pagesList = source.metadata.scraped_pages.map(p => `
+                            <div class="cs-page-item">
+                                <div class="cs-page-dot ${p.status}"></div>
+                                <a href="${p.url}" target="_blank" class="cs-page-link" onclick="event.stopPropagation()">${p.title || p.url}</a>
+                                ${p.word_count ? '<span class="cs-page-words">' + p.word_count + ' words</span>' : ''}
+                            </div>
+                        `).join('');
+
+                        pagesHtml = `
+                            <div class="cs-expand-toggle">
+                                View pages
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+                            <div class="cs-pages-wrap">
+                                <div class="cs-pages-list">
+                                    <div class="cs-pages-header">
+                                        <span>Scraped Pages (${source.metadata.scraped_pages.length})</span>
+                                        <span style="font-weight:400;">Click to open</span>
+                                    </div>
+                                    ${pagesList}
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    return `
+                        <div class="cs-source-item" ${hasPages ? 'onclick="this.classList.toggle(\'expanded\')"' : ''} data-source-id="${source.id}">
+                            <div class="cs-source-icon ${source.source_type}">${icon}</div>
+                            <div class="cs-source-info">
+                                <div class="cs-source-type">${source.source_type.charAt(0).toUpperCase() + source.source_type.slice(1)}</div>
+                                <div class="cs-source-url">${source.source_url || 'File uploaded'}</div>
+                                ${metaHtml}
+                            </div>
+                            <span class="cs-source-status ${source.status}">${source.status.toUpperCase()}</span>
+                            ${pagesHtml}
+                            <button class="cs-delete-source-btn" onclick="deleteSource(${source.id}, event)" title="Delete Source" style="margin-left: auto; background: none; border: none; color: #ef4444; padding: 8px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; opacity: 0.7; transition: opacity 0.2s;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                }).join('');
+            })
+            .catch(err => console.error("Error loading integrations:", err));
+    });
+
+    // ===== BOT TYPE CARDS =====
+    document.querySelectorAll('.cs-type-card').forEach(card => {
         card.addEventListener('click', () => {
-            document.querySelectorAll('.bot-type-card').forEach(c => c.classList.remove('selected'));
+            document.querySelectorAll('.cs-type-card').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
             card.querySelector('input').checked = true;
         });
     });
 
-    // Avatar upload
+    // ===== AVATAR UPLOAD =====
     async function uploadAvatar(input) {
         const file = input.files[0];
         if (!file) return;
+        const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+        if (!allowed.includes(file.type)) { showToast('Invalid file type.', 'error'); return; }
+        if (file.size > 5 * 1024 * 1024) { showToast('File too large. Max 5MB.', 'error'); return; }
 
-        // Validate on client side
-        const allowedTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-        if (!allowedTypes.includes(file.type)) {
-            showToast('Invalid file type. Use PNG, JPG, GIF or WebP.', 'error');
-            return;
-        }
-        if (file.size > 5 * 1024 * 1024) {
-            showToast('File too large. Maximum size is 5MB.', 'error');
-            return;
-        }
-
-        const dropArea = document.getElementById('avatarDropArea');
-        dropArea.classList.add('uploading');
-
-        const formData = new FormData();
-        formData.append('avatar', file);
-
+        const area = document.getElementById('avatarDropArea');
+        area.classList.add('uploading');
+        const fd = new FormData();
+        fd.append('avatar', file);
         try {
-            const response = await fetch(`/chatbot/${chatbotId}/upload-avatar`, {
-                method: 'POST',
-                body: formData
-            });
-
-            const result = await response.json();
-
-            if (result.status === 'success') {
-                // Update both avatar images
-                const newUrl = result.avatar_url + '?t=' + Date.now(); // Cache bust
-                document.getElementById('headerAvatar').src = newUrl;
-                document.getElementById('avatarPreview').src = newUrl;
+            const res = await fetch(`/chatbot/${chatbotId}/upload-avatar`, { method: 'POST', body: fd });
+            const r = await res.json();
+            if (r.status === 'success') {
+                const u = r.avatar_url + '?t=' + Date.now();
+                // Replace letter-avatar div with real img if needed
+                ['avatarPreview', 'sidebarAvatar'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        if (el.tagName === 'DIV') {
+                            const img = document.createElement('img');
+                            img.src = u;
+                            img.alt = 'Avatar';
+                            img.id = id;
+                            img.className = el.className.replace('cs-letter-avatar', '').trim();
+                            el.parentNode.replaceChild(img, el);
+                        } else {
+                            el.src = u;
+                        }
+                    }
+                });
                 showToast('Profile picture updated!', 'success');
-            } else {
-                showToast(result.message || 'Failed to upload', 'error');
-            }
-        } catch (error) {
-            showToast('An error occurred while uploading', 'error');
-        } finally {
-            dropArea.classList.remove('uploading');
-            input.value = ''; // Reset file input
-        }
+            } else { showToast(r.message || 'Failed to upload', 'error'); }
+        } catch (e) { showToast('Upload error', 'error'); }
+        finally { area.classList.remove('uploading'); input.value = ''; }
     }
 
-    // Drag and drop for avatar
+    // Drag & drop
     const dropArea = document.getElementById('avatarDropArea');
-    ['dragenter', 'dragover'].forEach(evt => {
-        dropArea.addEventListener(evt, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropArea.classList.add('dragging');
-        });
-    });
-    ['dragleave', 'drop'].forEach(evt => {
-        dropArea.addEventListener(evt, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropArea.classList.remove('dragging');
-        });
-    });
-    dropArea.addEventListener('drop', (e) => {
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            const fileInput = document.getElementById('avatarFileInput');
-            fileInput.files = files;
-            uploadAvatar(fileInput);
-        }
-    });
+    ['dragenter', 'dragover'].forEach(e => dropArea.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); dropArea.classList.add('dragging'); }));
+    ['dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); dropArea.classList.remove('dragging'); }));
+    dropArea.addEventListener('drop', e => { const f = e.dataTransfer.files; if (f.length) { const inp = document.getElementById('avatarFileInput'); inp.files = f; uploadAvatar(inp); } });
 
-    // Toggle scraped pages visibility
-    function toggleScrapedPages(element) {
-        element.classList.toggle('expanded');
+    // ===== LETTER AVATARS =====
+    function initLetterAvatars() {
+        const AVATAR_COLORS = [
+            ['#f97316', '#ea580c'], ['#8b5cf6', '#7c3aed'], ['#06b6d4', '#0284c7'],
+            ['#10b981', '#059669'], ['#f43f5e', '#e11d48'], ['#3b82f6', '#2563eb'],
+            ['#a855f7', '#9333ea'], ['#ec4899', '#db2777']
+        ];
+        document.querySelectorAll('.cs-letter-avatar').forEach(el => {
+            const name = (el.dataset.name || 'C').trim();
+            const letter = name.charAt(0).toUpperCase();
+            const colorPair = AVATAR_COLORS[letter.charCodeAt(0) % AVATAR_COLORS.length];
+            el.style.background = `linear-gradient(135deg, ${colorPair[0]}, ${colorPair[1]})`;
+            el.style.display = 'flex';
+            el.style.alignItems = 'center';
+            el.style.justifyContent = 'center';
+            el.style.color = 'white';
+            el.style.fontWeight = '700';
+            el.style.fontSize = el.classList.contains('cs-bot-avatar') ? '1.1rem' : '1.4rem';
+            el.textContent = letter;
+        });
+    }
+    initLetterAvatars();
+
+    // ===== SOURCE TYPE TABS =====
+    function switchSourceTab(tab, btn) {
+        document.querySelectorAll('.cs-source-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        ['website', 'youtube', 'whatsapp', 'pdf'].forEach(t => {
+            const panel = document.getElementById(`sourcePanel-${t}`);
+            if (panel) panel.style.display = t === tab ? '' : 'none';
+        });
     }
 
-    // Crawl mode selection
+    // ===== CRAWL MODE =====
     function selectCrawlMode(el, mode) {
-        document.querySelectorAll('.crawl-mode-option').forEach(o => o.classList.remove('selected'));
+        document.querySelectorAll('.cs-crawl-opt').forEach(o => o.classList.remove('selected'));
         el.classList.add('selected');
         el.querySelector('input').checked = true;
-
         const hints = {
-            'auto': '<strong>Auto-detect:</strong> Specific page URLs (e.g. /about) scrape only that page. Root URLs (e.g. example.com) crawl the full site.',
-            'single_page': '<strong>This page only:</strong> Only the exact URL you enter will be scraped. No other pages will be crawled.',
-            'full_crawl': '<strong>Crawl entire site:</strong> Follows all links on the domain and scrapes up to 50 pages.'
+            'auto': '<strong>Auto-detect:</strong> Specific page URLs scrape only that page. Root URLs crawl the full site.',
+            'single_page': '<strong>This page only:</strong> Only the exact URL you enter will be scraped.',
+            'full_crawl': '<strong>Crawl entire site:</strong> Follows all links and scrapes up to 50 pages.'
         };
         document.getElementById('crawlModeHint').innerHTML = hints[mode] || hints['auto'];
     }
 
-    // Add new website source
+    // ===== ADD WEBSITE SOURCE =====
     async function addWebsiteSource() {
         const urlInput = document.getElementById('newWebsiteUrl');
-        const addBtn = document.getElementById('addWebsiteBtn');
+        const btn = document.getElementById('addWebsiteBtn');
         const url = urlInput.value.trim();
+        if (!url) { showToast('Please enter a URL', 'error'); return; }
 
-        if (!url) {
-            showToast('Please enter a website URL', 'error');
-            return;
-        }
-
-        addBtn.disabled = true;
-        addBtn.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" 
-                stroke="currentColor" stroke-width="2" class="spin">
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-            </svg>
-            Scraping...
-        `;
+        btn.disabled = true;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Scraping...';
 
         try {
-            const response = await fetch(`/chatbot/${chatbotId}/add-website`, {
+            const res = await fetch(`/chatbot/${chatbotId}/add-website`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ website_url: url, crawl_mode: document.querySelector('input[name="crawl_mode"]:checked')?.value || 'auto' })
             });
-
-            const result = await response.json();
-
-            if (result.status === 'success') {
-                showToast(result.message, 'success');
+            const r = await res.json();
+            if (r.status === 'success') {
+                showToast(r.message, 'success');
                 urlInput.value = '';
-
-                // Add the new source to the list visually
-                const sourceList = document.getElementById('dataSourceList');
-                if (!sourceList) {
-                    // If there was no list, reload the page
-                    setTimeout(() => window.location.reload(), 1500);
-                } else {
-                    const newItem = document.createElement('div');
-                    newItem.className = 'data-source-item';
-                    newItem.setAttribute('data-source-id', result.source_id);
-                    newItem.innerHTML = `
-                        <div class="source-icon website">🌐</div>
-                        <div class="source-info">
-                            <div class="source-type">Website</div>
-                            <div class="source-url">${url}</div>
-                            <div class="source-meta">Scraping in progress...</div>
-                        </div>
-                        <span class="source-status processing">PROCESSING</span>
-                    `;
-                    sourceList.appendChild(newItem);
-
-                    // Poll for completion
-                    if (result.task_id) {
-                        pollSourceStatus(result.source_id, newItem);
-                    }
-                }
-            } else {
-                showToast(result.message || 'Failed to add website', 'error');
-            }
-        } catch (error) {
-            showToast('An error occurred while adding the website', 'error');
-        } finally {
-            addBtn.disabled = false;
-            addBtn.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-                Add Website
-            `;
+                setTimeout(() => window.location.reload(), 2000);
+            } else { showToast(r.message || 'Failed', 'error'); }
+        } catch (e) { showToast('Error adding website', 'error'); }
+        finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Website';
         }
     }
 
-    // Poll source processing status
-    async function pollSourceStatus(sourceId, element) {
-        const maxAttempts = 120; // 10 minutes max
-        let attempts = 0;
+    // ===== ADD YOUTUBE SOURCE =====
+    async function addYoutubeSource() {
+        const urlInput = document.getElementById('newYoutubeUrl');
+        const btn = document.getElementById('addYoutubeBtn');
+        const url = urlInput.value.trim();
+        if (!url) { showToast('Please enter a YouTube URL', 'error'); return; }
 
-        const poll = async () => {
-            if (attempts >= maxAttempts) return;
-            attempts++;
+        btn.disabled = true;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Processing...';
 
-            try {
-                const response = await fetch(`/source/${sourceId}/status`);
-                const result = await response.json();
-
-                if (result.status === 'success' && result.source) {
-                    const source = result.source;
-                    const statusEl = element.querySelector('.source-status');
-                    const metaEl = element.querySelector('.source-meta');
-
-                    if (source.status === 'ready') {
-                        statusEl.className = 'source-status ready';
-                        statusEl.textContent = 'READY';
-                        if (source.metadata) {
-                            metaEl.textContent = `${source.metadata.page_count || 0} pages scraped · ${source.metadata.total_words || 0} words`;
-                        }
-                        showToast('Website scraping completed!', 'success');
-                        // Reload after a moment to get the full scraped pages list
-                        setTimeout(() => window.location.reload(), 2000);
-                        return;
-                    } else if (source.status === 'failed') {
-                        statusEl.className = 'source-status failed';
-                        statusEl.textContent = 'FAILED';
-                        metaEl.textContent = source.error_message || 'Scraping failed';
-                        showToast('Website scraping failed', 'error');
-                        return;
-                    } else {
-                        metaEl.textContent = `Scraping in progress... ${source.progress || 0}%`;
-                    }
-                }
-            } catch (e) {
-                console.error('Polling error:', e);
-            }
-
-            setTimeout(poll, 5000); // Poll every 5 seconds
-        };
-
-        setTimeout(poll, 3000); // Start after 3 seconds
+        try {
+            const res = await fetch(`/chatbot/${chatbotId}/add-youtube`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ youtube_url: url })
+            });
+            const r = await res.json();
+            if (r.status === 'success') {
+                showToast(r.message, 'success');
+                urlInput.value = '';
+                setTimeout(() => window.location.reload(), 2000);
+            } else { showToast(r.message || 'Failed', 'error'); }
+        } catch (e) { showToast('Error adding YouTube source', 'error'); }
+        finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add YouTube';
+        }
     }
 
-    // Save settings
+    // ===== WHATSAPP FILE SELECT =====
+    function handleWaFileSelect(input) {
+        const file = input.files[0];
+        if (file) {
+            document.getElementById('waFileName').textContent = file.name;
+            document.getElementById('waFileSelected').style.display = 'flex';
+            document.getElementById('waUploadLabel').style.display = 'none';
+        }
+    }
+    function clearWaFile() {
+        document.getElementById('newWhatsappFile').value = '';
+        document.getElementById('waFileSelected').style.display = 'none';
+        document.getElementById('waUploadLabel').style.display = 'flex';
+    }
+
+    // ===== ADD WHATSAPP SOURCE =====
+    async function addWhatsappSource() {
+        const fileInput = document.getElementById('newWhatsappFile');
+        const agentName = document.getElementById('newWaAgentName').value.trim();
+        const btn = document.getElementById('addWhatsappBtn');
+        const file = fileInput.files[0];
+        if (!file) { showToast('Please select a WhatsApp export file (.txt)', 'error'); return; }
+
+        btn.disabled = true;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Uploading...';
+
+        try {
+            const fd = new FormData();
+            fd.append('whatsapp_file', file);
+            if (agentName) fd.append('agent_name', agentName);
+            const res = await fetch(`/chatbot/${chatbotId}/add-whatsapp`, { method: 'POST', body: fd });
+            const r = await res.json();
+            if (r.status === 'success') {
+                showToast(r.message, 'success');
+                clearWaFile();
+                document.getElementById('newWaAgentName').value = '';
+                setTimeout(() => window.location.reload(), 2000);
+            } else { showToast(r.message || 'Failed', 'error'); }
+        } catch (e) { showToast('Error uploading WhatsApp file', 'error'); }
+        finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Upload & Add';
+        }
+    }
+
+    // ===== PDF FILE SELECT =====
+    function handlePdfFileSelect(input) {
+        const file = input.files[0];
+        if (file) {
+            document.getElementById('pdfFileName').textContent = file.name;
+            document.getElementById('pdfFileSelected').style.display = 'flex';
+            document.getElementById('pdfUploadLabel').style.display = 'none';
+        }
+    }
+    function clearPdfFile() {
+        document.getElementById('newPdfFile').value = '';
+        document.getElementById('pdfFileSelected').style.display = 'none';
+        document.getElementById('pdfUploadLabel').style.display = 'flex';
+    }
+
+    // ===== ADD PDF SOURCE =====
+    async function addPdfSource() {
+        const fileInput = document.getElementById('newPdfFile');
+        const btn = document.getElementById('addPdfBtn');
+        const file = fileInput.files[0];
+        if (!file) { showToast('Please select a PDF file', 'error'); return; }
+
+        btn.disabled = true;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Uploading PDF...';
+
+        try {
+            const fd = new FormData();
+            fd.append('pdf_file', file);
+            const res = await fetch(`/chatbot/${chatbotId}/add-pdf`, { method: 'POST', body: fd });
+            const r = await res.json();
+            if (r.status === 'success') {
+                showToast(r.message, 'success');
+                clearPdfFile();
+                setTimeout(() => window.location.reload(), 2000);
+            } else { showToast(r.message || 'Failed', 'error'); }
+        } catch (e) { showToast('Error uploading PDF', 'error'); }
+        finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Upload PDF & Add to Chatbot';
+        }
+    }
+
+    // ===== SAVE SETTINGS =====
     async function saveSettings() {
-        // Collect lead capture fields
         const leadFields = [];
-        document.querySelectorAll('.lc-field-card').forEach(card => {
-            const label = card.querySelector('.lc-field-label')?.value?.trim();
-            const type = card.querySelector('.lc-field-type')?.value;
-            const required = card.querySelector('.lc-field-required')?.checked ?? true;
-            const optionsRaw = card.querySelector('.lc-field-options')?.value || '';
-            const options = type === 'select'
-                ? optionsRaw.split(',').map(o => o.trim()).filter(Boolean)
-                : [];
+        document.querySelectorAll('.cs-lc-card').forEach(card => {
+            const label = card.querySelector('.cs-lc-label')?.value?.trim();
+            const type = card.querySelector('.cs-lc-type')?.value;
+            const required = card.querySelector('.cs-lc-required')?.checked ?? true;
+            const optionsRaw = card.querySelector('.cs-lc-options')?.value || '';
+            const options = type === 'select' ? optionsRaw.split(',').map(o => o.trim()).filter(Boolean) : [];
             if (label) leadFields.push({ label, type, required, options });
         });
 
@@ -1386,151 +960,126 @@
             creator_name: document.getElementById('creator_name').value,
             bot_type: document.querySelector('input[name="bot_type"]:checked')?.value || 'business',
             speaking_style: document.getElementById('speaking_style').value,
+            promotion_triggers: document.getElementById('promotion_triggers').value,
             lead_capture_enabled: document.getElementById('leadCaptureEnabled')?.checked || false,
             lead_capture_email: document.getElementById('leadCaptureEmail')?.value?.trim() || null,
             lead_capture_fields: leadFields
         };
 
         try {
-            const response = await fetch(`/chatbot/${chatbotId}/settings`, {
+            const res = await fetch(`/chatbot/${chatbotId}/settings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-
-            const result = await response.json();
-
-            if (result.status === 'success') {
-                showToast('Settings saved successfully!', 'success');
-            } else {
-                showToast(result.message || 'Failed to save settings', 'error');
-            }
-        } catch (error) {
-            showToast('An error occurred', 'error');
-        }
+            const r = await res.json();
+            if (r.status === 'success') showToast('Settings saved!', 'success');
+            else showToast(r.message || 'Save failed', 'error');
+        } catch (e) { showToast('An error occurred', 'error'); }
     }
 
-    // Delete chatbot
-    async function deleteChatbot() {
-        if (!confirm('Are you sure you want to delete this chatbot? This action cannot be undone.')) {
-            return;
+    // ===== DELETE DATA SOURCE =====
+    async function deleteSource(sourceId, event) {
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
         }
+
+        if (!confirm('Are you sure you want to delete this data source? It will be removed immediately.')) return;
 
         try {
-            const response = await fetch(`/chatbot/${chatbotId}/delete`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            const result = await response.json();
-
-            if (result.status === 'success') {
-                showToast('Chatbot deleted', 'success');
-                setTimeout(() => {
-                    window.location.href = '{{ url_for("dashboard") }}';
-                }, 1000);
+            const res = await fetch(`/chatbot/${chatbotId}/delete-source/${sourceId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' } });
+            const r = await res.json();
+            if (r.status === 'success') {
+                showToast('Data source deleted', 'success');
+                // Remove the element from DOM
+                const sourceEl = document.querySelector(`.cs-source-item[data-source-id="${sourceId}"]`);
+                if (sourceEl) sourceEl.remove();
             } else {
-                showToast(result.message || 'Failed to delete chatbot', 'error');
+                showToast(r.message || 'Delete failed', 'error');
             }
-        } catch (error) {
-            showToast('An error occurred', 'error');
+        } catch (e) {
+            showToast('An error occurred while deleting', 'error');
+            console.error(e);
         }
     }
 
-    // Toast notification
-    function showToast(message, type) {
-        const existing = document.querySelector('.toast');
+    // ===== DELETE CHATBOT =====
+    async function deleteChatbot() {
+        if (!confirm('Are you sure? This cannot be undone.')) return;
+        try {
+            const res = await fetch(`/chatbot/${chatbotId}/delete`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+            const r = await res.json();
+            if (r.status === 'success') { showToast('Chatbot deleted', 'success'); setTimeout(() => { window.location.href = '{{ url_for("dashboard") }}'; }, 1000); }
+            else showToast(r.message || 'Delete failed', 'error');
+        } catch (e) { showToast('An error occurred', 'error'); }
+    }
+
+    // ===== TOAST =====
+    function showToast(msg, type) {
+        const existing = document.querySelector('.cs-toast');
         if (existing) existing.remove();
-
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.textContent = message;
-        document.body.appendChild(toast);
-
-        setTimeout(() => toast.remove(), 3000);
+        const t = document.createElement('div');
+        t.className = `cs-toast ${type}`;
+        t.textContent = msg;
+        document.body.appendChild(t);
+        setTimeout(() => t.remove(), 3000);
     }
 
-    // Add spinning animation for loading state
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        .spin {
-            animation: spin 1s linear infinite;
-        }
-    `;
-    document.head.appendChild(style);
+    // ===== LEAD CAPTURE =====
+    const existingLeadFields = JSON.parse('{{ (chatbot.lead_capture_fields or []) | tojson | safe }}');
 
-    // ===== LEAD CAPTURE LOGIC =====
-
-    // Existing fields from server (Jinja2 passes them as JSON)
-    const existingLeadFields = {{ (chatbot.lead_capture_fields or[]) | tojson }};
-
-    // Toggle show/hide of config panel
     document.getElementById('leadCaptureEnabled')?.addEventListener('change', function () {
         const config = document.getElementById('leadCaptureConfig');
         if (config) config.style.display = this.checked ? '' : 'none';
     });
 
-    // Render existing fields on page load
     (existingLeadFields || []).forEach(f => addLeadField(f));
 
     function addLeadField(existing) {
-        const id = 'lf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
         const label = existing?.label || '';
         const type = existing?.type || 'text';
         const required = existing?.required !== false;
         const options = (existing?.options || []).join(', ');
 
         const card = document.createElement('div');
-        card.className = 'lc-field-card';
-        card.dataset.id = id;
+        card.className = 'cs-lc-card';
         card.innerHTML = `
-            <div class="lc-field-main">
-                <div class="lc-field-row">
-                    <input type="text" class="lc-field-label form-input" placeholder="Field label (e.g. Travel Dates)"
-                           value="${_esc(label)}" style="flex:1;margin-bottom:0;">
-                    <select class="lc-field-type" onchange="updateFieldOptions(this)">
-                        <option value="text"   ${type === 'text' ? 'selected' : ''}>Text</option>
-                        <option value="number" ${type === 'number' ? 'selected' : ''}>Number</option>
-                        <option value="date"   ${type === 'date' ? 'selected' : ''}>Date</option>
-                        <option value="select" ${type === 'select' ? 'selected' : ''}>Select (choices)</option>
-                    </select>
-                    <label class="lc-required-wrap">
-                        <input type="checkbox" class="lc-field-required" ${required ? 'checked' : ''}>
-                        Required
-                    </label>
-                </div>
-                <div class="lc-field-options-row${type === 'select' ? ' visible' : ''}">
-                    <span style="font-size:0.8rem;color:var(--text-secondary);white-space:nowrap;">Choices:</span>
-                    <input type="text" class="lc-field-options"
-                           placeholder="e.g. Budget, Standard, Luxury  (comma-separated)"
-                           value="${_esc(options)}">
-                </div>
+        <div class="cs-lc-main">
+            <div class="cs-lc-row">
+                <input type="text" class="cs-lc-label" placeholder="Field label (e.g. Travel Dates)" value="${_esc(label)}" style="flex:1;">
+                <select class="cs-lc-type" onchange="updateFieldOpts(this)">
+                    <option value="text" ${type === 'text' ? 'selected' : ''}>Text</option>
+                    <option value="number" ${type === 'number' ? 'selected' : ''}>Number</option>
+                    <option value="date" ${type === 'date' ? 'selected' : ''}>Date</option>
+                    <option value="select" ${type === 'select' ? 'selected' : ''}>Select</option>
+                </select>
+                <label class="cs-lc-required-wrap"><input type="checkbox" class="cs-lc-required" ${required ? 'checked' : ''}>Required</label>
             </div>
-            <span class="lc-drag-handle" title="Drag to reorder">☰</span>
-            <button type="button" class="lc-remove-btn" onclick="removeLeadField(this)" title="Remove field">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/>
-                </svg>
-            </button>
-        `;
+            <div class="cs-lc-options-row${type === 'select' ? ' visible' : ''}">
+                <span style="font-size:0.78rem;color:var(--text-secondary);white-space:nowrap;">Choices:</span>
+                <input type="text" class="cs-lc-options" placeholder="Budget, Standard, Luxury (comma-separated)" value="${_esc(options)}" style="flex:1;padding:0.35rem 0.6rem;border:1px solid var(--neutral-200);border-radius:var(--radius-sm);font-size:0.82rem;">
+            </div>
+        </div>
+        <span style="cursor:grab;color:var(--text-muted);padding:4px;font-size:1rem;">☰</span>
+        <button type="button" class="cs-lc-remove-btn" onclick="this.closest('.cs-lc-card').remove()" title="Remove">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg>
+        </button>
+    `;
         document.getElementById('leadFieldsList').appendChild(card);
     }
 
-    function removeLeadField(btn) {
-        btn.closest('.lc-field-card').remove();
+    function updateFieldOpts(sel) {
+        const row = sel.closest('.cs-lc-main').querySelector('.cs-lc-options-row');
+        if (row) row.classList.toggle('visible', sel.value === 'select');
     }
 
-    function updateFieldOptions(select) {
-        const optRow = select.closest('.lc-field-main').querySelector('.lc-field-options-row');
-        if (optRow) optRow.classList.toggle('visible', select.value === 'select');
-    }
+    function _esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-    function _esc(s) {
-        return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // ===== MOBILE ACTIONS =====
+    if (window.innerWidth <= 768) {
+        const ma = document.querySelector('.cs-mobile-actions');
+        if (ma) ma.style.display = 'block';
     }
 </script>
 {% endblock %}

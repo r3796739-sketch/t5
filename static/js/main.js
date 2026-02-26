@@ -232,7 +232,15 @@ window.regenerateAnswer = function (btn) {
         .then(response => response.ok ? response.body.getReader() : response.json().then(err => Promise.reject(err)))
         .then(reader => processStream(reader, answerContent, typingContainer, answerBox))
         .catch(err => {
-            answerContent.innerHTML = `<p class="error-message">Failed to regenerate: ${err.message || 'Unknown error'}</p>`;
+            const message = err.message || 'Unknown error';
+            if (err.status === 'limit_reached') {
+                // Only show the bottom banner — don't pollute the chat bubble with a duplicate error
+                showBannerNotice(message);
+                // Restore the answer content area to empty (don't show error text there)
+                answerContent.innerHTML = '';
+            } else {
+                answerContent.innerHTML = `<p class="error-message">Failed to regenerate: ${escapeHtml(message)}</p>`;
+            }
             if (typingContainer) typingContainer.classList.remove('active');
             renderSourcesAndActions([], answerBox);
         });
@@ -313,6 +321,22 @@ function updatePricingDisplay() {
 // (From app.js, modified)
 // =================================================================
 
+// --- PERFORMANCE: Lazy-load Razorpay SDK on demand ---
+let _razorpayLoading = null;
+function loadRazorpaySDK() {
+    if (window.Razorpay) return Promise.resolve();
+    if (_razorpayLoading) return _razorpayLoading;
+    _razorpayLoading = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Failed to load payment SDK.'));
+        document.head.appendChild(s);
+    });
+    return _razorpayLoading;
+}
+// --- END PERFORMANCE ---
+
 function buySubscription(planType, buttonElement) {
     if (buttonElement.disabled) return;
 
@@ -351,11 +375,13 @@ function buySubscription(planType, buttonElement) {
             });
 
     } else {
-        // Existing Razorpay logic for INR users
-        fetch('/create_razorpay_subscription', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ plan_type: planType, currency: 'INR' })
+        // Existing Razorpay logic for INR users — lazy-load SDK first
+        loadRazorpaySDK().then(() => {
+            return fetch('/create_razorpay_subscription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plan_type: planType, currency: 'INR' })
+            });
         })
             .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
             .then(data => {
@@ -399,6 +425,7 @@ function buySubscription(planType, buttonElement) {
     }
     // --- END: NEW CONDITIONAL LOGIC ---
 }
+
 
 // =================================================================
 // 4. SPA-LIKE CHANNEL NAVIGATION

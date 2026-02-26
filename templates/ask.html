@@ -2,6 +2,10 @@
 
 {% block title %}Ask Questions - YoppyChat AI{% endblock %}
 
+{% block marked_script %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
+{% endblock %}
+
 {% block page_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ask.css') }}">
 <script>
@@ -81,11 +85,55 @@
                 {# Show example questions when there is no history for any user #}
                 {% if not history %}
                 <div class="example-questions-container">
+                    {% if current_channel %}
+                    {% if current_channel.has_youtube and not current_channel.has_whatsapp and not
+                    current_channel.has_website %}
+                    {# YouTube-only bot #}
+                    <div class="example-question" onclick="askExample(this)">What topics do you cover the most?</div>
+                    <div class="example-question" onclick="askExample(this)">Summarize your most recent video.</div>
+                    <div class="example-question" onclick="askExample(this)">What's the best video to start with as a
+                        beginner?</div>
+                    {% elif current_channel.has_whatsapp and not current_channel.has_youtube and not
+                    current_channel.has_website %}
+                    {# WhatsApp-only bot #}
+                    <div class="example-question" onclick="askExample(this)">How can I get support?</div>
+                    <div class="example-question" onclick="askExample(this)">What are your business hours?</div>
+                    <div class="example-question" onclick="askExample(this)">How do I track my order?</div>
+                    {% elif current_channel.has_website and not current_channel.has_youtube and not
+                    current_channel.has_whatsapp %}
+                    {# Website-only bot #}
+                    <div class="example-question" onclick="askExample(this)">What services do you offer?</div>
+                    <div class="example-question" onclick="askExample(this)">How does pricing work?</div>
+                    <div class="example-question" onclick="askExample(this)">How do I get started?</div>
+                    {% elif current_channel.has_youtube and current_channel.has_website %}
+                    {# YouTube + Website #}
                     <div class="example-question" onclick="askExample(this)">What are your most popular videos about?
                     </div>
-                    <div class="example-question" onclick="askExample(this)">Summarize your latest video for me.</div>
-                    <div class="example-question" onclick="askExample(this)">What tools do you recommend for beginners?
+                    <div class="example-question" onclick="askExample(this)">What products or services do you offer?
                     </div>
+                    <div class="example-question" onclick="askExample(this)">Where can I learn more about your work?
+                    </div>
+                    {% elif current_channel.has_whatsapp and current_channel.has_website %}
+                    {# WhatsApp + Website — business bot #}
+                    <div class="example-question" onclick="askExample(this)">What do you sell?</div>
+                    <div class="example-question" onclick="askExample(this)">How can I contact support?</div>
+                    <div class="example-question" onclick="askExample(this)">What's your return policy?</div>
+                    {% else %}
+                    {# Mixed or general #}
+                    <div class="example-question" onclick="askExample(this)">What can you help me with?</div>
+                    <div class="example-question" onclick="askExample(this)">Give me a quick summary of what you know.
+                    </div>
+                    <div class="example-question" onclick="askExample(this)">What's the most important thing I should
+                        know?</div>
+                    {% endif %}
+                    {% else %}
+                    {# No channel context — General Q&A mode #}
+                    <div class="example-question" onclick="askExample(this)">What can you help me with today?</div>
+                    <div class="example-question" onclick="askExample(this)">Give me a quick overview of your knowledge.
+                    </div>
+                    <div class="example-question" onclick="askExample(this)">What topics are you best at answering?
+                    </div>
+                    {% endif %}
                 </div>
                 {% endif %}
 
