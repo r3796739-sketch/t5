@@ -1771,7 +1771,7 @@ def chatbot_integrations_api(chatbot_id):
         else:
             # 1. WhatsApp
             try:
-                whatsapp_resp = supabase.table('whatsapp_configs').select('*').eq('user_id', user_id).eq('linked_channel_id', chatbot_id).limit(1).execute()
+                whatsapp_resp = supabase.table('whatsapp_configs').select('*').eq('user_id', user_id).eq('channel_id', chatbot_id).limit(1).execute()
                 whatsapp_config = whatsapp_resp.data[0] if whatsapp_resp.data else None
             except Exception:
                 whatsapp_config = None
