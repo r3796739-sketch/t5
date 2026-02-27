@@ -461,6 +461,20 @@ html[data-theme='dark'] .copy-answer-btn.copied {
     text-decoration: underline;
 }
 
+.source-snippet {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    background-color: var(--surface-light);
+    border-left: 2px solid var(--accent-primary);
+    padding: 6px 10px;
+    margin-top: 4px;
+    margin-bottom: 8px;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    line-height: 1.4;
+    font-style: italic;
+    opacity: 0.85;
+}
+
 /* --- Typing Indicator --- */
 .typing-container {
     display: none;

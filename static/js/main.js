@@ -42,7 +42,16 @@ const renderSourcesAndActions = (sources, answerBoxElement) => {
     let sourcesListHTML = '';
     if (sources && sources.length > 0) {
         sourcesButtonHTML = `<button class="toggle-sources-btn" onclick="toggleSources(this)"><svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M4,6H2V20a2,2 0 0,0 2,2H18V18H4V6M20,2H8A2,2 0 0,0 6,4V16a2,2 0 0,0 2,2H20a2,2 0 0,0 2-2V4a2,2 0 0,0-2-2Z"></path></svg>Sources (${sources.length})<span class="toggle-indicator">▼</span></button>`;
-        const sourceLinks = sources.map(s => `<div class="source-item"><a href="${escapeHtml(s.url)}" target="_blank" class="source-link"><span class="source-title">${escapeHtml(s.title)}</span></a></div>`).join('');
+        const sourceLinks = sources.map(s => {
+            let linkHtml = '';
+            if (s.url && !s.url.startsWith('whatsapp://')) {
+                linkHtml = `<a href="${escapeHtml(s.url)}" target="_blank" class="source-link"><span class="source-title">${escapeHtml(s.title)}</span></a>`;
+            } else {
+                linkHtml = `<div class="source-link" style="cursor: default; text-decoration: none;"><span class="source-title">${escapeHtml(s.title)}</span></div>`;
+            }
+            let snippetHtml = s.snippet ? `<div class="source-snippet">${escapeHtml(s.snippet)}</div>` : '';
+            return `<div class="source-item">${linkHtml}${snippetHtml}</div>`;
+        }).join('');
         sourcesListHTML = `<div class="sources-list" style="display: none;">${sourceLinks}</div>`;
     }
 
@@ -595,7 +604,16 @@ function renderChatHistory(history) {
             let sourcesButtonHtml = '';
             let sourcesListHtml = '';
             if (qa.sources && qa.sources.length > 0) {
-                const sourceLinks = qa.sources.map(s => `<div class="source-item"><a href="${escapeHtml(s.url)}" target="_blank" class="source-link"><span class="source-title">${escapeHtml(s.title)}</span></a></div>`).join('');
+                const sourceLinks = qa.sources.map(s => {
+                    let linkHtml = '';
+                    if (s.url && !s.url.startsWith('whatsapp://')) {
+                        linkHtml = `<a href="${escapeHtml(s.url)}" target="_blank" class="source-link"><span class="source-title">${escapeHtml(s.title)}</span></a>`;
+                    } else {
+                        linkHtml = `<div class="source-link" style="cursor: default; text-decoration: none;"><span class="source-title">${escapeHtml(s.title)}</span></div>`;
+                    }
+                    let snippetHtml = s.snippet ? `<div class="source-snippet">${escapeHtml(s.snippet)}</div>` : '';
+                    return `<div class="source-item">${linkHtml}${snippetHtml}</div>`;
+                }).join('');
                 sourcesButtonHtml = `<button class="toggle-sources-btn" onclick="toggleSources(this)"><svg class="sources-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M4,6H2V20a2,2 0 0,0 2,2H18V18H4V6M20,2H8A2,2 0 0,0 6,4V16a2,2 0 0,0 2,2H20a2,2 0 0,0 2-2V4a2,2 0 0,0-2-2Z"></path></svg>Sources (${qa.sources.length}) <span class="toggle-indicator">▼</span></button>`;
                 sourcesListHtml = `<div class="sources-list" style="display: none;">${sourceLinks}</div>`;
             }

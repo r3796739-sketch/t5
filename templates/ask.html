@@ -215,9 +215,18 @@
                             <div class="sources-list" style="display: none;">
                                 {% for source in qa.sources %}
                                 <div class="source-item">
+                                    {% if source.url and not source.url.startswith('whatsapp://') %}
                                     <a href="{{ source.url }}" target="_blank" class="source-link">
                                         <span class="source-title">{{ source.title }}</span>
                                     </a>
+                                    {% else %}
+                                    <div class="source-link" style="cursor: default; text-decoration: none;">
+                                        <span class="source-title">{{ source.title }}</span>
+                                    </div>
+                                    {% endif %}
+                                    {% if source.snippet %}
+                                    <div class="source-snippet">{{ source.snippet }}</div>
+                                    {% endif %}
                                 </div>
                                 {% endfor %}
                             </div>

@@ -477,9 +477,18 @@
                 <div id="leadCaptureConfig" style="{% if not chatbot.lead_capture_enabled %}display:none;{% endif %}">
                     <div class="cs-form-group">
                         <label class="cs-label">Send Leads To (Email)</label>
+                        <input type="hidden" id="rawLeadCaptureEmail" value="{{ chatbot.lead_capture_email or '' }}">
                         <input type="email" id="leadCaptureEmail" class="cs-input"
-                            value="{{ chatbot.lead_capture_email or '' }}" placeholder="e.g. leads@yourbusiness.com">
+                            placeholder="e.g. leads@yourbusiness.com">
                         <p class="cs-hint">All collected leads will be emailed here.</p>
+                    </div>
+
+                    <div class="cs-form-group">
+                        <label class="cs-label">Send Leads To (WhatsApp) - <span
+                                style="font-weight: 400; color: var(--text-secondary);">Optional</span></label>
+                        <input type="text" id="leadCaptureWhatsapp" class="cs-input" placeholder="e.g. +14155552671">
+                        <p class="cs-hint">Receive an instant WhatsApp message when a lead is captured. Include country
+                            code.</p>
                     </div>
 
                     <div class="cs-form-group">
@@ -571,6 +580,20 @@
             if (btn) switchTab(tabName, btn);
         }
 
+        // Parse raw lead capture email
+        const rawEmail = document.getElementById('rawLeadCaptureEmail')?.value || "";
+        if (rawEmail) {
+            if (rawEmail.includes('|')) {
+                const parts = rawEmail.split('|');
+                document.getElementById('leadCaptureEmail').value = parts[0].trim();
+                if (parts.length > 1) {
+                    document.getElementById('leadCaptureWhatsapp').value = parts[1].trim();
+                }
+            } else {
+                document.getElementById('leadCaptureEmail').value = rawEmail.trim();
+            }
+        }
+
         fetch(`/api/chatbot/${chatbotId}/integrations`)
             .then(res => res.json())
             .then(data => {
@@ -612,14 +635,28 @@
                 // WhatsApp
                 const bWhatsapp = document.getElementById('badge-whatsapp');
                 const aWhatsapp = document.getElementById('action-whatsapp');
+                const waLeadInput = document.getElementById('leadCaptureWhatsapp');
+                const waLeadHint = waLeadInput?.nextElementSibling;
+
                 if (ints.whatsapp_config) {
                     bWhatsapp.textContent = 'Active';
                     bWhatsapp.className = 'cs-int-badge active';
                     aWhatsapp.textContent = 'Manage WhatsApp →';
+                    if (waLeadInput) {
+                        waLeadInput.disabled = false;
+                        if (waLeadHint) waLeadHint.innerHTML = 'Receive an instant WhatsApp message when a lead is captured. Include country code.';
+                    }
                 } else {
                     bWhatsapp.textContent = 'Not Set Up';
                     bWhatsapp.className = 'cs-int-badge inactive';
                     aWhatsapp.textContent = 'Set Up WhatsApp →';
+                    if (waLeadInput) {
+                        waLeadInput.disabled = true;
+                        waLeadInput.placeholder = 'WhatsApp integration required';
+                        if (waLeadHint) {
+                            waLeadHint.innerHTML = 'You must set up <a href="#" style="color: var(--primary); text-decoration: underline;" onclick="event.preventDefault(); switchTab(\'integrations\', document.querySelector(\'.cs-tab-btn[data-tab=integrations]\'))">WhatsApp integration</a> first to use this feature.';
+                        }
+                    }
                 }
 
                 // 2. Populate Data Sources
@@ -955,6 +992,13 @@
             if (label) leadFields.push({ label, type, required, options });
         });
 
+        const leadEmail = document.getElementById('leadCaptureEmail')?.value?.trim() || "";
+        const leadWhatsapp = document.getElementById('leadCaptureWhatsapp')?.value?.trim() || "";
+        let combinedEmailWa = leadEmail;
+        if (leadWhatsapp) {
+            combinedEmailWa = leadEmail ? `${leadEmail}|${leadWhatsapp}` : `|${leadWhatsapp}`;
+        }
+
         const data = {
             channel_name: document.getElementById('channel_name').value,
             creator_name: document.getElementById('creator_name').value,
@@ -962,7 +1006,7 @@
             speaking_style: document.getElementById('speaking_style').value,
             promotion_triggers: document.getElementById('promotion_triggers').value,
             lead_capture_enabled: document.getElementById('leadCaptureEnabled')?.checked || false,
-            lead_capture_email: document.getElementById('leadCaptureEmail')?.value?.trim() || null,
+            lead_capture_email: combinedEmailWa || null,
             lead_capture_fields: leadFields
         };
 
