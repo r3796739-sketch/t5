@@ -170,6 +170,16 @@ def receive_message():
                 # Get channel data dict (answer_question_stream expects the full dict)
                 channel_data = channel  # already fetched from DB via channels(*)
                 
+                # Check if the sender is the manager
+                is_manager = False
+                if channel_data and channel_data.get('lead_capture_email'):
+                    parts = channel_data['lead_capture_email'].split('|')
+                    if len(parts) > 1:
+                        manager_phone = parts[1].strip().replace('+', '').replace(' ', '')
+                        sender_phone = from_phone.replace('+', '').replace(' ', '')
+                        if manager_phone and sender_phone == manager_phone:
+                            is_manager = True
+
                 # Get AI response (returns SSE-formatted strings)
                 import json as _json
                 response_text = ""
@@ -177,7 +187,8 @@ def receive_message():
                     question_for_prompt=final_question,
                     question_for_search=message_text,
                     channel_data=channel_data,
-                    user_id=config['user_id']
+                    user_id=config['user_id'],
+                    is_manager=is_manager
                 ):
                     if chunk.startswith('data: '):
                         data_str = chunk.replace('data: ', '').strip()
@@ -189,6 +200,17 @@ def receive_message():
                                 response_text += parsed_data['answer']
                         except _json.JSONDecodeError:
                             continue
+                
+                # Extract lead capture marker if present
+                import re
+                lead_complete_marker = None
+                lead_match = re.search(r'\[LEAD_COMPLETE:\s*(\{.*?\})\]', response_text, re.DOTALL)
+                if lead_match:
+                    try:
+                        lead_complete_marker = _json.loads(lead_match.group(1))
+                        response_text = re.sub(r'\[LEAD_COMPLETE:\s*\{.*?\}\]', '', response_text, flags=re.DOTALL).strip()
+                    except _json.JSONDecodeError:
+                        pass
                 
                 # Send response back via YCloud
                 if response_text:
@@ -208,6 +230,14 @@ def receive_message():
                             'direction': 'outbound',
                             'content': response_text
                         }).execute()
+                        
+                # Submit lead if captured
+                if lead_complete_marker and channel_data.get('lead_capture_enabled'):
+                    from app import process_lead_submission
+                    try:
+                        process_lead_submission(channel_data['id'], lead_complete_marker)
+                    except Exception as lead_e:
+                        logger.error(f"Error submitting whatsapp lead: {lead_e}")
                         
             except Exception as e:
                 logger.error(f"Error generating AI response: {e}", exc_info=True)

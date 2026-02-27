@@ -32,11 +32,16 @@ def _get_api_key(provider: str) -> Optional[str]:
     """Gets the appropriate API key from environment variables."""
     key_map = {
         'openai': 'OPENAI_API_KEY',
-        'gemini': 'GEMINI_API_KEY',
+        'gemini': 'GEMINI_API_KEY2',
         'groq': 'GROQ_API_KEY'
     }
     env_var = key_map.get(provider)
-    return os.environ.get(env_var) if env_var else None
+    val = os.environ.get(env_var) if env_var else None
+    
+    if provider == 'gemini' and not val:
+        val = os.environ.get('GEMINI_API_KEY')
+        
+    return val
 
 # --- Helper network request with retries ---
 def _post_with_retries(url: str, json_payload: dict, headers: dict = None, timeout: int = DEFAULT_REQUEST_TIMEOUT) -> Optional[requests.Response]:
@@ -594,7 +599,7 @@ def count_tokens(text: str, model: str = "gpt-4") -> int:
     
     return len(encoding.encode(text))
 
-def answer_question_stream(question_for_prompt: str, question_for_search: str, channel_data: dict = None, video_ids: set = None, user_id: str = None, access_token: str = None, tone: str = 'Casual', on_complete: callable = None, conversation_id: str = None, active_community_id: str = None, user_status: dict = None) -> Iterator[str]:
+def answer_question_stream(question_for_prompt: str, question_for_search: str, channel_data: dict = None, video_ids: set = None, user_id: str = None, access_token: str = None, tone: str = 'Casual', on_complete: callable = None, conversation_id: str = None, active_community_id: str = None, user_status: dict = None, is_manager: bool = False) -> Iterator[str]:
     """
     Finds relevant context and streams an answer. Now deducts bot queries synchronously.
     """
@@ -639,6 +644,8 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
         print(f"  OpenAI Base URL:      {base_url}")
     print("---------------------------------------------------------")
 
+    current_date = datetime.datetime.utcnow().strftime("%B %d, %Y")
+
     chat_history_for_prompt = ""
     original_question = question_for_prompt 
     history_marker = "Now, answer this new question, considering the history as context:\n"
@@ -680,7 +687,8 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
                 title = title if title != 'Unknown Source' else "WhatsApp Chat"
             
             if url and url not in sources_dict:
-                sources_dict[url] = {'title': title, 'url': url}
+                snippet = chunk.get('chunk_text', '')[:250] + "..." if chunk.get('chunk_text') else ''
+                sources_dict[url] = {'title': title, 'url': url, 'snippet': snippet}
         except Exception:
             continue
     formatted_sources = sorted(list(sources_dict.values()), key=lambda s: s['title'])
@@ -718,6 +726,7 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
             prompt = prompt_template.format(
                 business_name=creator_name,
                 context=context,
+                current_date=current_date,
                 question=original_question,
                 chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
                 word_count=word_count_guideline,
@@ -729,6 +738,7 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
             prompt = prompt_template.format(
                 bot_name=creator_name,
                 context=context,
+                current_date=current_date,
                 question=original_question,
                 chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
                 word_count=word_count_guideline,
@@ -740,6 +750,7 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
             prompt = prompt_template.format(
                 creator_name=creator_name, 
                 context=context, 
+                current_date=current_date,
                 question=original_question,
                 chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
                 word_count=word_count_guideline,
@@ -748,8 +759,15 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
     else:
         prompt = prompts.NEUTRAL_ASSISTANT_PROMPT.format(context=context, question=original_question)
 
-    # --- Lead Capture Mode: prepend lead instructions to the prompt ---
-    if channel_data and channel_data.get('lead_capture_enabled'):
+    # --- Manager Persona Mode vs Lead Capture Mode ---
+    if is_manager:
+        manager_instruction = (
+            "You are the business assistant. The person speaking to you right now is the OWNER/MANAGER of the business. "
+            "Do not try to sell to them. Be concise, report facts, and assist them administratively."
+        )
+        prompt = manager_instruction + "\n\n" + prompt
+        print("[MANAGER_MODE] Manager persona active — instructions prepended to prompt.")
+    elif channel_data and channel_data.get('lead_capture_enabled'):
         lead_fields = channel_data.get('lead_capture_fields') or []
         try:
             from utils.lead_capture_utils import build_lead_prompt

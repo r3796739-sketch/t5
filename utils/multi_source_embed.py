@@ -47,34 +47,53 @@ def create_embeddings_batch(texts, channel_id, source_id, user_id, metadata_list
         batch_texts = texts[i:i+batch_size]
         batch_metadata = metadata_list[i:i+batch_size]
         
-        # Generate embeddings using Gemini
-        try:
-            result = genai.embed_content(
-                model=model, 
-                content=batch_texts, 
-                task_type="retrieval_document",
-                output_dimensionality=output_dimensions
-            )
-            
-            # Extract embeddings from result
-            embeddings = []
-            if isinstance(result, dict) and 'embedding' in result:
-                emb_data = result['embedding']
-                # Single text case
-                if isinstance(emb_data, (list, tuple)) and all(isinstance(x, (float, int)) for x in emb_data):
-                    if len(batch_texts) == 1:
-                        embeddings = [emb_data]
-                # Multiple texts case
-                elif isinstance(emb_data, list) and len(emb_data) > 0:
-                    embeddings = emb_data
-            
-            if len(embeddings) != len(batch_texts):
-                logger.error(f"Embedding count mismatch: got {len(embeddings)}, expected {len(batch_texts)}")
-                continue
+        # Generate embeddings using Gemini with retry logic for rate limits
+        max_retries = 5
+        base_delay = 5  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                result = genai.embed_content(
+                    model=model, 
+                    content=batch_texts, 
+                    task_type="retrieval_document",
+                    output_dimensionality=output_dimensions
+                )
                 
-        except Exception as e:
-            logger.error(f"Failed to generate embeddings for batch {i}: {e}")
-            continue
+                # Extract embeddings from result
+                embeddings = []
+                if isinstance(result, dict) and 'embedding' in result:
+                    emb_data = result['embedding']
+                    # Single text case
+                    if isinstance(emb_data, (list, tuple)) and all(isinstance(x, (float, int)) for x in emb_data):
+                        if len(batch_texts) == 1:
+                            embeddings = [emb_data]
+                    # Multiple texts case
+                    elif isinstance(emb_data, list) and len(emb_data) > 0:
+                        embeddings = emb_data
+                
+                if len(embeddings) != len(batch_texts):
+                    logger.error(f"Embedding count mismatch: got {len(embeddings)}, expected {len(batch_texts)}")
+                    break # Break retry loop, this is a logic/formatting error
+                
+                break # Success! Break out of the retry loop
+                    
+            except Exception as e:
+                error_msg = str(e).lower()
+                is_rate_limit = "429" in error_msg or "quota" in error_msg or "rate limit" in error_msg
+                
+                if is_rate_limit and attempt < max_retries - 1:
+                    sleep_time = base_delay * (2 ** attempt) # Exponential backoff: 5s, 10s, 20s, 40s
+                    logger.warning(f"Rate limit hit for batch {i}. Retrying in {sleep_time} seconds (Attempt {attempt+1}/{max_retries})...")
+                    import time
+                    time.sleep(sleep_time)
+                else:
+                    logger.error(f"Failed to generate embeddings for batch {i} after {attempt + 1} attempts: {e}")
+                    embeddings = [] # Ensure embeddings is empty so we don't insert garbage
+                    break
+        
+        if not embeddings:
+            continue # Skip inserting if we never successfully got embeddings
         
         # Insert each embedding
         for j, (text, embedding, metadata) in enumerate(zip(batch_texts, embeddings, batch_metadata)):

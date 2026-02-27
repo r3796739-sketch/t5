@@ -170,8 +170,9 @@ def _load_supabase_signing_keys():
     # Also fetch JWKS for ES256 / ECC keys
     if supabase_url:
         try:
+            import requests.exceptions
             jwks_url = f"{supabase_url}/auth/v1/.well-known/jwks.json"
-            resp = requests.get(jwks_url, timeout=10)
+            resp = requests.get(jwks_url, timeout=3)
             resp.raise_for_status()
             jwks_data = resp.json()
             from jwt.algorithms import ECAlgorithm, RSAAlgorithm
@@ -189,8 +190,12 @@ def _load_supabase_signing_keys():
                 except Exception as key_err:
                     logger.warning(f"[JWKS] Could not load JWK kid={jwk.get('kid')}: {key_err}")
             logger.info(f"[JWKS] Total asymmetric keys cached: {len(_supabase_jwks_keys)}")
+        except requests.exceptions.Timeout:
+            logger.warning("[JWKS] Connection to Supabase timed out while fetching JWKS. (Will fallback to legacy secret or network auth)")
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"[JWKS] Network error fetching JWKS: {type(e).__name__}. (Will fallback to legacy secret or network auth)")
         except Exception as e:
-            logger.warning(f"[JWKS] Could not fetch JWKS from Supabase (will fallback to network auth): {e}")
+            logger.warning(f"[JWKS] Could not fetch JWKS from Supabase: {type(e).__name__}")
 
 # Run once at import time
 _load_supabase_signing_keys()
@@ -2278,59 +2283,89 @@ def delete_chatbot(chatbot_id):
 # LEAD CAPTURE ROUTES
 # ==========================================
 
-@app.route('/api/submit-lead', methods=['POST'])
-def submit_lead():
-    """Public endpoint — receives a completed lead from the chatbot widget and emails it."""
+def process_lead_submission(chatbot_id, responses, submitted_at=''):
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'status': 'error', 'message': 'No data provided'}), 400
-        
-        chatbot_id = data.get('chatbot_id')
-        responses = data.get('responses', {})
-        submitted_at = data.get('submitted_at', '')
-        
         if not chatbot_id or not responses:
-            return jsonify({'status': 'error', 'message': 'chatbot_id and responses are required'}), 400
+            return False, 'chatbot_id and responses are required'
         
         supabase_admin = get_supabase_admin_client()
         chatbot_resp = supabase_admin.table('channels').select(
-            'channel_name, lead_capture_email, lead_capture_enabled'
+            'channel_name, lead_capture_email, lead_capture_enabled, creator_id, user_id'
         ).eq('id', chatbot_id).maybe_single().execute()
         
         if not chatbot_resp or not chatbot_resp.data:
-            return jsonify({'status': 'error', 'message': 'Chatbot not found'}), 404
+            return False, 'Chatbot not found'
         
         chatbot_data = chatbot_resp.data
         if not chatbot_data.get('lead_capture_enabled'):
-            return jsonify({'status': 'error', 'message': 'Lead capture is not enabled for this chatbot'}), 400
+            return False, 'Lead capture is not enabled for this chatbot'
         
-        recipient_email = chatbot_data.get('lead_capture_email')
-        if not recipient_email:
-            return jsonify({'status': 'error', 'message': 'No recipient email configured for lead capture'}), 400
+        recipient_val = chatbot_data.get('lead_capture_email')
+        if not recipient_val:
+            return False, 'No recipient configured for lead capture'
+            
+        recipient_email = recipient_val
+        whatsapp_number = None
+        if '|' in recipient_val:
+            parts = recipient_val.split('|')
+            recipient_email = parts[0].strip()
+            if len(parts) > 1 and parts[1].strip():
+                whatsapp_number = parts[1].strip()
         
         chatbot_name = chatbot_data.get('channel_name', 'Your Chatbot')
         
-        from utils.lead_capture_utils import send_lead_email
+        from utils.lead_capture_utils import send_lead_email, send_lead_whatsapp
         from extensions import mail
         
-        success = send_lead_email(
-            mail=mail,
-            chatbot_name=chatbot_name,
-            recipient_email=recipient_email,
-            responses=responses,
-            submitted_at=submitted_at
-        )
+        owner_id = chatbot_data.get('creator_id') or chatbot_data.get('user_id')
         
-        if success:
-            logger.info(f"Lead submitted for chatbot {chatbot_id} ({chatbot_name}) -> {recipient_email}")
-            return jsonify({'status': 'success', 'message': 'Lead submitted successfully'})
+        email_success = False
+        if recipient_email:
+            email_success = send_lead_email(
+                mail=mail,
+                chatbot_name=chatbot_name,
+                recipient_email=recipient_email,
+                responses=responses,
+                submitted_at=submitted_at
+            )
+            
+        wa_success = False
+        if whatsapp_number and owner_id:
+            wa_success = send_lead_whatsapp(
+                chatbot_id=chatbot_id,
+                owner_id=owner_id,
+                chatbot_name=chatbot_name,
+                whatsapp_number=whatsapp_number,
+                responses=responses,
+                submitted_at=submitted_at
+            )
+        
+        if email_success or wa_success:
+            logger.info(f"Lead submitted for chatbot {chatbot_id} ({chatbot_name}) -> Email: {recipient_email}, WA: {whatsapp_number}")
+            return True, 'Lead submitted successfully'
         else:
-            return jsonify({'status': 'error', 'message': 'Failed to send lead email'}), 500
-    
+            return False, 'Failed to send lead notifications'
     except Exception as e:
-        logger.error(f"Error in submit_lead: {e}", exc_info=True)
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        logger.error(f"Error in process_lead_submission: {e}", exc_info=True)
+        return False, str(e)
+
+@app.route('/api/submit-lead', methods=['POST'])
+def submit_lead():
+    """Public endpoint — receives a completed lead from the chatbot widget and emails it."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+    
+    chatbot_id = data.get('chatbot_id')
+    responses = data.get('responses', {})
+    submitted_at = data.get('submitted_at', '')
+    
+    success, message = process_lead_submission(chatbot_id, responses, submitted_at)
+    if success:
+        return jsonify({'status': 'success', 'message': message})
+    else:
+        status_code = 400 if any(err in message for err in ["not enabled", "not configured", "required"]) else 500
+        return jsonify({'status': 'error', 'message': message}), status_code
 
 
 @app.route('/dashboard')
@@ -2755,6 +2790,53 @@ def widget_get_channel(channel_name):
     except Exception as e:
         logging.error(f"Widget channel fetch error: {e}")
         return jsonify({'success': False, 'error': 'Server error'})
+
+def generate_widget_answer(channel_id, question):
+    from utils.qa_utils import answer_question_stream
+    import json as _json
+    import re
+    
+    supabase_admin = get_supabase_admin_client()
+    channel_res = supabase_admin.table('channels').select('*').eq('id', channel_id).limit(1).execute()
+    if not channel_res.data:
+        return "Sorry, this chatbot is no longer available."
+    
+    channel_data = channel_res.data[0]
+    prompt_q = question
+    
+    response_text = ""
+    for chunk in answer_question_stream(
+        question_for_prompt=prompt_q,
+        question_for_search=question,
+        channel_data=channel_data,
+        user_id=channel_data.get('user_id'),
+        is_manager=False
+    ):
+        if chunk.startswith('data: '):
+            data_str = chunk.replace('data: ', '').strip()
+            if data_str == "[DONE]":
+                break
+            try:
+                parsed_data = _json.loads(data_str)
+                if parsed_data.get('answer'):
+                    response_text += parsed_data['answer']
+            except _json.JSONDecodeError:
+                continue
+                
+    # Extract lead capture marker if present
+    lead_match = re.search(r'\[LEAD_COMPLETE:\s*(\{.*?\})\]', response_text, re.DOTALL)
+    if lead_match:
+        try:
+            lead_complete_marker = _json.loads(lead_match.group(1))
+            response_text = re.sub(r'\[LEAD_COMPLETE:\s*\{.*?\}\]', '', response_text, flags=re.DOTALL).strip()
+            
+            # Submit lead if captured
+            if channel_data.get('lead_capture_enabled'):
+                process_lead_submission(channel_id, lead_complete_marker)
+        except _json.JSONDecodeError:
+            pass
+
+    return response_text or "Sorry, I couldn't generate an answer."
 
 @app.route('/api/widget/ask', methods=['POST'])
 def widget_ask_question():

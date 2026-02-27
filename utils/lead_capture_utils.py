@@ -73,24 +73,24 @@ If you can see a message in the conversation history that contains `[LEAD_COMPLE
 Only if [LEAD_COMPLETE] has NOT yet appeared in the history, follow these collection rules:
 
 You are operating in **Lead Capture Mode**. Your primary job is to collect the
-following information from the visitor, **one question at a time**, in order.
-Do not ask two questions at once. Be warm and conversational.
+following information from the visitor.
+Be warm and conversational.
 
 **Fields to collect:**
 {fields_block}
 
-**Collection Rules:**
-- Ask field #1 first. After the user answers, thank them briefly, then ask field #2, and so on.
-- If the user goes off-topic, gently bring them back to the current question.
-- For select-type fields, only accept one of the listed options. If the user says
-  something else, kindly clarify and ask again.
-- Once ALL fields have been answered, say something like:
+**Collection Rules (STRICT):**
+1. **IGNORE KNOWLEDGE BASE:** DO NOT provide recommendations, explain packages, or answer questions using your knowledge base UNTIL all fields are collected.
+2. **UPFRONT/BULK DATA:** If the user provides ALL of the required fields in one message, DO NOT ask any questions. Simply thank them, and IMMEDIATELY emit the `[LEAD_COMPLETE]` marker.
+3. **SEQUENTIAL COLLECTION:** If information is missing, ask for field #1 first. After the user answers, thank them briefly, then ask field #2, and so on. Do not ask two questions at once.
+4. If the user goes off-topic or asks a question, politely say you will help them with that right after grabbing a few details, then ask the current lead capture question.
+5. For select-type fields, only accept one of the listed options.
+6. Once ALL fields have been answered (either sequentially or all at once), say something like:
   "Thanks so much! I've got all the details I need. We'll be in touch soon! 😊"
-  Then on the very last line of your response (and ONLY there), emit this marker
-  with no extra text around it:
+  Then on the very last line of your response (and ONLY there), emit this EXACT marker:
   [LEAD_COMPLETE: {{"<field_label>": "<value>", ...}}]
-  Replace <field_label> and <value> with the actual labels and collected answers.
-- Never reveal the [LEAD_COMPLETE] marker to the user visually.
+  Replace <field_label> and <value> with the actual labels and collected answers in strict JSON.
+7. Never reveal the [LEAD_COMPLETE] marker to the user visually.
 ---
 """
     return prompt
@@ -216,3 +216,83 @@ def _escape_html(text: str) -> str:
             .replace("<", "&lt;")
             .replace(">", "&gt;")
             .replace('"', "&quot;"))
+
+# ---------------------------------------------------------------------------
+# WhatsApp sender
+# ---------------------------------------------------------------------------
+
+def send_lead_whatsapp(chatbot_id: int, owner_id: str, chatbot_name: str, whatsapp_number: str, responses: dict, submitted_at: Optional[str] = None) -> bool:
+    """
+    Sends a lead notification via WhatsApp using YCloud API.
+    Uses the creator's configured YCloud API key from the whatsapp integration.
+    """
+    import requests
+    from utils.supabase_client import get_supabase_admin_client
+    from utils.crypto import decrypt_token
+    
+    supabase = get_supabase_admin_client()
+    
+    # 1. Fetch user's WhatsApp config
+    config_res = supabase.table('whatsapp_configs').select('*').eq('channel_id', chatbot_id).eq('user_id', owner_id).eq('is_active', True).limit(1).execute()
+    
+    if not config_res.data:
+        logger.error(f"Skipping WhatsApp lead capture: No active whatsapp config found for chatbot {chatbot_id}")
+        return False
+        
+    config = config_res.data[0]
+    try:
+        api_key = decrypt_token(config.get('access_token'))
+        phone_number_id = config.get('phone_number_id')
+    except Exception as e:
+        logger.error(f"Error decrypting WhatsApp configs for channel {chatbot_id}: {e}")
+        return False
+        
+    if not api_key or not phone_number_id:
+        logger.error(f"WhatsApp config missing credentials for {chatbot_id}")
+        return False
+
+    ts = submitted_at or datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    
+    # Format message text
+    lines = [f"🎯 *New Lead Received!*"]
+    lines.append(f"🤖 Bot: {chatbot_name}")
+    lines.append(f"⏰ Time: {ts}")
+    lines.append("")
+    lines.append("📋 *Lead Details:*")
+    
+    for label, value in responses.items():
+        lines.append(f"• *{label}:* {value}")
+        
+    lines.append("")
+    lines.append("Powered by YoppyChat 🚀")
+    
+    message_text = "\n".join(lines)
+    
+    try:
+        url = "https://api.ycloud.com/v2/whatsapp/messages/sendDirectly"
+        payload = {
+            "to": whatsapp_number,
+            "type": "text",
+            "from": phone_number_id,
+            "text": {
+                "body": message_text
+            }
+        }
+            
+        headers = {
+            "X-API-Key": api_key,
+            "Content-Type": "application/json"
+        }
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        
+        if response.status_code == 200 or response.status_code == 201:
+            logger.info(f"WhatsApp lead notification sent successfully to {whatsapp_number}")
+            return True
+        else:
+            logger.error(f"Failed to send WhatsApp lead to {whatsapp_number}. Status: {response.status_code}, Msg: {response.text}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Error sending WhatsApp lead notification: {e}", exc_info=True)
+        return False
