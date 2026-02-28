@@ -173,6 +173,32 @@ def mark_message_as_read(
         return False
 
 
+def send_whatsapp_typing_indicator(
+    message_id: str,
+    api_key: str
+) -> bool:
+    """
+    Mark a message as read and show a typing indicator (max 25s).
+    Uses YCloud endpoint: POST /v2/whatsapp/inboundMessages/{messageId}/typingIndicator
+
+    Args:
+        message_id: The WhatsApp message ID (e.g. "wamid.HBgL...")
+        api_key: The user's YCloud API key
+    """
+    url = f"{YCLOUD_BASE_URL}/whatsapp/inboundMessages/{message_id}/typingIndicator"
+
+    try:
+        response = requests.post(
+            url,
+            headers=_ycloud_headers(api_key),
+            timeout=10
+        )
+        return response.status_code == 200
+    except Exception as e:
+        logger.error(f"Failed to send typing indicator: {e}")
+        return False
+
+
 def parse_webhook_message(data: Dict) -> Optional[Dict]:
     """
     Parse incoming webhook data from YCloud.
