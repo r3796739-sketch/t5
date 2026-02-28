@@ -151,9 +151,10 @@ def receive_message():
                 # Get chat history for context
                 history = []
                 if conversation_id:
+                    history_limit = 40 if channel and isinstance(channel, dict) and channel.get('lead_capture_enabled') else 10
                     history_res = supabase.table('whatsapp_messages').select('direction, content').eq(
                         'conversation_id', conversation_id
-                    ).order('created_at', desc=True).limit(10).execute()
+                    ).order('created_at', desc=True).limit(history_limit).execute()
                     
                     if history_res.data:
                         for msg in reversed(history_res.data):

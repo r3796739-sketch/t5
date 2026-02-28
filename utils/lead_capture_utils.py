@@ -65,7 +65,7 @@ def build_lead_prompt(fields: list) -> str:
 If you can see a message in the conversation history that contains `[LEAD_COMPLETE:` anywhere in it, ALL information has ALREADY been collected. In that case:
 - DO NOT ask any lead capture questions again.
 - DO NOT re-ask about name, location, destination, dates, or any other field.
-- Simply act as a normal, helpful travel assistant and answer the user's current question naturally.
+- Simply resume your primary persona (Business Support, General Assistant, or Creator) and answer the user's current question naturally.
 - Treat the conversation as if the lead form is complete and closed.
 
 ---

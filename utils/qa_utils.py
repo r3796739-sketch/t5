@@ -416,11 +416,14 @@ def _get_gemini_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
                     logging.warning("Gemini response was blocked due to safety settings.")
                     yield "Error: The response was blocked by the model's safety filters. Please try rephrasing your question."
                     return
-            if hasattr(chunk, 'text') and chunk.text:
-                yield chunk.text
+            try:
+                if hasattr(chunk, 'text') and chunk.text:
+                    yield chunk.text
+            except ValueError as ve:
+                logging.warning(f"Gemini chunk text blocked or invalid: {ve}")
+                continue
     except generation_types.StopCandidateException as e:
         logging.error(f"Gemini stream stopped due to safety or other reasons: {e}")
-        yield "Error: The response was blocked by the model. Please try rephrasing your question."
     except Exception as e:
         logging.error(f"Failed to get Gemini stream: {e}", exc_info=True)
         yield "Error: Could not get a response from the provider."
@@ -552,27 +555,29 @@ def search_and_rerank_chunks(query: str, user_id: str, access_token: str, video_
             initial_results.append(chunk_data)
 
         CHUNKS_TO_RERANK = int(os.environ.get('CHUNKS_TO_RERANK', 55))
-        print(f"Passing the top {CHUNKS_TO_RERANK} results to the re-ranker.")
-        if os.environ.get('ENABLE_RERANKING', 'true').lower() == 'true':
-            reranked_results = rerank_with_cross_encoder(query, initial_results[:CHUNKS_TO_RERANK])
-        else:
-            print("Re-ranking is disabled via environment variable. Skipping.")
-            reranked_results = initial_results
-        
-        filtering_start_time = time.perf_counter()
         top_k = int(os.environ.get('TOP_K', 5))
-        final_results = []
-        video_counts = {}
-        for chunk in reranked_results:
-            video_id = chunk.get('video_id')
-            if video_counts.get(video_id, 0) < 2:
-                final_results.append(chunk)
-                video_counts[video_id] = video_counts.get(video_id, 0) + 1
-            if len(final_results) >= top_k:
-                break
-        filtering_end_time = time.perf_counter()
-        print(f"[TIME_LOG] Final result diversification/filtering took {filtering_end_time - filtering_start_time:.4f} seconds.")
-        print(f"Selected {len(final_results)} diverse, highly relevant chunks for the context.")
+        
+        if os.environ.get('ENABLE_RERANKING', 'true').lower() == 'true':
+            print(f"Passing the top {CHUNKS_TO_RERANK} results to the re-ranker.")
+            reranked_results = rerank_with_cross_encoder(query, initial_results[:CHUNKS_TO_RERANK])
+            
+            filtering_start_time = time.perf_counter()
+            final_results = []
+            video_counts = {}
+            for chunk in reranked_results:
+                video_id = chunk.get('video_id')
+                if video_counts.get(video_id, 0) < 2:
+                    final_results.append(chunk)
+                    video_counts[video_id] = video_counts.get(video_id, 0) + 1
+                if len(final_results) >= top_k:
+                    break
+            filtering_end_time = time.perf_counter()
+            print(f"[TIME_LOG] Final result diversification/filtering took {filtering_end_time - filtering_start_time:.4f} seconds.")
+            print(f"Selected {len(final_results)} diverse, highly relevant chunks for the context.")
+        else:
+            print("Re-ranking is disabled via environment variable. Using pure semantic search.")
+            final_results = initial_results[:top_k]
+            print(f"Selected top {len(final_results)} chunks from semantic search.")
         
         total_end_time = time.perf_counter()
         print(f"[TIME_LOG] Total search_and_rerank_chunks took {total_end_time - total_start_time:.4f} seconds.")

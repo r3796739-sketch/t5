@@ -1545,7 +1545,8 @@ def stream_answer():
     
     chat_history_for_prompt = ''
     # Use the (potentially shorter) history_for_prompt list to build the context.
-    for qa in history_for_prompt[-5:]:
+    history_limit = 20 if channel_data and channel_data.get('lead_capture_enabled') else 5
+    for qa in history_for_prompt[-history_limit:]:
         chat_history_for_prompt += f"Human: {qa['question']}\nAI: {qa['answer']}\n\n"
 
     
