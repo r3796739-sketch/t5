@@ -672,14 +672,9 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
         return
     
     if not relevant_chunks:
-        # If lead capture or manager mode is on, we MUST let the LLM handle the response
-        # Even if there's no KB context, the LLM needs to ask for lead info or handle small talk.
-        if (channel_data and channel_data.get('lead_capture_enabled')) or is_manager:
-            relevant_chunks = [{'content': 'No relevant document context found. Rely on your prompt instructions.'}]
-        else:
-            yield "data: {\"answer\": \"I couldn't find any relevant information in the documents to answer your question.\"}\n\n"
-            yield "data: [DONE]\n\n"
-            return
+        yield "data: {\"answer\": \"I couldn't find any relevant information in the documents to answer your question.\"}\n\n"
+        yield "data: [DONE]\n\n"
+        return
 
     sources_dict = {}
     for chunk in relevant_chunks:

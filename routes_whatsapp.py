@@ -232,18 +232,11 @@ def receive_message():
                     # Store outgoing message
                     if conversation_id and send_result.get('success'):
                         outbound_msg_id = send_result.get('data', {}).get('id')
-                        
-                        # Preserve LEAD_COMPLETE in the database so the AI remembers it later
-                        db_content = response_text
-                        if lead_complete_marker:
-                            import json as _json
-                            db_content += f"\n\n[LEAD_COMPLETE: {_json.dumps(lead_complete_marker)}]"
-
                         supabase.table('whatsapp_messages').insert({
                             'conversation_id': conversation_id,
                             'message_id': outbound_msg_id,
                             'direction': 'outbound',
-                            'content': db_content
+                            'content': response_text
                         }).execute()
                         
                 # Submit lead if captured

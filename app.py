@@ -1870,11 +1870,8 @@ def update_chatbot_settings(chatbot_id):
         # Validate lead_capture_email if provided
         if 'lead_capture_email' in update_data:
             email_val = update_data.get('lead_capture_email', '')
-            if email_val:
-                parts = str(email_val).split('|')
-                actual_email = parts[0].strip()
-                if actual_email and '@' not in actual_email:
-                    return jsonify({'status': 'error', 'message': 'Invalid lead capture email address'}), 400
+            if email_val and '@' not in str(email_val):
+                return jsonify({'status': 'error', 'message': 'Invalid lead capture email address'}), 400
         
         # Update chatbot
         supabase.table('channels').update(update_data).eq('id', chatbot_id).execute()
