@@ -83,8 +83,15 @@ def receive_message():
         
         logger.info(f"Received WhatsApp message from {from_phone} to phone ID {phone_number_id}")
         
-        # Find the config for this phone number
         supabase = get_supabase_admin_client()
+        
+        # Idempotency check: see if we already processed this message
+        existing_msg = supabase.table('whatsapp_messages').select('id').eq('message_id', message_id).eq('direction', 'inbound').limit(1).execute()
+        if existing_msg.data:
+            logger.info(f"Message {message_id} already processed. Ignoring duplicate webhook.")
+            return jsonify({'status': 'ok'}), 200
+            
+        # Find the config for this phone number
         config_res = supabase.table('whatsapp_configs').select(
             '*, channels(*)'
         ).eq('phone_number_id', phone_number_id).eq('is_active', True).limit(1).execute()
