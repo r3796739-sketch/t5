@@ -14,6 +14,7 @@ from utils.whatsapp_api import (
     parse_webhook_message,
     send_whatsapp_message,
     mark_message_as_read,
+    send_whatsapp_typing_indicator,
     verify_webhook_signature
 )
 from utils.qa_utils import answer_question_stream
@@ -117,8 +118,8 @@ def receive_message():
         # Decrypt the user's YCloud API key
         api_key = decrypt_token(config['access_token'])
         
-        # Mark message as read (blue checkmarks)
-        mark_message_as_read(message_id, api_key)
+        # Mark message as read and show typing indicator
+        send_whatsapp_typing_indicator(message_id, api_key)
         
         # Get or create conversation
         conv_res = supabase.table('whatsapp_conversations').upsert({
