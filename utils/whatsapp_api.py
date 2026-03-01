@@ -202,29 +202,6 @@ def send_whatsapp_typing_indicator(
 def parse_webhook_message(data: Dict) -> Optional[Dict]:
     """
     Parse incoming webhook data from YCloud.
-
-    YCloud sends webhook events in an envelope format:
-    {
-      "id": "evt_...",
-      "type": "whatsapp.inbound_message.received",
-      "apiVersion": "v2",
-      "createTime": "2024-01-01T00:00:00Z",
-      "whatsappInboundMessage": {
-        "id": "wamid.HBgL...",
-        "wabaId": "...",
-        "from": "1234567890",
-        "to": "0987654321",
-        "customerProfile": {
-          "name": "John Doe"
-        },
-        "type": "text",
-        "text": {
-          "body": "Hello!"
-        },
-        "timestamp": "1691234567"
-      }
-    }
-
     Returns a normalized dict or None if not a message event.
     """
     try:
@@ -241,20 +218,54 @@ def parse_webhook_message(data: Dict) -> Optional[Dict]:
             return None
 
         msg_type = msg.get('type', 'text')
-
-        return {
+        
+        parsed = {
             'phone_number_id': msg.get('to'),           # Bot's phone number
             'message_id': msg.get('id'),                 # WhatsApp message ID
             'from_phone': msg.get('from'),               # Customer's phone number
             'sender_name': msg.get('customerProfile', {}).get('name', 'Unknown'),
             'timestamp': msg.get('timestamp'),
             'type': msg_type,
-            'text': msg.get('text', {}).get('body', '') if msg_type == 'text' else None,
             'waba_id': msg.get('wabaId'),                # WhatsApp Business Account ID
             'raw': msg
         }
+        
+        if msg_type == 'text':
+            parsed['text'] = msg.get('text', {}).get('body', '')
+        elif msg_type == 'image':
+            parsed['media_id'] = msg.get('image', {}).get('id')
+            parsed['text'] = msg.get('image', {}).get('caption', '') # Fallback caption to text property
+            parsed['mime_type'] = msg.get('image', {}).get('mimeType', 'image/jpeg')
+
+        return parsed
     except Exception as e:
         logger.error(f"Error parsing webhook message: {e}")
+        return None
+
+
+def download_whatsapp_media(media_id: str, api_key: str) -> Optional[Dict]:
+    """
+    Download media from YCloud by media_id.
+    Returns a dict with 'content' (bytes) and 'mime_type' if successful.
+    """
+    import base64
+    url = f"{YCLOUD_BASE_URL}/whatsapp/media/{media_id}/download"
+    try:
+        response = requests.get(
+            url,
+            headers=_ycloud_headers(api_key),
+            timeout=20
+        )
+        if response.status_code == 200:
+            return {
+                "base64": base64.b64encode(response.content).decode('utf-8'),
+                "mime_type": response.headers.get("Content-Type", "image/jpeg")
+            }
+        else:
+            logger.error(f"Failed to download YCloud media {media_id}. Status: {response.status_code}, Response: {response.text}")
+            return None
+    except Exception as e:
+        logger.error(f"Error downloading YCloud media {media_id}: {e}")
         return None
 
 

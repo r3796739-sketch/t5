@@ -311,10 +311,30 @@ def _get_openai_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
         client = openai.OpenAI(api_key=api_key, base_url=base_url)
         
         try:
+            image_base64 = kwargs.get('image_base64')
+            image_mime_type = kwargs.get('image_mime_type', 'image/jpeg')
+            
+            messages = []
+            if image_base64:
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{image_mime_type};base64,{image_base64}"
+                            }
+                        }
+                    ]
+                })
+            else:
+                messages.append({"role": "user", "content": prompt})
+                
             # First attempt: try streaming
             response_stream = client.chat.completions.create(
                 model=model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 stream=True
@@ -336,7 +356,7 @@ def _get_openai_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
                 try:
                     response = client.chat.completions.create(
                         model=model,
-                        messages=[{"role": "user", "content": prompt}],
+                        messages=messages,
                         max_tokens=max_tokens,
                         temperature=temperature,
                         stream=False
@@ -395,6 +415,17 @@ def _get_gemini_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
         genai.configure(api_key=api_key)
         gemini_model = genai.GenerativeModel(model)
         max_tokens = kwargs.get('max_tokens', 1024) # Get max_tokens from kwargs
+        
+        image_base64 = kwargs.get('image_base64')
+        image_mime_type = kwargs.get('image_mime_type', 'image/jpeg')
+        
+        contents = [prompt]
+        if image_base64:
+            contents.append({
+                "mime_type": image_mime_type,
+                "data": image_base64
+            })
+            
         safety_settings = {
             'HARM_CATEGORY_HARASSMENT': 'BLOCK_NONE',
             'HARM_CATEGORY_HATE_SPEECH': 'BLOCK_NONE',
@@ -402,7 +433,7 @@ def _get_gemini_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
             'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE',
         }
         response_stream = gemini_model.generate_content(
-            prompt, 
+            contents, 
             generation_config=genai.types.GenerationConfig(max_output_tokens=max_tokens, temperature=0.7), 
             stream=True,
             safety_settings=safety_settings
@@ -604,9 +635,24 @@ def count_tokens(text: str, model: str = "gpt-4") -> int:
     
     return len(encoding.encode(text))
 
-def answer_question_stream(question_for_prompt: str, question_for_search: str, channel_data: dict = None, video_ids: set = None, user_id: str = None, access_token: str = None, tone: str = 'Casual', on_complete: callable = None, conversation_id: str = None, active_community_id: str = None, user_status: dict = None, is_manager: bool = False) -> Iterator[str]:
+def answer_question_stream(
+    question_for_prompt: str, 
+    question_for_search: str, 
+    channel_data: dict = None, 
+    video_ids: set = None, 
+    user_id: str = None, 
+    access_token: str = None, 
+    tone: str = 'Casual', 
+    on_complete: callable = None, 
+    conversation_id: str = None, 
+    active_community_id: str = None, 
+    user_status: dict = None, 
+    is_manager: bool = False,
+    image_base64: str = None,
+    image_mime_type: str = None
+) -> Iterator[str]:
     """
-    Finds relevant context and streams an answer. Now deducts bot queries synchronously.
+    Finds relevant context and streams an answer, optionally including an image. Now deducts bot queries synchronously.
     """
     from tasks import post_answer_processing_task
     from . import db_utils 
@@ -805,7 +851,9 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
         'ollama_url': ollama_url,
         'base_url': openai_base_url,
         'temperature': temperature,
-        'max_tokens': max_tokens
+        'max_tokens': max_tokens,
+        'image_base64': image_base64,
+        'image_mime_type': image_mime_type
     }
 
     try:
