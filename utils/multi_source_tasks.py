@@ -356,15 +356,20 @@ def update_chatbot_readiness(chatbot_id: int):
         has_whatsapp = any(s['source_type'] == 'whatsapp' and s['status'] == 'ready' for s in sources)
         has_website = any(s['source_type'] == 'website' and s['status'] == 'ready' for s in sources)
         
-        # Extract speaking_style from WhatsApp sources (primary user's communication style)
+        # Check if the channel already has a speaking_style set manually
+        channel_resp = supabase.table('channels').select('speaking_style').eq('id', chatbot_id).maybe_single().execute()
+        existing_style = channel_resp.data.get('speaking_style') if channel_resp and channel_resp.data else None
+        
+        # Extract speaking_style from WhatsApp sources only if one doesn't exist
         speaking_style = None
-        for source in sources:
-            if source['source_type'] == 'whatsapp' and source['status'] == 'ready':
-                metadata = source.get('metadata') or {}
-                if metadata.get('speaking_style'):
-                    speaking_style = metadata['speaking_style']
-                    logger.info(f"Extracted speaking style from WhatsApp source for chatbot {chatbot_id}")
-                    break
+        if not existing_style:
+            for source in sources:
+                if source['source_type'] == 'whatsapp' and source['status'] == 'ready':
+                    metadata = source.get('metadata') or {}
+                    if metadata.get('speaking_style'):
+                        speaking_style = metadata['speaking_style']
+                        logger.info(f"Extracted speaking style from WhatsApp source for chatbot {chatbot_id}")
+                        break
         
         # Update chatbot
         is_ready = ready_count > 0
