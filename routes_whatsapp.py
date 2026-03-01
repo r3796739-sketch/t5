@@ -175,8 +175,7 @@ def receive_message():
                         f"--- End History ---\n\n"
                         f"Now, answer this new question, considering the history as context:\n{message_text}"
                     )
-                
-                # Get channel data dict (answer_question_stream expects the full dict)
+                # Get channel data dict
                 channel_data = channel  # already fetched from DB via channels(*)
                 
                 # Check if the sender is the manager
@@ -189,6 +188,17 @@ def receive_message():
                         if manager_phone and sender_phone == manager_phone:
                             is_manager = True
 
+                # Process image if present
+                image_base64 = None
+                image_mime_type = None
+                if parsed.get('type') == 'image' and parsed.get('media_id'):
+                    from utils.whatsapp_api import download_whatsapp_media
+                    media_data = download_whatsapp_media(parsed['media_id'], api_key)
+                    if media_data:
+                        image_base64 = media_data.get('base64')
+                        image_mime_type = media_data.get('mime_type')
+                        logger.info(f"Successfully downloaded image {parsed['media_id']} for {from_phone}")
+
                 # Get AI response (returns SSE-formatted strings)
                 import json as _json
                 response_text = ""
@@ -197,7 +207,9 @@ def receive_message():
                     question_for_search=message_text,
                     channel_data=channel_data,
                     user_id=config['user_id'],
-                    is_manager=is_manager
+                    is_manager=is_manager,
+                    image_base64=image_base64,
+                    image_mime_type=image_mime_type
                 ):
                     if chunk.startswith('data: '):
                         data_str = chunk.replace('data: ', '').strip()
