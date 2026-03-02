@@ -258,6 +258,7 @@
         align-items: center;
         justify-content: center;
         backdrop-filter: blur(4px);
+        cursor: pointer;
     }
 
     .modal-content {
@@ -722,14 +723,14 @@
                     .then(res => res.json())
                     .then(result => {
                         if (result.status === 'success') {
-                            alert(result.message);
+                            showNotification(result.message || 'Payout details saved!', 'success');
                             creatorPayoutDetails = data;
                             showRequestView(data);
                         } else {
                             throw new Error(result.message);
                         }
                     })
-                    .catch(error => alert(error.message))
+                    .catch(error => showNotification(error.message || 'An error occurred.', 'error'))
                     .finally(() => {
                         btn.innerHTML = origText;
                         btn.disabled = false;
@@ -763,12 +764,12 @@
                         return res.json();
                     })
                     .then(data => {
-                        alert(data.message);
+                        showNotification(data.message || 'Payout request submitted!', 'success');
                         closeModal();
                         setTimeout(() => window.location.reload(), 1500);
                     })
                     .catch(error => {
-                        alert(error.message || 'An error occurred.');
+                        showNotification(error.message || 'An error occurred.', 'error');
                         btn.innerHTML = origText;
                         btn.disabled = false;
                     });

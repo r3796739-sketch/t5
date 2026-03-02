@@ -133,7 +133,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-                        <polyline points=" १० १७ १५ १२ १० ७" />
+                        <polyline points="10 17 15 12 10 7" />
                         <line x1="15" y1="12" x2="3" y2="12" />
                     </svg>
                     <span>Login or Sign Up</span>
@@ -369,7 +369,7 @@
                         <a class="btn-pricing btn-pricing-disabled">Current Plan</a>
                         {% else %}
                         <a href="#" onclick="buySubscription('personal', this)"
-                            class="btn-pricing btn-pricing-accent">Choose Creator</a>
+                            class="btn-pricing btn-pricing-accent">Choose Personal</a>
                         {% endif %}
                         <ul class="pricing-features">
                             <li><span class="icon">✓</span><strong>Unlimited Channels</strong></li>
@@ -872,6 +872,65 @@
             }
         });
     </script>
+
+    <script>
+        /**
+         * Initiates a subscription purchase via Razorpay for the given plan.
+         * @param {string} plan - 'personal' or 'creator'
+         * @param {HTMLElement} el - The button element that was clicked
+         */
+        async function buySubscription(plan, el) {
+            if (!el) return;
+            const origText = el.innerHTML;
+            el.innerHTML = '<span class="button-spinner"></span>Processing...';
+            el.style.pointerEvents = 'none';
+
+            try {
+                const response = await fetch('/create_razorpay_subscription', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ plan_type: plan })
+                });
+
+                if (response.status === 401) {
+                    closePricingModal();
+                    showLoginPopup();
+                    return;
+                }
+
+                const result = await response.json();
+
+                if (result.status === 'success' && result.subscription_id) {
+                    const options = {
+                        key: result.razorpay_key_id,
+                        subscription_id: result.subscription_id,
+                        name: 'YoppyChat AI',
+                        description: result.plan_name || plan + ' Plan',
+                        handler: function () {
+                            showNotification('Subscription activated! Reloading...', 'success');
+                            setTimeout(() => window.location.reload(), 1500);
+                        },
+                        theme: { color: '#FF6B35' }
+                    };
+                    const rzp = new Razorpay(options);
+                    rzp.on('payment.failed', function (resp) {
+                        showNotification('Payment failed: ' + (resp.error.description || 'Unknown error'), 'error');
+                    });
+                    closePricingModal();
+                    rzp.open();
+                } else {
+                    showNotification(result.message || 'Could not start payment. Please try again.', 'error');
+                }
+            } catch (err) {
+                console.error('buySubscription error:', err);
+                showNotification('A network error occurred. Please try again.', 'error');
+            } finally {
+                el.innerHTML = origText;
+                el.style.pointerEvents = '';
+            }
+        }
+    </script>
+
     <!-- PERFORMANCE: Supabase deferred, Razorpay/PayPal/marked lazy-loaded -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     {% block marked_script %}{% endblock %}

@@ -423,7 +423,7 @@
 
             // FIX Issue #11: Handle 401 from the subscribe endpoint for logged-out users
             if (response.status === 401) {
-                alert('Please log in to subscribe to this chatbot.');
+                showNotification('Please log in to subscribe to this chatbot.', 'error');
                 if (typeof showLoginPopup === 'function') {
                     showLoginPopup();
                 }
@@ -440,7 +440,7 @@
                     "description": result.plan_name,
                     "image": "https://app.yoppychat.com/static/images/logo/logo.png",
                     "handler": function (response) {
-                        alert("Payment successful! The chatbot is now in your account.");
+                        showNotification("Payment successful! The chatbot is now in your account.", 'success');
                         window.location.href = "{{ url_for('dashboard') }}";
                     },
                     "prefill": {
@@ -454,20 +454,20 @@
 
                 const rzp = new Razorpay(options);
                 rzp.on('payment.failed', function (response) {
-                    alert("Payment failed: " + response.error.description);
+                    showNotification("Payment failed: " + response.error.description, 'error');
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                 });
                 rzp.open();
 
             } else {
-                alert(result.message || 'Error initiating checkout.');
+                showNotification(result.message || 'Error initiating checkout.', 'error');
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
         } catch (error) {
             console.error(error);
-            alert('A network error occurred.');
+            showNotification('A network error occurred.', 'error');
             btn.innerHTML = originalText;
             btn.disabled = false;
         }

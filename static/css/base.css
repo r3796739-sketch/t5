@@ -797,15 +797,11 @@ html[data-theme='dark'] .sidebar-action-item.active {
 }
 
 .btn-pricing-disabled {
-    background-color: #4CAF50;
-    /* A modern, theme-friendly green */
-    color: #FFFFFF;
-    /* White text for high contrast and readability */
-    border: none;
-    /* Removes the border for a cleaner look */
+    background-color: var(--neutral-200);
+    color: var(--text-secondary);
+    border: 1px solid var(--neutral-300);
     cursor: not-allowed;
     pointer-events: none;
-    /* This makes the button unclickable */
 }
 
 /* === Query Usage Indicator === */
