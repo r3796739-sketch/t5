@@ -213,186 +213,210 @@ def receive_message():
         # Decrypt the user's YCloud API key
         api_key = decrypt_token(config['access_token'])
         
-        # Mark message as read and show typing indicator
+        # Mark message as read / show typing indicator (fast)
         send_whatsapp_typing_indicator(message_id, api_key)
         
-        # Get or create conversation
-        conv_res = supabase.table('whatsapp_conversations').upsert({
-            'config_id': config['id'],
-            'customer_phone': from_phone,
-            'customer_name': sender_name,
-            'last_message_at': datetime.now(timezone.utc).isoformat(),
-            'is_active': True
-        }, on_conflict='config_id,customer_phone').execute()
-        
-        conversation_id = conv_res.data[0]['id'] if conv_res.data else None
-        
-        # Store incoming message
-        if conversation_id:
-            supabase.table('whatsapp_messages').insert({
-                'conversation_id': conversation_id,
-                'message_id': message_id,
-                'direction': 'inbound',
-                'content': message_text
-            }).execute()
-            
-            # Update message count
-            supabase.table('whatsapp_conversations').update({
-                'message_count': conv_res.data[0].get('message_count', 0) + 1
-            }).eq('id', conversation_id).execute()
-        
-        # Generate AI response
-        if message_text:
-            try:
-                # Get chat history for context
-                history = []
-                if conversation_id:
-                    history_limit = 40 if channel and isinstance(channel, dict) and channel.get('lead_capture_enabled') else 10
-                    history_res = supabase.table('whatsapp_messages').select('direction, content').eq(
-                        'conversation_id', conversation_id
-                    ).order('created_at', desc=True).limit(history_limit).execute()
-                    
-                    if history_res.data:
-                        for msg in reversed(history_res.data):
-                            role = 'user' if msg['direction'] == 'inbound' else 'assistant'
-                            history.append({'role': role, 'content': msg['content']})
-                
-                # Build chat history prompt (matching app.py pattern)
-                chat_history_for_prompt = ""
-                for h in history[:-1]:  # Exclude current message
-                    prefix = "Human" if h['role'] == 'user' else "AI"
-                    chat_history_for_prompt += f"{prefix}: {h['content']}\n\n"
-                
-                final_question = message_text
-                if chat_history_for_prompt:
-                    final_question = (
-                        f"Given the following conversation history:\n{chat_history_for_prompt}"
-                        f"--- End History ---\n\n"
-                        f"Now, answer this new question, considering the history as context:\n{message_text}"
-                    )
-                # Get channel data dict
-                channel_data = channel  # already fetched from DB via channels(*)
-                
-                # Check if the sender is the manager
-                is_manager = False
-                if channel_data and channel_data.get('lead_capture_email'):
-                    parts = channel_data['lead_capture_email'].split('|')
-                    if len(parts) > 1:
-                        manager_phone = parts[1].strip().replace('+', '').replace(' ', '')
-                        sender_phone = from_phone.replace('+', '').replace(' ', '')
-                        if manager_phone and sender_phone == manager_phone:
-                            is_manager = True
+        # --- Return 200 OK immediately so Gunicorn never times out ---
+        # All slow work (DB writes, AI call, sending reply) runs in a
+        # daemon thread that outlives the HTTP request.
+        import threading
+        from flask import current_app
+        app_ref = current_app._get_current_object()
 
-                # Process image if present
-                image_base64 = None
-                image_mime_type = None
-                if parsed.get('type') == 'image' and parsed.get('media_id'):
-                    from utils.whatsapp_api import download_whatsapp_media
-                    media_data = download_whatsapp_media(parsed['media_id'], api_key)
-                    if media_data:
-                        image_base64 = media_data.get('base64')
-                        image_mime_type = media_data.get('mime_type')
-                        logger.info(f"Successfully downloaded image {parsed['media_id']} for {from_phone}")
-
-                # Get AI response (returns SSE-formatted strings)
-                # CRITICAL: Materialize the entire generator into a list FIRST.
-                # answer_question_stream is a generator-of-generators. If we
-                # iterate lazily and the request/GC tears down the outer
-                # generator before the inner Gemini stream finishes, the
-                # response gets silently truncated (GeneratorExit).
-                import json as _json
-                response_text = ""
+        def _bg(app_obj):
+            with app_obj.app_context():
                 try:
-                    all_chunks = list(answer_question_stream(
-                        question_for_prompt=final_question,
-                        question_for_search=message_text,
-                        channel_data=channel_data,
-                        user_id=config['user_id'],
-                        is_manager=is_manager,
-                        image_base64=image_base64,
-                        image_mime_type=image_mime_type
-                    ))
-                except Exception as stream_err:
-                    logger.error(f"Error materializing AI stream: {stream_err}", exc_info=True)
-                    all_chunks = []
-                
-                print(f"[WhatsApp] Received {len(all_chunks)} SSE chunks from AI stream")
-                
-                for chunk in all_chunks:
-                    if chunk.startswith('data: '):
-                        data_str = chunk.replace('data: ', '').strip()
-                        if data_str == "[DONE]":
-                            break
-                        try:
-                            parsed_data = _json.loads(data_str)
-                            if parsed_data.get('answer'):
-                                response_text += parsed_data['answer']
-                        except _json.JSONDecodeError:
-                            continue
-                
-                print(f"[WhatsApp] Final response length: {len(response_text)} chars")
-                print(f"[WhatsApp] Response preview: {response_text[:300]}...")
-                
-                # Extract lead capture marker if present
-                import re
-                lead_complete_marker = None
-                lead_match = re.search(r'\[LEAD_COMPLETE:\s*(\{.*?\})\]', response_text, re.DOTALL)
-                if lead_match:
-                    try:
-                        lead_complete_marker = _json.loads(lead_match.group(1))
-                        response_text = re.sub(r'\[LEAD_COMPLETE:\s*\{.*?\}\]', '', response_text, flags=re.DOTALL).strip()
-                    except _json.JSONDecodeError:
-                        pass
-                
-                # Send response back via YCloud
-                if response_text:
-                    # Convert Markdown formatting to WhatsApp-native formatting
-                    response_text = _markdown_to_whatsapp(response_text)
-                    send_result = send_whatsapp_message(
+                    _handle_whatsapp_message(
+                        supabase=supabase,
+                        config=config,
+                        channel=channel,
+                        api_key=api_key,
                         phone_number_id=phone_number_id,
-                        to_phone=from_phone,
-                        message_text=response_text,
-                        api_key=api_key
+                        from_phone=from_phone,
+                        message_text=message_text,
+                        message_id=message_id,
+                        sender_name=sender_name,
+                        parsed=parsed,
                     )
-                    
-                    # Store outgoing message
-                    if conversation_id and send_result.get('success'):
-                        outbound_msg_id = send_result.get('data', {}).get('id')
-                        supabase.table('whatsapp_messages').insert({
-                            'conversation_id': conversation_id,
-                            'message_id': outbound_msg_id,
-                            'direction': 'outbound',
-                            'content': response_text
-                        }).execute()
-                        
-                # Submit lead if captured — run in background thread to avoid
-                # blocking the webhook response (SMTP can be slow and causes
-                # gunicorn worker timeouts / SystemExit: 1)
-                if lead_complete_marker and channel_data.get('lead_capture_enabled'):
-                    import threading
-                    from app import process_lead_submission
-                    from flask import current_app
-                    app_ref = current_app._get_current_object()
-                    def _send_lead_bg(app_obj, cid, marker):
-                        with app_obj.app_context():
-                            try:
-                                process_lead_submission(cid, marker)
-                            except Exception as lead_e:
-                                logger.error(f"Error submitting whatsapp lead: {lead_e}")
-                    threading.Thread(
-                        target=_send_lead_bg,
-                        args=(app_ref, channel_data['id'], lead_complete_marker),
-                        daemon=True
-                    ).start()
-                        
-            except Exception as e:
-                logger.error(f"Error generating AI response: {e}", exc_info=True)
-        
+                except Exception as bg_err:
+                    logger.error(f"[WhatsApp BG] Unhandled error: {bg_err}", exc_info=True)
+
+        threading.Thread(target=_bg, args=(app_ref,), daemon=True).start()
         return jsonify({'status': 'ok'}), 200
-        
+
     except Exception as e:
         logger.error(f"Error processing WhatsApp webhook: {e}", exc_info=True)
         return jsonify({'status': 'error'}), 500
+
+
+def _handle_whatsapp_message(
+    supabase, config, channel, api_key,
+    phone_number_id, from_phone, message_text,
+    message_id, sender_name, parsed
+):
+    """
+    Background handler: all DB writes and AI processing happen here,
+    after the webhook has already returned 200 OK to YCloud.
+    """
+    import json as _json
+    import re
+    import threading
+
+    # Get or create conversation
+    conv_res = supabase.table('whatsapp_conversations').upsert({
+        'config_id': config['id'],
+        'customer_phone': from_phone,
+        'customer_name': sender_name,
+        'last_message_at': datetime.now(timezone.utc).isoformat(),
+        'is_active': True
+    }, on_conflict='config_id,customer_phone').execute()
+
+    conversation_id = conv_res.data[0]['id'] if conv_res.data else None
+
+    # Store incoming message
+    if conversation_id:
+        supabase.table('whatsapp_messages').insert({
+            'conversation_id': conversation_id,
+            'message_id': message_id,
+            'direction': 'inbound',
+            'content': message_text
+        }).execute()
+
+        supabase.table('whatsapp_conversations').update({
+            'message_count': conv_res.data[0].get('message_count', 0) + 1
+        }).eq('id', conversation_id).execute()
+
+    if not message_text:
+        return
+
+    # Get chat history for context
+    history = []
+    if conversation_id:
+        history_limit = 40 if channel and isinstance(channel, dict) and channel.get('lead_capture_enabled') else 10
+        history_res = supabase.table('whatsapp_messages').select('direction, content').eq(
+            'conversation_id', conversation_id
+        ).order('created_at', desc=True).limit(history_limit).execute()
+        if history_res.data:
+            for msg in reversed(history_res.data):
+                role = 'user' if msg['direction'] == 'inbound' else 'assistant'
+                history.append({'role': role, 'content': msg['content']})
+
+    # Build chat history prompt
+    chat_history_for_prompt = ""
+    for h in history[:-1]:  # Exclude current message
+        prefix = "Human" if h['role'] == 'user' else "AI"
+        chat_history_for_prompt += f"{prefix}: {h['content']}\n\n"
+
+    final_question = message_text
+    if chat_history_for_prompt:
+        final_question = (
+            f"Given the following conversation history:\n{chat_history_for_prompt}"
+            f"--- End History ---\n\n"
+            f"Now, answer this new question, considering the history as context:\n{message_text}"
+        )
+
+    channel_data = channel
+
+    # Check if the sender is the manager
+    is_manager = False
+    if channel_data and channel_data.get('lead_capture_email'):
+        parts = channel_data['lead_capture_email'].split('|')
+        if len(parts) > 1:
+            manager_phone = parts[1].strip().replace('+', '').replace(' ', '')
+            sender_phone = from_phone.replace('+', '').replace(' ', '')
+            if manager_phone and sender_phone == manager_phone:
+                is_manager = True
+
+    # Process image if present
+    image_base64 = None
+    image_mime_type = None
+    if parsed.get('type') == 'image' and parsed.get('media_id'):
+        from utils.whatsapp_api import download_whatsapp_media
+        media_data = download_whatsapp_media(parsed['media_id'], api_key)
+        if media_data:
+            image_base64 = media_data.get('base64')
+            image_mime_type = media_data.get('mime_type')
+            logger.info(f"Successfully downloaded image {parsed['media_id']} for {from_phone}")
+
+    # Get AI response — materialize the full stream before processing
+    response_text = ""
+    try:
+        all_chunks = list(answer_question_stream(
+            question_for_prompt=final_question,
+            question_for_search=message_text,
+            channel_data=channel_data,
+            user_id=config['user_id'],
+            is_manager=is_manager,
+            image_base64=image_base64,
+            image_mime_type=image_mime_type
+        ))
+    except Exception as stream_err:
+        logger.error(f"[WhatsApp BG] Error materializing AI stream: {stream_err}", exc_info=True)
+        all_chunks = []
+
+    print(f"[WhatsApp BG] Received {len(all_chunks)} SSE chunks from AI stream")
+
+    for chunk in all_chunks:
+        if chunk.startswith('data: '):
+            data_str = chunk.replace('data: ', '').strip()
+            if data_str == "[DONE]":
+                break
+            try:
+                parsed_data = _json.loads(data_str)
+                if parsed_data.get('answer'):
+                    response_text += parsed_data['answer']
+            except _json.JSONDecodeError:
+                continue
+
+    print(f"[WhatsApp BG] Final response length: {len(response_text)} chars")
+    print(f"[WhatsApp BG] Response preview: {response_text[:300]}...")
+
+    # Extract lead capture marker if present
+    lead_complete_marker = None
+    lead_match = re.search(r'\[LEAD_COMPLETE:\s*(\{.*?\})\]', response_text, re.DOTALL)
+    if lead_match:
+        try:
+            lead_complete_marker = _json.loads(lead_match.group(1))
+            response_text = re.sub(r'\[LEAD_COMPLETE:\s*\{.*?\}\]', '', response_text, flags=re.DOTALL).strip()
+        except _json.JSONDecodeError:
+            pass
+
+    # Send response back via YCloud
+    if response_text:
+        response_text = _markdown_to_whatsapp(response_text)
+        send_result = send_whatsapp_message(
+            phone_number_id=phone_number_id,
+            to_phone=from_phone,
+            message_text=response_text,
+            api_key=api_key
+        )
+
+        if conversation_id and send_result.get('success'):
+            outbound_msg_id = send_result.get('data', {}).get('id')
+            supabase.table('whatsapp_messages').insert({
+                'conversation_id': conversation_id,
+                'message_id': outbound_msg_id,
+                'direction': 'outbound',
+                'content': response_text
+            }).execute()
+
+    # Submit lead if captured
+    if lead_complete_marker and channel_data.get('lead_capture_enabled'):
+        from app import process_lead_submission
+        from flask import current_app
+        app_ref = current_app._get_current_object()
+        def _send_lead_bg(app_obj, cid, marker):
+            with app_obj.app_context():
+                try:
+                    process_lead_submission(cid, marker)
+                except Exception as lead_e:
+                    logger.error(f"Error submitting whatsapp lead: {lead_e}")
+        threading.Thread(
+            target=_send_lead_bg,
+            args=(app_ref, channel_data['id'], lead_complete_marker),
+            daemon=True
+        ).start()
+
 
 
 # ==========================================
