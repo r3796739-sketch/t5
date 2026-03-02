@@ -8,6 +8,7 @@ from functools import wraps
 from datetime import datetime, timezone
 import logging
 import os
+import time as _time
 
 from utils.supabase_client import get_supabase_admin_client
 from utils.whatsapp_api import (
@@ -20,6 +21,7 @@ from utils.whatsapp_api import (
 from utils.qa_utils import answer_question_stream
 from utils.crypto import encrypt_token, decrypt_token
 from utils import db_utils
+from postgrest.exceptions import APIError as PostgrestAPIError
 
 logger = logging.getLogger(__name__)
 
@@ -27,40 +29,83 @@ logger = logging.getLogger(__name__)
 whatsapp_bp = Blueprint('whatsapp', __name__, url_prefix='/api/whatsapp')
 
 
-def _supabase_retry(fn, max_retries=3, backoff=0.5):
+def _supabase_retry(fn, max_retries=3, backoff_seconds=1):
     """
-    Retry a Supabase call up to `max_retries` times with exponential backoff.
-    Catches transient errors like Cloudflare 525 SSL handshake failures.
-    Returns None if all retries are exhausted (caller must handle).
+    Execute a Supabase query function with retries.
+    Retries on transient errors (SSL 525, connection resets, timeouts).
+    Returns the result on success, or re-raises the last exception.
     """
-    import time as _time
-    from postgrest.exceptions import APIError as _APIError
-    last_err = None
+    last_exc = None
     for attempt in range(max_retries):
         try:
             return fn()
-        except _APIError as e:
-            last_err = e
-            err_msg = str(getattr(e, 'message', '')) + str(getattr(e, 'details', ''))
-            # Only retry on transient infrastructure errors (SSL 525, 502, 503, etc.)
-            if any(code in err_msg for code in ('525', '502', '503', '504', 'SSL handshake')):
-                wait = backoff * (2 ** attempt)
-                logger.warning(f"[Supabase retry] Attempt {attempt+1}/{max_retries} failed (transient): {e.message[:80]}. Retrying in {wait}s...")
-                _time.sleep(wait)
-            else:
-                raise  # Non-transient error, don't retry
-        except Exception as e:
-            last_err = e
+        except (PostgrestAPIError, ConnectionError, OSError) as e:
+            last_exc = e
             err_str = str(e)
-            if any(kw in err_str for kw in ('ConnectionError', 'SSLError', 'Timeout', 'SSL handshake')):
-                wait = backoff * (2 ** attempt)
-                logger.warning(f"[Supabase retry] Attempt {attempt+1}/{max_retries} connection error: {err_str[:80]}. Retrying in {wait}s...")
-                _time.sleep(wait)
-            else:
-                raise
-    # All retries exhausted
-    logger.error(f"[Supabase retry] All {max_retries} attempts failed. Last error: {last_err}")
-    return None
+            # Only retry on transient infrastructure errors
+            is_transient = any(marker in err_str for marker in ('525', 'SSL', 'handshake', 'ConnectionReset', 'timed out', 'Connection refused'))
+            if not is_transient:
+                raise  # Not transient — don't retry
+            wait = backoff_seconds * (attempt + 1)
+            logger.warning(f"[WhatsApp] Supabase transient error (attempt {attempt+1}/{max_retries}), retrying in {wait}s: {type(e).__name__}")
+            _time.sleep(wait)
+        except Exception:
+            raise  # Unknown error — don't retry
+    raise last_exc
+
+
+def _markdown_to_whatsapp(text):
+    """
+    Convert Markdown formatting to WhatsApp-native formatting.
+    
+    Markdown → WhatsApp:
+      **bold**  or __bold__   →  *bold*
+      *italic*  or _italic_   →  _italic_
+      ~~strike~~              →  ~strike~
+      ```code```              →  ```code```  (WhatsApp supports this)
+      # Heading               →  *Heading*
+      - item / * item         →  • item
+      [text](url)             →  text (url)
+      ---                     →  (removed)
+    """
+    import re
+
+    # Protect code blocks from transformation
+    code_blocks = []
+    def _save_code(m):
+        code_blocks.append(m.group(0))
+        return f"__CODE_BLOCK_{len(code_blocks)-1}__"
+    text = re.sub(r'```[\s\S]*?```', _save_code, text)
+
+    # Bold: **text** or __text__  →  *text* (WhatsApp bold)
+    text = re.sub(r'\*\*(.+?)\*\*', r'*\1*', text)
+    text = re.sub(r'__(.+?)__', r'*\1*', text)
+
+    # Strikethrough: ~~text~~ → ~text~
+    text = re.sub(r'~~(.+?)~~', r'~\1~', text)
+
+    # Headers: ## Heading → *Heading*
+    text = re.sub(r'^#{1,6}\s+(.+)$', r'*\1*', text, flags=re.MULTILINE)
+
+    # Bullet lists: lines starting with * or - followed by a space → •
+    text = re.sub(r'^[\*\-]\s+', '• ', text, flags=re.MULTILINE)
+
+    # Numbered list cleanup: "1. " already works fine on WhatsApp, leave as-is
+
+    # Links: [text](url) → text (url)
+    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'\1 (\2)', text)
+
+    # Horizontal rules: --- or *** → remove
+    text = re.sub(r'^[\-\*]{3,}\s*$', '', text, flags=re.MULTILINE)
+
+    # Restore code blocks
+    for i, block in enumerate(code_blocks):
+        text = text.replace(f"__CODE_BLOCK_{i}__", block)
+
+    # Clean up excess blank lines
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    return text.strip()
 
 
 def login_required(f):
@@ -122,28 +167,31 @@ def receive_message():
         
         supabase = get_supabase_admin_client()
         
-        # Idempotency check — retry on transient Supabase/Cloudflare errors
-        existing_msg = _supabase_retry(
-            lambda: supabase.table('whatsapp_messages').select('id').eq('message_id', message_id).eq('direction', 'inbound').limit(1).execute()
-        )
-        if existing_msg is None:
-            # Supabase completely unreachable after retries — return 200 to prevent YCloud flood
-            logger.error(f"Supabase unreachable for idempotency check on message {message_id}. Dropping to avoid crash.")
-            return jsonify({'status': 'ok', 'note': 'db_unavailable'}), 200
+        # Idempotency check (with retry for transient Supabase/Cloudflare errors)
+        try:
+            existing_msg = _supabase_retry(
+                lambda: supabase.table('whatsapp_messages').select('id').eq('message_id', message_id).eq('direction', 'inbound').limit(1).execute()
+            )
+        except Exception as db_err:
+            logger.error(f"[WhatsApp] Supabase unreachable for idempotency check after retries: {db_err}")
+            # Return 503 so YCloud will retry webhook delivery later
+            return jsonify({'status': 'error', 'message': 'Database temporarily unavailable'}), 503
+
         if existing_msg.data:
             logger.info(f"Message {message_id} already processed. Ignoring duplicate webhook.")
             return jsonify({'status': 'ok'}), 200
             
-        # Find the config for this phone number — also retry
-        config_res = _supabase_retry(
-            lambda: supabase.table('whatsapp_configs').select(
-                '*, channels(*)'
-            ).eq('phone_number_id', phone_number_id).eq('is_active', True).limit(1).execute()
-        )
+        # Find the config for this phone number (with retry)
+        try:
+            config_res = _supabase_retry(
+                lambda: supabase.table('whatsapp_configs').select(
+                    '*, channels(*)'
+                ).eq('phone_number_id', phone_number_id).eq('is_active', True).limit(1).execute()
+            )
+        except Exception as db_err:
+            logger.error(f"[WhatsApp] Supabase unreachable for config lookup after retries: {db_err}")
+            return jsonify({'status': 'error', 'message': 'Database temporarily unavailable'}), 503
         
-        if config_res is None:
-            logger.error(f"Supabase unreachable for config lookup. Phone: {phone_number_id}. Dropping.")
-            return jsonify({'status': 'ok', 'note': 'db_unavailable'}), 200
         if not config_res.data:
             logger.warning(f"No active config found for phone number ID: {phone_number_id}")
             return jsonify({'status': 'no_config'}), 200
@@ -282,6 +330,8 @@ def receive_message():
                 
                 # Send response back via YCloud
                 if response_text:
+                    # Convert Markdown formatting to WhatsApp-native formatting
+                    response_text = _markdown_to_whatsapp(response_text)
                     send_result = send_whatsapp_message(
                         phone_number_id=phone_number_id,
                         to_phone=from_phone,
