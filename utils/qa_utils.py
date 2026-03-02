@@ -432,29 +432,66 @@ def _get_gemini_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
             'HARM_CATEGORY_SEXUALLY_EXPLICIT': 'BLOCK_NONE',
             'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE',
         }
+        
+        # Gemini "thinking" models (e.g. gemini-3-flash-preview) use hidden
+        # chain-of-thought tokens that count against max_output_tokens.
+        # With max_output_tokens=1024, ~840 go to thinking leaving only
+        # ~180 chars for the actual response → truncation.
+        # Fix: disable thinking (chatbot doesn't need it) or bump the budget.
+        gen_config_kwargs = {
+            'max_output_tokens': max_tokens,
+            'temperature': 0.7,
+        }
+        
+        # Try to disable thinking mode if the SDK supports it
+        try:
+            thinking_config = genai.types.ThinkingConfig(thinking_budget=0)
+            gen_config_kwargs['thinking_config'] = thinking_config
+            print(f"[Gemini] Thinking mode DISABLED (thinking_budget=0), max_output_tokens={max_tokens}")
+        except (AttributeError, TypeError):
+            # SDK doesn't support ThinkingConfig — multiply tokens to compensate
+            gen_config_kwargs['max_output_tokens'] = max_tokens * 8
+            print(f"[Gemini] ThinkingConfig not available, boosting max_output_tokens to {max_tokens * 8}")
+        
         response_stream = gemini_model.generate_content(
             contents, 
-            generation_config=genai.types.GenerationConfig(max_output_tokens=max_tokens, temperature=0.7), 
+            generation_config=genai.types.GenerationConfig(**gen_config_kwargs), 
             stream=True,
             safety_settings=safety_settings
         )
+        
+        chunk_count = 0
+        total_chars = 0
+        
         for chunk in response_stream:
+            chunk_count += 1
+            
+            # Log finish reason for every chunk (helps diagnose truncation)
+            finish_reason_name = None
+            if hasattr(chunk, 'candidates') and chunk.candidates:
+                finish_reason_name = chunk.candidates[0].finish_reason.name
+            
             if not chunk.parts:
-                finish_reason_name = None
-                if hasattr(chunk, 'candidates') and chunk.candidates:
-                    finish_reason_name = chunk.candidates[0].finish_reason.name
+                print(f"[Gemini] Chunk #{chunk_count} has no parts. finish_reason={finish_reason_name}")
                 if finish_reason_name == 'SAFETY':
                     logging.warning("Gemini response was blocked due to safety settings.")
                     yield "Error: The response was blocked by the model's safety filters. Please try rephrasing your question."
                     return
+                continue  # Skip chunks with no parts instead of falling through
             try:
                 if hasattr(chunk, 'text') and chunk.text:
+                    total_chars += len(chunk.text)
                     yield chunk.text
             except ValueError as ve:
-                logging.warning(f"Gemini chunk text blocked or invalid: {ve}")
+                logging.warning(f"Gemini chunk #{chunk_count} text blocked or invalid: {ve}")
                 continue
+        
+        print(f"[Gemini] Stream complete: {chunk_count} chunks, {total_chars} total chars, last finish_reason={finish_reason_name}")
+        
     except generation_types.StopCandidateException as e:
         logging.error(f"Gemini stream stopped due to safety or other reasons: {e}")
+    except GeneratorExit:
+        print("[Gemini] WARNING: GeneratorExit received — stream was closed before completion!")
     except Exception as e:
         logging.error(f"Failed to get Gemini stream: {e}", exc_info=True)
         yield "Error: Could not get a response from the provider."

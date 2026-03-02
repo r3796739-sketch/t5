@@ -2442,7 +2442,8 @@ def dashboard():
         telegram_is_active=telegram_is_active,
         embed_is_active=embed_is_active,
         whatsapp_is_active=whatsapp_is_active,
-        creator_channels=user_creator_channels
+        creator_channels=user_creator_channels,
+        saved_channels=get_user_channels()
     )
 
 @app.route('/api/dashboard/metrics')

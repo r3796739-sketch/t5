@@ -295,17 +295,30 @@ def receive_message():
                         logger.info(f"Successfully downloaded image {parsed['media_id']} for {from_phone}")
 
                 # Get AI response (returns SSE-formatted strings)
+                # CRITICAL: Materialize the entire generator into a list FIRST.
+                # answer_question_stream is a generator-of-generators. If we
+                # iterate lazily and the request/GC tears down the outer
+                # generator before the inner Gemini stream finishes, the
+                # response gets silently truncated (GeneratorExit).
                 import json as _json
                 response_text = ""
-                for chunk in answer_question_stream(
-                    question_for_prompt=final_question,
-                    question_for_search=message_text,
-                    channel_data=channel_data,
-                    user_id=config['user_id'],
-                    is_manager=is_manager,
-                    image_base64=image_base64,
-                    image_mime_type=image_mime_type
-                ):
+                try:
+                    all_chunks = list(answer_question_stream(
+                        question_for_prompt=final_question,
+                        question_for_search=message_text,
+                        channel_data=channel_data,
+                        user_id=config['user_id'],
+                        is_manager=is_manager,
+                        image_base64=image_base64,
+                        image_mime_type=image_mime_type
+                    ))
+                except Exception as stream_err:
+                    logger.error(f"Error materializing AI stream: {stream_err}", exc_info=True)
+                    all_chunks = []
+                
+                print(f"[WhatsApp] Received {len(all_chunks)} SSE chunks from AI stream")
+                
+                for chunk in all_chunks:
                     if chunk.startswith('data: '):
                         data_str = chunk.replace('data: ', '').strip()
                         if data_str == "[DONE]":
@@ -316,6 +329,9 @@ def receive_message():
                                 response_text += parsed_data['answer']
                         except _json.JSONDecodeError:
                             continue
+                
+                print(f"[WhatsApp] Final response length: {len(response_text)} chars")
+                print(f"[WhatsApp] Response preview: {response_text[:300]}...")
                 
                 # Extract lead capture marker if present
                 import re
