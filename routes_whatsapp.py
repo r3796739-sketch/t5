@@ -27,6 +27,42 @@ logger = logging.getLogger(__name__)
 whatsapp_bp = Blueprint('whatsapp', __name__, url_prefix='/api/whatsapp')
 
 
+def _supabase_retry(fn, max_retries=3, backoff=0.5):
+    """
+    Retry a Supabase call up to `max_retries` times with exponential backoff.
+    Catches transient errors like Cloudflare 525 SSL handshake failures.
+    Returns None if all retries are exhausted (caller must handle).
+    """
+    import time as _time
+    from postgrest.exceptions import APIError as _APIError
+    last_err = None
+    for attempt in range(max_retries):
+        try:
+            return fn()
+        except _APIError as e:
+            last_err = e
+            err_msg = str(getattr(e, 'message', '')) + str(getattr(e, 'details', ''))
+            # Only retry on transient infrastructure errors (SSL 525, 502, 503, etc.)
+            if any(code in err_msg for code in ('525', '502', '503', '504', 'SSL handshake')):
+                wait = backoff * (2 ** attempt)
+                logger.warning(f"[Supabase retry] Attempt {attempt+1}/{max_retries} failed (transient): {e.message[:80]}. Retrying in {wait}s...")
+                _time.sleep(wait)
+            else:
+                raise  # Non-transient error, don't retry
+        except Exception as e:
+            last_err = e
+            err_str = str(e)
+            if any(kw in err_str for kw in ('ConnectionError', 'SSLError', 'Timeout', 'SSL handshake')):
+                wait = backoff * (2 ** attempt)
+                logger.warning(f"[Supabase retry] Attempt {attempt+1}/{max_retries} connection error: {err_str[:80]}. Retrying in {wait}s...")
+                _time.sleep(wait)
+            else:
+                raise
+    # All retries exhausted
+    logger.error(f"[Supabase retry] All {max_retries} attempts failed. Last error: {last_err}")
+    return None
+
+
 def login_required(f):
     """Decorator to require login for routes."""
     @wraps(f)
@@ -86,17 +122,28 @@ def receive_message():
         
         supabase = get_supabase_admin_client()
         
-        # Idempotency check: see if we already processed this message
-        existing_msg = supabase.table('whatsapp_messages').select('id').eq('message_id', message_id).eq('direction', 'inbound').limit(1).execute()
+        # Idempotency check — retry on transient Supabase/Cloudflare errors
+        existing_msg = _supabase_retry(
+            lambda: supabase.table('whatsapp_messages').select('id').eq('message_id', message_id).eq('direction', 'inbound').limit(1).execute()
+        )
+        if existing_msg is None:
+            # Supabase completely unreachable after retries — return 200 to prevent YCloud flood
+            logger.error(f"Supabase unreachable for idempotency check on message {message_id}. Dropping to avoid crash.")
+            return jsonify({'status': 'ok', 'note': 'db_unavailable'}), 200
         if existing_msg.data:
             logger.info(f"Message {message_id} already processed. Ignoring duplicate webhook.")
             return jsonify({'status': 'ok'}), 200
             
-        # Find the config for this phone number
-        config_res = supabase.table('whatsapp_configs').select(
-            '*, channels(*)'
-        ).eq('phone_number_id', phone_number_id).eq('is_active', True).limit(1).execute()
+        # Find the config for this phone number — also retry
+        config_res = _supabase_retry(
+            lambda: supabase.table('whatsapp_configs').select(
+                '*, channels(*)'
+            ).eq('phone_number_id', phone_number_id).eq('is_active', True).limit(1).execute()
+        )
         
+        if config_res is None:
+            logger.error(f"Supabase unreachable for config lookup. Phone: {phone_number_id}. Dropping.")
+            return jsonify({'status': 'ok', 'note': 'db_unavailable'}), 200
         if not config_res.data:
             logger.warning(f"No active config found for phone number ID: {phone_number_id}")
             return jsonify({'status': 'no_config'}), 200
@@ -252,13 +299,25 @@ def receive_message():
                             'content': response_text
                         }).execute()
                         
-                # Submit lead if captured
+                # Submit lead if captured — run in background thread to avoid
+                # blocking the webhook response (SMTP can be slow and causes
+                # gunicorn worker timeouts / SystemExit: 1)
                 if lead_complete_marker and channel_data.get('lead_capture_enabled'):
+                    import threading
                     from app import process_lead_submission
-                    try:
-                        process_lead_submission(channel_data['id'], lead_complete_marker)
-                    except Exception as lead_e:
-                        logger.error(f"Error submitting whatsapp lead: {lead_e}")
+                    from flask import current_app
+                    app_ref = current_app._get_current_object()
+                    def _send_lead_bg(app_obj, cid, marker):
+                        with app_obj.app_context():
+                            try:
+                                process_lead_submission(cid, marker)
+                            except Exception as lead_e:
+                                logger.error(f"Error submitting whatsapp lead: {lead_e}")
+                    threading.Thread(
+                        target=_send_lead_bg,
+                        args=(app_ref, channel_data['id'], lead_complete_marker),
+                        daemon=True
+                    ).start()
                         
             except Exception as e:
                 logger.error(f"Error generating AI response: {e}", exc_info=True)
