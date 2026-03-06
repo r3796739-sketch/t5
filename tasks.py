@@ -17,7 +17,7 @@ from utils.embed_utils import create_and_store_embeddings
 from utils.supabase_client import get_supabase_admin_client
 from utils.telegram_utils import send_message, create_channel_keyboard
 from utils.config_utils import load_config
-from utils.qa_utils import answer_question_stream, extract_topics_from_text, generate_channel_summary, extract_speaking_style
+from utils.qa_utils import answer_question_stream, extract_topics_from_text, generate_channel_summary, extract_speaking_style, extract_creator_soul
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import logging
@@ -144,9 +144,12 @@ def process_channel_task(channel_id, task=None):
         create_and_store_embeddings(transcripts, None, user_id_who_submitted, channel_id)
         
         text_sample = " ".join([t['transcript'] for t in transcripts[:5]])[:10000]
-        update_task_progress(task_id, 'processing', 90, 'Identifying topics and analyzing style...')
+        update_task_progress(task_id, 'processing', 85, 'Analyzing personality and speaking style...')
         topics = extract_topics_from_text(text_sample)
         speaking_style = extract_speaking_style(text_sample)
+        
+        update_task_progress(task_id, 'processing', 90, 'Extracting creator identity and values...')
+        creator_soul = extract_creator_soul(text_sample)
         
         update_task_progress(task_id, 'processing', 95, 'Finalizing...')
         summary = generate_channel_summary(text_sample)
@@ -164,9 +167,17 @@ def process_channel_task(channel_id, task=None):
             'subscriber_count': subs,
             'topics': topics,
             'speaking_style': speaking_style,
+            'creator_soul': creator_soul,
             'summary': summary,
             'status': 'ready'
         }).eq('id', channel_id).execute()
+
+        # --- SEO: Generate keyword-backed metadata in a separate background task ---
+        try:
+            generate_seo_metadata_task(channel_id, channel_name)
+            logger.info(f"[SEO] Queued SEO metadata generation for channel '{channel_name}' (id={channel_id})")
+        except Exception as seo_queue_err:
+            logger.warning(f"[SEO] Failed to queue SEO task for channel {channel_id}: {seo_queue_err}")
 
         # Update associated youtube data_source if it exists (for multi-source bots)
         supabase_admin.table('data_sources').update({
@@ -248,7 +259,7 @@ def sync_channel_task(channel_id, task=None):
         print(f"--- [SYNC TASK STARTED] Syncing channel_id: {channel_id} ---")
         update_task_progress(task_id, 'syncing', 5, 'Checking for new content...')
 
-        channel_resp = supabase_admin.table('channels').select('channel_url, videos, creator_id, speaking_style').eq('id', channel_id).single().execute()
+        channel_resp = supabase_admin.table('channels').select('channel_url, videos, creator_id, speaking_style, creator_soul').eq('id', channel_id).single().execute()
         if not channel_resp.data:
             raise ValueError("Channel not found.")
         
@@ -297,11 +308,13 @@ def sync_channel_task(channel_id, task=None):
             print("No new videos to process. Checking if metadata needs refresh...")
             
             # --- START: METADATA REFRESH LOGIC ---
-            # Even if no new videos, check if we need to backfill speaking_style
+            # Even if no new videos, check if we need to backfill speaking_style or creator_soul
             current_style = channel_resp.data.get('speaking_style')
-            if not current_style:
-                update_task_progress(task_id, 'syncing', 50, 'Analyzing speaking style for the first time...')
-                print("Backfilling speaking style for existing channel...")
+            current_soul = channel_resp.data.get('creator_soul')
+            needs_backfill = not current_style or not current_soul
+            if needs_backfill:
+                update_task_progress(task_id, 'syncing', 50, 'Analyzing personality and speaking style...')
+                print("Backfilling speaking style / creator soul for existing channel...")
                 
                 # Fetch a sample of text from existing embeddings
                 # We grab up to 20 random chunks to form a decent sample
@@ -309,13 +322,24 @@ def sync_channel_task(channel_id, task=None):
                 
                 if embeddings_resp.data:
                      text_sample = " ".join([row['metadata'].get('chunk_text', '') for row in embeddings_resp.data])
-                     new_style = extract_speaking_style(text_sample)
                      
-                     if new_style:
-                         supabase_admin.table('channels').update({'speaking_style': new_style}).eq('id', channel_id).execute()
-                         print("Successfully backfilled speaking style.")
-                         update_task_progress(task_id, 'complete', 100, 'Channel synced and speaking style updated!')
-                         return "Channel synced and speaking style updated."
+                     update_fields = {}
+                     if not current_style:
+                         new_style = extract_speaking_style(text_sample)
+                         if new_style:
+                             update_fields['speaking_style'] = new_style
+                             print("Successfully backfilled speaking style.")
+                     
+                     if not current_soul:
+                         new_soul = extract_creator_soul(text_sample)
+                         if new_soul:
+                             update_fields['creator_soul'] = new_soul
+                             print("Successfully backfilled creator soul.")
+                     
+                     if update_fields:
+                         supabase_admin.table('channels').update(update_fields).eq('id', channel_id).execute()
+                         update_task_progress(task_id, 'complete', 100, 'Channel synced and persona profile updated!')
+                         return "Channel synced and persona profile updated."
             # --- END: METADATA REFRESH LOGIC ---
 
             print("Channel is already up-to-date.")
@@ -358,7 +382,7 @@ def sync_channel_task(channel_id, task=None):
 
 # (The rest of the file: consume_answer_stream, process_private_message, etc. remains unchanged)
 
-def consume_answer_stream(question, config, channel_data, video_ids, user_id, access_token):
+def consume_answer_stream(question, config, channel_data, video_ids, user_id, access_token, conversation_id=None):
     """
     This is the corrected helper function that now includes chat history.
     """
@@ -367,7 +391,7 @@ def consume_answer_stream(question, config, channel_data, video_ids, user_id, ac
 
     # --- THIS IS THE FIX ---
     # 1. Determine the channel name for history lookup
-    channel_name_for_history = channel_data.get('channel_name', 'general') if channel_data else 'general'
+    channel_name_for_history = conversation_id or (channel_data.get('channel_name', 'general') if channel_data else 'general')
     
     # 2. Fetch the last 5 messages for context
     history = get_chat_history_for_service(user_id, channel_name_for_history, limit=5)
@@ -396,7 +420,9 @@ def consume_answer_stream(question, config, channel_data, video_ids, user_id, ac
         channel_data=channel_data,
         video_ids=video_ids,
         user_id=user_id,
-        access_token=access_token
+        access_token=access_token,
+        integration_source='telegram',
+        conversation_id=conversation_id
     )
 
     for chunk in stream:
@@ -406,6 +432,9 @@ def consume_answer_stream(question, config, channel_data, video_ids, user_id, ac
                 break
             try:
                 data = json.loads(data_str)
+                if data.get('error') == 'QUERY_LIMIT_REACHED':
+                    full_answer = data.get('message', 'Credit limit reached. Please upgrade your plan.')
+                    break
                 if data.get('answer'):
                     full_answer += data['answer']
                 if data.get('sources'):
@@ -505,7 +534,7 @@ def process_private_message(message: dict):
                 video_ids = {v['video_id'] for v in channel_data.get('videos', [])}
 
         config = load_config()
-        full_answer, sources = consume_answer_stream(text, config, channel_data, video_ids, user_id, access_token=None)
+        full_answer, sources = consume_answer_stream(text, config, channel_data, video_ids, user_id, access_token=None, conversation_id=f"telegram_private_{chat_id}")
 
         if not full_answer:
             full_answer = "I couldn't find an answer to your question."
@@ -591,8 +620,8 @@ def process_group_message(message: dict):
         question = text.replace(bot_username, "").strip()
         video_ids = {v['video_id'] for v in channel_data.get('videos', [])}
 
-        # We now pass 'access_token=None' as the last argument.
-        full_answer, sources = consume_answer_stream(question, config, channel_data, video_ids, owner_user_id, access_token=None)
+        # We now pass 'access_token=None' as the last argument, and a unique conversation_id.
+        full_answer, sources = consume_answer_stream(question, config, channel_data, video_ids, owner_user_id, access_token=None, conversation_id=f"telegram_group_{chat_id}")
 
         if not full_answer:
             full_answer = "I couldn't find an answer to your question in the video transcripts."
@@ -687,13 +716,13 @@ def delete_channel_task(channel_id: int, user_id: str):
 
     
 @huey.task()
-def post_answer_processing_task(user_id, channel_name, question, answer, sources):
+def post_answer_processing_task(user_id, channel_name, question, answer, sources, integration_source='web'):
     """
     Handles saving chat history after an answer is streamed.
     Query deduction is now handled synchronously before the stream starts.
     """
     try:
-        logger.info(f"TASK: Saving chat history for user {user_id}")
+        logger.info(f"TASK: Saving chat history for user {user_id} via {integration_source}")
         admin_supabase = get_supabase_admin_client()
         save_chat_history(
             supabase_client=admin_supabase,
@@ -701,7 +730,8 @@ def post_answer_processing_task(user_id, channel_name, question, answer, sources
             channel_name=channel_name,
             question=question,
             answer=answer,
-            sources=sources
+            sources=sources,
+            integration_source=integration_source
         )
     except Exception as e:
         logger.error(f"Error in post-answer processing for user {user_id}: {e}", exc_info=True)
@@ -788,9 +818,50 @@ def owner_delete_channel_task(channel_id: int):
         raise
 
 
+
 # --- MULTI-SOURCE TASK REGISTRATION ---
 # Import multi-source tasks to register them with Huey
 from tasks_multi_source import (
     process_whatsapp_source_task,
     process_website_source_task
 )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SEO METADATA GENERATION TASK
+# ──────────────────────────────────────────────────────────────────────────────
+@huey.task()
+def generate_seo_metadata_task(channel_id: int, channel_name: str):
+    """
+    Background task that:
+      1. Queries Google Autocomplete for real search terms around this creator.
+      2. Feeds those keywords to GPT-4o-mini to produce an optimised Title,
+         Meta Description, and H1 for the creator's /c/<channel_name> page.
+      3. Saves the results directly to the channels row in Supabase.
+
+    Runs silently — any failure is logged as a warning, never surfaces to the user.
+    """
+    try:
+        logger.info(f"[SEO TASK] Starting SEO metadata generation for '{channel_name}' (id={channel_id})")
+
+        from utils.seo_utils import generate_seo_metadata
+        seo_data = generate_seo_metadata(channel_name)
+
+        supabase_admin = get_supabase_admin_client()
+        supabase_admin.table('channels').update({
+            'seo_title':            seo_data.get('seo_title'),
+            'seo_meta_description': seo_data.get('seo_meta_description'),
+            'seo_h1':               seo_data.get('seo_h1'),
+        }).eq('id', channel_id).execute()
+
+        logger.info(
+            f"[SEO TASK] Done for '{channel_name}'. "
+            f"Title: {seo_data.get('seo_title', '')[:60]!r}"
+        )
+
+    except Exception as e:
+        # SEO generation is non-critical — log and swallow.
+        logger.warning(
+            f"[SEO TASK] Failed for channel_id={channel_id} name={channel_name!r}: {e}",
+            exc_info=True
+        )

@@ -5,7 +5,7 @@ from .supabase_client import get_supabase_client, get_supabase_admin_client
 from supabase import Client as SupabaseClient
 
 # --- FIX: Modified save_chat_history to accept a Supabase client ---
-def save_chat_history(supabase_client: SupabaseClient, user_id, channel_name, question, answer, sources):
+def save_chat_history(supabase_client: SupabaseClient, user_id, channel_name, question, answer, sources, integration_source="web"):
     """
     Save chat history to the database using the provided Supabase client.
     This allows the caller to decide whether to use a user-authenticated
@@ -18,12 +18,23 @@ def save_chat_history(supabase_client: SupabaseClient, user_id, channel_name, qu
             'question': question,
             'answer': answer,
             'sources': sources,
+            'integration_source': integration_source,
             'created_at': datetime.utcnow().isoformat()
         }
-        # Use the client passed into the function
-        supabase_client.table('chat_history').insert(data).execute()
+        # Attempt to insert, including the new integration_source column
+        try:
+            supabase_client.table('chat_history').insert(data).execute()
+        except Exception as insert_e:
+            # Fallback if the user hasn't added the integration_source column to the table yet
+            if 'does not exist' in str(insert_e).lower() or 'not found' in str(insert_e).lower() or 'integration_source' in str(insert_e):
+                del data['integration_source']
+                supabase_client.table('chat_history').insert(data).execute()
+                logging.warning(f"Saved chat history without integration_source for user {user_id}. Please add the column to Supabase.")
+            else:
+                raise insert_e
+
     except Exception as e:
-        # Log the specific RLS error if it occurs
+        # Log the specific error if it occurs
         logging.error(f"Error saving chat history for user {user_id}: {e}", exc_info=True)
 
 # --- FIX: Modified get_chat_history to use an authenticated client ---

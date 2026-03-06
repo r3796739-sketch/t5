@@ -127,7 +127,8 @@ class SharedYoppyBot(commands.Bot):
                     user_id=owner_user_id,
                     access_token=None,
                     conversation_id=conversation_id,
-                    active_community_id=None
+                    active_community_id=None,
+                    integration_source='discord'
                 )
 
                 for chunk in stream:
@@ -137,6 +138,9 @@ class SharedYoppyBot(commands.Bot):
                             break
                         try:
                             data = json.loads(data_str)
+                            if data.get('error') == 'QUERY_LIMIT_REACHED':
+                                full_answer = data.get('message', 'Credit limit reached. Please upgrade your plan.')
+                                break
                             if data.get('answer'):
                                 full_answer += data['answer']
                             if data.get('sources'):

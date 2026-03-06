@@ -34,6 +34,9 @@ isodate
 supabase==2.23.0
 psycopg2-binary
 
+# -- PDF Processing --
+pymupdf
+
 # -- Utilities --
 python-dotenv
 Markdown
@@ -54,5 +57,5 @@ python-dateutil
 razorpay
 paypalrestsdk
 
-
-
+# -- Production Server --
+gevent

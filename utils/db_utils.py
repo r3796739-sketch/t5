@@ -317,23 +317,109 @@ def delete_discord_bot_for_user(bot_id: int, user_id: str):
         log.error(f"Error deleting discord bot {bot_id} for user {user_id}: {e}")
         return False
     
-def record_bot_query_usage(user_id: str):
+def check_bot_query_allowed(user_id: str, channel_data: dict = None, active_community_id: str = None):
     """
-    Records a query for a bot interaction, deducting from the personal pool
-    and invalidating the necessary cache.
+    Checks if a bot/integration query is allowed based on the user's plan limits.
+    This mirrors the limit_enforcer decorator logic but works outside Flask request context.
+    
+    Returns (allowed: bool, error_message: str or None, resolved_community_id: str or None, is_marketplace: bool)
+    
+    When is_marketplace=True, the marketplace counter has already been incremented and
+    the caller should NOT deduct from the personal/community pool.
+    """
+    from .subscription_utils import get_user_status, get_community_status
+
+    try:
+        # Auto-detect community context from channel data if not provided
+        if not active_community_id and channel_data:
+            active_community_id = channel_data.get('community_id')
+
+        # --- Check marketplace transfer FIRST ---
+        # Marketplace buyers get their own separate query pool that is independent
+        # of their personal plan. Check this before personal limits so buyers
+        # aren't blocked when their personal quota runs out.
+        if channel_data and channel_data.get('id'):
+            try:
+                transfer_res = supabase.table('chatbot_transfers').select(
+                    'id, query_limit_monthly, queries_used_this_month'
+                ).eq('chatbot_id', channel_data['id']).eq('buyer_id', user_id).eq('status', 'active').maybe_single().execute()
+
+                if transfer_res and transfer_res.data:
+                    transfer = transfer_res.data
+                    if transfer['queries_used_this_month'] >= transfer['query_limit_monthly']:
+                        return False, f"Monthly credit limit of {transfer['query_limit_monthly']} reached for this marketplace chatbot.", active_community_id, True
+                    # Increment marketplace counter and allow — personal pool is NOT touched
+                    supabase.rpc('increment_marketplace_query', {'p_transfer_id': transfer['id']}).execute()
+                    return True, None, active_community_id, True  # is_marketplace=True
+            except Exception as e:
+                log.warning(f"Could not check marketplace limits: {e}")
+
+        # --- Not a marketplace query — check personal/community limits ---
+        user_status = get_user_status(user_id, active_community_id)
+        if not user_status:
+            return True, None, active_community_id, False  # Fail open if status unavailable
+
+        # Check community owner trial first
+        if user_status.get('is_active_community_owner') and active_community_id:
+            community_status = get_community_status(active_community_id)
+            if community_status:
+                trial_limit = community_status['limits'].get('owner_trial_limit', 0)
+                trial_used = community_status['usage'].get('trial_queries_used', 0)
+                if trial_used < trial_limit:
+                    return True, None, active_community_id, False
+
+        # Check personal plan
+        if user_status.get('has_personal_plan'):
+            max_queries = user_status['limits'].get('max_queries_per_month', 0)
+            queries_used = user_status['usage'].get('queries_this_month', 0)
+            if max_queries != float('inf') and queries_used >= max_queries:
+                return False, f"You've reached your monthly credit limit of {int(max_queries)}.", active_community_id, False
+        elif active_community_id:
+            # Community member — check shared pool
+            community_status = get_community_status(active_community_id)
+            if community_status:
+                max_queries = community_status['limits'].get('query_limit', 0)
+                queries_used = community_status['usage'].get('queries_used', 0)
+                if max_queries != float('inf') and queries_used >= max_queries:
+                    return False, "The community's shared credit limit has been reached.", active_community_id, False
+        else:
+            # Free user / no community
+            max_queries = user_status['limits'].get('max_queries_per_month', 0)
+            queries_used = user_status['usage'].get('queries_this_month', 0)
+            if max_queries != float('inf') and queries_used >= max_queries:
+                return False, f"You've reached your monthly credit limit of {int(max_queries)}.", active_community_id, False
+
+        return True, None, active_community_id, False
+
+    except Exception as e:
+        log.error(f"Error checking bot query limits for user {user_id}: {e}")
+        return True, None, active_community_id, False  # Fail open on error
+
+
+def record_bot_query_usage(user_id: str, active_community_id: str = None):
+    """
+    Records a query for a bot interaction, deducting from the appropriate pool
+    (personal + community if applicable) and invalidating the necessary cache.
     """
     try:
-        log.info(f"Recording bot query for user {user_id} against PERSONAL pool.")
-        # 1. Call the function to deduct the query from the database
+        log.info(f"Recording bot query for user {user_id} (community: {active_community_id or 'none'}).")
+        # 1. Always deduct from personal pool
         increment_personal_query_usage(user_id)
 
-        # 2. Invalidate the user's status cache to ensure the UI updates
+        # 2. Also deduct from community pool if applicable
+        if active_community_id:
+            increment_community_query_usage(active_community_id, is_trial=False)
+
+        # 3. Invalidate the user's status cache with correct community context
         from .subscription_utils import redis_client # Local import to avoid circular dependency
         if redis_client:
-            # For integrations, a non-Whop user's community context is 'none'
-            user_cache_key = f"user_status:{user_id}:community:none"
+            user_cache_key = f"user_status:{user_id}:community:{active_community_id or 'none'}"
             redis_client.delete(user_cache_key)
             log.info(f"Invalidated cache key via bot usage: {user_cache_key}")
+            # Also invalidate the community cache if applicable
+            if active_community_id:
+                community_cache_key = f"community_status:{active_community_id}"
+                redis_client.delete(community_cache_key)
     except Exception as e:
         log.error(f"Failed to record bot query usage for user {user_id}: {e}")
 

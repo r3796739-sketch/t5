@@ -312,6 +312,7 @@ def inject_user_status():
             creator_channels = db_utils.get_channels_created_by_user(user_id)
             is_creator = len(creator_channels) > 0
             g.is_creator = is_creator
+        is_admin = str(user_id) == os.environ.get('ADMIN_USER_ID')
         # --- END PERFORMANCE ---
 
         return dict(
@@ -320,7 +321,8 @@ def inject_user_status():
             is_embedded_whop_user=is_embedded,
             community_status=community_status,
             saved_channels={},
-            is_creator=is_creator
+            is_creator=is_creator,
+            is_admin=is_admin
         )
     return dict(user_status=None, user=None, is_embedded_whop_user=False, community_status=None, is_creator=False)
 
@@ -1462,7 +1464,7 @@ def stream_answer():
                 transfer = transfer_res.data
                 if transfer['queries_used_this_month'] >= transfer['query_limit_monthly']:
                     def limit_exceeded_stream():
-                        error_data = {'error': 'QUERY_LIMIT_REACHED', 'message': f"Monthly query limit of {transfer['query_limit_monthly']} reached for this marketplace chatbot."}
+                        error_data = {'error': 'QUERY_LIMIT_REACHED', 'message': f"Monthly credit limit of {transfer['query_limit_monthly']} reached for this marketplace chatbot."}
                         yield f"data: {json.dumps(error_data)}\n\n"
                         yield "data: [DONE]\n\n"
                     return Response(limit_exceeded_stream(), mimetype='text/event-stream')
@@ -1482,7 +1484,7 @@ def stream_answer():
             if transfer_res.data:
                 tr = transfer_res.data
                 remaining = int(tr['query_limit_monthly'] - tr['queries_used_this_month'])
-                return f"You have <strong>{remaining}</strong> marketplace queries remaining for this bot."
+                return f"You have <strong>{remaining}</strong> marketplace credits remaining for this bot."
             return ""
 
         user_status = get_user_status(user_id, active_community_id)
@@ -1511,16 +1513,16 @@ def stream_answer():
         if fresh_user_status and (fresh_user_status.get('has_personal_plan') or not fresh_user_status.get('is_whop_user')):
             max_queries = fresh_user_status['limits'].get('max_queries_per_month', 0)
             if max_queries == float('inf'):
-                query_string = "You have <strong>Unlimited</strong> personal queries."
+                query_string = "You have <strong>Unlimited</strong> personal credits."
             else:
                 queries_used = fresh_user_status['usage'].get('queries_this_month', 0)
                 remaining = int(max_queries - queries_used)
-                query_string = f"You have <strong>{remaining}</strong> personal queries remaining."
+                query_string = f"You have <strong>{remaining}</strong> personal credits remaining."
         elif fresh_community_status:
             max_queries = fresh_community_status['limits'].get('query_limit', 0)
             queries_used = fresh_community_status['usage'].get('queries_used', 0)
             remaining = int(max_queries - queries_used)
-            query_string = f"The community has <strong>{remaining}</strong> shared queries remaining."
+            query_string = f"The community has <strong>{remaining}</strong> shared credits remaining."
             
         return query_string
 
@@ -1846,7 +1848,7 @@ def update_chatbot_settings(chatbot_id):
         data = request.get_json()
         
         # Allowed fields to update
-        allowed_fields = ['channel_name', 'creator_name', 'bot_type', 'speaking_style',
+        allowed_fields = ['channel_name', 'creator_name', 'bot_type', 'speaking_style', 'creator_soul',
                           'lead_capture_enabled', 'lead_capture_email', 'lead_capture_fields',
                           'promotion_triggers']
         update_data = {k: v for k, v in data.items() if k in allowed_fields}
@@ -1888,6 +1890,70 @@ def update_chatbot_settings(chatbot_id):
         
     except Exception as e:
         logger.error(f"Error updating chatbot settings for {chatbot_id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/chatbot/<int:chatbot_id>/regenerate-persona', methods=['POST'])
+@login_required
+def regenerate_persona_api(chatbot_id):
+    """Regenerates the speaking style and creator soul from existing embeddings."""
+    try:
+        user_id = session['user']['id']
+        supabase = get_supabase_admin_client()
+        
+        # Verify ownership
+        chatbot_resp = supabase.table('channels').select('creator_id, user_id').eq('id', chatbot_id).maybe_single().execute()
+        
+        if not chatbot_resp or not chatbot_resp.data:
+            return jsonify({'status': 'error', 'message': 'Chatbot not found'}), 404
+            
+        owner_id = chatbot_resp.data.get('creator_id') or chatbot_resp.data.get('user_id')
+        if str(owner_id) != str(user_id):
+            return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
+
+        # Fetch embeddings to use as text sample
+        resp = supabase.table('embeddings').select('metadata').eq('channel_id', chatbot_id).limit(30).execute()
+        
+        if not resp.data:
+            return jsonify({'status': 'error', 'message': 'No knowledge base found. Please add a data source first.'}), 400
+            
+        text_sample = " ".join([
+            row['metadata'].get('chunk_text', '') 
+            for row in resp.data 
+            if row.get('metadata') and row['metadata'].get('chunk_text')
+        ])
+
+        if not text_sample.strip():
+            return jsonify({'status': 'error', 'message': 'No text content found in data sources.'}), 400
+
+        text_sample = text_sample[:10000] # Limit to 10k chars
+        
+        from utils.qa_utils import extract_speaking_style, extract_creator_soul
+        
+        speaking_style = extract_speaking_style(text_sample)
+        creator_soul = extract_creator_soul(text_sample)
+        
+        update_data = {}
+        if speaking_style:
+            update_data['speaking_style'] = speaking_style
+        if creator_soul:
+            update_data['creator_soul'] = creator_soul
+            
+        if not update_data:
+            return jsonify({'status': 'error', 'message': 'Failed to extract persona due to an LLM error.'}), 500
+            
+        supabase.table('channels').update(update_data).eq('id', chatbot_id).execute()
+        
+        # Include updated data in response
+        return jsonify({
+            'status': 'success', 
+            'message': 'Persona regenerated successfully',
+            'speaking_style': speaking_style or '',
+            'creator_soul': creator_soul or ''
+        })
+
+    except Exception as e:
+        logger.error(f"Error regenerating persona for {chatbot_id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
@@ -2812,7 +2878,8 @@ def generate_widget_answer(channel_id, question):
         question_for_search=question,
         channel_data=channel_data,
         user_id=channel_data.get('user_id'),
-        is_manager=False
+        is_manager=False,
+        integration_source='embed'
     ):
         if chunk.startswith('data: '):
             data_str = chunk.replace('data: ', '').strip()
@@ -2980,6 +3047,98 @@ def refund_landing():
 @app.route('/cookie-policy')
 def cookie_landing():
     return render_template('cookie-landing.html')
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SEO: robots.txt (Fix 6)
+# ──────────────────────────────────────────────────────────────────────────────
+@app.route('/robots.txt')
+def robots_txt():
+    base_url = os.environ.get('APP_BASE_URL', 'https://yoppychat.com')
+    content = f"""User-agent: *
+Allow: /c/
+Allow: /about
+Allow: /privacy
+Allow: /terms
+Allow: /privacy-policy
+Allow: /terms-of-service
+Allow: /refund-policy
+Allow: /cookie-policy
+Disallow: /api/
+Disallow: /admin/
+Disallow: /ask/
+Disallow: /ask/channel/
+Disallow: /auth/
+Disallow: /whop/
+Disallow: /integrations/
+Disallow: /dashboard
+Disallow: /earnings
+Disallow: /channel
+Disallow: /chatbot/
+
+Sitemap: {base_url}/sitemap.xml
+"""
+    return Response(content.strip(), mimetype='text/plain')
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SEO: sitemap.xml (Fix 5)
+# ──────────────────────────────────────────────────────────────────────────────
+@app.route('/sitemap.xml')
+def sitemap_xml():
+    """
+    Dynamic XML sitemap listing every ready creator page.
+    Googlebot uses this to discover /c/<creator> URLs automatically.
+    """
+    base_url = os.environ.get('APP_BASE_URL', 'https://yoppychat.com')
+    supabase_admin = get_supabase_admin_client()
+    try:
+        result = supabase_admin.table('channels') \
+            .select('channel_name, created_at') \
+            .eq('status', 'ready') \
+            .not_.is_('channel_name', 'null') \
+            .order('created_at', desc=True) \
+            .execute()
+        channels = result.data or []
+    except Exception as e:
+        logging.error(f"sitemap.xml DB error: {e}")
+        channels = []
+
+    # Static high-value pages
+    static_pages = [
+        ('', '1.0', 'weekly'),
+        ('/about', '0.7', 'monthly'),
+        ('/privacy-policy', '0.3', 'monthly'),
+        ('/terms-of-service', '0.3', 'monthly'),
+    ]
+
+    xml_parts = ['<?xml version="1.0" encoding="UTF-8"?>',
+                 '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+
+    for path, priority, freq in static_pages:
+        xml_parts.append(f"""  <url>
+    <loc>{base_url}{path}</loc>
+    <changefreq>{freq}</changefreq>
+    <priority>{priority}</priority>
+  </url>""")
+
+    from urllib.parse import quote
+    for ch in channels:
+        name = ch.get('channel_name', '').strip()
+        if not name:
+            continue
+        created = (ch.get('created_at') or '')[:10]  # YYYY-MM-DD
+        loc = f"{base_url}/c/{quote(name, safe='')}"
+        xml_parts.append(f"""  <url>
+    <loc>{loc}</loc>
+    <lastmod>{created}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>""")
+
+    xml_parts.append('</urlset>')
+    sitemap_content = '\n'.join(xml_parts)
+    return Response(sitemap_content, mimetype='application/xml')
 
 
 @app.route('/api/toggle_channel_privacy/<int:channel_id>', methods=['POST'])
@@ -3649,6 +3808,9 @@ def public_chat_page(channel_name):
                 saved_channels=get_user_channels(),
                 is_temporary_session=True, 
                 notice=notice,
+                seo_title=channel.get('seo_title'),
+                seo_meta_description=channel.get('seo_meta_description'),
+                seo_h1=channel.get('seo_h1'),
                 SUPABASE_URL=os.environ.get('SUPABASE_URL'),
                 SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
             )
@@ -3684,19 +3846,25 @@ def public_chat_page(channel_name):
                 saved_channels=get_user_channels(),
                 is_temporary_session=True,
                 notice=notice,
+                seo_title=channel.get('seo_title'),
+                seo_meta_description=channel.get('seo_meta_description'),
+                seo_h1=channel.get('seo_h1'),
                 SUPABASE_URL=os.environ.get('SUPABASE_URL'),
                 SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
             )
 
     # This part handles logged-out users. It will correctly display shared history if the ID is present.
     session['referred_by_channel_id'] = channel['id']
-    return render_template('ask.html', 
+    return render_template('ask.html',
         history=shared_history,
-        channel_name=channel['channel_name'], 
+        channel_name=channel['channel_name'],
         current_channel=channel,
         saved_channels={},
         is_temporary_session=False,
         notice=None,
+        seo_title=channel.get('seo_title'),
+        seo_meta_description=channel.get('seo_meta_description'),
+        seo_h1=channel.get('seo_h1'),
         SUPABASE_URL=os.environ.get('SUPABASE_URL'),
         SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
     )
@@ -4263,14 +4431,15 @@ def marketplace_accept(transfer_code):
     if not transfer or transfer['status'] not in ('pending', 'subscription_pending'):
         return render_template('error.html', error_message="This transfer link is invalid or has already been used."), 404
     
-    # If another buyer has already started checkout, block this one
+    is_logged_in = 'user' in session
+    user_id = session.get('user', {}).get('id') if is_logged_in else None
+    
+    # If another buyer has already started checkout, block this one (unless it's the SAME buyer returning)
     if transfer['status'] == 'subscription_pending':
-        return render_template('error.html', error_message="This transfer is currently being processed by another buyer. Please try again later."), 409
+        if transfer.get('buyer_id') and is_logged_in and str(transfer.get('buyer_id')) != str(user_id):
+            return render_template('error.html', error_message="This transfer is currently being processed by another buyer. Please try again later."), 409
         
     chatbot = transfer.get('channels')
-    
-    # FIX Issue #11: Pass login status so the frontend can prompt login instead of silently failing
-    is_logged_in = 'user' in session
     
     # Render checkout page for the buyer
     return render_template(
@@ -4289,18 +4458,24 @@ def marketplace_accept(transfer_code):
 def create_marketplace_subscription():
     data = request.get_json()
     transfer_code = data.get('transfer_code')
+    user_id = session['user']['id']
     
     transfer = marketplace_utils.get_transfer_by_code(transfer_code)
-    if not transfer or transfer['status'] not in ('pending',):
-        return jsonify({'status': 'error', 'message': 'Invalid or expired transfer link. It may already be in use.'}), 400
     
-    # FIX Issue #1: Immediately mark as 'subscription_pending' to block other buyers
+    if not transfer or transfer['status'] not in ('pending', 'subscription_pending'):
+        return jsonify({'status': 'error', 'message': 'Invalid or expired transfer link. It may already be in use.'}), 400
+        
+    if transfer['status'] == 'subscription_pending':
+        if transfer.get('buyer_id') and str(transfer.get('buyer_id')) != str(user_id):
+            return jsonify({'status': 'error', 'message': 'This link is currently being claimed by someone else.'}), 409
+    
+    # Immediately mark as 'subscription_pending' to block other buyers
     supabase_admin_mp = get_supabase_admin_client()
     supabase_admin_mp.table('chatbot_transfers').update({
-        'status': 'subscription_pending'
-    }).eq('id', transfer['id']).eq('status', 'pending').execute()
+        'status': 'subscription_pending',
+        'buyer_id': user_id
+    }).eq('id', transfer['id']).execute()
         
-    user_id = session['user']['id']
     profile = db_utils.get_profile(user_id)
     
     base_plan_id = os.environ.get('RAZORPAY_MARKETPLACE_BASE_PLAN_ID')
@@ -4336,6 +4511,7 @@ def create_marketplace_subscription():
                 db_utils.create_or_update_profile({'id': user_id, 'email': user_email, 'razorpay_customer_id': customer_id})
         except Exception as e:
             logger.error(f"Razorpay customer error: {e}")
+            supabase_admin_mp.table('chatbot_transfers').update({'status': 'pending', 'buyer_id': None}).eq('id', transfer['id']).execute()
             return jsonify({'status': 'error', 'message': f"Razorpay error: {e}"}), 500
             
     # Quantity is the total paise divided by 100 for the ₹1 base plan.
@@ -4358,6 +4534,7 @@ def create_marketplace_subscription():
         }).eq('id', transfer['id']).execute()
         
     except Exception as e:
+        supabase_admin_mp.table('chatbot_transfers').update({'status': 'pending', 'buyer_id': None}).eq('id', transfer['id']).execute()
         return jsonify({'status': 'error', 'message': f'Could not create subscription: {e}'}), 500
         
     return jsonify({
@@ -4369,7 +4546,28 @@ def create_marketplace_subscription():
         'user_email': user_email
     })
 
-
+@app.route('/api/marketplace/cancel_checkout', methods=['POST'])
+@login_required
+def cancel_marketplace_checkout():
+    data = request.get_json()
+    transfer_code = data.get('transfer_code')
+    user_id = session['user']['id']
+    
+    supabase_admin = get_supabase_admin_client()
+    
+    # Check if this user was the one who locked it
+    transfer_res = supabase_admin.table('chatbot_transfers').select('id, status, buyer_id').eq('transfer_code', transfer_code).eq('status', 'subscription_pending').maybe_single().execute()
+    
+    if transfer_res and transfer_res.data:
+        transfer = transfer_res.data
+        if str(transfer.get('buyer_id')) == str(user_id):
+            supabase_admin.table('chatbot_transfers').update({
+                'status': 'pending',
+                'buyer_id': None
+            }).eq('id', transfer['id']).execute()
+            return jsonify({'status': 'success', 'message': 'Checkout cancelled.'})
+            
+    return jsonify({'status': 'error', 'message': 'Could not cancel checkout or not authorized.'}), 400
 @app.route('/api/marketplace/request_payout', methods=['POST'])
 @login_required
 def marketplace_request_payout():

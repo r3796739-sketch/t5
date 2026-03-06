@@ -348,7 +348,9 @@ def _handle_whatsapp_message(
             user_id=config['user_id'],
             is_manager=is_manager,
             image_base64=image_base64,
-            image_mime_type=image_mime_type
+            image_mime_type=image_mime_type,
+            integration_source='whatsapp',
+            conversation_id=f"whatsapp_{from_phone}"
         ))
     except Exception as stream_err:
         logger.error(f"[WhatsApp BG] Error materializing AI stream: {stream_err}", exc_info=True)
@@ -363,6 +365,9 @@ def _handle_whatsapp_message(
                 break
             try:
                 parsed_data = _json.loads(data_str)
+                if parsed_data.get('error') == 'QUERY_LIMIT_REACHED':
+                    response_text = parsed_data.get('message', 'Credit limit reached. Please upgrade your plan.')
+                    break
                 if parsed_data.get('answer'):
                     response_text += parsed_data['answer']
             except _json.JSONDecodeError:

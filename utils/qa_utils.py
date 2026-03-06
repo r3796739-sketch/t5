@@ -686,7 +686,8 @@ def answer_question_stream(
     user_status: dict = None, 
     is_manager: bool = False,
     image_base64: str = None,
-    image_mime_type: str = None
+    image_mime_type: str = None,
+    integration_source: str = 'web'
 ) -> Iterator[str]:
     """
     Finds relevant context and streams an answer, optionally including an image. Now deducts bot queries synchronously.
@@ -695,7 +696,17 @@ def answer_question_stream(
     from . import db_utils 
 
     if on_complete is None and user_id:
-        db_utils.record_bot_query_usage(user_id)
+        # Integration path: check limits before proceeding
+        allowed, error_msg, resolved_community_id, is_marketplace = db_utils.check_bot_query_allowed(
+            user_id, channel_data, active_community_id
+        )
+        if not allowed:
+            yield f"data: {json.dumps({'error': 'QUERY_LIMIT_REACHED', 'message': error_msg})}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+        # For marketplace queries, the counter was already incremented — don't touch personal pool
+        if not is_marketplace:
+            db_utils.record_bot_query_usage(user_id, resolved_community_id)
     
     total_request_start_time = time.perf_counter()
 
@@ -714,7 +725,7 @@ def answer_question_stream(
         max_tokens = 1024
         word_count_guideline = "around 200-250 words"
 
-    llm_provider = os.environ.get('LLM_PROVIDER', 'groq')
+    llm_provider = os.environ.get('LLM_PROVIDER', 'groq').lower()
     llm_model = os.environ.get('MODEL_NAME', 'Not Set')
     embed_provider = os.environ.get('EMBED_PROVIDER', 'openai')
     embed_model = os.environ.get('EMBED_MODEL', 'Not Set')
@@ -834,7 +845,8 @@ def answer_question_stream(
             )
         else:  # youtuber (default)
             prompt_template = prompts.HYBRID_PERSONA_PROMPT
-            print("Using YOUTUBER/CREATOR Persona Prompt with Style Guidance")
+            print("Using YOUTUBER/CREATOR Persona Prompt with Soul + Style Guidance")
+            creator_soul = channel_data.get('creator_soul', '')
             prompt = prompt_template.format(
                 creator_name=creator_name, 
                 context=context, 
@@ -842,7 +854,8 @@ def answer_question_stream(
                 question=original_question,
                 chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
                 word_count=word_count_guideline,
-                speaking_style=speaking_style
+                speaking_style=speaking_style,
+                creator_soul=creator_soul or "Not yet analyzed. Use speaking style and context to infer personality."
             )
     else:
         prompt = prompts.NEUTRAL_ASSISTANT_PROMPT.format(context=context, question=original_question)
@@ -929,7 +942,8 @@ def answer_question_stream(
                 channel_name=channel_name_for_history,
                 question=original_question,
                 answer=full_answer,
-                sources=formatted_sources
+                sources=formatted_sources,
+                integration_source=integration_source
             )
         except Exception as e:
             logging.error(f"post_answer_processing_task failed: {e}", exc_info=True)
@@ -939,16 +953,33 @@ def answer_question_stream(
 
     
 def _get_openai_answer_non_stream(prompt: str, model: str, api_key: str, **kwargs):
-    """Gets a single, non-streamed response from an OpenAI-compatible API."""
+    """Gets a single, non-streamed response. Supports native Gemini logic and OpenAI-compatible APIs."""
     try:
+        provider = kwargs.get('provider', '').lower()
+        temperature = kwargs.get('temperature', 0.2) # Lower temp for factual extraction
+        max_tokens = kwargs.get('max_tokens', 100)
+        
+        if provider == 'gemini' or 'gemini' in model.lower():
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            model_name = f"models/{model}" if not model.startswith('models/') else model
+            gemini_model = genai.GenerativeModel(model_name)
+            
+            gemini_config = genai.types.GenerationConfig(
+                temperature=temperature,
+                max_output_tokens=max_tokens,
+            )
+            
+            response = gemini_model.generate_content(prompt, generation_config=gemini_config)
+            return response.text if response.text else ""
+            
         import openai
         base_url = kwargs.get('base_url')
-        temperature = kwargs.get('temperature', 0.2) # Lower temp for factual extraction
         client = openai.OpenAI(api_key=api_key, base_url=base_url)
         response = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=100,
+            max_tokens=max_tokens,
             temperature=temperature,
             stream=False
         )
@@ -960,12 +991,12 @@ def _get_openai_answer_non_stream(prompt: str, model: str, api_key: str, **kwarg
             content = response.choices[0]['message']['content']
         return content or ""
     except Exception as e:
-        logging.error(f"Failed to get OpenAI non-stream response: {e}", exc_info=True)
+        logging.error(f"Failed to get non-stream response: {e}", exc_info=True)
         return ""
     
 def extract_topics_from_text(text_sample: str) -> list:
     print('llm called')
-    llm_provider = os.environ.get('TOPIC_LLM_PROVIDER', os.environ.get('LLM_PROVIDER', 'openai'))
+    llm_provider = os.environ.get('TOPIC_LLM_PROVIDER', os.environ.get('LLM_PROVIDER', 'openai')).lower()
     model = os.environ.get('TOPIC_MODEL_NAME', os.environ.get('MODEL_NAME'))
     api_key = _get_api_key(llm_provider)
 
@@ -995,7 +1026,7 @@ def extract_topics_from_text(text_sample: str) -> list:
     return []
 
 def generate_channel_summary(text_sample: str) -> str:
-    llm_provider = os.environ.get('SUMMARY_LLM_PROVIDER', os.environ.get('LLM_PROVIDER', 'openai'))
+    llm_provider = os.environ.get('SUMMARY_LLM_PROVIDER', os.environ.get('LLM_PROVIDER', 'openai')).lower()
     model = os.environ.get('SUMMARY_MODEL_NAME', os.environ.get('MODEL_NAME'))
     api_key = _get_api_key(llm_provider)
 
@@ -1023,10 +1054,11 @@ def extract_speaking_style(text_sample: str, source_type: str = 'youtube') -> st
         source_type: 'youtube' for creator content, 'whatsapp' for customer service chats
     """
     print(f"Extracting speaking style from {source_type} sample...")
-    llm_provider = os.environ.get('STYLE_LLM_PROVIDER', os.environ.get('LLM_PROVIDER', 'openai'))
+    llm_provider = os.environ.get('STYLE_LLM_PROVIDER', os.environ.get('LLM_PROVIDER', 'openai')).lower()
     
     # Use a higher quality model for style extraction if possible
     model = os.environ.get('STYLE_MODEL_NAME', os.environ.get('MODEL_NAME'))
+    print(f"[{source_type.upper()} STYLE EXTRACTION] Using provider: {llm_provider}, model: {model}")
     
     api_key = _get_api_key(llm_provider)
 
@@ -1047,11 +1079,42 @@ def extract_speaking_style(text_sample: str, source_type: str = 'youtube') -> st
         prompt = prompts.SPEAKING_STYLE_EXTRACTION_PROMPT.format(context=text_sample)
     
     # We want a fairly comprehensive analysis, so allow more tokens
-    style_analysis = _get_openai_answer_non_stream(prompt, model, api_key, base_url=base_url, temperature=0.4, max_tokens=400)
+    style_analysis = _get_openai_answer_non_stream(prompt, model, api_key, base_url=base_url, temperature=0.4, max_tokens=1500)
 
     if style_analysis:
         print("Speaking style extracted successfully.")
         return style_analysis.strip()
+    
+    return ""
+
+
+def extract_creator_soul(text_sample: str) -> str:
+    """
+    Extracts the creator's core identity — values, opinions, personality traits,
+    passions, and pet peeves — grounded in their actual video content.
+    This is the OpenClaw SOUL.md equivalent: who the creator IS, not just how they talk.
+    """
+    print("Extracting creator soul profile from transcripts...")
+    llm_provider = os.environ.get('STYLE_LLM_PROVIDER', os.environ.get('LLM_PROVIDER', 'openai')).lower()
+    model = os.environ.get('STYLE_MODEL_NAME', os.environ.get('MODEL_NAME'))
+    print(f"[SOUL EXTRACTION] Using provider: {llm_provider}, model: {model}")
+    api_key = _get_api_key(llm_provider)
+
+    if llm_provider == 'groq':
+        base_url = 'https://api.groq.com/openai/v1'
+    else:
+        base_url = os.environ.get('OPENAI_API_BASE_URL', None)
+
+    if not all([llm_provider, model, api_key]):
+        logging.warning("Soul extraction LLM not fully configured.")
+        return ""
+
+    prompt = prompts.CREATOR_SOUL_EXTRACTION_PROMPT.format(context=text_sample)
+    soul_profile = _get_openai_answer_non_stream(prompt, model, api_key, base_url=base_url, temperature=0.4, max_tokens=1500)
+
+    if soul_profile:
+        print("Creator soul profile extracted successfully.")
+        return soul_profile.strip()
     
     return ""
 

@@ -225,6 +225,42 @@ def _auth_redirect_or_json():
     return redirect(url_for('channel') + '?login=1')
 
 # --- Decorators ---
+def _has_marketplace_credits(user_id):
+    """
+    Check if the current request targets a marketplace chatbot that the user
+    has purchased and still has credits remaining.
+    Returns True if the user should bypass the personal/community limit check.
+    """
+    try:
+        channel_name = request.form.get('channel_name')
+        if not channel_name:
+            return False
+        supabase_admin = get_supabase_admin_client()
+        # Look up the channel ID from the channel name
+        channel_res = supabase_admin.table('channels').select('id').eq(
+            'channel_name', channel_name
+        ).maybe_single().execute()
+        if not channel_res or not channel_res.data:
+            return False
+        chatbot_id = channel_res.data['id']
+        # Check if there's an active marketplace transfer for this user & bot
+        transfer_res = supabase_admin.table('chatbot_transfers').select(
+            'query_limit_monthly, queries_used_this_month'
+        ).eq('chatbot_id', chatbot_id).eq('buyer_id', user_id).eq(
+            'status', 'active'
+        ).maybe_single().execute()
+        if not transfer_res or not transfer_res.data:
+            return False
+        transfer = transfer_res.data
+        return transfer['queries_used_this_month'] < transfer['query_limit_monthly']
+    except Exception as e:
+        # Fail open — if the check errors, don't block the user;
+        # the marketplace check in stream_answer will handle it
+        import logging
+        logging.getLogger(__name__).warning(f"Marketplace credit check failed: {e}")
+        return False
+
+
 def limit_enforcer(check_type: str):
     def decorator(f):
         @wraps(f)
@@ -255,11 +291,16 @@ def limit_enforcer(check_type: str):
                     max_queries = user_status['limits'].get('max_queries_per_month', 0)
                     queries_used = user_status['usage'].get('queries_this_month', 0)
                     if max_queries != float('inf') and queries_used >= max_queries:
-                        return jsonify({'status': 'limit_reached', 'message': f"You've reached your monthly query limit of {int(max_queries)}."}), 403
+                        # FIX: Before blocking, check if this is a marketplace bot with credits
+                        if _has_marketplace_credits(user_id):
+                            return f(*args, **kwargs)
+                        return jsonify({'status': 'limit_reached', 'message': f"You've reached your monthly credit limit of {int(max_queries)}."}), 403
                 elif user_status.get('is_active_community_owner') and not user_status.get('has_personal_plan'):
                     # FIX Issue #8: Community owner without a personal plan should be told to upgrade
                     # instead of consuming from the shared community pool
-                    return jsonify({'status': 'limit_reached', 'message': "Your trial queries have been used. Please upgrade to a personal plan to continue chatting."}), 403
+                    if _has_marketplace_credits(user_id):
+                        return f(*args, **kwargs)
+                    return jsonify({'status': 'limit_reached', 'message': "Your trial credits have been used. Please upgrade to a personal plan to continue chatting."}), 403
                 elif active_community_id:
                     community_status = get_community_status(active_community_id)
                     g.community_status = community_status
@@ -268,12 +309,18 @@ def limit_enforcer(check_type: str):
                     max_queries = community_status['limits'].get('query_limit', 0)
                     queries_used = community_status['usage'].get('queries_used', 0)
                     if max_queries != float('inf') and queries_used >= max_queries:
-                        return jsonify({'status': 'limit_reached', 'message': "The community's shared query limit has been reached."}), 403
+                        # FIX: Before blocking, check if this is a marketplace bot with credits
+                        if _has_marketplace_credits(user_id):
+                            return f(*args, **kwargs)
+                        return jsonify({'status': 'limit_reached', 'message': "The community's shared credit limit has been reached."}), 403
                 else:
                     max_queries = user_status['limits'].get('max_queries_per_month', 0)
                     queries_used = user_status['usage'].get('queries_this_month', 0)
                     if max_queries != float('inf') and queries_used >= max_queries:
-                        return jsonify({'status': 'limit_reached', 'message': f"You've reached your monthly query limit of {int(max_queries)}."}), 403
+                        # FIX: Before blocking, check if this is a marketplace bot with credits
+                        if _has_marketplace_credits(user_id):
+                            return f(*args, **kwargs)
+                        return jsonify({'status': 'limit_reached', 'message': f"You've reached your monthly credit limit of {int(max_queries)}."}), 403
             elif check_type == 'channel':
                 max_channels = user_status['limits'].get('max_channels', 0)
                 current_channels = user_status['usage'].get('channels_processed', 0)
