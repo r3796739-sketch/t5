@@ -1204,7 +1204,7 @@
                     if (mpListing && mpChip) {
                         if (mpListing.status === 'active' || mpListing.status === 'pending') {
                             mpChip.style.display = 'inline-flex';
-                            mpChip.title = `Listed at ₹${mpListing.price}/mo · ${mpListing.query_limit} queries`;
+                            mpChip.title = `Listed at ₹${mpListing.price}/mo · ${mpListing.query_limit} credits`;
                             // Update sell button text
                             const sellBtn = document.getElementById(`sell-btn-${cid}`);
                             if (sellBtn) {

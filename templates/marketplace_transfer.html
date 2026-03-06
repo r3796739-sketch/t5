@@ -245,7 +245,7 @@
 <div class="transfer-container">
     <div class="transfer-header">
         <h1>Transfer Chatbot</h1>
-        <p>Set a query limit and monthly price for your client.</p>
+        <p>Set a credit limit and monthly price for your client.</p>
     </div>
 
     <div class="chatbot-preview">
@@ -267,26 +267,26 @@
         </h2>
 
         <div class="form-group">
-            <label class="form-label">Monthly Query Limit</label>
+            <label class="form-label">Monthly Credit Limit</label>
             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">Choose how many questions
                 the chatbot can answer per month.</p>
 
             <div class="tier-options" id="tierSelector">
                 <div class="tier-card selected" data-queries="500" data-basefee="450">
                     <div class="tier-queries">500</div>
-                    <div class="tier-price">queries/mo</div>
+                    <div class="tier-price">credits/mo</div>
                 </div>
                 <div class="tier-card" data-queries="1000" data-basefee="900">
                     <div class="tier-queries">1,000</div>
-                    <div class="tier-price">queries/mo</div>
+                    <div class="tier-price">credits/mo</div>
                 </div>
                 <div class="tier-card" data-queries="2500" data-basefee="2250">
                     <div class="tier-queries">2,500</div>
-                    <div class="tier-price">queries/mo</div>
+                    <div class="tier-price">credits/mo</div>
                 </div>
                 <div class="tier-card" data-queries="5000" data-basefee="4500">
                     <div class="tier-queries">5,000</div>
-                    <div class="tier-price">queries/mo</div>
+                    <div class="tier-price">credits/mo</div>
                 </div>
                 <div class="tier-card" data-queries="custom">
                     <div class="tier-queries">Custom</div>
@@ -296,7 +296,7 @@
 
             <div id="customQueryConfig" style="display: none; margin-top: 1rem;">
                 <div class="input-group">
-                    <div class="input-prefix">Queries</div>
+                    <div class="input-prefix">Credits</div>
                     <input type="number" id="customQueriesInput" min="100" placeholder="e.g. 10000">
                 </div>
             </div>
@@ -319,7 +319,7 @@
             </div>
             <div class="fee-row" style="color: var(--text-secondary);">
                 <span>Platform Fee (₹{{ "%.2f"|format(cost_per_query / 100) }} × <span id="displayQueries">500</span>
-                    queries):</span>
+                    credits):</span>
                 <span id="displayPlatformFee">-₹450</span>
             </div>
             <div class="fee-row highlight">
@@ -435,7 +435,7 @@
     async function generateTransferLink() {
         const clientPrice = parseFloat(clientPriceInput.value);
         if (clientPrice < currentPlatformFee) {
-            alert(`The minimum price for ${currentQueries} queries is ₹${currentPlatformFee}.`);
+            alert(`The minimum price for ${currentQueries} credits is ₹${currentPlatformFee}.`);
             return;
         }
 

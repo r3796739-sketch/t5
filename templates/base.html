@@ -6,6 +6,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}YouTube Channel QA{% endblock %}</title>
+    {% block seo_head %}
+    {# Default: no extra meta tags. Pages that need SEO override this block. #}
+    {% endblock %}
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -101,6 +104,17 @@
             <span>Earnings</span>
         </a>
         {% endif %}
+        {% if is_admin %}
+        <a href="{{ url_for('admin_dashboard') }}"
+            class="sidebar-action-item {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                class="feather feather-shield">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            <span>Admin Dashboard</span>
+        </a>
+        {% endif %}
     </div>
     {% endif %}
 
@@ -145,17 +159,17 @@
             <div class="profile-menu" id="user-profile-menu">
                 <div class="menu-plan-display">
                     <div class="plan-badge">{{ user_status.plan_name | title }} Plan</div>
-                    <p class="plan-queries">
+                    <p class="plan-credits">
                         {% if user_status.has_personal_plan or not user_status.is_whop_user %}
                         {% if user_status.limits.max_queries_per_month|string() == 'inf' %}
-                        You have <strong>Unlimited</strong> personal queries.
+                        You have <strong>Unlimited</strong> personal credits.
                         {% else %}
                         You have <strong>{{ (user_status.limits.max_queries_per_month -
-                            user_status.usage.queries_this_month) | int }}</strong> personal queries remaining.
+                            user_status.usage.queries_this_month) | int }}</strong> personal credits remaining.
                         {% endif %}
                         {% elif community_status %}
                         The community has <strong>{{ (community_status.limits.query_limit -
-                            community_status.usage.queries_used) | int }}</strong> shared queries remaining.
+                            community_status.usage.queries_used) | int }}</strong> shared credits remaining.
                         {% endif %}
                     </p>
                 </div>
@@ -641,6 +655,12 @@
                 modal.style.display = 'flex';
             }
 
+            // Save the URL so users return to this exact page after logging in.
+            // Avoid saving if we are already in a redirect loop or generic page
+            if (!window.location.search.includes('login=1') && !window.location.pathname.includes('/auth/callback')) {
+                localStorage.setItem('login_redirect_url', window.location.href);
+            }
+
             // Reset to sign-in mode each time popup opens
             if (_authMode === 'forgot') hideForgotPassword(null);
             else if (_authMode !== 'signin') toggleAuthMode(null);
@@ -650,7 +670,12 @@
 
             if (supabaseUrl && supabaseAnonKey && window.supabase) {
                 if (!window.supabaseClient) {
-                    window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+                    window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
+                        realtime: { params: { eventsPerSecond: 0 } },
+                        global: { headers: {} }
+                    });
+                    // Disable realtime connection (we don't use it)
+                    window.supabaseClient.realtime.disconnect();
                 }
 
                 const googleLoginBtn = document.getElementById('google-login-btn');
@@ -778,7 +803,12 @@
 
             if (supabaseUrl && supabaseAnonKey && window.supabase) {
                 if (!window.supabaseClient) {
-                    window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+                    window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
+                        realtime: { params: { eventsPerSecond: 0 } },
+                        global: { headers: {} }
+                    });
+                    // Disable realtime connection (we don't use it)
+                    window.supabaseClient.realtime.disconnect();
                 }
 
                 const googleLoginBtn = document.getElementById('google-login-btn');

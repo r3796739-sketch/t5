@@ -1,13 +1,49 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
-{% block title %}Ask Questions - YoppyChat AI{% endblock %}
+{# ── Dynamic SEO title: use LLM-generated title for public creator pages ── #}
+{% block title %}
+{%- if seo_title -%}
+{{ seo_title }}
+{%- elif channel_name -%}
+Chat with {{ channel_name }} AI | YoppyChat
+{%- else -%}
+Ask Questions - YoppyChat AI
+{%- endif -%}
+{% endblock %}
+
+{# ── Dynamic SEO head: inject meta description + canonical for public pages ── #}
+{% block seo_head %}
+{% if seo_meta_description or channel_name %}
+<meta name="description"
+    content="{{ seo_meta_description or 'Chat with the AI version of ' ~ channel_name ~ ' on YoppyChat. Get answers in their voice, powered by every video they have ever made.' }}">
+{% endif %}
+{% if channel_name %}
+{# Use request.url_root so this works on any deployment (app.yoppychat.com, localhost, etc.) #}
+{% set page_url = request.url_root.rstrip('/') ~ '/c/' ~ (channel_name | urlencode) %}
+<link rel="canonical" href="{{ page_url }}">
+<meta property="og:title" content="{{ seo_title or 'Chat with ' ~ channel_name ~ ' AI | YoppyChat' }}">
+<meta property="og:description" content="{{ seo_meta_description or 'Get answers from ' ~ channel_name ~ "'s AI, available 24/7 on YoppyChat." }}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ page_url }}">
+{# OG image — use channel thumbnail, fall back to YoppyChat logo #}
+{% if current_channel and current_channel.channel_thumbnail %}
+<meta property="og:image" content="{{ current_channel.channel_thumbnail }}">
+{% else %}
+<meta property="og:image" content="{{ request.host_url }}static/images/logo/primiry__logo.png">
+{% endif %}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ seo_title or ' Chat with ' ~ channel_name ~ ' AI | YoppyChat' }}">
+<meta name="twitter:description" content="{{ seo_meta_description or 'Get answers from ' ~ channel_name ~ "'s AI on YoppyChat." }}">
+{% endif %}
+{% endblock %}
+
 
 {% block marked_script %}
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
 {% endblock %}
 
 {% block page_styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/ask.css') }}">
+<link rel="stylesheet" href="{{ url_for(' static', filename='css/ask.css' ) }}">
 <script>
     // Pass server-side data to JavaScript
     const IS_TEMPORARY_SESSION = {{ is_temporary_session| tojson or 'false' }};
@@ -77,6 +113,12 @@
     data-chatbot-id="{{ current_channel.id if current_channel else '' }}">
 
     <div class="chat-column">
+        {# Fix 11: Visually hidden H1 for Googlebot — does not affect visual design #}
+        {% if channel_name %}
+        <h1
+            style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;">
+            {{ seo_h1 if seo_h1 else 'Chat with ' ~ channel_name ~ ' AI' }}</h1>
+        {% endif %}
         <div class="chat-wrapper">
 
             <div id="conversation-history" class="chat-container {% if not history %}is-empty{% endif %}" role="log"
@@ -276,7 +318,8 @@
                     <span class="ai-badge">AI</span>
                 </div>
                 <div class="profile-info">
-                    <h2 class="profile-name">{{ channel_name }}</h2>
+                    {# ── SEO H1: Use LLM-generated h1 on public pages, fall back to channel name ── #}
+                    <h2 class="profile-name">{{ seo_h1 if seo_h1 else channel_name }}</h2>
                     <p class="profile-description">
                         {% if current_channel.summary %}
                         {{ current_channel.summary }}

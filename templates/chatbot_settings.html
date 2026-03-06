@@ -4,6 +4,47 @@
 
 {% block page_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/chatbot_settings.css') }}">
+<style>
+    .cs-markdown-preview {
+        padding: 1.25rem 1.5rem !important;
+    }
+
+    /* Custom thin scrollbar for previews */
+    .cs-markdown-preview::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    .cs-markdown-preview::-webkit-scrollbar-track {
+        background: transparent;
+        border-radius: 8px;
+    }
+
+    .cs-markdown-preview::-webkit-scrollbar-thumb {
+        background: var(--border-color, #d1d5db);
+        border-radius: 8px;
+    }
+
+    .cs-markdown-preview::-webkit-scrollbar-thumb:hover {
+        background: #9ca3af;
+    }
+
+    /* Improved spacing for markdown lists */
+    .cs-markdown-preview ul,
+    .cs-markdown-preview ol {
+        margin-left: 1.5rem;
+        margin-bottom: 1rem;
+        margin-top: 0.5rem;
+    }
+
+    .cs-markdown-preview li {
+        margin-bottom: 0.5rem;
+    }
+
+    .cs-markdown-preview p {
+        margin-bottom: 0.75rem;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -166,11 +207,74 @@
                     </div>
                 </div>
                 <div class="cs-form-group">
-                    <label class="cs-label" for="speaking_style">Speaking Style / Tone</label>
-                    <textarea id="speaking_style" class="cs-textarea"
-                        placeholder="Describe how the bot should communicate...">{{ chatbot.speaking_style or '' }}</textarea>
-                    <div class="cs-hint">Describe the tone, vocabulary, and communication style. Leave empty for
-                        auto-detected style.</div>
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <label class="cs-label" for="speaking_style" style="margin-bottom: 0;">Speaking Style /
+                            Voice</label>
+                        <button type="button" class="cs-btn cs-btn-ghost" onclick="toggleEditField('speaking_style')"
+                            style="padding: 4px 8px; font-size: 0.8rem;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"
+                                height="14" style="margin-right: 4px;">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                            Edit
+                        </button>
+                    </div>
+                    <div id="speaking_style_preview" class="cs-markdown-preview cs-input"
+                        style="min-height: 80px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5; background: var(--bg-secondary); border-color: var(--border-color);">
+                        {{ chatbot.speaking_style or '' }}</div>
+                    <textarea id="speaking_style" class="cs-textarea" style="display: none;"
+                        placeholder="Describe how the bot should communicate..."
+                        oninput="syncPreview('speaking_style')">{{ chatbot.speaking_style or '' }}</textarea>
+                    <div class="cs-hint" style="margin-top: 5px;">How the bot talks — catchphrases, vocabulary, tone,
+                        emotional patterns.
+                        Auto-detected from content.
+                    </div>
+                </div>
+                <div class="cs-form-group" id="creatorSoulGroup">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <label class="cs-label" for="creator_soul"
+                            style="color: var(--accent, #3b82f6); margin-bottom: 0;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"
+                                height="16" style="vertical-align: middle; margin-right: 4px; margin-bottom: 2px;">
+                                <path
+                                    d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                            </svg>
+                            Creator Soul / Identity
+                        </label>
+                        <button type="button" class="cs-btn cs-btn-ghost" onclick="toggleEditField('creator_soul')"
+                            style="padding: 4px 8px; font-size: 0.8rem;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"
+                                height="14" style="margin-right: 4px;">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                            Edit
+                        </button>
+                    </div>
+                    <div id="creator_soul_preview" class="cs-markdown-preview cs-input"
+                        style="min-height: 80px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5; background: rgba(59, 130, 246, 0.05); border-color: rgba(59, 130, 246, 0.2);">
+                        {{ chatbot.creator_soul or '' }}</div>
+                    <textarea id="creator_soul" class="cs-textarea" rows="8"
+                        style="display: none; border-color: rgba(59, 130, 246, 0.3); background-color: rgba(59, 130, 246, 0.02);"
+                        placeholder="Core values, strong opinions, personality traits, passions, and pet peeves — all extracted from their content..."
+                        oninput="syncPreview('creator_soul')">{{ chatbot.creator_soul or '' }}</textarea>
+                    <div class="cs-hint">Who the creator IS — their values, opinions, and personality. Auto-extracted
+                        from videos. Only opinions they've actually expressed are included.</div>
+
+                    <button type="button" class="cs-btn cs-btn-ghost" id="regeneratePersonaBtn"
+                        onclick="regeneratePersona()" style="margin-top: 10px; font-size: 0.85rem; padding: 6px 12px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"
+                            height="14" id="regenPersonaIcon">
+                            <path
+                                d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3" />
+                        </svg>
+                        Regenerate Persona (Voice & Soul)
+                    </button>
+                    <div id="regenStatusMessage"
+                        style="color: var(--text-secondary); font-size: 0.82rem; margin-top: 5px; display: none;"></div>
                 </div>
                 <div class="cs-form-group" style="margin-top: 1.5rem;">
                     <label class="cs-label" for="promotion_triggers" style="color: var(--purple, #9333ea);">
@@ -560,8 +664,23 @@
 {% endblock %}
 
 {% block page_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
     const chatbotId = {{ chatbot.id }};
+
+    // Initialize Markdown previews on load
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof marked !== 'undefined') {
+            const ssInput = document.getElementById('speaking_style');
+            const csInput = document.getElementById('creator_soul');
+            if (ssInput && ssInput.value) {
+                document.getElementById('speaking_style_preview').innerHTML = marked.parse(ssInput.value);
+            }
+            if (csInput && csInput.value) {
+                document.getElementById('creator_soul_preview').innerHTML = marked.parse(csInput.value);
+            }
+        }
+    });
 
     // ===== TAB SWITCHING =====
     function switchTab(tabId, btn) {
@@ -731,9 +850,95 @@
                         </div>
                     `;
                 }).join('');
+
+                // ===== AUTO-POLL PROCESSING SOURCES =====
+                const processingSources = data.data_sources.filter(
+                    s => s.status === 'processing' || s.status === 'pending'
+                );
+                if (processingSources.length > 0) {
+                    startSourcePolling(processingSources.map(s => s.id));
+                }
             })
             .catch(err => console.error("Error loading integrations:", err));
     });
+
+    // ===== SOURCE STATUS POLLING =====
+    let _sourcePollingInterval = null;
+
+    function startSourcePolling(sourceIds) {
+        if (_sourcePollingInterval) clearInterval(_sourcePollingInterval);
+
+        const pendingIds = new Set(sourceIds);
+
+        _sourcePollingInterval = setInterval(() => {
+            if (pendingIds.size === 0) {
+                clearInterval(_sourcePollingInterval);
+                _sourcePollingInterval = null;
+                return;
+            }
+
+            pendingIds.forEach(sourceId => {
+                fetch(`/source/${sourceId}/status`)
+                    .then(res => res.json())
+                    .then(result => {
+                        if (result.status !== 'success' || !result.source) return;
+                        const source = result.source;
+
+                        // Update the status badge in-place
+                        const el = document.querySelector(`.cs-source-item[data-source-id="${sourceId}"]`);
+                        if (el) {
+                            const badge = el.querySelector('.cs-source-status');
+                            if (badge) {
+                                badge.className = `cs-source-status ${source.status}`;
+                                badge.textContent = source.status.toUpperCase();
+                            }
+
+                            // Add a subtle pulse animation on status change
+                            if (source.status === 'ready') {
+                                badge.style.animation = 'nonePulse 0.6s ease';
+                                setTimeout(() => { badge.style.animation = ''; }, 600);
+                            }
+
+                            // Update metadata if now ready
+                            if (source.status === 'ready' && source.metadata) {
+                                let metaHtml = '';
+                                if (source.source_type === 'website' && source.metadata.page_count) {
+                                    metaHtml = `<div class="cs-source-meta">${source.metadata.page_count} pages scraped · ${source.metadata.total_words || 0} words${source.metadata.failed_pages ? ' · ' + source.metadata.failed_pages + ' failed' : ''}</div>`;
+                                } else if (source.source_type === 'whatsapp' && source.metadata.message_count) {
+                                    metaHtml = `<div class="cs-source-meta">${source.metadata.message_count} messages · ${source.metadata.unique_senders || 0} senders</div>`;
+                                } else if (source.source_type === 'pdf' && source.metadata.page_count) {
+                                    metaHtml = `<div class="cs-source-meta">${source.metadata.page_count} pages · ${source.metadata.total_words || 0} words · "${source.metadata.pdf_title || 'Document'}"</div>`;
+                                }
+                                // Insert or replace metadata line
+                                const infoDiv = el.querySelector('.cs-source-info');
+                                if (infoDiv) {
+                                    const existingMeta = infoDiv.querySelector('.cs-source-meta');
+                                    if (existingMeta) {
+                                        existingMeta.outerHTML = metaHtml;
+                                    } else if (metaHtml) {
+                                        infoDiv.insertAdjacentHTML('beforeend', metaHtml);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Stop polling this source
+                        if (source.status === 'ready' || source.status === 'failed') {
+                            pendingIds.delete(sourceId);
+                            const typeLabel = (source.source_type || 'Source').charAt(0).toUpperCase() + (source.source_type || 'source').slice(1);
+                            if (source.status === 'ready') {
+                                showToast(`${typeLabel} data source is ready! ✅`, 'success');
+                            } else {
+                                showToast(`${typeLabel} data source failed to process.`, 'error');
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        console.error(`Polling error for source ${sourceId}:`, err);
+                    });
+            });
+        }, 3000);
+    }
 
     // ===== BOT TYPE CARDS =====
     document.querySelectorAll('.cs-type-card').forEach(card => {
@@ -1004,6 +1209,7 @@
             creator_name: document.getElementById('creator_name').value,
             bot_type: document.querySelector('input[name="bot_type"]:checked')?.value || 'business',
             speaking_style: document.getElementById('speaking_style').value,
+            creator_soul: document.getElementById('creator_soul')?.value || '',
             promotion_triggers: document.getElementById('promotion_triggers').value,
             lead_capture_enabled: document.getElementById('leadCaptureEnabled')?.checked || false,
             lead_capture_email: combinedEmailWa || null,
@@ -1020,6 +1226,85 @@
             if (r.status === 'success') showToast('Settings saved!', 'success');
             else showToast(r.message || 'Save failed', 'error');
         } catch (e) { showToast('An error occurred', 'error'); }
+    }
+
+    async function regeneratePersona() {
+        const btn = document.getElementById('regeneratePersonaBtn');
+        const icon = document.getElementById('regenPersonaIcon');
+        const statusMsg = document.getElementById('regenStatusMessage');
+
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+        icon.style.animation = 'spin 1.5s linear infinite';
+        statusMsg.textContent = 'Analyzing content and regenerating persona. This usually takes 10-20 seconds...';
+        statusMsg.style.display = 'block';
+        statusMsg.style.color = 'var(--text-secondary)';
+
+        try {
+            const res = await fetch(`/api/chatbot/${chatbotId}/regenerate-persona`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+
+            if (data.status === 'success') {
+                const speakingStyleInput = document.getElementById('speaking_style');
+                const creatorSoulInput = document.getElementById('creator_soul');
+
+                speakingStyleInput.value = data.speaking_style || '';
+                creatorSoulInput.value = data.creator_soul || '';
+
+                document.getElementById('speaking_style_preview').textContent = data.speaking_style || '';
+                document.getElementById('creator_soul_preview').textContent = data.creator_soul || '';
+
+                speakingStyleInput.style.display = 'none';
+                document.getElementById('speaking_style_preview').style.display = 'block';
+
+                creatorSoulInput.style.display = 'none';
+                document.getElementById('creator_soul_preview').style.display = 'block';
+
+                statusMsg.textContent = 'Persona successfully regenerated!';
+                statusMsg.style.color = '#10b981'; // green
+                showToast('Persona regenerated successfully!', 'success');
+
+                // Save settings automatically so the new persona is persisted
+                setTimeout(() => { saveSettings(); }, 500);
+            } else {
+                statusMsg.textContent = data.message || 'Failed to regenerate persona.';
+                statusMsg.style.color = '#ef4444'; // red
+            }
+        } catch (e) {
+            statusMsg.textContent = 'An error occurred while regenerating persona.';
+            statusMsg.style.color = '#ef4444';
+        } finally {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            icon.style.animation = 'none';
+        }
+    }
+
+    // ===== TOGGLE EDITABLE FIELDS =====
+    function toggleEditField(fieldId) {
+        const preview = document.getElementById(fieldId + '_preview');
+        const editor = document.getElementById(fieldId);
+
+        if (editor.style.display === 'none') {
+            editor.style.display = 'block';
+            preview.style.display = 'none';
+            editor.focus();
+        } else {
+            editor.style.display = 'none';
+            preview.style.display = 'block';
+        }
+    }
+
+    function syncPreview(fieldId) {
+        const val = document.getElementById(fieldId).value;
+        const preview = document.getElementById(fieldId + '_preview');
+        if (typeof marked !== 'undefined') {
+            preview.innerHTML = marked.parse(val);
+        } else {
+            preview.textContent = val;
+        }
     }
 
     // ===== DELETE DATA SOURCE =====

@@ -351,7 +351,7 @@
 
             <div class="summary-box">
                 <div class="summary-row">
-                    <span class="summary-label">Monthly AI Queries limit</span>
+                    <span class="summary-label">Monthly AI Credits</span>
                     <span class="summary-val">{{ transfer.query_limit_monthly }}</span>
                 </div>
                 <div class="summary-row" style="align-items: flex-start; flex-direction: column; gap: 4px;">
@@ -433,6 +433,14 @@
             }
 
             if (result.status === 'success') {
+                const cancelCheckout = () => {
+                    fetch('/api/marketplace/cancel_checkout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ transfer_code: '{{ transfer.transfer_code }}' })
+                    }).catch(err => console.error("Error cancelling checkout", err));
+                };
+
                 const options = {
                     "key": result.razorpay_key_id,
                     "subscription_id": result.subscription_id,
@@ -442,6 +450,13 @@
                     "handler": function (response) {
                         showNotification("Payment successful! The chatbot is now in your account.", 'success');
                         window.location.href = "{{ url_for('dashboard') }}";
+                    },
+                    "modal": {
+                        "ondismiss": function () {
+                            cancelCheckout();
+                            btn.innerHTML = originalText;
+                            btn.disabled = false;
+                        }
                     },
                     "prefill": {
                         "name": result.user_name || "",
@@ -455,6 +470,7 @@
                 const rzp = new Razorpay(options);
                 rzp.on('payment.failed', function (response) {
                     showNotification("Payment failed: " + response.error.description, 'error');
+                    cancelCheckout();
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                 });

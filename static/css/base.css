@@ -259,13 +259,13 @@
     margin-bottom: var(--spacing-sm);
 }
 
-.plan-queries {
+.plan-credits {
     font-size: 0.875rem;
     color: var(--text-secondary);
     margin: 0;
 }
 
-.plan-queries strong {
+.plan-credits strong {
     color: var(--text-primary);
     font-weight: 600;
 }
