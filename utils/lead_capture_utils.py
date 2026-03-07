@@ -27,12 +27,15 @@ logger = logging.getLogger(__name__)
 # Prompt builder
 # ---------------------------------------------------------------------------
 
-def build_lead_prompt(fields: list) -> str:
+def build_lead_prompt(fields: list, custom_intro: str = '') -> str:
     """
     Given a list of field defs like:
         [{"label": "Name", "type": "text", "required": true, "options": []}]
     Returns a system-prompt snippet instructing the bot to collect them one
     at a time and emit a [LEAD_COMPLETE: {...}] marker when done.
+
+    Optional `custom_intro` lets the business customize how the bot opens and
+    presents the form — e.g. their brand voice, a specific welcome message, etc.
     """
     if not fields:
         return ""
@@ -57,6 +60,9 @@ def build_lead_prompt(fields: list) -> str:
 
     fields_block = "\n".join(lines)
 
+    # Use the business's custom intro if provided, otherwise fall back to generic
+    intro_section = custom_intro.strip() if custom_intro.strip() else "Be warm and conversational."
+
     prompt = f"""
 ---
 ## LEAD CAPTURE MODE (HIGHEST PRIORITY)
@@ -74,7 +80,9 @@ Only if [LEAD_COMPLETE] has NOT yet appeared in the history, follow these collec
 
 You are operating in **Lead Capture Mode**. Your primary job is to collect the
 following information from the visitor.
-Be warm and conversational.
+
+**Your instructions for this conversation:**
+{intro_section}
 
 **Fields to collect:**
 {fields_block}

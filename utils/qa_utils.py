@@ -870,14 +870,43 @@ def answer_question_stream(
         print("[MANAGER_MODE] Manager persona active — instructions prepended to prompt.")
     elif channel_data and channel_data.get('lead_capture_enabled'):
         lead_fields = channel_data.get('lead_capture_fields') or []
+        lead_custom_prompt = channel_data.get('lead_capture_prompt', '')
         try:
             from utils.lead_capture_utils import build_lead_prompt
-            lead_instructions = build_lead_prompt(lead_fields)
+            lead_instructions = build_lead_prompt(lead_fields, custom_intro=lead_custom_prompt)
             if lead_instructions:
                 prompt = lead_instructions + "\n" + prompt
                 print("[LEAD_CAPTURE] Lead capture mode active — instructions prepended to prompt.")
         except Exception as lc_err:
             logging.warning(f"[LEAD_CAPTURE] Could not build lead prompt: {lc_err}")
+
+    # --- AI Flow Trigger Settings ---
+    if channel_data:
+        try:
+            from . import db_utils
+            # Let's see if we have flow tools
+            flow_res = db_utils._get_supabase().table('channel_flows').select('id, name, flow_data').eq('channel_id', channel_data['id']).eq('is_active', True).execute()
+            if flow_res.data:
+                flows_list = []
+                for f in flow_res.data:
+                    instructions = ""
+                    if f.get('flow_data') and f['flow_data'].get('ai_instructions'):
+                        instructions = f" (TRIGGER WHEN: {f['flow_data']['ai_instructions']})"
+                    flows_list.append(f"- Name: \"{f['name']}\" | ID: {f['id']}{instructions}")
+
+                flows_list_str = "\n".join(flows_list)
+                flow_instruction = (
+                    "\n\n--- VISUAL FLOW TRIGGERS ---\n"
+                    "You have the ability to hand over the conversation to specific visual workflows configured by the user, if the user's intent matches.\n"
+                    f"Available Flows:\n{flows_list_str}\n\n"
+                    "If the user asks to start one of these flows, or their intent precisely matches the general purpose of one of these flows (e.g., booking, support, survey), or if their message matches the 'TRIGGER WHEN' rules defined above, you MUST STOP answering their prompt directly, and instead trigger the workflow.\n"
+                    "To trigger a flow, simply append the exact tag: [TRIGGER_FLOW: \"<FLOW_NAME>\"] at the very end of your response.\n"
+                    "IMPORTANT: Use only the exact name exactly as written in the Available Flows list above.\n"
+                    "Example: \"I'll redirect you to our booking system now! [TRIGGER_FLOW: \"Booking\"]\"\n"
+                )
+                prompt = flow_instruction + "\n" + prompt
+        except Exception as f_err:
+            logging.warning(f"Could not load channel flows for AI context: {f_err}")
 
     model = os.environ.get('MODEL_NAME')
     ollama_url = os.environ.get('OLLAMA_URL')
