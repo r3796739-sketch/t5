@@ -470,7 +470,7 @@ def _handle_whatsapp_message(
             try:
                 parsed_data = _json.loads(data_str)
                 if parsed_data.get('error') == 'QUERY_LIMIT_REACHED':
-                    response_text = parsed_data.get('message', 'Credit limit reached. Please upgrade your plan.')
+                    response_text = ""
                     break
                 if parsed_data.get('answer'):
                     response_text += parsed_data['answer']
@@ -524,7 +524,6 @@ def _handle_whatsapp_message(
             if sender_name and 'name' not in new_variables:
                 new_variables['name'] = sender_name
                 
-            from utils.flow_runner import run_flow
             trigger_res = run_flow(
                 supabase=supabase,
                 flow=target_flow,

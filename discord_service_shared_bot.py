@@ -139,7 +139,8 @@ class SharedYoppyBot(commands.Bot):
                         try:
                             data = json.loads(data_str)
                             if data.get('error') == 'QUERY_LIMIT_REACHED':
-                                full_answer = data.get('message', 'Credit limit reached. Please upgrade your plan.')
+                                log.warning(f"Credit limit reached for discord server {server_id}. Message: {data.get('message')}")
+                                full_answer = "LIMIT_REACHED"
                                 break
                             if data.get('answer'):
                                 full_answer += data['answer']
@@ -155,6 +156,9 @@ class SharedYoppyBot(commands.Bot):
                     self.history_cache[conversation_id].append({'question': question, 'answer': full_answer})
                     self.history_cache[conversation_id] = self.history_cache[conversation_id][-20:]
                     log.info(f"Updated in-memory cache for {conversation_id}. Cache size: {len(self.history_cache[conversation_id])}")
+
+                if full_answer == "LIMIT_REACHED":
+                    return
 
                 if not full_answer:
                     full_answer = "I couldn't find an answer to that in the channel's videos."

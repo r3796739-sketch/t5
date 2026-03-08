@@ -102,23 +102,28 @@ def save_flow(chatbot_id):
     name = str(body.get('name', 'Main Flow'))[:100]
     flow_id = body.get('flow_id')
 
-    if flow_id:
-        # Update existing flow
-        supabase.table('channel_flows').update({
-            'flow_data': flow_data,
-            'name': name,
-        }).eq('id', flow_id).eq('channel_id', chatbot_id).execute()
-    else:
-        # Insert new flow
-        res = supabase.table('channel_flows').insert({
-            'channel_id': chatbot_id,
-            'name': name,
-            'flow_data': flow_data,
-            'is_active': False,
-        }).execute()
-        flow_id = res.data[0]['id'] if res.data else None
-
-    return jsonify({'status': 'ok', 'flow_id': flow_id})
+    try:
+        if flow_id:
+            # Update existing flow
+            supabase.table('channel_flows').update({
+                'flow_data': flow_data,
+                'name': name,
+            }).eq('id', flow_id).eq('channel_id', chatbot_id).execute()
+        else:
+            # Insert new flow
+            res = supabase.table('channel_flows').insert({
+                'channel_id': chatbot_id,
+                'name': name,
+                'flow_data': flow_data,
+                'is_active': False,
+            }).execute()
+            if res.data:
+                flow_id = res.data[0]['id']
+                
+        return jsonify({'status': 'ok', 'flow_id': flow_id})
+    except Exception as e:
+        logger.error(f"Failed to save flow for channel {chatbot_id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': 'Failed to save flow. The data might be too large or there is a connection issue.'}), 500
 
 
 @flow_bp.route('/api/<int:chatbot_id>/activate', methods=['POST'])
