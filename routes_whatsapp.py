@@ -639,7 +639,7 @@ def _execute_flow_actions(actions, phone_number_id, from_phone, api_key, convers
             txt = action.get('caption', '')
             res = send_whatsapp_document(phone_number_id, from_phone, action.get('url'), action.get('filename'), txt, api_key)
         elif atype == 'location':
-            res = send_whatsapp_location(phone_number_id, from_phone, action.get('latitude'), action.get('longitude'), action.get('name'), action.get('address'), api_key)
+            res = send_whatsapp_location(phone_number_id, from_phone, action.get('latitude'), action.get('longitude'), api_key, action.get('name'), action.get('address'))
         elif atype == 'buttons':
             txt = _markdown_to_whatsapp(action.get('body', ''))
             from utils.whatsapp_api import send_whatsapp_buttons
@@ -663,7 +663,15 @@ def _execute_flow_actions(actions, phone_number_id, from_phone, api_key, convers
         elif atype == 'list':
             txt = _markdown_to_whatsapp(action.get('body', ''))
             from utils.whatsapp_api import send_whatsapp_list
-            res = send_whatsapp_list(phone_number_id, from_phone, txt, action.get('button_label'), action.get('section_title'), action.get('rows', []), api_key)
+            res = send_whatsapp_list(
+                phone_number_id=phone_number_id,
+                to_phone=from_phone,
+                body_text=txt,
+                rows=action.get('rows', []),
+                api_key=api_key,
+                button_label=action.get('button_label', 'See Options'),
+                section_title=action.get('section_title', 'Options')
+            )
 
         # Log outbound message in history
         if conversation_id and res and res.get('success'):
