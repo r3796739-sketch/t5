@@ -348,7 +348,7 @@ def _subscribe_page(channel_id, page_id, page_access_token, page_name="Your Page
         if res.status_code != 200:
             logger.error(f"Failed to subscribe page: {res.text}")
             flash(f"Failed to subscribe Facebook Page to our webhook.", "error")
-            return redirect(url_for('chatbot_settings', chatbot_id=channel_id) + "?tab=integrations")
+            return redirect(url_for('chatbot_settings', chatbot_chatbot_id=channel_id) + "?tab=integrations")
             
         # Save to DB
         supabase = get_supabase_admin_client()
@@ -359,12 +359,12 @@ def _subscribe_page(channel_id, page_id, page_access_token, page_name="Your Page
         }).eq('id', channel_id).execute()
         
         flash(f"Successfully connected Facebook Page: {page_name}", "success")
-        return redirect(url_for('chatbot_settings', id=channel_id) + "?tab=integrations")
+        return redirect(url_for('chatbot_settings', chatbot_id=channel_id) + "?tab=integrations")
         
     except Exception as e:
         logger.error(f"Error subscribing page: {e}")
         flash("An error occurred during final setup.", "error")
-        return redirect(url_for('chatbot_settings', id=channel_id) + "?tab=integrations")
+        return redirect(url_for('chatbot_settings', chatbot_id=channel_id) + "?tab=integrations")
 
 
 @messenger_bp.route('/messenger/disconnect/<channel_id>', methods=['POST'])
