@@ -116,6 +116,9 @@ app.register_blueprint(whatsapp_bp)
 from routes_flow import flow_bp
 app.register_blueprint(flow_bp)
 
+from routes_messenger import messenger_bp
+app.register_blueprint(messenger_bp)
+
 
 # --- File Upload Configuration for Multi-Source Chatbots ---
 UPLOAD_FOLDER = 'uploads/whatsapp_chats'
