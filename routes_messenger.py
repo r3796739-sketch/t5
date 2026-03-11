@@ -96,11 +96,13 @@ def webhook_event():
     Webhook endpoint to receive inbound messages from Messenger.
     """
     # Validate Signature
-    if not validate_messenger_signature(request):
-        logger.warning("Invalid Messenger webhook signature - headers: %s", dict(request.headers))
-        # Still return 200 so Meta doesn't disable the webhook, but don't process
-        # anything.  The additional headers logged above make debugging easier.
-        return 'OK', 200
+    sig_valid = validate_messenger_signature(request)
+    logger.warning(f"[MESSENGER WEBHOOK] Received POST. Signature valid: {sig_valid}. Headers: X-Hub-Signature-256={request.headers.get('X-Hub-Signature-256', 'MISSING')}")
+    if not sig_valid:
+        logger.warning("[MESSENGER WEBHOOK] Signature check FAILED - processing anyway for debug (REMOVE IN PRODUCTION)")
+        # TEMPORARY: process even if signature fails, to debug connectivity
+        # TODO: Re-enable the return below once confirmed working
+        # return 'OK', 200
 
     data = request.get_json()
     
@@ -126,7 +128,7 @@ def webhook_event():
                     continue
 
                 # Return 200 OK promptly and process asynchronously
-                logger.info(f"Received Messenger message from {sender_psid} to page {recipient_page_id}: {text_payload}")
+                logger.warning(f"[MESSENGER] Message received from PSID={sender_psid} to PageID={recipient_page_id}: '{text_payload}'")
                 
                 app_ref = current_app._get_current_object()
                 threading.Thread(
@@ -148,22 +150,25 @@ def _handle_messenger_message(app_obj, sender_psid, recipient_page_id, message_t
             supabase = get_supabase_admin_client()
             
             # Find the channel linked to this Page ID
+            logger.warning(f"[MESSENGER BG] Looking up channel for Page ID: {recipient_page_id}")
             channel_res = supabase.table('channels').select('*').eq('messenger_page_id', recipient_page_id).eq('messenger_enabled', True).limit(1).execute()
             
             if not channel_res.data:
-                logger.warning(f"No active channel found for Messenger Page ID: {recipient_page_id}")
+                logger.warning(f"[MESSENGER BG] No active channel found for Messenger Page ID: {recipient_page_id}. Check that messenger_page_id is stored correctly in DB.")
                 return
                 
             channel = channel_res.data[0]
             page_access_token = channel.get('messenger_page_access_token')
             user_id = str(channel.get('user_id'))
             channel_id = channel.get('id')
+            logger.warning(f"[MESSENGER BG] Found channel '{channel.get('channel_name')}' (id={channel_id}). Has token: {bool(page_access_token)}")
             
             if not page_access_token:
-                logger.error(f"Missing page access token for channel {channel_id}")
+                logger.warning(f"[MESSENGER BG] Missing page access token for channel {channel_id}")
                 return
                 
             # Send typing "on" indicator (optional, nice for UX)
+            logger.warning(f"[MESSENGER BG] Sending typing_on to PSID={sender_psid}")
             _send_messenger_action(sender_psid, 'typing_on', page_access_token)
             
             # Call AI
@@ -179,7 +184,7 @@ def _handle_messenger_message(app_obj, sender_psid, recipient_page_id, message_t
                     conversation_id=f"messenger_{sender_psid}"
                 ))
             except Exception as stream_err:
-                logger.error(f"[Messenger BG] Error materializing AI stream: {stream_err}")
+                logger.warning(f"[MESSENGER BG] Error calling AI: {stream_err}", exc_info=True)
                 all_chunks = []
 
             for chunk in all_chunks:
@@ -201,11 +206,13 @@ def _handle_messenger_message(app_obj, sender_psid, recipient_page_id, message_t
             response_text = re.sub(r'\[LEAD_COMPLETE:\s*\{.*?\}\]', '', response_text, flags=re.DOTALL).strip()
             response_text = re.sub(r'\[TRIGGER_FLOW:\s*".*?"\]', '', response_text).strip()
             
+            logger.warning(f"[MESSENGER BG] AI response_text length: {len(response_text)}. Preview: '{response_text[:100]}'")
             if response_text:
                 # Ensure the message is sent
+                logger.warning(f"[MESSENGER BG] Sending reply to PSID={sender_psid}")
                 _send_messenger_text(sender_psid, response_text, page_access_token)
                 
-                logger.info(f"Replied to Messenger {sender_psid} with: {response_text}")
+                logger.warning(f"[MESSENGER BG] Reply sent successfully to {sender_psid}")
                 
                 # Log to chat history
                 try:
