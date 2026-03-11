@@ -1707,7 +1707,7 @@ def logout():
 # CHATBOT SETTINGS ROUTES
 # ==========================================
 
-@app.route('/chatbot/<int:chatbot_id>/settings', methods=['GET'])
+@app.route('/chatbot/<chatbot_id>/settings', methods=['GET'])
 @login_required
 def chatbot_settings(chatbot_id):
     """Display chatbot settings page for editing chatbot configuration."""
