@@ -260,7 +260,7 @@ def messenger_callback():
     
     if error:
         flash(f"Facebook Connect Error: {error}", "error")
-        return redirect(url_for('chatbot_settings', id=state) + "?tab=integrations")
+        return redirect(url_for('chatbot_settings',chatbot_id=state) + "?tab=integrations")
         
     if not code or not state:
         flash("Invalid callback from Facebook.", "error")
@@ -279,7 +279,7 @@ def messenger_callback():
         
         if 'error' in res_data:
             flash(f"Failed to get access token: {res_data['error'].get('message', 'Unknown Error')}", "error")
-            return redirect(url_for('chatbot_settings', id=state) + "?tab=integrations")
+            return redirect(url_for('chatbot_settings',chatbot_id=state) + "?tab=integrations")
             
         user_access_token = res_data.get('access_token')
         
@@ -289,13 +289,13 @@ def messenger_callback():
         
         if 'error' in pages_res:
             flash(f"Failed to fetch Facebook Pages: {pages_res['error'].get('message', 'Unknown Error')}", "error")
-            return redirect(url_for('chatbot_settings', id=state) + "?tab=integrations")
+            return redirect(url_for('chatbot_settings',chatbot_id=state) + "?tab=integrations")
             
         pages = pages_res.get('data', [])
         
         if not pages:
             flash("No Facebook Pages found. You need to be an admin of a Facebook Page.", "error")
-            return redirect(url_for('chatbot_settings', id=state) + "?tab=integrations")
+            return redirect(url_for('chatbot_settings',chatbot_id=state) + "?tab=integrations")
             
         # If multiple pages, we should theoretically let them pick.
         # For simplicity, we auto-select the first one. (Per requirements: "If the creator has only 1 page, auto-select it. If multiple, let them pick (render a simple page selection template).")
@@ -314,7 +314,7 @@ def messenger_callback():
     except Exception as e:
         logger.error(f"Error in Messenger callback: {e}")
         flash("An unexpected error occurred during Facebook connection.", "error")
-        return redirect(url_for('chatbot_settings', id=state) + "?tab=integrations")
+        return redirect(url_for('chatbot_settings',chatbot_id=state) + "?tab=integrations")
 
 
 @messenger_bp.route('/messenger/select_page', methods=['POST'])
