@@ -235,7 +235,7 @@ def connect_messenger(channel_id):
     """
     app_id = os.environ.get('MESSENGER_APP_ID')
     redirect_uri = url_for('messenger.messenger_callback', _external=True)
-    scopes = "pages_messaging,pages_show_list,pages_read_engagement"
+    scopes = "pages_messaging,pages_show_list"
     
     oauth_url = (
         f"https://www.facebook.com/v19.0/dialog/oauth?"
