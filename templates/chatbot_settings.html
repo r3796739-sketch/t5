@@ -539,6 +539,27 @@
                         id="action-embed">Get Embed Code →</a>
                 </div>
 
+                <!-- Facebook Messenger -->
+                <div class="cs-int-card" id="int-messenger">
+                    <div class="cs-int-header">
+                        <div class="cs-int-icon">
+                            <svg viewBox="0 0 24 24" fill="#0084FF" width="28" height="28">
+                                <path d="M12 2C6.477 2 2 6.14 2 11.25c0 2.91 1.5 5.51 3.84 7.23v3.19c0 .41.46.66.82.44l3.12-1.72c.71.2 1.45.31 2.22.31 5.523 0 10-4.14 10-9.25S17.523 2 12 2zm1.09 12.33l-2.47-2.64-4.8 2.64 5.26-5.58 2.47 2.64 4.8-2.64-5.26 5.58z" />
+                            </svg>
+                        </div>
+                        <span class="cs-int-name">Facebook Messenger</span>
+                        <span class="cs-int-badge {% if chatbot.messenger_enabled %}connected{% else %}inactive{% endif %}" id="badge-messenger">
+                            {% if chatbot.messenger_enabled %}Connected{% else %}Not Connected{% endif %}
+                        </span>
+                    </div>
+                    <p class="cs-int-desc">Let your Facebook Page visitors chat with your AI persona directly in Messenger.</p>
+                    {% if chatbot.messenger_enabled %}
+                        <button class="cs-int-action" style="background:none;border:none;cursor:pointer;color:var(--danger, #ef4444);padding:0;" onclick="disconnectMessenger({{ chatbot.id }})">Disconnect</button>
+                    {% else %}
+                        <a href="{{ url_for('messenger.connect_messenger', channel_id=chatbot.id) }}" class="cs-int-action" id="action-messenger">Connect Messenger →</a>
+                    {% endif %}
+                </div>
+
                 <!-- WhatsApp -->
                 <div class="cs-int-card" id="int-whatsapp">
                     <div class="cs-int-header">
@@ -1576,6 +1597,26 @@
         });
         document.getElementById('qrPanel-ai').style.display = mode === 'ai' ? '' : 'none';
         document.getElementById('qrPanel-manual').style.display = mode === 'manual' ? '' : 'none';
+    }
+
+    // ===== MESSENGER DISCONNECT =====
+    function disconnectMessenger(channelId) {
+        if (!confirm('Disconnect Facebook Messenger? Your AI will no longer reply to messages on your Facebook Page.')) return;
+
+        fetch(`/messenger/disconnect/${channelId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast('Messenger disconnected successfully.', 'success');
+                setTimeout(() => window.location.reload(), 1200);
+            } else {
+                showToast(data.message || 'Failed to disconnect.', 'error');
+            }
+        })
+        .catch(() => showToast('An unexpected error occurred.', 'error'));
     }
 
     function addQrButton(existing) {
