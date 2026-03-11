@@ -247,8 +247,9 @@ def _send_messenger_text(recipient_id, message_text, access_token):
             "messaging_type": "RESPONSE"
         }
         res = requests.post(url, params=params, headers=headers, json=data)
+        logger.warning(f"[MESSENGER SEND] Status={res.status_code} to recipient={recipient_id}")
         if res.status_code != 200:
-            logger.error("Error sending Messenger message (recipient=%s): %s", recipient_id, res.text)
+            logger.warning(f"[MESSENGER SEND ERROR] recipient={recipient_id} status={res.status_code} body={res.text[:500]}")
             # common reasons: expired/invalid token or page not subscribed
             if res.status_code in (400, 401):
                 logger.warning("Disabling messenger integration for page %s due to send error", recipient_id)
