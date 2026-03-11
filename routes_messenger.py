@@ -348,7 +348,7 @@ def _subscribe_page(channel_id, page_id, page_access_token, page_name="Your Page
         if res.status_code != 200:
             logger.error(f"Failed to subscribe page: {res.text}")
             flash(f"Failed to subscribe Facebook Page to our webhook.", "error")
-            return redirect(url_for('chatbot_settings', chatbot_chatbot_id=channel_id) + "?tab=integrations")
+            return redirect(url_for('chatbot_settings', chatbot_id=channel_id) + "?tab=integrations")
             
         # Save to DB
         supabase = get_supabase_admin_client()
