@@ -37,15 +37,33 @@ def login_required(f):
     return decorated_function
 
 def validate_messenger_signature(request):
-    signature = request.headers.get('X-Hub-Signature-256', '')
-    if not signature.startswith('sha256='):
+    """Validate the webhook signature that Facebook sends.
+
+    Facebook historically sent two different headers depending on the API
+    version.  Newer notifications include ``X-Hub-Signature-256`` with SHA256
+    while older ones use ``X-Hub-Signature`` with SHA1.  During development we
+    have seen occasional mismatches which resulted in the bot ignoring events
+    even though the page is properly connected.  This helper now checks both
+    headers and logs a warning if the secret is missing.
+    """
+
+    sig256 = request.headers.get('X-Hub-Signature-256')
+    sig1 = request.headers.get('X-Hub-Signature')
+
+    secret = os.environ.get('MESSENGER_APP_SECRET', '').encode('utf-8')
+    if not secret:
+        logger.warning("MESSENGER_APP_SECRET not set; cannot verify signatures")
         return False
-    expected = hmac.new(
-        os.environ.get('MESSENGER_APP_SECRET', '').encode('utf-8'),
-        request.data,
-        hashlib.sha256
-    ).hexdigest()
-    return hmac.compare_digest(signature[7:], expected)
+
+    if sig256 and sig256.startswith('sha256='):
+        expected = hmac.new(secret, request.data, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(sig256[7:], expected)
+    elif sig1 and sig1.startswith('sha1='):
+        expected = hmac.new(secret, request.data, hashlib.sha1).hexdigest()
+        return hmac.compare_digest(sig1[5:], expected)
+
+    # No valid signature header found
+    return False
 
 
 # ==========================================
@@ -79,31 +97,43 @@ def webhook_event():
     """
     # Validate Signature
     if not validate_messenger_signature(request):
-        logger.warning("Invalid Messenger webhook signature")
+        logger.warning("Invalid Messenger webhook signature - headers: %s", dict(request.headers))
         # Still return 200 so Meta doesn't disable the webhook, but don't process
+        # anything.  The additional headers logged above make debugging easier.
         return 'OK', 200
-        
+
     data = request.get_json()
     
     if data.get('object') == 'page':
         for entry in data.get('entry', []):
             for messaging_event in entry.get('messaging', []):
+
+                # Received something that isn't a message? log and skip.
+                if 'message' not in messaging_event:
+                    logger.debug("Non-message event from Messenger: %s", messaging_event)
+                    continue
+
+                sender_psid = messaging_event['sender'].get('id')
+                recipient_page_id = messaging_event['recipient'].get('id')
+
+                if not sender_psid or not recipient_page_id:
+                    logger.warning("Malformed Messenger payload, missing IDs: %s", messaging_event)
+                    continue
+
+                text_payload = messaging_event['message'].get('text')
+                if not text_payload:
+                    logger.debug("Skipping non-text Messenger message: %s", messaging_event['message'])
+                    continue
+
+                # Return 200 OK promptly and process asynchronously
+                logger.info(f"Received Messenger message from {sender_psid} to page {recipient_page_id}: {text_payload}")
                 
-                # Check if it's a message
-                if 'message' in messaging_event:
-                    sender_psid = messaging_event['sender']['id']
-                    recipient_page_id = messaging_event['recipient']['id']
-                    
-                    if 'text' in messaging_event['message']:
-                        message_text = messaging_event['message']['text']
-                        
-                        # Return 200 OK immediately
-                        app_ref = current_app._get_current_object()
-                        threading.Thread(
-                            target=_handle_messenger_message, 
-                            args=(app_ref, sender_psid, recipient_page_id, message_text), 
-                            daemon=True
-                        ).start()
+                app_ref = current_app._get_current_object()
+                threading.Thread(
+                    target=_handle_messenger_message,
+                    args=(app_ref, sender_psid, recipient_page_id, text_payload),
+                    daemon=True
+                ).start()
                         
         return 'EVENT_RECEIVED', 200
     else:
@@ -175,6 +205,8 @@ def _handle_messenger_message(app_obj, sender_psid, recipient_page_id, message_t
                 # Ensure the message is sent
                 _send_messenger_text(sender_psid, response_text, page_access_token)
                 
+                logger.info(f"Replied to Messenger {sender_psid} with: {response_text}")
+                
                 # Log to chat history
                 try:
                     save_chat_history(
@@ -204,11 +236,22 @@ def _send_messenger_text(recipient_id, message_text, access_token):
     for chunk in chunks:
         data = {
             "recipient": {"id": recipient_id},
-            "message": {"text": chunk}
+            "message": {"text": chunk},
+            "messaging_type": "RESPONSE"
         }
         res = requests.post(url, params=params, headers=headers, json=data)
         if res.status_code != 200:
-            logger.error(f"Error sending Messenger message: {res.text}")
+            logger.error("Error sending Messenger message (recipient=%s): %s", recipient_id, res.text)
+            # common reasons: expired/invalid token or page not subscribed
+            if res.status_code in (400, 401):
+                logger.warning("Disabling messenger integration for page %s due to send error", recipient_id)
+                try:
+                    supabase = get_supabase_admin_client()
+                    supabase.table('channels').update({
+                        'messenger_enabled': False
+                    }).eq('messenger_page_id', recipient_id).execute()
+                except Exception:
+                    pass
 
 
 def _send_messenger_action(recipient_id, action, access_token):
@@ -218,7 +261,8 @@ def _send_messenger_action(recipient_id, action, access_token):
     headers = {"Content-Type": "application/json"}
     data = {
         "recipient": {"id": recipient_id},
-        "sender_action": action
+        "sender_action": action,
+        "messaging_type": "RESPONSE"
     }
     requests.post(url, params=params, headers=headers, json=data)
 
