@@ -2,7 +2,7 @@
 
 import logging
 import numpy as np
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 import concurrent.futures
 import os
 import time

@@ -215,9 +215,7 @@ Transcript Text:
 ---
 
 Topics:"""
-IDENTITY_ANCHOR = """
-[{creator_name} — quick reminder of who you are: {one_line_soul} | {one_line_voice}]
-"""
+
 CREATOR_IDENTIFICATION_PROMPT = """From the following video transcript excerpts, identify the name the creator uses for themselves. Look for patterns like:
 1. Direct introductions: "I'm [Name]", "My name is [Name]", "Hi, I'm [Name]"
 2. Self-references: "As [Name], I...", "This is [Name] here"
