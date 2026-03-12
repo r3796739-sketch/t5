@@ -14,10 +14,19 @@ from utils.supabase_client import get_supabase_admin_client
 from utils.whatsapp_api import (
     parse_webhook_message,
     send_whatsapp_message,
+    send_whatsapp_buttons,
+    send_whatsapp_list,
     mark_message_as_read,
     send_whatsapp_typing_indicator,
-    verify_webhook_signature
+    verify_webhook_signature,
+    send_whatsapp_image,
+    send_whatsapp_video,
+    send_whatsapp_audio,
+    send_whatsapp_document,
+    send_whatsapp_location,
+    send_whatsapp_cta_url
 )
+from utils.flow_runner import get_active_flow, run_flow
 from utils.qa_utils import answer_question_stream
 from utils.crypto import encrypt_token, decrypt_token
 from utils import db_utils
@@ -162,8 +171,13 @@ def receive_message():
         message_text = parsed.get('text', '')
         message_id = parsed['message_id']
         sender_name = parsed.get('sender_name', 'Unknown')
+        is_button_reply = parsed.get('is_button_reply', False)
         
-        logger.info(f"Received WhatsApp message from {from_phone} to phone ID {phone_number_id}")
+        logger.info(
+            f"[WhatsApp] Received message from {from_phone} | "
+            f"type={parsed.get('type')} | is_button_reply={is_button_reply} | "
+            f"text='{message_text[:80]}' | msg_id={message_id}"
+        )
         
         supabase = get_supabase_admin_client()
         
@@ -287,6 +301,14 @@ def _handle_whatsapp_message(
         }).eq('id', conversation_id).execute()
 
     if not message_text:
+        # For button replies, log the raw interactive data so we can debug
+        if parsed.get('is_button_reply'):
+            logger.error(
+                f"[WhatsApp] Button reply received but text is empty! "
+                f"Raw interactive data: {parsed.get('raw', {}).get('interactive')}"
+            )
+        else:
+            logger.info(f"[WhatsApp] Skipping message with no text (type={parsed.get('type')})")
         return
 
     # Get chat history for context
@@ -327,7 +349,88 @@ def _handle_whatsapp_message(
             if manager_phone and sender_phone == manager_phone:
                 is_manager = True
 
-    # Process image if present
+    # ── Custom button answer short-circuit ────────────────────────────────
+    # If this is a button tap (manual mode) AND that button has a fixed answer
+    # configured, skip the AI entirely and send the fixed reply right away.
+    if parsed.get('is_button_reply') and channel_data.get('quick_reply_mode') == 'manual':
+        import json as _json_btn
+        raw_buttons = channel_data.get('quick_reply_buttons') or []
+        if isinstance(raw_buttons, str):
+            try:
+                raw_buttons = _json_btn.loads(raw_buttons)
+            except Exception:
+                raw_buttons = []
+        # Find the button whose title matches what the user tapped
+        matched_answer = None
+        for btn in raw_buttons:
+            if str(btn.get('title', '')).strip().lower() == message_text.strip().lower():
+                matched_answer = (btn.get('answer') or '').strip()
+                break
+        if matched_answer:
+            logger.info(f"[WhatsApp] Using custom button answer for '{message_text}'")
+            wa_reply = _markdown_to_whatsapp(matched_answer)
+            send_result = send_whatsapp_message(
+                phone_number_id=phone_number_id,
+                to_phone=from_phone,
+                message_text=wa_reply,
+                api_key=api_key,
+            )
+            if conversation_id and send_result.get('success'):
+                supabase.table('whatsapp_messages').insert({
+                    'conversation_id': conversation_id,
+                    'message_id': send_result.get('data', {}).get('id'),
+                    'direction': 'outbound',
+                    'content': wa_reply
+                }).execute()
+            # Still show buttons after the custom reply
+            _send_quick_reply_buttons(channel_data, phone_number_id, from_phone, api_key, wa_reply)
+            return
+    # ── End custom button answer ──────────────────────────────────────────
+
+    # ── Visual Flow Execution ─────────────────────────────────────────────
+    flow = get_active_flow(supabase, channel_data['id']) if channel_data else None
+    if flow:
+        # We need the conversation state for the flow
+        conversation = conv_res.data[0] if conv_res.data else {}
+        flow_res = run_flow(
+            supabase=supabase,
+            flow=flow,
+            conversation=conversation,
+            message_text=message_text,
+            is_button_reply=parsed.get('is_button_reply', False),
+            sender_name=sender_name
+        )
+
+        # Update conversation state with next node and variables
+        if conversation_id and ('next_node_id' in flow_res or 'variables' in flow_res):
+            updates = {}
+            if 'next_node_id' in flow_res:
+                updates['flow_node_id'] = flow_res['next_node_id']
+            if 'variables' in flow_res:
+                updates['flow_variables'] = flow_res['variables']
+            if updates:
+                supabase.table('whatsapp_conversations').update(updates).eq('id', conversation_id).execute()
+
+        # If the flow handled it completely (did not fall through to AI)
+        if flow_res.get('handled'):
+            # Check if it was a lead node that needs the AI lead capture
+            if flow_res.get('activate_lead_capture'):
+                # We let it fall through to the AI but we could inject a system instruction
+                # For now, if the AI handles lead capture based on settings, we just pass
+                pass
+            else:
+                # Execute all discrete actions returned by the flow
+                _execute_flow_actions(
+                    actions=flow_res.get('actions', []),
+                    phone_number_id=phone_number_id,
+                    from_phone=from_phone,
+                    api_key=api_key,
+                    conversation_id=conversation_id,
+                    supabase=supabase
+                )
+                return
+
+    # ── AI Processing ─────────────────────────────────────────────────────
     image_base64 = None
     image_mime_type = None
     if parsed.get('type') == 'image' and parsed.get('media_id'):
@@ -340,6 +443,7 @@ def _handle_whatsapp_message(
 
     # Get AI response — materialize the full stream before processing
     response_text = ""
+
     try:
         all_chunks = list(answer_question_stream(
             question_for_prompt=final_question,
@@ -366,7 +470,7 @@ def _handle_whatsapp_message(
             try:
                 parsed_data = _json.loads(data_str)
                 if parsed_data.get('error') == 'QUERY_LIMIT_REACHED':
-                    response_text = parsed_data.get('message', 'Credit limit reached. Please upgrade your plan.')
+                    response_text = ""
                     break
                 if parsed_data.get('answer'):
                     response_text += parsed_data['answer']
@@ -385,6 +489,73 @@ def _handle_whatsapp_message(
             response_text = re.sub(r'\[LEAD_COMPLETE:\s*\{.*?\}\]', '', response_text, flags=re.DOTALL).strip()
         except _json.JSONDecodeError:
             pass
+
+    # Extract flow trigger marker if present
+    trigger_flow_marker = None
+    trigger_match = re.search(r'\[TRIGGER_FLOW:\s*"(.*?)"\]', response_text)
+    if trigger_match:
+        trigger_flow_marker = trigger_match.group(1)
+        response_text = re.sub(r'\[TRIGGER_FLOW:\s*".*?"\]', '', response_text).strip()
+
+    # ── AI Flow Trigger Execution ─────────────────────────────────────────
+    if trigger_flow_marker:
+        # User requested to trigger a flow
+        target_flow = None
+        # Try to find a flow by name first
+        flow_res_by_name = supabase.table('channel_flows').select('id, flow_data').eq('channel_id', channel_data['id']).ilike('name', trigger_flow_marker).limit(1).execute()
+        
+        if flow_res_by_name.data:
+            target_flow = {'flow_id': flow_res_by_name.data[0]['id'], **flow_res_by_name.data[0]['flow_data']}
+        else:
+            # Maybe they passed the actual UUID
+            try:
+                flow_res_by_id = supabase.table('channel_flows').select('id, flow_data').eq('channel_id', channel_data['id']).eq('id', trigger_flow_marker).limit(1).execute()
+                if flow_res_by_id.data:
+                    target_flow = {'flow_id': flow_res_by_id.data[0]['id'], **flow_res_by_id.data[0]['flow_data']}
+            except Exception:
+                pass
+
+        if target_flow:
+            logger.info(f"AI triggered flow: {trigger_flow_marker}")
+            
+            # Reset conversation flow state to start the new flow
+            conv_data = conv_res.data[0] if conv_res.data else {}
+            new_variables = dict(conv_data.get('flow_variables') or {})
+            if sender_name and 'name' not in new_variables:
+                new_variables['name'] = sender_name
+                
+            trigger_res = run_flow(
+                supabase=supabase,
+                flow=target_flow,
+                conversation={'flow_node_id': None, 'flow_variables': new_variables},
+                message_text='', # Start node evaluation doesn't need text
+                is_button_reply=False,
+                sender_name=sender_name
+            )
+            
+            # Update DB with new flow state
+            if conversation_id and ('next_node_id' in trigger_res or 'variables' in trigger_res):
+                updates = {}
+                if 'next_node_id' in trigger_res:
+                    updates['flow_node_id'] = trigger_res['next_node_id']
+                if 'variables' in trigger_res:
+                    updates['flow_variables'] = trigger_res['variables']
+                if updates:
+                    supabase.table('whatsapp_conversations').update(updates).eq('id', conversation_id).execute()
+            
+            # Execute triggered actions
+            if trigger_res.get('handled'):
+                if trigger_res.get('actions'):
+                    _execute_flow_actions(
+                        actions=trigger_res.get('actions', []),
+                        phone_number_id=phone_number_id,
+                        from_phone=from_phone,
+                        api_key=api_key,
+                        conversation_id=conversation_id,
+                        supabase=supabase
+                    )
+                # If we triggered a flow, we shouldn't send the rest of the AI text and we're done here
+                return
 
     # Send response back via YCloud
     if response_text:
@@ -421,6 +592,266 @@ def _handle_whatsapp_message(
             args=(app_ref, channel_data['id'], lead_complete_marker),
             daemon=True
         ).start()
+
+    # ─── Quick-reply buttons ───────────────────────────────────────────────────
+    # Only send buttons if the AI actually produced a meaningful response
+    # and the channel has quick reply enabled.
+    if response_text and send_result.get('success'):
+        # If the flow returned post-AI actions (like standard flow reply buttons), execute those instead
+        post_ai_actions = flow_res.get('post_ai_actions', []) if flow and 'flow_res' in locals() else []
+        if post_ai_actions:
+            _execute_flow_actions(
+                actions=post_ai_actions,
+                phone_number_id=phone_number_id,
+                from_phone=from_phone,
+                api_key=api_key,
+                conversation_id=conversation_id,
+                supabase=supabase
+            )
+        else:
+            _send_quick_reply_buttons(
+                channel_data=channel_data,
+                phone_number_id=phone_number_id,
+                from_phone=from_phone,
+                api_key=api_key,
+                response_text=response_text,
+            )
+
+def _execute_flow_actions(actions, phone_number_id, from_phone, api_key, conversation_id, supabase):
+    """Execute a list of actions returned by the visual flow runner."""
+    for action in actions:
+        atype = action.get('type')
+        res = None
+        txt = ''
+        
+        if atype == 'text':
+            txt = _markdown_to_whatsapp(action.get('text', ''))
+            res = send_whatsapp_message(phone_number_id, from_phone, txt, api_key)
+        elif atype == 'image':
+            txt = action.get('caption', '')
+            res = send_whatsapp_image(phone_number_id, from_phone, action.get('url'), txt, api_key)
+        elif atype == 'video':
+            txt = action.get('caption', '')
+            res = send_whatsapp_video(phone_number_id, from_phone, action.get('url'), txt, api_key)
+        elif atype == 'audio':
+            res = send_whatsapp_audio(phone_number_id, from_phone, action.get('url'), api_key)
+        elif atype == 'document':
+            txt = action.get('caption', '')
+            res = send_whatsapp_document(phone_number_id, from_phone, action.get('url'), action.get('filename'), txt, api_key)
+        elif atype == 'location':
+            res = send_whatsapp_location(phone_number_id, from_phone, action.get('latitude'), action.get('longitude'), api_key, action.get('name'), action.get('address'))
+        elif atype == 'buttons':
+            txt = _markdown_to_whatsapp(action.get('body', ''))
+            from utils.whatsapp_api import send_whatsapp_buttons
+            res = send_whatsapp_buttons(phone_number_id, from_phone, txt, action.get('buttons', []), api_key)
+        elif atype == 'cta_url':
+            txt = _markdown_to_whatsapp(action.get('body', ''))
+            from utils.whatsapp_api import send_whatsapp_cta_url
+            if 'cta_buttons' in action:
+                btns = action['cta_buttons']
+            else:
+                cta_button = {
+                    "type": action.get("action_type") or "url",
+                    "text": action.get("label", "Click"),
+                }
+                if cta_button["type"] == "url":
+                    cta_button["url"] = action.get("url", "")
+                else:
+                    cta_button["phone"] = action.get("url", "")
+                btns = [cta_button]
+            res = send_whatsapp_cta_url(phone_number_id, from_phone, txt, btns, api_key)
+        elif atype == 'list':
+            txt = _markdown_to_whatsapp(action.get('body', ''))
+            from utils.whatsapp_api import send_whatsapp_list
+            res = send_whatsapp_list(
+                phone_number_id=phone_number_id,
+                to_phone=from_phone,
+                body_text=txt,
+                rows=action.get('rows', []),
+                api_key=api_key,
+                button_label=action.get('button_label', 'See Options'),
+                section_title=action.get('section_title', 'Options')
+            )
+
+        # Log outbound message in history
+        if conversation_id and res and res.get('success'):
+            supabase.table('whatsapp_messages').insert({
+                'conversation_id': conversation_id,
+                'message_id': res.get('data', {}).get('id'),
+                'direction': 'outbound',
+                'content': txt or f"[{atype} media sent]"
+            }).execute()
+
+
+
+def _call_llm_for_buttons(prompt: str) -> str:
+    """
+    Makes a single, non-streaming LLM call for button suggestion.
+    Uses the SAME provider/model/key as the main chatbot (LLM_PROVIDER + MODEL_NAME env vars).
+    Returns raw text from the LLM, or empty string on failure.
+    """
+    provider = os.environ.get('LLM_PROVIDER', 'gemini').lower()
+    model = os.environ.get('MODEL_NAME', '')
+    if not model:
+        logger.warning("[QuickReply] MODEL_NAME not set in env, cannot call LLM for buttons.")
+        return ''
+
+    try:
+        if provider == 'gemini':
+            api_key = os.environ.get('GEMINI_API_KEY2') or os.environ.get('GEMINI_API_KEY', '')
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            gemini_model = genai.GenerativeModel(model)
+            response = gemini_model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    max_output_tokens=120,
+                    temperature=0.2,
+                )
+            )
+            return response.text.strip() if response.text else ''
+
+        elif provider in ('openai', 'groq'):
+            import openai
+            if provider == 'groq':
+                api_key = os.environ.get('GROQ_API_KEY', '')
+                base_url = 'https://api.groq.com/openai/v1'
+            else:
+                api_key = os.environ.get('OPENAI_API_KEY', '')
+                base_url = os.environ.get('OPENAI_API_BASE_URL') or None
+            client = openai.OpenAI(api_key=api_key, base_url=base_url)
+            completion = client.chat.completions.create(
+                model=model,
+                messages=[{'role': 'user', 'content': prompt}],
+                temperature=0.2,
+                max_tokens=120,
+            )
+            return (completion.choices[0].message.content or '').strip()
+
+        elif provider == 'ollama':
+            ollama_url = os.environ.get('OLLAMA_URL', 'http://localhost:11434')
+            import requests as _req
+            resp = _req.post(
+                f"{ollama_url}/api/chat",
+                json={"model": model, "messages": [{"role": "user", "content": prompt}], "stream": False},
+                timeout=15
+            )
+            resp.raise_for_status()
+            return resp.json().get('message', {}).get('content', '').strip()
+
+        else:
+            logger.warning(f"[QuickReply] Unknown LLM_PROVIDER '{provider}', cannot generate buttons.")
+            return ''
+
+    except Exception as e:
+        logger.warning(f"[QuickReply] LLM call failed (provider={provider}): {e}")
+        return ''
+
+
+def _send_quick_reply_buttons(
+    channel_data: dict,
+    phone_number_id: str,
+    from_phone: str,
+    api_key: str,
+    response_text: str,
+) -> None:
+    """
+    After the main AI response is sent, optionally send interactive quick-reply buttons.
+
+    Behaviour depends on channel_data['quick_reply_mode']:
+      'off'    → do nothing (default)
+      'manual' → use the fixed buttons saved in channel_data['quick_reply_buttons']
+      'ai'     → ask the same LLM (from LLM_PROVIDER env) to suggest 1-3 contextual buttons
+    """
+    import json as _json
+
+    mode = (channel_data or {}).get('quick_reply_mode', 'off')
+    if mode == 'off' or not channel_data:
+        return
+
+    buttons = []
+
+    try:
+        if mode == 'manual':
+            # Use the operator-configured static buttons
+            raw_buttons = channel_data.get('quick_reply_buttons') or []
+            if isinstance(raw_buttons, str):
+                raw_buttons = _json.loads(raw_buttons)
+            buttons = [
+                {'id': str(b.get('id', b.get('title', '')))[:20], 'title': str(b.get('title', ''))[:20]}
+                for b in raw_buttons
+                if b.get('title', '').strip()
+            ]
+
+        elif mode == 'ai':
+            business_name = channel_data.get('channel_name', 'the business')
+            bot_type = channel_data.get('bot_type', 'business')
+
+            # Single combined prompt (works for all providers including Gemini which has no system role)
+            prompt = (
+                "You are a quick-reply button suggestion engine for a business chatbot.\n"
+                "Based on the AI response below, suggest 1-3 short follow-up button labels "
+                "the customer might want to tap next.\n\n"
+                "RULES:\n"
+                "- Each label MUST be 20 characters or fewer\n"
+                "- Labels must be specific and actionable (e.g. 'Book Now', 'See Prices', 'Get Details')\n"
+                "- Never suggest generic labels like 'Yes', 'No', 'OK', 'Sure'\n"
+                "- Return ONLY a valid JSON array of strings, nothing else\n"
+                "- If no buttons make sense, return []\n\n"
+                f"Business: {business_name} (type: {bot_type})\n\n"
+                f"AI Response:\n{response_text[:800]}"
+            )
+
+            raw = _call_llm_for_buttons(prompt)
+            if not raw:
+                return
+
+            # Strip markdown code fences if LLM wrapped the JSON
+            if '```' in raw:
+                raw = raw.split('```')[1]
+                if raw.startswith('json'):
+                    raw = raw[4:]
+                raw = raw.strip()
+
+            labels = _json.loads(raw)
+            if isinstance(labels, list):
+                buttons = [
+                    {'id': str(label)[:20], 'title': str(label)[:20]}
+                    for label in labels
+                    if isinstance(label, str) and label.strip()
+                ]
+
+    except Exception as btn_err:
+        logger.warning(f"[QuickReply] Could not build buttons (mode={mode}): {btn_err}")
+        return
+
+    if not buttons:
+        return
+
+    try:
+        num = len(buttons)
+        if num <= 3:
+            send_whatsapp_buttons(
+                phone_number_id=phone_number_id,
+                to_phone=from_phone,
+                body_text="What would you like to do next?",
+                buttons=buttons,
+                api_key=api_key,
+            )
+        else:
+            rows = [{'id': b['id'], 'title': b['title']} for b in buttons]
+            send_whatsapp_list(
+                phone_number_id=phone_number_id,
+                to_phone=from_phone,
+                body_text="What would you like to explore?",
+                rows=rows,
+                api_key=api_key,
+                button_label="See Options",
+            )
+        logger.info(f"[QuickReply] Sent {num} button(s) to {from_phone} (mode={mode}, provider={os.environ.get('LLM_PROVIDER', 'gemini')})")
+    except Exception as send_err:
+        logger.warning(f"[QuickReply] Failed to send buttons: {send_err}")
+
 
 
 

@@ -43,7 +43,7 @@ Ask Questions - YoppyChat AI
 {% endblock %}
 
 {% block page_styles %}
-<link rel="stylesheet" href="{{ url_for(' static', filename='css/ask.css' ) }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ask.css' ) }}">
 <script>
     // Pass server-side data to JavaScript
     const IS_TEMPORARY_SESSION = {{ is_temporary_session| tojson or 'false' }};

@@ -433,7 +433,8 @@ def consume_answer_stream(question, config, channel_data, video_ids, user_id, ac
             try:
                 data = json.loads(data_str)
                 if data.get('error') == 'QUERY_LIMIT_REACHED':
-                    full_answer = data.get('message', 'Credit limit reached. Please upgrade your plan.')
+                    log.warning(f"Credit limit reached for telegram chat {conversation_id}. Message: {data.get('message')}")
+                    full_answer = "LIMIT_REACHED"
                     break
                 if data.get('answer'):
                     full_answer += data['answer']
@@ -536,6 +537,9 @@ def process_private_message(message: dict):
         config = load_config()
         full_answer, sources = consume_answer_stream(text, config, channel_data, video_ids, user_id, access_token=None, conversation_id=f"telegram_private_{chat_id}")
 
+        if full_answer == "LIMIT_REACHED":
+            return
+
         if not full_answer:
             full_answer = "I couldn't find an answer to your question."
 
@@ -622,6 +626,9 @@ def process_group_message(message: dict):
 
         # We now pass 'access_token=None' as the last argument, and a unique conversation_id.
         full_answer, sources = consume_answer_stream(question, config, channel_data, video_ids, owner_user_id, access_token=None, conversation_id=f"telegram_group_{chat_id}")
+
+        if full_answer == "LIMIT_REACHED":
+            return
 
         if not full_answer:
             full_answer = "I couldn't find an answer to your question in the video transcripts."

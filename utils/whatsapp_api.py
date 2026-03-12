@@ -96,6 +96,144 @@ def send_whatsapp_message(
         return {"success": False, "error": str(e)}
 
 
+def send_whatsapp_buttons(
+    phone_number_id: str,
+    to_phone: str,
+    body_text: str,
+    buttons: list,
+    api_key: str,
+    header_text: str = None,
+    footer_text: str = None,
+) -> Dict[str, Any]:
+    """
+    Send an interactive button message via YCloud WhatsApp API.
+    WhatsApp allows max 3 buttons, each title max 20 chars.
+
+    Args:
+        phone_number_id: The sender's WhatsApp phone number
+        to_phone: The recipient's phone number
+        body_text: The main message body (shown above buttons)
+        buttons: List of dicts with 'id' and 'title' keys
+                 e.g. [{"id": "bali", "title": "🏖️ Bali Package"}]
+        api_key: The user's YCloud API key
+        header_text: Optional header text above body
+        footer_text: Optional footer text below buttons
+    """
+    # Enforce WhatsApp limits
+    buttons = buttons[:3]
+    for btn in buttons:
+        btn['title'] = btn['title'][:20]  # Hard 20-char limit
+
+    interactive: Dict[str, Any] = {
+        "type": "button",
+        "body": {"text": body_text},
+        "action": {
+            "buttons": [
+                {"type": "reply", "reply": {"id": btn.get("id", btn["title"]), "title": btn["title"]}}
+                for btn in buttons
+            ]
+        }
+    }
+    if header_text:
+        interactive["header"] = {"type": "text", "text": header_text[:60]}
+    if footer_text:
+        interactive["footer"] = {"text": footer_text[:60]}
+
+    payload = {
+        "from": phone_number_id,
+        "to": to_phone,
+        "type": "interactive",
+        "interactive": interactive
+    }
+
+    try:
+        response = requests.post(
+            YCLOUD_SEND_URL,
+            headers=_ycloud_headers(api_key),
+            json=payload,
+            timeout=10
+        )
+        response.raise_for_status()
+        return {"success": True, "data": response.json()}
+    except Exception as e:
+        logger.error(f"Failed to send WhatsApp buttons: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def send_whatsapp_list(
+    phone_number_id: str,
+    to_phone: str,
+    body_text: str,
+    rows: list,
+    api_key: str,
+    button_label: str = "See Options",
+    section_title: str = "Options",
+    header_text: str = None,
+    footer_text: str = None,
+) -> Dict[str, Any]:
+    """
+    Send an interactive list message via YCloud WhatsApp API.
+    Best for 4-10 options (more than 3 buttons).
+
+    Args:
+        phone_number_id: The sender's WhatsApp phone number
+        to_phone: The recipient's phone number
+        body_text: The main message body
+        rows: List of dicts with 'id', 'title', and optional 'description'
+              e.g. [{"id": "bali", "title": "Bali Package", "description": "7 nights from $899"}]
+        api_key: The user's YCloud API key
+        button_label: Label on the button that opens the list (max 20 chars)
+        section_title: Title of the section in the list
+        header_text: Optional header text
+        footer_text: Optional footer text
+    """
+    rows = rows[:10]  # WhatsApp max 10 rows
+    for row in rows:
+        row['title'] = row['title'][:24]  # Max 24 chars for list titles
+        if row.get('description'):
+            row['description'] = row['description'][:72]
+
+    interactive: Dict[str, Any] = {
+        "type": "list",
+        "body": {"text": body_text},
+        "action": {
+            "button": button_label[:20],
+            "sections": [{
+                "title": section_title[:24],
+                "rows": [
+                    {"id": r.get("id", r["title"]), "title": r["title"],
+                     **({"description": r["description"]} if r.get("description") else {})}
+                    for r in rows
+                ]
+            }]
+        }
+    }
+    if header_text:
+        interactive["header"] = {"type": "text", "text": header_text[:60]}
+    if footer_text:
+        interactive["footer"] = {"text": footer_text[:60]}
+
+    payload = {
+        "from": phone_number_id,
+        "to": to_phone,
+        "type": "interactive",
+        "interactive": interactive
+    }
+
+    try:
+        response = requests.post(
+            YCLOUD_SEND_URL,
+            headers=_ycloud_headers(api_key),
+            json=payload,
+            timeout=10
+        )
+        response.raise_for_status()
+        return {"success": True, "data": response.json()}
+    except Exception as e:
+        logger.error(f"Failed to send WhatsApp list message: {e}")
+        return {"success": False, "error": str(e)}
+
+
 def send_whatsapp_template(
     phone_number_id: str,
     to_phone: str,
@@ -144,6 +282,237 @@ def send_whatsapp_template(
         return {"success": True, "data": response.json()}
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to send WhatsApp template: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def send_whatsapp_image(
+    phone_number_id: str,
+    to_phone: str,
+    image_url: str,
+    api_key: str,
+    caption: str = None,
+) -> Dict[str, Any]:
+    """
+    Send an image message via YCloud WhatsApp API.
+
+    Args:
+        image_url: Public HTTPS URL of the image (jpg/png/gif/webp, max 5MB)
+        caption:   Optional caption shown below the image (max 1024 chars)
+    """
+    image_obj: Dict[str, Any] = {"link": image_url}
+    if caption:
+        image_obj["caption"] = caption[:1024]
+
+    payload = {
+        "from": phone_number_id,
+        "to": to_phone,
+        "type": "image",
+        "image": image_obj,
+    }
+    try:
+        r = requests.post(YCLOUD_SEND_URL, headers=_ycloud_headers(api_key), json=payload, timeout=15)
+        r.raise_for_status()
+        return {"success": True, "data": r.json()}
+    except Exception as e:
+        logger.error(f"Failed to send WhatsApp image: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def send_whatsapp_document(
+    phone_number_id: str,
+    to_phone: str,
+    document_url: str,
+    api_key: str,
+    filename: str = None,
+    caption: str = None,
+) -> Dict[str, Any]:
+    """
+    Send a document (PDF, DOCX, XLSX …) via YCloud WhatsApp API.
+
+    Args:
+        document_url: Public HTTPS URL of the document (max 100MB)
+        filename:     File name shown to the recipient (e.g. "brochure.pdf")
+        caption:      Optional caption (max 1024 chars)
+    """
+    doc_obj: Dict[str, Any] = {"link": document_url}
+    if filename:
+        doc_obj["filename"] = filename
+    if caption:
+        doc_obj["caption"] = caption[:1024]
+
+    payload = {
+        "from": phone_number_id,
+        "to": to_phone,
+        "type": "document",
+        "document": doc_obj,
+    }
+    try:
+        r = requests.post(YCLOUD_SEND_URL, headers=_ycloud_headers(api_key), json=payload, timeout=15)
+        r.raise_for_status()
+        return {"success": True, "data": r.json()}
+    except Exception as e:
+        logger.error(f"Failed to send WhatsApp document: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def send_whatsapp_video(
+    phone_number_id: str,
+    to_phone: str,
+    video_url: str,
+    api_key: str,
+    caption: str = None,
+) -> Dict[str, Any]:
+    """
+    Send a video message via YCloud WhatsApp API.
+
+    Args:
+        video_url: Public HTTPS URL of the video (mp4/3gpp, max 16MB)
+        caption:   Optional caption (max 1024 chars)
+    """
+    video_obj: Dict[str, Any] = {"link": video_url}
+    if caption:
+        video_obj["caption"] = caption[:1024]
+
+    payload = {
+        "from": phone_number_id,
+        "to": to_phone,
+        "type": "video",
+        "video": video_obj,
+    }
+    try:
+        r = requests.post(YCLOUD_SEND_URL, headers=_ycloud_headers(api_key), json=payload, timeout=15)
+        r.raise_for_status()
+        return {"success": True, "data": r.json()}
+    except Exception as e:
+        logger.error(f"Failed to send WhatsApp video: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def send_whatsapp_audio(
+    phone_number_id: str,
+    to_phone: str,
+    audio_url: str,
+    api_key: str,
+) -> Dict[str, Any]:
+    """
+    Send an audio message via YCloud WhatsApp API.
+
+    Args:
+        audio_url: Public HTTPS URL of the audio file (aac/mp4/mpeg/amr/ogg, max 16MB)
+    """
+    payload = {
+        "from": phone_number_id,
+        "to": to_phone,
+        "type": "audio",
+        "audio": {"link": audio_url},
+    }
+    try:
+        r = requests.post(YCLOUD_SEND_URL, headers=_ycloud_headers(api_key), json=payload, timeout=15)
+        r.raise_for_status()
+        return {"success": True, "data": r.json()}
+    except Exception as e:
+        logger.error(f"Failed to send WhatsApp audio: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def send_whatsapp_location(
+    phone_number_id: str,
+    to_phone: str,
+    latitude: float,
+    longitude: float,
+    api_key: str,
+    name: str = None,
+    address: str = None,
+) -> Dict[str, Any]:
+    """
+    Send a location pin via YCloud WhatsApp API.
+
+    Args:
+        latitude:  Decimal latitude  (e.g. 23.0225)
+        longitude: Decimal longitude (e.g. 72.5714)
+        name:      Optional place name shown on the pin
+        address:   Optional street address shown below the pin
+    """
+    loc_obj: Dict[str, Any] = {
+        "latitude": latitude,
+        "longitude": longitude,
+    }
+    if name:
+        loc_obj["name"] = name
+    if address:
+        loc_obj["address"] = address
+
+    payload = {
+        "from": phone_number_id,
+        "to": to_phone,
+        "type": "location",
+        "location": loc_obj,
+    }
+    try:
+        r = requests.post(YCLOUD_SEND_URL, headers=_ycloud_headers(api_key), json=payload, timeout=15)
+        r.raise_for_status()
+        return {"success": True, "data": r.json()}
+    except Exception as e:
+        logger.error(f"Failed to send WhatsApp location: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def send_whatsapp_cta_url(
+    phone_number_id: str,
+    to_phone: str,
+    body_text: str,
+    cta_buttons: list,
+    api_key: str,
+    header_text: str = None,
+    footer_text: str = None,
+) -> Dict[str, Any]:
+    """
+    Send an interactive message with CTA (Call-To-Action) URL buttons.
+    Each button can be a URL link or phone call (up to 2 total).
+
+    Args:
+        cta_buttons: List of dicts:
+            URL   button → {"type": "url",   "text": "Book Now",    "url":   "https://..."}
+            Phone button → {"type": "phone", "text": "Call Us",     "phone": "+14155552671"}
+    """
+    wa_buttons = []
+    for btn in cta_buttons[:2]:
+        btype = btn.get("type", "url")
+        if btype == "url":
+            wa_buttons.append({
+                "type": "url",
+                "text": btn.get("text", "Click Here")[:20],
+                "url":  btn.get("url", ""),
+            })
+        elif btype == "phone":
+            wa_buttons.append({
+                "type": "phone_number",
+                "text":         btn.get("text", "Call Us")[:20],
+                "phone_number": btn.get("phone", ""),
+            })
+
+    interactive: Dict[str, Any] = {
+        "type": "cta_url",
+        "body": {"text": body_text},
+        "action": {"buttons": wa_buttons},
+    }
+    if header_text:
+        interactive["header"] = {"type": "text", "text": header_text[:60]}
+    if footer_text:
+        interactive["footer"] = {"text": footer_text[:60]}
+
+    payload = {
+        "from": phone_number_id,
+        "to":   to_phone,
+        "type": "interactive",
+        "interactive": interactive,
+    }
+    try:
+        r = requests.post(YCLOUD_SEND_URL, headers=_ycloud_headers(api_key), json=payload, timeout=15)
+        r.raise_for_status()
+        return {"success": True, "data": r.json()}
+    except Exception as e:
+        logger.error(f"Failed to send WhatsApp CTA URL: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -234,8 +603,33 @@ def parse_webhook_message(data: Dict) -> Optional[Dict]:
             parsed['text'] = msg.get('text', {}).get('body', '')
         elif msg_type == 'image':
             parsed['media_id'] = msg.get('image', {}).get('id')
-            parsed['text'] = msg.get('image', {}).get('caption', '') # Fallback caption to text property
+            parsed['text'] = msg.get('image', {}).get('caption', '')  # Fallback caption to text property
             parsed['mime_type'] = msg.get('image', {}).get('mimeType', 'image/jpeg')
+        elif msg_type == 'button':
+            # YCloud sends quick-reply button taps as type='button'
+            # The text the user selected is in msg['button']['text'] or msg['button']['payload']
+            btn_data = msg.get('button', {})
+            parsed['text'] = btn_data.get('text', '') or btn_data.get('payload', '')
+            parsed['button_payload'] = btn_data.get('payload', '')
+            parsed['is_button_reply'] = True
+            logger.info(f"[WhatsApp] Button reply (type=button): text='{parsed['text']}'")
+        elif msg_type == 'interactive':
+            # User selected from a list message (type=list), or newer inline button format
+            interactive_data = msg.get('interactive', {})
+            interactive_type = interactive_data.get('type', '')
+            if interactive_type == 'button_reply':
+                # YCloud uses snake_case: 'button_reply' (not camelCase 'buttonReply')
+                btn = interactive_data.get('button_reply') or interactive_data.get('buttonReply') or {}
+                parsed['text'] = btn.get('title', '')
+                parsed['button_id'] = btn.get('id', '')
+                parsed['is_button_reply'] = True
+            elif interactive_type == 'list_reply':
+                # YCloud uses snake_case: 'list_reply'
+                item = interactive_data.get('list_reply') or interactive_data.get('listReply') or {}
+                parsed['text'] = item.get('title', '')
+                parsed['list_id'] = item.get('id', '')
+                parsed['is_button_reply'] = True
+            logger.info(f"[WhatsApp] Interactive reply: type={interactive_type}, text='{parsed.get('text', '')}'")
 
         return parsed
     except Exception as e:

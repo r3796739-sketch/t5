@@ -113,6 +113,12 @@ mail.init_app(app)
 from routes_whatsapp import whatsapp_bp
 app.register_blueprint(whatsapp_bp)
 
+from routes_flow import flow_bp
+app.register_blueprint(flow_bp)
+
+from routes_messenger import messenger_bp
+app.register_blueprint(messenger_bp)
+
 
 # --- File Upload Configuration for Multi-Source Chatbots ---
 UPLOAD_FOLDER = 'uploads/whatsapp_chats'
@@ -1701,7 +1707,7 @@ def logout():
 # CHATBOT SETTINGS ROUTES
 # ==========================================
 
-@app.route('/chatbot/<int:chatbot_id>/settings', methods=['GET'])
+@app.route('/chatbot/<chatbot_id>/settings', methods=['GET'])
 @login_required
 def chatbot_settings(chatbot_id):
     """Display chatbot settings page for editing chatbot configuration."""
@@ -1850,7 +1856,8 @@ def update_chatbot_settings(chatbot_id):
         # Allowed fields to update
         allowed_fields = ['channel_name', 'creator_name', 'bot_type', 'speaking_style', 'creator_soul',
                           'lead_capture_enabled', 'lead_capture_email', 'lead_capture_fields',
-                          'promotion_triggers']
+                          'lead_capture_prompt',
+                          'promotion_triggers', 'quick_reply_mode', 'quick_reply_buttons']
         update_data = {k: v for k, v in data.items() if k in allowed_fields}
         
         if not update_data:
@@ -1860,6 +1867,25 @@ def update_chatbot_settings(chatbot_id):
         if 'bot_type' in update_data:
             if update_data['bot_type'] not in ['youtuber', 'business', 'general']:
                 return jsonify({'status': 'error', 'message': 'Invalid bot type'}), 400
+
+        # Validate quick_reply_mode
+        if 'quick_reply_mode' in update_data:
+            if update_data['quick_reply_mode'] not in ['off', 'ai', 'manual']:
+                return jsonify({'status': 'error', 'message': 'Invalid quick_reply_mode. Use: off, ai, or manual'}), 400
+
+        # Validate quick_reply_buttons — must be a list
+        if 'quick_reply_buttons' in update_data:
+            if not isinstance(update_data['quick_reply_buttons'], list):
+                return jsonify({'status': 'error', 'message': 'quick_reply_buttons must be an array'}), 400
+            # Sanitize: max 10 buttons, each must have a title (max 20 chars)
+            cleaned = []
+            for btn in update_data['quick_reply_buttons'][:10]:
+                title = str(btn.get('title', '')).strip()[:20]
+                answer = str(btn.get('answer', '')).strip()  # custom answer per button
+                if title:
+                    cleaned.append({'id': str(btn.get('id', title))[:20], 'title': title, 'answer': answer})
+            update_data['quick_reply_buttons'] = cleaned
+
         
         # Validate lead_capture_fields — must be a list if provided
         if 'lead_capture_fields' in update_data:
@@ -4814,4 +4840,4 @@ def paypal_webhook():
 
 if __name__ == '__main__':
 
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5678)

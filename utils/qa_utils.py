@@ -809,6 +809,7 @@ def answer_question_stream(
             context_parts.append(f"From video '{title}' (uploaded on {date}): {text}")
     context = '\n\n'.join(context_parts)
     
+    identity_anchor_to_print = None
     if channel_data:
         creator_name = channel_data.get('creator_name', channel_data.get('channel_name', 'the creator'))
         speaking_style = channel_data.get('speaking_style', 'Professional and helpful. Provide clear, accurate information.')
@@ -822,11 +823,18 @@ def answer_question_stream(
         if bot_type == 'business':
             prompt_template = prompts.BUSINESS_SUPPORT_PROMPT
             print("Using BUSINESS SUPPORT Persona Prompt")
+            one_line_voice = (speaking_style[:100] + '...') if speaking_style else "Professional and helpful."
+            identity_anchor = prompts.IDENTITY_ANCHOR.format(
+                creator_name=creator_name,
+                one_line_soul="Business support assistant.",
+                one_line_voice=one_line_voice
+            )
+            identity_anchor_to_print = identity_anchor
             prompt = prompt_template.format(
                 business_name=creator_name,
                 context=context,
                 current_date=current_date,
-                question=original_question,
+                question=f"{identity_anchor}\n{original_question}",
                 chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
                 word_count=word_count_guideline,
                 speaking_style=speaking_style
@@ -834,11 +842,18 @@ def answer_question_stream(
         elif bot_type == 'general':
             prompt_template = prompts.GENERAL_ASSISTANT_PROMPT
             print("Using GENERAL ASSISTANT Persona Prompt")
+            one_line_voice = (speaking_style[:100] + '...') if speaking_style else "Professional and helpful."
+            identity_anchor = prompts.IDENTITY_ANCHOR.format(
+                creator_name=creator_name,
+                one_line_soul="Knowledgeable general assistant.",
+                one_line_voice=one_line_voice
+            )
+            identity_anchor_to_print = identity_anchor
             prompt = prompt_template.format(
                 bot_name=creator_name,
                 context=context,
                 current_date=current_date,
-                question=original_question,
+                question=f"{identity_anchor}\n{original_question}",
                 chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
                 word_count=word_count_guideline,
                 speaking_style=speaking_style
@@ -847,11 +862,19 @@ def answer_question_stream(
             prompt_template = prompts.HYBRID_PERSONA_PROMPT
             print("Using YOUTUBER/CREATOR Persona Prompt with Soul + Style Guidance")
             creator_soul = channel_data.get('creator_soul', '')
+            one_line_soul = (creator_soul[:100] + '...') if creator_soul else "Not yet analyzed."
+            one_line_voice = (speaking_style[:100] + '...') if speaking_style else "Professional and helpful."
+            identity_anchor = prompts.IDENTITY_ANCHOR.format(
+                creator_name=creator_name,
+                one_line_soul=one_line_soul,
+                one_line_voice=one_line_voice
+            )
+            identity_anchor_to_print = identity_anchor
             prompt = prompt_template.format(
                 creator_name=creator_name, 
                 context=context, 
                 current_date=current_date,
-                question=original_question,
+                question=f"{identity_anchor}\n{original_question}",
                 chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
                 word_count=word_count_guideline,
                 speaking_style=speaking_style,
@@ -870,14 +893,43 @@ def answer_question_stream(
         print("[MANAGER_MODE] Manager persona active — instructions prepended to prompt.")
     elif channel_data and channel_data.get('lead_capture_enabled'):
         lead_fields = channel_data.get('lead_capture_fields') or []
+        lead_custom_prompt = channel_data.get('lead_capture_prompt', '')
         try:
             from utils.lead_capture_utils import build_lead_prompt
-            lead_instructions = build_lead_prompt(lead_fields)
+            lead_instructions = build_lead_prompt(lead_fields, custom_intro=lead_custom_prompt)
             if lead_instructions:
                 prompt = lead_instructions + "\n" + prompt
                 print("[LEAD_CAPTURE] Lead capture mode active — instructions prepended to prompt.")
         except Exception as lc_err:
             logging.warning(f"[LEAD_CAPTURE] Could not build lead prompt: {lc_err}")
+
+    # --- AI Flow Trigger Settings ---
+    if channel_data:
+        try:
+            from . import db_utils
+            # Let's see if we have flow tools
+            flow_res = db_utils._get_supabase().table('channel_flows').select('id, name, flow_data').eq('channel_id', channel_data['id']).eq('is_active', True).execute()
+            if flow_res.data:
+                flows_list = []
+                for f in flow_res.data:
+                    instructions = ""
+                    if f.get('flow_data') and f['flow_data'].get('ai_instructions'):
+                        instructions = f" (TRIGGER WHEN: {f['flow_data']['ai_instructions']})"
+                    flows_list.append(f"- Name: \"{f['name']}\" | ID: {f['id']}{instructions}")
+
+                flows_list_str = "\n".join(flows_list)
+                flow_instruction = (
+                    "\n\n--- VISUAL FLOW TRIGGERS ---\n"
+                    "You have the ability to hand over the conversation to specific visual workflows configured by the user, if the user's intent matches.\n"
+                    f"Available Flows:\n{flows_list_str}\n\n"
+                    "If the user asks to start one of these flows, or their intent precisely matches the general purpose of one of these flows (e.g., booking, support, survey), or if their message matches the 'TRIGGER WHEN' rules defined above, you MUST STOP answering their prompt directly, and instead trigger the workflow.\n"
+                    "To trigger a flow, simply append the exact tag: [TRIGGER_FLOW: \"<FLOW_NAME>\"] at the very end of your response.\n"
+                    "IMPORTANT: Use only the exact name exactly as written in the Available Flows list above.\n"
+                    "Example: \"I'll redirect you to our booking system now! [TRIGGER_FLOW: \"Booking\"]\"\n"
+                )
+                prompt = flow_instruction + "\n" + prompt
+        except Exception as f_err:
+            logging.warning(f"Could not load channel flows for AI context: {f_err}")
 
     model = os.environ.get('MODEL_NAME')
     ollama_url = os.environ.get('OLLAMA_URL')
@@ -885,6 +937,13 @@ def answer_question_stream(
     temperature = float(os.environ.get('LLM_TEMPERATURE', 0.7))
     prompt_token_count = count_tokens(prompt, model)
     print(f"  Prompt Token Count:     {prompt_token_count}")
+    
+    if identity_anchor_to_print:
+        print("\n" + "="*50)
+        print("IDENTITY ANCHOR SENT:")
+        print("="*50)
+        print(identity_anchor_to_print.strip())
+        print("="*50 + "\n")
     
     stream_function = LLM_STREAM_PROVIDER_MAP.get(llm_provider)
     if not stream_function:

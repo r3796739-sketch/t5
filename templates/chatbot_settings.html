@@ -283,7 +283,7 @@
                             <path
                                 d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
                         </svg>
-                        Promotion Triggers & Actions
+                        Promotion Triggers &amp; Actions
                     </label>
                     <textarea id="promotion_triggers" class="cs-textarea"
                         style="border-color: rgba(147, 51, 234, 0.3); background-color: rgba(147, 51, 234, 0.02);"
@@ -539,6 +539,27 @@
                         id="action-embed">Get Embed Code →</a>
                 </div>
 
+                <!-- Facebook Messenger -->
+                <div class="cs-int-card" id="int-messenger">
+                    <div class="cs-int-header">
+                        <div class="cs-int-icon">
+                            <svg viewBox="0 0 24 24" fill="#0084FF" width="28" height="28">
+                                <path d="M12 2C6.477 2 2 6.14 2 11.25c0 2.91 1.5 5.51 3.84 7.23v3.19c0 .41.46.66.82.44l3.12-1.72c.71.2 1.45.31 2.22.31 5.523 0 10-4.14 10-9.25S17.523 2 12 2zm1.09 12.33l-2.47-2.64-4.8 2.64 5.26-5.58 2.47 2.64 4.8-2.64-5.26 5.58z" />
+                            </svg>
+                        </div>
+                        <span class="cs-int-name">Facebook Messenger</span>
+                        <span class="cs-int-badge {% if chatbot.messenger_enabled %}connected{% else %}inactive{% endif %}" id="badge-messenger">
+                            {% if chatbot.messenger_enabled %}Connected{% else %}Not Connected{% endif %}
+                        </span>
+                    </div>
+                    <p class="cs-int-desc">Let your Facebook Page visitors chat with your AI persona directly in Messenger.</p>
+                    {% if chatbot.messenger_enabled %}
+                        <button class="cs-int-action" style="background:none;border:none;cursor:pointer;color:var(--danger, #ef4444);padding:0;" onclick="disconnectMessenger({{ chatbot.id }})">Disconnect</button>
+                    {% else %}
+                        <a href="{{ url_for('messenger.connect_messenger', channel_id=chatbot.id) }}" class="cs-int-action" id="action-messenger">Connect Messenger →</a>
+                    {% endif %}
+                </div>
+
                 <!-- WhatsApp -->
                 <div class="cs-int-card" id="int-whatsapp">
                     <div class="cs-int-header">
@@ -552,18 +573,115 @@
                         <span class="cs-int-badge inactive" id="badge-whatsapp">Checking...</span>
                     </div>
                     <p class="cs-int-desc">Deploy your AI bot to WhatsApp Business.</p>
-                    <a href="{{ url_for('whatsapp_dashboard', from_bot=chatbot.id) }}" class="cs-int-action"
-                        id="action-whatsapp">Set Up
-                        WhatsApp →</a>
+                    <a href="{{ url_for('whatsapp_dashboard', chatbot_id=chatbot.id) }}" class="cs-int-action"
+                        id="action-whatsapp">Set Up WhatsApp →</a>
                 </div>
+
+                <!-- Flow Builder -->
+                <div class="cs-int-card" id="int-flow"
+                    style="border-color: rgba(139,92,246,.25); background: linear-gradient(135deg, rgba(139,92,246,.06) 0%, var(--bg-secondary) 100%);">
+                    <div class="cs-int-header">
+                        <div class="cs-int-icon"
+                            style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.3);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" width="24"
+                                height="24">
+                                <rect x="2" y="3" width="6" height="5" rx="1.5" />
+                                <rect x="16" y="3" width="6" height="5" rx="1.5" />
+                                <rect x="9" y="16" width="6" height="5" rx="1.5" />
+                                <path d="M5 8v3a3 3 0 003 3h8a3 3 0 003-3V8" />
+                                <line x1="12" y1="14" x2="12" y2="16" />
+                            </svg>
+                        </div>
+                        <span class="cs-int-name" style="color:#8b5cf6;">Flow Builder</span>
+                        <span class="cs-int-badge"
+                            style="background:rgba(139,92,246,.15);color:#8b5cf6;border-color:rgba(139,92,246,.3);">New
+                            ✨</span>
+                    </div>
+                    <p class="cs-int-desc">Visual drag-and-drop conversation flow designer for WhatsApp &amp; Telegram.
+                    </p>
+                    <a href="{{ url_for('flow.flow_builder', chatbot_id=chatbot.id) }}" class="cs-int-action"
+                        style="color:#8b5cf6;border-color:rgba(139,92,246,.3);">Open Flow Builder →</a>
+                </div>
+
             </div>
         </div>
 
         <!-- ============ LEAD CAPTURE TAB ============ -->
         <div class="cs-panel" id="panel-leads">
-            <h2 class="cs-panel-title">Lead Capture</h2>
-            <p class="cs-panel-desc">Collect visitor information automatically and send it to your inbox.</p>
+            <h2 class="cs-panel-title">Lead Capture &amp; Quick Reply</h2>
+            <p class="cs-panel-desc">Set up tappable button menus and collect visitor information automatically.</p>
 
+            <!-- ========== QUICK REPLY BUTTONS ========== -->
+            <div class="cs-section" style="margin-bottom: 1.5rem;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom: 0.5rem;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" width="18" height="18">
+                        <rect x="3" y="3" width="18" height="18" rx="3" />
+                        <path d="M9 9h6M9 12h6M9 15h4" />
+                    </svg>
+                    <h3 style="margin:0;font-size:1rem;font-weight:600;color:#0ea5e9;">Quick Reply Buttons</h3>
+                    <span
+                        style="font-size:0.72rem;font-weight:500;background:rgba(14,165,233,0.1);color:#0ea5e9;border:1px solid rgba(14,165,233,0.3);padding:2px 8px;border-radius:20px;">WhatsApp
+                        &amp; Telegram</span>
+                </div>
+                <p style="color:var(--text-secondary);font-size:0.82rem;margin:0 0 1rem 0;">Show tappable buttons
+                    after every AI response — no typing needed for the customer. Works independently of lead
+                    capture.</p>
+
+                <!-- Mode toggle -->
+                <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+                    <button type="button" class="cs-qr-mode-btn" id="qrMode-off" onclick="setQrMode('off',this)"
+                        data-mode="off"
+                        style="flex:1;min-width:80px;padding:0.45rem 0.7rem;border-radius:8px;border:1.5px solid var(--border-color);background:var(--bg-primary);font-size:0.82rem;cursor:pointer;font-weight:500;transition:all .2s;">
+                        &#128683; Off
+                    </button>
+                    <button type="button" class="cs-qr-mode-btn" id="qrMode-ai" onclick="setQrMode('ai',this)"
+                        data-mode="ai"
+                        style="flex:1;min-width:80px;padding:0.45rem 0.7rem;border-radius:8px;border:1.5px solid var(--border-color);background:var(--bg-primary);font-size:0.82rem;cursor:pointer;font-weight:500;transition:all .2s;">
+                        &#129302; AI-Managed
+                    </button>
+                    <button type="button" class="cs-qr-mode-btn" id="qrMode-manual" onclick="setQrMode('manual',this)"
+                        data-mode="manual"
+                        style="flex:1;min-width:80px;padding:0.45rem 0.7rem;border-radius:8px;border:1.5px solid var(--border-color);background:var(--bg-primary);font-size:0.82rem;cursor:pointer;font-weight:500;transition:all .2s;">
+                        &#9999;&#65039; Manual
+                    </button>
+                </div>
+                <input type="hidden" id="quick_reply_mode" value="{{ chatbot.quick_reply_mode or 'off' }}">
+
+                <!-- AI info -->
+                <div id="qrPanel-ai"
+                    style="display:none;padding:0.85rem 1rem;border-radius:10px;background:rgba(14,165,233,0.07);border:1px solid rgba(14,165,233,0.2);margin-bottom:0.5rem;">
+                    <div style="font-weight:600;font-size:0.85rem;color:#0ea5e9;margin-bottom:0.4rem;">&#10024; How
+                        AI-Managed works</div>
+                    <ul
+                        style="margin:0 0 0 1.1rem;padding:0;font-size:0.82rem;color:var(--text-secondary);line-height:1.8;">
+                        <li>After every reply, the AI auto-generates 1&ndash;3 contextual button options.</li>
+                        <li>Buttons change based on what the customer is asking about.</li>
+                        <li>If no buttons make sense, none are shown.</li>
+                    </ul>
+                </div>
+
+                <!-- Manual builder -->
+                <div id="qrPanel-manual" style="display:none;">
+                    <p style="font-size:0.82rem;color:var(--text-secondary);margin:0 0 0.75rem;">Define up to
+                        <strong>10 buttons</strong>. For each button you can set a custom reply the bot will send
+                        when it's tapped — or leave blank to let AI answer normally.
+                    </p>
+                    <div id="qrButtonList"
+                        style="display:flex;flex-direction:column;gap:0.75rem;margin-bottom:0.75rem;"></div>
+                    <button type="button" onclick="addQrButton()" class="cs-lc-add-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        Add Button
+                    </button>
+                </div>
+                <p class="cs-hint" style="margin-top:0.5rem;">WhatsApp: max 3 buttons per message (20 chars label),
+                    more shown as a scrollable list. Telegram: no limit.</p>
+            </div>
+
+            <!-- ========== LEAD CAPTURE ========== -->
             <div class="cs-section">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
                     <div>
@@ -591,14 +709,32 @@
                         <label class="cs-label">Send Leads To (WhatsApp) - <span
                                 style="font-weight: 400; color: var(--text-secondary);">Optional</span></label>
                         <input type="text" id="leadCaptureWhatsapp" class="cs-input" placeholder="e.g. +14155552671">
-                        <p class="cs-hint">Receive an instant WhatsApp message when a lead is captured. Include country
+                        <p class="cs-hint">Receive an instant WhatsApp message when a lead is captured. Include
+                            country
                             code.</p>
                     </div>
 
+                    <!-- Custom Prompt -->
+                    <div class="cs-form-group">
+                        <label class="cs-label" style="display:flex;align-items:center;gap:6px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"
+                                height="15">
+                                <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                            </svg>
+                            Bot Instructions
+                            <span style="font-size:0.72rem;font-weight:400;color:var(--text-secondary);">Optional</span>
+                        </label>
+                        <textarea id="leadCapturePrompt" class="cs-textarea" rows="4"
+                            placeholder="Customize how the bot opens the conversation and collects info.&#10;&#10;Example: 'Greet the user warmly as a luxury Maldives resort assistant. Keep responses short and friendly. After collecting their details, mention they'll hear back within 24 hours.'">{{ chatbot.lead_capture_prompt or '' }}</textarea>
+                        <p class="cs-hint">These instructions replace the default "Be warm and conversational" guidance.
+                            Use this to set brand voice, a specific opening line, or any special instructions for the
+                            lead collection flow.</p>
+                    </div>
+
+                    <!-- Fields to Collect -->
                     <div class="cs-form-group">
                         <label class="cs-label">Fields to Collect</label>
-                        <p style="color:var(--text-secondary);font-size:0.82rem;margin:0 0 0.75rem;">The chatbot
-                            will
+                        <p style="color:var(--text-secondary);font-size:0.82rem;margin:0 0 0.75rem;">The chatbot will
                             ask these questions one-by-one, in order.</p>
                         <div id="leadFieldsList"></div>
                         <button type="button" class="cs-lc-add-btn" onclick="addLeadField()">
@@ -724,31 +860,43 @@
                 // Discord
                 const bDiscord = document.getElementById('badge-discord');
                 if (ints.discord_bot) {
-                    bDiscord.textContent = 'Active';
-                    bDiscord.className = 'cs-int-badge active';
+                    if (bDiscord) {
+                        bDiscord.textContent = 'Active';
+                        bDiscord.className = 'cs-int-badge active';
+                    }
                 } else {
-                    bDiscord.textContent = 'Not Set Up';
-                    bDiscord.className = 'cs-int-badge inactive';
+                    if (bDiscord) {
+                        bDiscord.textContent = 'Not Set Up';
+                        bDiscord.className = 'cs-int-badge inactive';
+                    }
                 }
 
                 // Telegram
                 const bTelegram = document.getElementById('badge-telegram');
                 if (ints.telegram_is_active) {
-                    bTelegram.textContent = 'Active';
-                    bTelegram.className = 'cs-int-badge active';
+                    if (bTelegram) {
+                        bTelegram.textContent = 'Active';
+                        bTelegram.className = 'cs-int-badge active';
+                    }
                 } else {
-                    bTelegram.textContent = 'Not Set Up';
-                    bTelegram.className = 'cs-int-badge inactive';
+                    if (bTelegram) {
+                        bTelegram.textContent = 'Not Set Up';
+                        bTelegram.className = 'cs-int-badge inactive';
+                    }
                 }
 
                 // Embed
                 const bEmbed = document.getElementById('badge-embed');
                 if (ints.embed_is_active) {
-                    bEmbed.textContent = 'Active';
-                    bEmbed.className = 'cs-int-badge active';
+                    if (bEmbed) {
+                        bEmbed.textContent = 'Active';
+                        bEmbed.className = 'cs-int-badge active';
+                    }
                 } else {
-                    bEmbed.textContent = 'Not Set Up';
-                    bEmbed.className = 'cs-int-badge inactive';
+                    if (bEmbed) {
+                        bEmbed.textContent = 'Not Set Up';
+                        bEmbed.className = 'cs-int-badge inactive';
+                    }
                 }
 
                 // WhatsApp
@@ -758,17 +906,21 @@
                 const waLeadHint = waLeadInput?.nextElementSibling;
 
                 if (ints.whatsapp_config) {
-                    bWhatsapp.textContent = 'Active';
-                    bWhatsapp.className = 'cs-int-badge active';
-                    aWhatsapp.textContent = 'Manage WhatsApp →';
+                    if (bWhatsapp) {
+                        bWhatsapp.textContent = 'Active';
+                        bWhatsapp.className = 'cs-int-badge active';
+                    }
+                    if (aWhatsapp) aWhatsapp.textContent = 'Manage WhatsApp →';
                     if (waLeadInput) {
                         waLeadInput.disabled = false;
                         if (waLeadHint) waLeadHint.innerHTML = 'Receive an instant WhatsApp message when a lead is captured. Include country code.';
                     }
                 } else {
-                    bWhatsapp.textContent = 'Not Set Up';
-                    bWhatsapp.className = 'cs-int-badge inactive';
-                    aWhatsapp.textContent = 'Set Up WhatsApp →';
+                    if (bWhatsapp) {
+                        bWhatsapp.textContent = 'Not Set Up';
+                        bWhatsapp.className = 'cs-int-badge inactive';
+                    }
+                    if (aWhatsapp) aWhatsapp.textContent = 'Set Up WhatsApp →';
                     if (waLeadInput) {
                         waLeadInput.disabled = true;
                         waLeadInput.placeholder = 'WhatsApp integration required';
@@ -1197,6 +1349,15 @@
             if (label) leadFields.push({ label, type, required, options });
         });
 
+        // Collect quick reply buttons
+        const qrMode = document.getElementById('quick_reply_mode').value;
+        const qrButtons = [];
+        document.querySelectorAll('#qrButtonList .qr-btn-card').forEach(function (card) {
+            var title = (card.querySelector('.qr-btn-label')?.value || '').trim();
+            var answer = (card.querySelector('.qr-btn-answer')?.value || '').trim();
+            if (title) qrButtons.push({ id: title, title: title, answer: answer });
+        });
+
         const leadEmail = document.getElementById('leadCaptureEmail')?.value?.trim() || "";
         const leadWhatsapp = document.getElementById('leadCaptureWhatsapp')?.value?.trim() || "";
         let combinedEmailWa = leadEmail;
@@ -1213,7 +1374,10 @@
             promotion_triggers: document.getElementById('promotion_triggers').value,
             lead_capture_enabled: document.getElementById('leadCaptureEnabled')?.checked || false,
             lead_capture_email: combinedEmailWa || null,
-            lead_capture_fields: leadFields
+            lead_capture_fields: leadFields,
+            lead_capture_prompt: document.getElementById('leadCapturePrompt')?.value?.trim() || '',
+            quick_reply_mode: qrMode,
+            quick_reply_buttons: qrButtons
         };
 
         try {
@@ -1356,7 +1520,7 @@
     }
 
     // ===== LEAD CAPTURE =====
-    const existingLeadFields = JSON.parse('{{ (chatbot.lead_capture_fields or []) | tojson | safe }}');
+    const existingLeadFields = {{ (chatbot.lead_capture_fields or[]) | tojson | safe }};
 
     document.getElementById('leadCaptureEnabled')?.addEventListener('change', function () {
         const config = document.getElementById('leadCaptureConfig');
@@ -1410,5 +1574,69 @@
         const ma = document.querySelector('.cs-mobile-actions');
         if (ma) ma.style.display = 'block';
     }
+
+    // ===== QUICK REPLY BUTTONS =====
+    const _existingQrButtons = {{ (chatbot.quick_reply_buttons or[]) | tojson | safe }};
+    const _initialQrMode = document.getElementById('quick_reply_mode').value;
+
+    // Activate the correct mode button on load
+    (function initQrMode() {
+        const activeBtn = document.querySelector('.cs-qr-mode-btn[data-mode="' + _initialQrMode + '"]');
+        if (activeBtn) setQrMode(_initialQrMode, activeBtn);
+        // Populate saved buttons
+        (_existingQrButtons || []).forEach(function (btn) { addQrButton(btn); });
+    })();
+
+    function setQrMode(mode, btn) {
+        document.getElementById('quick_reply_mode').value = mode;
+        document.querySelectorAll('.cs-qr-mode-btn').forEach(function (b) {
+            var isActive = b.dataset.mode === mode;
+            b.style.borderColor = isActive ? '#0ea5e9' : 'var(--border-color)';
+            b.style.background = isActive ? 'rgba(14,165,233,0.1)' : 'var(--bg-primary)';
+            b.style.color = isActive ? '#0ea5e9' : '';
+        });
+        document.getElementById('qrPanel-ai').style.display = mode === 'ai' ? '' : 'none';
+        document.getElementById('qrPanel-manual').style.display = mode === 'manual' ? '' : 'none';
+    }
+
+    // ===== MESSENGER DISCONNECT =====
+    function disconnectMessenger(channelId) {
+        if (!confirm('Disconnect Facebook Messenger? Your AI will no longer reply to messages on your Facebook Page.')) return;
+
+        fetch(`/messenger/disconnect/${channelId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast('Messenger disconnected successfully.', 'success');
+                setTimeout(() => window.location.reload(), 1200);
+            } else {
+                showToast(data.message || 'Failed to disconnect.', 'error');
+            }
+        })
+        .catch(() => showToast('An unexpected error occurred.', 'error'));
+    }
+
+    function addQrButton(existing) {
+        var title = (existing && existing.title) ? existing.title : '';
+        var answer = (existing && existing.answer) ? existing.answer : '';
+        var card = document.createElement('div');
+        card.className = 'qr-btn-card';
+        card.style.cssText = 'background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:10px;padding:0.75rem;display:flex;flex-direction:column;gap:0.5rem;';
+        card.innerHTML =
+            '<div style="display:flex;align-items:center;gap:0.5rem;">'
+            + '<span style="font-size:1.1rem;">&#9889;</span>'
+            + '<input type="text" class="qr-btn-label cs-input" placeholder="Button label (max 20 chars)" value="' + _esc(title) + '" maxlength="20" style="flex:1;padding:0.35rem 0.6rem;font-size:0.85rem;font-weight:500;">'
+            + '<button type="button" onclick="this.closest(\'.qr-btn-card\').remove()" title="Remove" style="background:none;border:none;cursor:pointer;color:#ef4444;padding:4px;flex-shrink:0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg></button>'
+            + '</div>'
+            + '<textarea class="qr-btn-answer cs-input" placeholder="Custom answer when tapped (leave blank to let AI answer)" rows="2" style="font-size:0.82rem;padding:0.4rem 0.6rem;resize:vertical;color:var(--text-secondary);">' + _esc(answer) + '</textarea>'
+            + '<p style="font-size:0.75rem;color:var(--text-muted);margin:0;">&#128161; Leave answer blank so the AI answers naturally, or write a fixed response (e.g. pricing info, a link) that will always be sent when this button is tapped.</p>';
+        var list = document.getElementById('qrButtonList');
+        if (list.children.length >= 10) { showToast('Maximum 10 buttons allowed', 'error'); return; }
+        list.appendChild(card);
+    }
+
 </script>
 {% endblock %}
