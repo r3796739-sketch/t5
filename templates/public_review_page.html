@@ -5,6 +5,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rate {{ settings.business_name }}</title>
+    <meta name="description" content="Share your experience and leave a review for {{ settings.business_name }}. Your feedback helps us improve!">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Rate {{ settings.business_name }}">
+    <meta property="og:description" content="Share your experience and leave a review for {{ settings.business_name }}. Your feedback helps us improve!">
+    <meta property="og:url" content="{{ request.url }}">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Rate {{ settings.business_name }}">
+    <meta name="twitter:description" content="Share your experience and leave a review for {{ settings.business_name }}. Your feedback helps us improve!">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -254,7 +266,7 @@
 
     <!-- Negative Flow (1-3 stars) -->
     <div class="card hidden" id="stepNegative">
-        <h2 style="color: var(--yellow);">We're sorry 😔</h2>
+        <h2 id="negativeTitle" style="color: var(--yellow);">We're sorry 😔</h2>
         <p class="subtitle">Help us improve — tell us what went wrong and we'll make it right.</p>
         <input type="text" id="fbName" class="input-field" placeholder="Your Name (optional)">
         <input type="email" id="fbEmail" class="input-field" placeholder="Email (optional)">
@@ -330,6 +342,14 @@
         function route(rating) {
             document.getElementById('step1').classList.add('hidden');
             if (rating < minStarsThreshold) {
+                const negTitle = document.getElementById('negativeTitle');
+                if (rating <= 2) {
+                    negTitle.innerHTML = "We're sorry 😔";
+                    negTitle.style.color = "var(--yellow)";
+                } else {
+                    negTitle.innerHTML = "Thank you! ✨";
+                    negTitle.style.color = "var(--text)";
+                }
                 document.getElementById('stepNegative').classList.remove('hidden');
             } else {
                 document.getElementById('starDisplay').innerText = rating;
