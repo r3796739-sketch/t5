@@ -435,34 +435,35 @@
             navigator.clipboard.writeText(text).catch(() => {});
         }
 
-        async function submitFeedback() {
+        function submitFeedback() {
             const name = document.getElementById('fbName').value;
             const email = document.getElementById('fbEmail').value;
             const feedback = document.getElementById('fbText').value;
             if (!feedback) return alert('Please describe what went wrong.');
+            
             const btn = document.querySelector('#stepNegative .btn');
-            btn.textContent = 'Sending…';
             btn.disabled = true;
-            await fetch('/api/google-reviews/submit-feedback', {
+
+            // Show thank you instantly
+            document.getElementById('stepNegative').classList.add('hidden');
+            document.getElementById('stepThanks').classList.remove('hidden');
+
+            fetch('/api/google-reviews/submit-feedback', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ business_identifier: businessId, settings_id: parseInt("{{ settings.get('id', 0) }}") || null, rating: currentRating, name: name, email: email, feedback: feedback })
-            });
-            document.getElementById('stepNegative').classList.add('hidden');
-            document.getElementById('stepThanks').classList.remove('hidden');
+            }).catch(e => console.error(e));
         }
 
-        async function continueToGoogle() {
+        function continueToGoogle() {
             const review = document.getElementById('myReviewText').value.trim();
             
-            // Record the positive rating
-            try {
-                await fetch('/api/google-reviews/submit-feedback', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ business_identifier: businessId, settings_id: parseInt("{{ settings.get('id', 0) }}") || null, rating: currentRating, feedback: review })
-                });
-            } catch(e) {}
+            // Record the positive rating in background
+            fetch('/api/google-reviews/submit-feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ business_identifier: businessId, settings_id: parseInt("{{ settings.get('id', 0) }}") || null, rating: currentRating, feedback: review })
+            }).catch(e => console.error(e));
 
             const go = () => window.location.href = googleUrl;
             review ? navigator.clipboard.writeText(review).finally(go) : go();
