@@ -603,30 +603,6 @@
                         style="color:#8b5cf6;border-color:rgba(139,92,246,.3);">Open Flow Builder →</a>
                 </div>
 
-                <!-- YouTube Comments -->
-                <div class="cs-int-card" id="int-youtube-comments"
-                    style="border-color: rgba(255,0,0,.2); background: linear-gradient(135deg, rgba(255,0,0,.05) 0%, var(--bg-secondary) 100%);">
-                    <div class="cs-int-header">
-                        <div class="cs-int-icon" style="background:rgba(255,0,0,.1);border-color:rgba(255,0,0,.25);padding:6px;">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="22" height="22">
-                                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#FF0000"/>
-                            </svg>
-                        </div>
-                        <span class="cs-int-name" style="color:#cc0000;">YouTube Comments</span>
-                        <span class="cs-int-badge {% if chatbot.yt_comments_enabled %}connected{% else %}inactive{% endif %}"
-                              id="badge-yt-comments"
-                              style="{% if chatbot.yt_comments_enabled %}background:rgba(34,197,94,.1);color:#22c55e;border-color:rgba(34,197,94,.3);{% else %}background:rgba(255,0,0,.08);color:#ff4444;border-color:rgba(255,0,0,.2);{% endif %}">
-                            {% if chatbot.yt_comments_enabled %}Connected{% else %}Not Connected{% endif %}
-                        </span>
-                    </div>
-                    <p class="cs-int-desc">Let your AI persona reply to comments on your YouTube videos — in your own voice.</p>
-                    <a href="{{ url_for('youtube_comments.youtube_comments_dashboard', channel_id=chatbot.id) }}"
-                       class="cs-int-action"
-                       style="color:#cc0000;border-color:rgba(255,0,0,.25);">
-                        {% if chatbot.yt_comments_enabled %}Manage Comments →{% else %}Set Up Comments →{% endif %}
-                    </a>
-                </div>
-
             </div>
         </div>
 
