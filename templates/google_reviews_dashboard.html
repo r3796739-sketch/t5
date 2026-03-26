@@ -1,0 +1,530 @@
+{% extends "base.html" %}
+
+{% block title %}Google Reviews Settings - YoppyChat AI{% endblock %}
+
+{% block page_styles %}
+<style>
+    .gr-container {
+        padding: 2rem;
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+
+    .gr-header {
+        margin-bottom: 2rem;
+    }
+
+    .gr-header h1 {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .gr-header p {
+        color: var(--text-secondary);
+        margin-top: 0.5rem;
+    }
+
+    .gr-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--neutral-300);
+        border-radius: var(--radius-md);
+        background: var(--surface-medium);
+        color: var(--text-primary);
+        font-family: inherit;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+    }
+
+    .form-help {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+    }
+
+    .btn-primary {
+        background: var(--accent-primary);
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: var(--radius-md);
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s;
+    }
+
+    .btn-primary:hover {
+        opacity: 0.9;
+    }
+
+    .btn-secondary {
+        background: var(--surface-medium, #f3f4f6);
+        color: var(--text-primary, #374151);
+        padding: 0.75rem 1.5rem;
+        border: 1px solid var(--neutral-300, #d1d5db);
+        border-radius: var(--radius-md);
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .btn-secondary:hover {
+        background: var(--neutral-200, #e5e7eb);
+    }
+    
+    .btn-icon {
+        width: 16px;
+        height: 16px;
+        stroke-width: 2.5;
+    }
+
+    .btn-dark {
+        background: var(--text-primary, #111827);
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: var(--radius-md);
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .btn-dark:hover {
+        opacity: 0.9;
+    }
+
+    .gr-link-box {
+        background: rgba(139, 92, 246, 0.1);
+        border: 1px solid rgba(139, 92, 246, 0.3);
+        padding: 1rem;
+        border-radius: var(--radius-md);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 1rem;
+    }
+
+    .gr-link-box code {
+        color: #8B5CF6;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+
+    .feedback-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+    }
+
+    .feedback-table th,
+    .feedback-table td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--neutral-200);
+    }
+
+    .feedback-table th {
+        font-weight: 600;
+        color: var(--text-secondary);
+        background: var(--surface-medium);
+    }
+
+    .rating-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+
+    .rating-bad {
+        background: rgba(239, 68, 68, 0.1);
+        color: #EF4444;
+    }
+
+    .rating-ok {
+        background: rgba(245, 158, 11, 0.1);
+        color: #F59E0B;
+    }
+
+    .flash-alert {
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+    }
+    .flash-success {
+        background: rgba(16, 185, 129, 0.15);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        color: #10b981;
+    }
+    .flash-error, .flash-danger {
+        background: rgba(239, 68, 68, 0.15);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #ef4444;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="gr-container">
+    <div class="gr-header">
+        <h1>Google Reviews Router</h1>
+        <p>Intercept negative feedback and use AI to generate 5-star Google Reviews from happy customers.</p>
+    </div>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="flash-alert flash-{{ category }}">
+        {{ message }}
+        <span onclick="this.parentElement.remove()" style="float:right; cursor:pointer; opacity:0.5; margin-left:1rem;">✕</span>
+    </div>
+    {% endfor %}
+    <script>
+        setTimeout(() => document.querySelectorAll('.flash-alert').forEach(el => {
+            el.style.transition = 'opacity 0.5s'; el.style.opacity = '0';
+            setTimeout(() => el.remove(), 500);
+        }), 4000);
+    </script>
+    {% endif %}
+    {% endwith %}
+
+    <div style="display:flex; justify-content:flex-end; margin-bottom: 2rem;">
+        {% if settings_list|length < max_businesses %}
+        <button class="btn-dark" onclick="showNewForm()" style="font-size:0.9rem; padding:0.6rem 1.2rem; display:inline-flex; align-items:center; gap:0.4rem;">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Add Business
+        </button>
+        {% endif %}
+    </div>
+
+    {% if settings_list|length > 0 %}
+    <!-- ── LIST EXISTING BUSINESSES ── -->
+    {% for settings in settings_list %}
+    <div class="gr-card viewMode-card" id="viewMode-{{ settings.get('id') }}">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; flex-wrap:wrap; gap:0.5rem;">
+            <div>
+                <h3 style="margin:0;">{{ settings.get('business_name') }}</h3>
+                <span style="font-size:0.78rem; color:var(--text-muted); font-family:monospace;">{{ settings.get('place_id') }} • Routing {{ settings.get('minimum_stars', 4) }}+ Stars to Google</span>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+                <button class="btn-secondary" onclick="showEditMode('{{ settings.get('id') }}')" style="font-size:0.82rem; padding:0.4rem 0.9rem;">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    Edit
+                </button>
+                <form action="{{ url_for('google_reviews.delete_business', settings_id=settings.get('id')) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this business? All captured reviews linked to it will also be deleted.')" style="margin:0;">
+                    <button type="submit" class="btn-secondary" style="font-size:0.82rem; padding:0.4rem 0.9rem; color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {% set s_id = settings.get('id') %}
+        {% if stats and s_id in stats %}
+        <!-- Stats -->
+        <div style="margin-bottom:1.5rem; display:flex; gap:1rem; flex-wrap:wrap;">
+            <div style="background:rgba(0,0,0,0.02); border:1px solid var(--border-color); padding:0.6rem 1rem; border-radius:8px; flex:1; min-width:100px; text-align:center;">
+                <strong style="font-size:1.5rem; color:var(--text-color);">{{ stats[s_id]['total'] }}</strong>
+                <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Total Interacted</div>
+            </div>
+            <div style="background:rgba(16, 185, 129, 0.05); border:1px solid rgba(16, 185, 129, 0.2); padding:0.6rem 1rem; border-radius:8px; flex:1; min-width:100px; text-align:center;">
+                <strong style="font-size:1.5rem; color:#10b981;">{{ stats[s_id][5] + stats[s_id][4] }}</strong>
+                <div style="font-size:0.75rem; color:#10b981; text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Positive (4-5★)</div>
+            </div>
+            <div style="background:rgba(245, 158, 11, 0.05); border:1px solid rgba(245, 158, 11, 0.2); padding:0.6rem 1rem; border-radius:8px; flex:1; min-width:100px; text-align:center;">
+                <strong style="font-size:1.5rem; color:#f59e0b;">{{ stats[s_id][1] + stats[s_id][2] + stats[s_id][3] }}</strong>
+                <div style="font-size:0.75rem; color:#f59e0b; text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Negative (1-3★)</div>
+            </div>
+            <div style="background:rgba(59, 130, 246, 0.05); border:1px solid rgba(59, 130, 246, 0.2); padding:0.6rem 1rem; border-radius:8px; flex:1; min-width:100px; text-align:center;">
+                <strong style="font-size:1.5rem; color:#3b82f6;">{{ stats[s_id]['avg'] }}★</strong>
+                <div style="font-size:0.75rem; color:#3b82f6; text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Average Rating</div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Public link -->
+        <div class="gr-link-box" style="margin-bottom:1.25rem;">
+            <div style="margin-bottom:0.75rem;">
+                <strong>Your Public Review Link</strong>
+                <p style="margin:0.2rem 0 0; font-size:0.82rem; color:var(--text-secondary);">Share this link via WhatsApp, SMS, or Email to start collecting reviews.</p>
+            </div>
+            {% set safe_name = settings.get('business_name', 'business') | replace(" ", "-") | lower %}
+            {% set link_url = url_for('google_reviews.public_review_page', business_name=safe_name, settings_id=settings.get('id'), _external=True) %}
+            <div style="display:flex; align-items:stretch; gap:0.5rem; flex-wrap:wrap;">
+                <input type="text" id="reviewLinkInput-{{ settings.get('id') }}" readonly value="{{ link_url }}" style="flex:1; min-width:200px; padding:0.6rem 0.8rem; border-radius:6px; border:1px solid rgba(59,130,246,0.3); background:transparent; color:var(--text-color); font-family:monospace; font-size:0.85rem;" />
+                <button type="button" class="btn-primary" onclick="copyReviewLink('{{ settings.get('id') }}')" style="display:flex; align-items:center; gap:0.4rem; padding:0 1rem; border-radius:6px; white-space:nowrap; margin:0;" id="copyBtn-{{ settings.get('id') }}">
+                    <svg id="copyIconSvg-{{ settings.get('id') }}" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-copy"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    <span id="copyText-{{ settings.get('id') }}">Copy Link</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Google Reviews Context -->
+        <div style="border:1px solid var(--border-color); border-radius:0.65rem; padding:1rem; margin-bottom:0;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.65rem; flex-wrap:wrap; gap:0.5rem;">
+                <span style="font-size:0.82rem; font-weight:600; color:var(--text-secondary); display:flex; align-items:center; gap:0.4rem;">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg> 
+                    Cached Google Reviews Context
+                </span>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                    <button class="btn-secondary" id="refreshBtn-{{ settings.get('id') }}" onclick="refreshContext('{{ settings.get('id') }}', 'newest')" style="font-size:0.78rem; padding:0.35rem 0.8rem;">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 1 0 2.1-5.7L21 8"></path></svg> 
+                        Fetch Latest
+                    </button>
+                    <button class="btn-secondary" id="randomBtn-{{ settings.get('id') }}" onclick="refreshContext('{{ settings.get('id') }}', 'most_relevant')" style="font-size:0.78rem; padding:0.35rem 0.8rem;">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+                        Fetch Random
+                    </button>
+                </div>
+            </div>
+            {% if settings.get('cached_reviews_context') %}
+            <div id="contextBox-{{ settings.get('id') }}" style="font-size:0.82rem; color:var(--text-secondary); line-height:1.6; background:rgba(0,0,0,0.1); border-radius:0.4rem; padding:0.65rem; max-height:110px; overflow-y:auto;">
+                {{ settings.get('cached_reviews_context') | replace(' | ', '<br>—&nbsp;') | safe }}
+            </div>
+            {% else %}
+            <div id="contextBox-{{ settings.get('id') }}" style="font-size:0.82rem; color:var(--text-muted); font-style:italic; padding:0.4rem 0;">
+                No reviews fetched yet. Click "Fetch Latest from Google" to populate AI context.
+            </div>
+            {% endif %}
+            <div id="refreshStatus-{{ settings.get('id') }}" style="font-size:0.8rem; margin-top:0.5rem; display:none;"></div>
+        </div>
+    </div>
+
+    <!-- ── EDIT MODE (hidden by default) ── -->
+    <div class="gr-card editMode-card" id="editMode-{{ settings.get('id') }}" style="display:none;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+            <h3 style="margin:0;">Edit Configuration</h3>
+            <button class="btn-secondary" type="button" onclick="showViewMode('{{ settings.get('id') }}')" style="font-size:0.82rem; padding:0.4rem 0.9rem;">✕ Cancel</button>
+        </div>
+        <form method="POST" action="/dashboard/google-reviews">
+            <input type="hidden" name="settings_id" value="{{ settings.get('id') }}">
+            <div class="form-group">
+                <label class="form-label">Business Name</label>
+                <input type="text" name="business_name" class="form-control" value="{{ settings.get('business_name', '') }}" placeholder="e.g. Joe's Coffee Shop" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Google Place ID</label>
+                <input type="text" name="place_id" class="form-control" value="{{ settings.get('place_id', '') }}" placeholder="ChI..." required>
+                <div class="form-help">
+                    <a href="https://developers.google.com/maps/documentation/places/web-service/place-id" target="_blank" style="color:var(--accent-primary); font-weight:600; text-decoration:underline;">👉 Click here to find your Place ID</a>.<br>
+                    Search for your business and copy the "Place ID".
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Business Description <span style="font-weight:400; color:var(--text-muted);">(optional — helps AI write accurate reviews)</span></label>
+                <textarea name="business_description" class="form-control" rows="3" placeholder="e.g. We are a travel agency...">{{ settings.get('business_description', '') }}</textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Route to Google Threshold</label>
+                <select name="minimum_stars" class="form-control" required style="padding:0.75rem;">
+                    <option value="5" {% if settings.get('minimum_stars', 4)|int == 5 %}selected{% endif %}>5 Stars only</option>
+                    <option value="4" {% if settings.get('minimum_stars', 4)|int == 4 %}selected{% endif %}>4 & 5 Stars</option>
+                    <option value="3" {% if settings.get('minimum_stars', 4)|int == 3 %}selected{% endif %}>3, 4, 5 Stars</option>
+                    <option value="2" {% if settings.get('minimum_stars', 4)|int == 2 %}selected{% endif %}>2, 3, 4, 5 Stars</option>
+                    <option value="1" {% if settings.get('minimum_stars', 4)|int == 1 %}selected{% endif %}>All Ratings (1-5)</option>
+                </select>
+                <div class="form-help">Any rating below this threshold will be captured privately.</div>
+            </div>
+            <button type="submit" class="btn-primary" style="display:inline-flex; align-items:center; gap:0.5rem; justify-content:center; width:100%;">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                Save Settings
+            </button>
+        </form>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- ── NEW FORM ── -->
+    <div class="gr-card" id="newFormMode" style="display:{% if settings_list|length == 0 %}block{% else %}none{% endif %};">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+            <h3 style="margin:0;">Add New Business</h3>
+            {% if settings_list|length > 0 %}
+            <button class="btn-secondary" type="button" onclick="hideNewForm()" style="font-size:0.82rem; padding:0.4rem 0.9rem;">✕ Cancel</button>
+            {% endif %}
+        </div>
+        <p style="color:var(--text-secondary); margin-bottom:1.5rem;">Enter your Google details to power the AI and route positive reviews.</p>
+        <form method="POST" action="/dashboard/google-reviews">
+            <div class="form-group">
+                <label class="form-label">Business Name</label>
+                <input type="text" name="business_name" class="form-control" value="" placeholder="e.g. Joe's Coffee Shop" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Google Place ID</label>
+                <input type="text" name="place_id" class="form-control" value="" placeholder="ChI..." required>
+                <div class="form-help">
+                    <a href="https://developers.google.com/maps/documentation/places/web-service/place-id" target="_blank" style="color:var(--accent-primary); font-weight:600; text-decoration:underline;">👉 Click here to find your Place ID</a>.<br>
+                    Search for your business and copy the "Place ID".
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Business Description <span style="font-weight:400; color:var(--text-muted);">(optional)</span></label>
+                <textarea name="business_description" class="form-control" rows="3" placeholder="e.g. We are a travel agency..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Route to Google Threshold</label>
+                <select name="minimum_stars" class="form-control" required style="padding:0.75rem;">
+                    <option value="5">5 Stars only</option>
+                    <option value="4" selected>4 & 5 Stars</option>
+                    <option value="3">3, 4, 5 Stars</option>
+                    <option value="2">2, 3, 4, 5 Stars</option>
+                    <option value="1">All Ratings (1-5)</option>
+                </select>
+                <div class="form-help">Any rating below this threshold will be captured privately.</div>
+            </div>
+            <button type="submit" class="btn-primary" style="display:inline-flex; align-items:center; gap:0.5rem; justify-content:center; width:100%;">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                Save Settings
+            </button>
+        </form>
+    </div>
+
+    <!-- ── Captured Feedback ── -->
+    <div class="gr-card">
+        <h3>Captured Feedback <span style="font-size:0.8rem; font-weight:400; color:var(--text-muted);">(private — not visible on Google)</span></h3>
+        {% if feedbacks|length > 0 %}
+        <div style="overflow-x:auto;">
+            <table class="feedback-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Rating</th>
+                        <th>Feedback</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fb in feedbacks %}
+                    <tr>
+                        <td style="white-space:nowrap;">{{ fb.created_at[:10] }}</td>
+                        <td>
+                            <strong>{{ fb.customer_name or 'Anonymous' }}</strong><br>
+                            <small style="color:var(--text-muted)">{{ fb.customer_email }}</small>
+                        </td>
+                        <td>
+                            <span class="rating-badge {% if fb.rating <= 2 %}rating-bad{% else %}rating-ok{% endif %}">
+                                {{ fb.rating }}★
+                            </span>
+                        </td>
+                        <td>{{ fb.feedback_text }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.9rem; display:flex; flex-direction:column; align-items:center; gap:0.5rem;">
+            <svg class="btn-icon" style="width:24px; height:24px; color:#10b981;" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            No negative feedback captured yet — great service!
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function showEditMode(id) {
+        document.getElementById('viewMode-' + id).style.display = 'none';
+        document.getElementById('editMode-' + id).style.display = 'block';
+    }
+    function showViewMode(id) {
+        document.getElementById('editMode-' + id).style.display = 'none';
+        document.getElementById('viewMode-' + id).style.display = 'block';
+    }
+
+    function copyReviewLink(id) {
+        const link = document.getElementById('reviewLinkInput-' + id).value;
+        const btn = document.getElementById('copyBtn-' + id);
+        const iconSvg = document.getElementById('copyIconSvg-' + id);
+        const btnText = document.getElementById('copyText-' + id);
+
+        navigator.clipboard.writeText(link).then(() => {
+            const originalIcon = iconSvg.innerHTML;
+            const originalText = btnText.textContent;
+            
+            iconSvg.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>'; // Checkmark
+            btnText.textContent = 'Copied!';
+            btn.style.background = '#10b981'; // Green success color
+            
+            setTimeout(() => {
+                iconSvg.innerHTML = originalIcon;
+                btnText.textContent = originalText;
+                btn.style.background = '';
+            }, 2000);
+        });
+    }
+
+    async function refreshContext(id, sort_mode='newest') {
+        const btn = sort_mode === 'most_relevant' ? document.getElementById('randomBtn-' + id) : document.getElementById('refreshBtn-' + id);
+        const otherBtn = sort_mode === 'most_relevant' ? document.getElementById('refreshBtn-' + id) : document.getElementById('randomBtn-' + id);
+        const status = document.getElementById('refreshStatus-' + id);
+        
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '⏳ Fetching…';
+        btn.disabled = true;
+        otherBtn.disabled = true;
+        status.style.display = 'none';
+
+        try {
+            const res = await fetch('/dashboard/google-reviews/refresh-context', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ settings_id: id, sort_mode: sort_mode })
+            });
+            const data = await res.json();
+
+            if (data.status === 'success') {
+                status.style.color = '#10b981';
+                status.textContent = '✅ ' + data.message;
+                // Update the context display live
+                const box = document.getElementById('contextBox-' + id);
+                box.style.fontStyle = 'normal';
+                box.style.color = 'var(--text-secondary)';
+                box.innerHTML = data.context.split(' | ').join('<br>— ');
+            } else {
+                status.style.color = '#f59e0b';
+                status.textContent = '⚠️ ' + data.message;
+            }
+        } catch (e) {
+            status.style.color = '#ef4444';
+            status.textContent = '❌ Network error. Please try again.';
+        }
+        status.style.display = 'block';
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        otherBtn.disabled = false;
+    }
+</script>
+{% endblock %}
