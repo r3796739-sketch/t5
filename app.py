@@ -119,6 +119,12 @@ app.register_blueprint(flow_bp)
 from routes_messenger import messenger_bp
 app.register_blueprint(messenger_bp)
 
+from routes_youtube_comments import youtube_comments_bp
+app.register_blueprint(youtube_comments_bp)
+
+from routes_google_reviews import google_reviews_bp
+app.register_blueprint(google_reviews_bp)
+
 
 # --- File Upload Configuration for Multi-Source Chatbots ---
 UPLOAD_FOLDER = 'uploads/whatsapp_chats'
@@ -4840,4 +4846,4 @@ def paypal_webhook():
 
 if __name__ == '__main__':
 
-    app.run(debug=True, host='0.0.0.0', port=5678)
+    app.run(debug=True, host='0.0.0.0', port=5000)
