@@ -18,7 +18,7 @@ def login_required(f):
     return decorated_function
 
 
-def _fetch_and_cache_reviews_context(place_id, business_name, user_id, supabase, business_description="", sort_mode="newest"):
+def _fetch_and_cache_reviews_context(place_id, business_name, user_id, supabase, business_description="", sort_mode="newest", settings_id=None):
     """
     Fetches top reviews from Google Places API and caches them.
     Falls back to business_description if no API key is set.
@@ -45,15 +45,62 @@ def _fetch_and_cache_reviews_context(place_id, business_name, user_id, supabase,
     if not reviews_context and business_description:
         reviews_context = f"Business context: {business_description}"
 
-    # Persist to DB
+    # Persist to DB — always scope to settings_id when available to avoid
+    # overwriting all businesses for this user.
     try:
-        supabase.table('google_review_settings').update(
+        query = supabase.table('google_review_settings').update(
             {'cached_reviews_context': reviews_context}
-        ).eq('user_id', user_id).execute()
+        ).eq('user_id', user_id)
+        if settings_id:
+            query = query.eq('id', settings_id)
+        query.execute()
     except Exception as e:
         logging.warning(f"[Google Reviews] Could not cache reviews context: {e}")
 
     return reviews_context
+
+def _gr_generate_fast(prompt: str, llm_provider: str, llm_model: str, api_key: str) -> str:
+    """
+    Non-streaming single LLM call optimised for short review text generation.
+    Uses generate_content(stream=False) for Gemini which avoids SSE overhead.
+    Falls back to collecting stream chunks for other providers.
+    """
+    try:
+        if llm_provider == 'gemini':
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(llm_model)
+
+            # Thinking models (e.g. gemini-3-flash-preview) consume hidden reasoning
+            # tokens that count against max_output_tokens.  With a small cap the actual
+            # review text gets crowded out and truncated.
+            # Fix: disable thinking (budget=0) or boost the cap so there is room for both.
+            gen_config_kwargs = {
+                'max_output_tokens': 512,
+                'temperature': 0.9,
+            }
+            try:
+                thinking_config = genai.types.ThinkingConfig(thinking_budget=0)
+                gen_config_kwargs['thinking_config'] = thinking_config
+            except (AttributeError, TypeError):
+                # SDK doesn't support ThinkingConfig — give the model plenty of headroom
+                gen_config_kwargs['max_output_tokens'] = 4096
+
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(**gen_config_kwargs),
+                stream=False
+            )
+            return response.text.strip() if response.text else ""
+        else:
+            from utils.qa_utils import LLM_STREAM_PROVIDER_MAP
+            stream_func = LLM_STREAM_PROVIDER_MAP.get(llm_provider)
+            if stream_func and api_key:
+                return "".join(stream_func(prompt, llm_model, api_key)).strip()
+    except Exception as e:
+        logging.warning(f"[Google Reviews] _gr_generate_fast failed: {e}")
+    return ""
+
 
 
 def _generate_review_text(business_name, reviews_context):
@@ -70,21 +117,11 @@ def _generate_review_text(business_name, reviews_context):
         f"Output ONLY the review text, nothing else."
     )
 
-    llm_provider = os.environ.get('LLM_PROVIDER', 'openai').lower()
-    llm_model = os.environ.get('MODEL_NAME', 'gpt-3.5-turbo')
+    llm_provider = (os.environ.get('GR_LLM_PROVIDER') or os.environ.get('LLM_PROVIDER', 'openai')).lower()
+    llm_model = os.environ.get('GR_LLM_MODEL') or os.environ.get('MODEL_NAME', 'gpt-3.5-turbo')
     api_key = _get_api_key(llm_provider)
 
-    stream_func = LLM_STREAM_PROVIDER_MAP.get(llm_provider)
-    generated_text = ""
-
-    if stream_func and api_key:
-        try:
-            chunks = []
-            for chunk in stream_func(prompt, llm_model, api_key):
-                chunks.append(chunk)
-            generated_text = "".join(chunks).strip()
-        except Exception as e:
-            logging.error(f"[Google Reviews] LLM generation failed: {e}")
+    generated_text = _gr_generate_fast(prompt, llm_provider, llm_model, api_key)
 
     if not generated_text or "Error:" in generated_text:
         generated_text = f"I had a wonderful experience with {business_name}. The service was top-notch and I'd definitely recommend them!"
@@ -122,9 +159,14 @@ def _send_limit_email_async(app, user_id):
             logging.error(f"Failed to send Google Review limit email for user {user_id}: {e}")
 
 @google_reviews_bp.route('/dashboard/google-reviews', methods=['GET', 'POST'])
-@login_required
 def google_reviews_dashboard():
     from utils.subscription_utils import get_user_status
+    
+    if 'user' not in session:
+        if request.method == 'POST':
+            return redirect(url_for('channel') + '?login=1')
+        return render_template('google_reviews_dashboard.html', settings_list=[], feedbacks=[], user_id=None, max_businesses=0, stats={}, needs_login=True)
+
     user_id = session['user']['id']
     supabase = get_supabase_admin_client()
     
@@ -160,6 +202,7 @@ def google_reviews_dashboard():
             s_id_int = int(settings_id) if settings_id.isdigit() else None
             if s_id_int and s_id_int in _public_settings_cache:
                 del _public_settings_cache[s_id_int]
+            active_settings_id = s_id_int
         else:
             # Check limits before creating new
             existing = supabase.table('google_review_settings').select('id', count='exact').eq('user_id', user_id).execute()
@@ -167,11 +210,12 @@ def google_reviews_dashboard():
             if current_count >= max_businesses:
                 flash(f'Plan limit reached: You can only add {max_businesses} Google Business{"es" if max_businesses > 1 else ""}. Please upgrade to the Creator Plan for more.', 'error')
                 return redirect(url_for('google_reviews.google_reviews_dashboard'))
-                
-            supabase.table('google_review_settings').insert(data).execute()
 
-        # Cache context
-        _fetch_and_cache_reviews_context(place_id, business_name, user_id, supabase, business_description)
+            insert_res = supabase.table('google_review_settings').insert(data).execute()
+            active_settings_id = insert_res.data[0]['id'] if insert_res.data else None
+
+        # Cache context — scoped to this specific business
+        _fetch_and_cache_reviews_context(place_id, business_name, user_id, supabase, business_description, settings_id=active_settings_id)
 
         flash('Google Review Settings saved! Your review link is ready.', 'success')
         return redirect(url_for('google_reviews.google_reviews_dashboard'))
@@ -227,7 +271,7 @@ def refresh_reviews_context():
         return jsonify({'status': 'error', 'message': 'No settings found'}), 404
         
     s = settings_res.data[0]
-    context = _fetch_and_cache_reviews_context(s['place_id'], s['business_name'], user_id, supabase, s.get('business_description', ''), sort_mode)
+    context = _fetch_and_cache_reviews_context(s['place_id'], s['business_name'], user_id, supabase, s.get('business_description', ''), sort_mode, settings_id=settings_id)
     if context:
         return jsonify({'status': 'success', 'message': f'Fetched {len(context.split("|"))} real reviews from Google!', 'context': context})
     else:
@@ -342,12 +386,12 @@ def generate_review():
         )
 
     from utils.qa_utils import _get_api_key, LLM_STREAM_PROVIDER_MAP
-    llm_provider = os.environ.get('LLM_PROVIDER', 'openai').lower()
-    llm_model = os.environ.get('MODEL_NAME', 'gpt-3.5-turbo')
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    llm_provider = (os.environ.get('GR_LLM_PROVIDER') or os.environ.get('LLM_PROVIDER', 'openai')).lower()
+    llm_model = os.environ.get('GR_LLM_MODEL') or os.environ.get('MODEL_NAME', 'gpt-3.5-turbo')
     api_key = _get_api_key(llm_provider)
     stream_func = LLM_STREAM_PROVIDER_MAP.get(llm_provider)
 
-    reviews = []
     fallbacks = [
         f"Loved {business_name}!",
         f"Great experience with {business_name}. Would definitely recommend.",
@@ -355,27 +399,24 @@ def generate_review():
         f"I've been to many places, but {business_name} stands out. The attention to detail, warm service, and overall experience made it truly memorable. Will absolutely be coming back!"
     ]
 
-    for i, style in enumerate(length_styles):
+    def _generate_one(i, style):
         prompt = (
             f"{context_block}"
             f"Now write a new, unique 5-star Google review. {style} "
             f"Sound like a genuine customer. Do NOT invent specific places, trips, products, or experiences that aren't mentioned above. "
             f"Do NOT use clichés like 'highly recommended' or mention star ratings. Output ONLY the review text, nothing else."
         )
-        text = ""
-        if stream_func and api_key:
-            try:
-                chunks = []
-                for chunk in stream_func(prompt, llm_model, api_key):
-                    chunks.append(chunk)
-                text = "".join(chunks).strip()
-            except Exception as e:
-                logging.error(f"[Google Reviews] LLM generation failed for style {i}: {e}")
+        text = _gr_generate_fast(prompt, llm_provider, llm_model, api_key)
+        return i, text if (text and "Error:" not in text) else fallbacks[i]
 
-        if not text or "Error:" in text:
-            text = fallbacks[i]
+    # Run all 4 LLM calls in parallel — reduces latency from 4× to ~1× a single call
+    results = [None] * len(length_styles)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {executor.submit(_generate_one, i, style): i for i, style in enumerate(length_styles)}
+        for future in as_completed(futures):
+            i, text = future.result()
+            results[i] = text
 
-        reviews.append(text)
+    reviews = results
 
     return jsonify({'status': 'success', 'reviews': reviews})
-

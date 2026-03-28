@@ -34,7 +34,7 @@
 <body>
     <div id="notification-container" class="notification-container"></div>
 
-    <button class="hamburger" id="hamburgerBtn" aria-label="Toggle Sidebar">
+    <button class="hamburger" id="hamburgerBtn" aria-label="Toggle Sidebar" aria-expanded="false">
         <span></span><span></span><span></span>
     </button>
 
@@ -852,13 +852,15 @@
                 }
 
                 const googleLoginBtn = document.getElementById('google-login-btn');
-                if (googleLoginBtn) {
+                if (googleLoginBtn && !googleLoginBtn.dataset.listenerAttached) {
                     googleLoginBtn.addEventListener('click', () => {
+                        localStorage.setItem('login_redirect_url', window.location.href);
                         window.supabaseClient.auth.signInWithOAuth({
                             provider: 'google',
                             options: { redirectTo: window.location.origin + "/auth/callback" }
                         });
                     });
+                    googleLoginBtn.dataset.listenerAttached = 'true';
                 }
 
                 if (loginModal) {
@@ -921,6 +923,8 @@
                     sidebar.classList.toggle('open');
                     sidebarOverlay.classList.toggle('show');
                     hamburgerBtn.classList.toggle('active');
+                    const expanded = hamburgerBtn.getAttribute('aria-expanded') === 'true';
+                    hamburgerBtn.setAttribute('aria-expanded', String(!expanded));
                 };
                 hamburgerBtn.addEventListener('click', toggleSidebar);
                 sidebarOverlay.addEventListener('click', toggleSidebar);

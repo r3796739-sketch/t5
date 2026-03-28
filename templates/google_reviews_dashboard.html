@@ -1,215 +1,842 @@
 {% extends "base.html" %}
 
-{% block title %}Google Reviews Settings - YoppyChat AI{% endblock %}
+{% block title %}Google Reviews Router — YoppyChat{% endblock %}
 
 {% block page_styles %}
 <style>
-    .gr-container {
-        padding: 2rem;
-        max-width: 1000px;
-        margin: 0 auto;
+    /* ── Force parent containers to not overflow ────────────── */
+    .main-content>.card:has(.gr-wrap) {
+        overflow-x: hidden;
+        max-width: 100vw;
     }
 
-    .gr-header {
-        margin-bottom: 2rem;
+    /* ── Global reset ─────────────────────────────────────────── */
+    .gr-wrap,
+    .gr-wrap *,
+    .gr-wrap *::before,
+    .gr-wrap *::after {
+        box-sizing: border-box;
     }
 
-    .gr-header h1 {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: var(--text-primary);
+    /* Reset base.html's global button styling inside our scope */
+    .gr-wrap button,
+    .gr-wrap .btn {
+        background: none;
+        color: inherit;
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        font-size: inherit;
+        font-weight: inherit;
     }
 
-    .gr-header p {
-        color: var(--text-secondary);
-        margin-top: 0.5rem;
+    /* Reset base.html's global input styling inside our scope */
+    .gr-wrap input,
+    .gr-wrap select,
+    .gr-wrap textarea {
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        font-size: inherit;
+        background: none;
     }
 
-    .gr-card {
-        background: var(--surface-light);
-        border: 1px solid var(--neutral-200);
-        border-radius: var(--radius-lg);
-        padding: 2rem;
-        margin-bottom: 2rem;
-        box-shadow: var(--shadow-sm);
-    }
-
-    .form-group {
-        margin-bottom: 1.5rem;
-    }
-
-    .form-label {
-        display: block;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-        color: var(--text-primary);
-    }
-
-    .form-control {
+    /* ── Wrapper ──────────────────────────────────────────────── */
+    .gr-wrap {
         width: 100%;
-        padding: 0.75rem 1rem;
-        border: 1px solid var(--neutral-300);
-        border-radius: var(--radius-md);
-        background: var(--surface-medium);
-        color: var(--text-primary);
-        font-family: inherit;
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 1rem 0.75rem 3rem;
+        overflow-x: hidden;
     }
 
-    .form-control:focus {
-        outline: none;
-        border-color: var(--accent-primary);
+    /* @media (max-width: 768px) {
+        .gr-wrap {
+            margin-top: 50px;
+        }
+    } */
+
+    @media (min-width: 480px) {
+        .gr-wrap {
+            padding: 1.5rem 1rem 4rem;
+        }
     }
 
-    .form-help {
-        font-size: 0.8rem;
-        color: var(--text-muted);
-        margin-top: 0.25rem;
+    @media (min-width: 640px) {
+        .gr-wrap {
+            padding: 2rem 1.5rem 4rem;
+        }
     }
 
-    .btn-primary {
-        background: var(--accent-primary);
-        color: white;
-        padding: 0.75rem 1.5rem;
-        border: none;
-        border-radius: var(--radius-md);
-        font-weight: 600;
-        cursor: pointer;
-        transition: opacity 0.2s;
-    }
-
-    .btn-primary:hover {
-        opacity: 0.9;
-    }
-
-    .btn-secondary {
-        background: var(--surface-medium, #f3f4f6);
-        color: var(--text-primary, #374151);
-        padding: 0.75rem 1.5rem;
-        border: 1px solid var(--neutral-300, #d1d5db);
-        border-radius: var(--radius-md);
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-    }
-
-    .btn-secondary:hover {
-        background: var(--neutral-200, #e5e7eb);
-    }
-    
-    .btn-icon {
-        width: 16px;
-        height: 16px;
-        stroke-width: 2.5;
-    }
-
-    .btn-dark {
-        background: var(--text-primary, #111827);
-        color: white;
-        padding: 0.75rem 1.5rem;
-        border: none;
-        border-radius: var(--radius-md);
-        font-weight: 600;
-        cursor: pointer;
-        transition: opacity 0.2s;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-    }
-
-    .btn-dark:hover {
-        opacity: 0.9;
-    }
-
-    .gr-link-box {
-        background: rgba(139, 92, 246, 0.1);
-        border: 1px solid rgba(139, 92, 246, 0.3);
+    /* ── Hero header ─────────────────────────────────────────── */
+    .gr-hero {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.25rem;
         padding: 1rem;
-        border-radius: var(--radius-md);
+        background: rgba(var(--accent-primary-rgb, 255, 154, 86), 0.08);
+        border: 1px solid rgba(var(--accent-primary-rgb, 255, 154, 86), 0.2);
+        border-radius: 12px;
+    }
+
+    @media (min-width: 480px) {
+        .gr-hero {
+            padding: 1.25rem;
+            border-radius: 14px;
+            margin-top: 50px;
+        }
+    }
+
+    .gr-hero-text h1 {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: var(--accent-primary, #ff9a56);
+        margin: 0 0 0.3rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    @media (min-width: 480px) {
+        .gr-hero-text h1 {
+            font-size: 1.35rem;
+        }
+    }
+
+    .gr-hero-text h1 svg {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+    }
+
+    .gr-hero-text p {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        margin: 0;
+        line-height: 1.5;
+        word-break: break-word;
+    }
+
+    @media (min-width: 480px) {
+        .gr-hero-text p {
+            font-size: 0.875rem;
+        }
+    }
+
+    /* ── Flash messages ──────────────────────────────────────── */
+    .flash-alert {
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        border-radius: 10px;
+        font-size: 0.875rem;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-top: 1rem;
+        gap: 1rem;
     }
 
-    .gr-link-box code {
-        color: #8B5CF6;
-        font-weight: 600;
-        font-size: 1.1rem;
+    .flash-success {
+        background: rgba(16, 185, 129, .1);
+        border: 1px solid rgba(16, 185, 129, .3);
+        color: #10b981;
     }
 
-    .feedback-table {
+    .flash-error,
+    .flash-danger {
+        background: rgba(239, 68, 68, .1);
+        border: 1px solid rgba(239, 68, 68, .3);
+        color: #ef4444;
+    }
+
+    /* ── Card shell ──────────────────────────────────────────── */
+    .gr-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        margin-bottom: 1rem;
+        overflow: hidden;
         width: 100%;
-        border-collapse: collapse;
-        margin-top: 1rem;
     }
 
-    .feedback-table th,
-    .feedback-table td {
-        padding: 1rem;
-        text-align: left;
+    @media (min-width: 480px) {
+        .gr-card {
+            border-radius: 14px;
+            margin-bottom: 1.25rem;
+        }
+    }
+
+    /* ── Card header band ────────────────────────────────────── */
+    .card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        padding: 0.75rem 0.85rem;
         border-bottom: 1px solid var(--neutral-200);
-    }
-
-    .feedback-table th {
-        font-weight: 600;
-        color: var(--text-secondary);
         background: var(--surface-medium);
     }
 
-    .rating-badge {
-        display: inline-block;
-        padding: 0.25rem 0.5rem;
+    @media (min-width: 480px) {
+        .card-head {
+            padding: 1rem 1.25rem;
+            gap: 0.75rem;
+        }
+    }
+
+    .card-title-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 0;
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .biz-icon {
+        width: 38px;
+        height: 38px;
+        flex-shrink: 0;
+        border-radius: 10px;
+        background: rgba(var(--accent-primary-rgb, 255, 154, 86), 0.12);
+        border: 1px solid rgba(var(--accent-primary-rgb, 255, 154, 86), 0.25);
+        color: var(--accent-primary, #ff9a56);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .biz-icon svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .biz-name {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .biz-meta {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .card-actions {
+        display: flex;
+        gap: 0.35rem;
+        flex-shrink: 0;
+    }
+
+    /* ── Card body ───────────────────────────────────────────── */
+    .card-body {
+        padding: 0.85rem;
+        overflow: hidden;
+    }
+
+    @media (min-width: 480px) {
+        .card-body {
+            padding: 1.25rem;
+        }
+    }
+
+    /* ── Stat grid ───────────────────────────────────────────── */
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.6rem;
+        margin-bottom: 1rem;
+    }
+
+    @media (min-width: 480px) {
+        .stat-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    .stat-chip {
+        border-radius: 10px;
+        padding: 0.7rem 0.6rem;
+        text-align: center;
+        border: 1px solid transparent;
+    }
+
+    .stat-chip.neutral {
+        background: var(--surface-medium);
+        border-color: var(--neutral-200);
+    }
+
+    .stat-chip.green {
+        background: rgba(16, 185, 129, .07);
+        border-color: rgba(16, 185, 129, .2);
+    }
+
+    .stat-chip.amber {
+        background: rgba(245, 158, 11, .07);
+        border-color: rgba(245, 158, 11, .2);
+    }
+
+    .stat-chip.blue {
+        background: rgba(59, 130, 246, .07);
+        border-color: rgba(59, 130, 246, .2);
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+        line-height: 1;
+        margin-bottom: 0.2rem;
+    }
+
+    .stat-chip.neutral .stat-value {
+        color: var(--text-primary);
+    }
+
+    .stat-chip.green .stat-value {
+        color: #10b981;
+    }
+
+    .stat-chip.amber .stat-value {
+        color: #f59e0b;
+    }
+
+    .stat-chip.blue .stat-value {
+        color: #3b82f6;
+    }
+
+    .stat-label {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 700;
+        color: var(--text-muted);
+    }
+
+    /* ── Link box ────────────────────────────────────────────── */
+    .link-box {
+        background: rgba(var(--accent-primary-rgb, 255, 154, 86), 0.06);
+        border: 1px solid rgba(var(--accent-primary-rgb, 255, 154, 86), 0.18);
+        border-radius: 10px;
+        padding: 0.75rem;
+        margin-bottom: 0.9rem;
+    }
+
+    @media (min-width: 480px) {
+        .link-box {
+            padding: 0.9rem 1rem;
+        }
+    }
+
+    .link-label {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--accent-primary, #ff9a56);
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        margin-bottom: 0.4rem;
+    }
+
+    .link-label svg {
+        width: 12px;
+        height: 12px;
+    }
+
+    .link-row {
+        display: flex;
+        gap: 0.4rem;
+        align-items: stretch;
+    }
+
+    .link-input {
+        flex: 1;
+        width: 0;
+        /* force flex shrink */
+        min-width: 0;
+        padding: 0.45rem 0.6rem;
+        border-radius: 8px;
+        border: 1px solid var(--neutral-300);
+        background: var(--surface-medium);
+        color: var(--text-primary);
+        font-family: monospace;
+        font-size: 0.72rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .link-input:focus {
+        outline: none;
+        border-color: var(--accent-primary, #ff9a56);
+    }
+
+    /* ── Context panel ───────────────────────────────────────── */
+    .ctx-panel {
+        border: 1px solid var(--neutral-200);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .ctx-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.65rem 1rem;
+        background: var(--surface-medium);
+        border-bottom: 1px solid var(--neutral-200);
+    }
+
+    .ctx-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .ctx-label svg {
+        width: 13px;
+        height: 13px;
+    }
+
+    .ctx-btns {
+        display: flex;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+    }
+
+    .ctx-body {
+        padding: 0.65rem 0.75rem;
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        max-height: 110px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        background: var(--surface-light);
+    }
+
+    @media (min-width: 480px) {
+        .ctx-body {
+            padding: 0.75rem 1rem;
+            font-size: 0.81rem;
+        }
+    }
+
+    .ctx-body.empty {
+        color: var(--text-muted);
+        font-style: italic;
+    }
+
+    .ctx-status {
+        font-size: 0.79rem;
+        padding: 0.35rem 1rem;
+        display: none;
+    }
+
+    /* ── Form card ───────────────────────────────────────────── */
+    .form-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        margin-bottom: 1rem;
+        overflow: hidden;
+        width: 100%;
+    }
+
+    @media (min-width: 480px) {
+        .form-card {
+            border-radius: 14px;
+            margin-bottom: 1.25rem;
+        }
+    }
+
+    .form-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--neutral-200);
+        background: var(--surface-medium);
+    }
+
+    .form-head h3 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin: 0;
+        color: var(--text-primary);
+    }
+
+    .form-body {
+        padding: 0.85rem;
+    }
+
+    @media (min-width: 480px) {
+        .form-body {
+            padding: 1.25rem;
+        }
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    @media (min-width: 560px) {
+        .form-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    .fg {
+        /* form group */
+    }
+
+    .fg.full {
+        grid-column: 1 / -1;
+    }
+
+    .fg label {
+        display: block;
+        font-size: 0.83rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.4rem;
+    }
+
+    .fg label span {
+        font-weight: 400;
+        color: var(--text-muted);
+    }
+
+    .fg .fc {
+        /* form control */
+        width: 100%;
+        padding: 0.65rem 0.85rem;
+        border: 1px solid var(--neutral-300);
+        border-radius: 9px;
+        background: var(--surface-medium);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 0.875rem;
+        transition: border-color 0.15s;
+        box-sizing: border-box;
+    }
+
+    .fg .fc:focus {
+        outline: none;
+        border-color: var(--accent-primary, #ff9a56);
+    }
+
+    .form-help {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 0.3rem;
+        line-height: 1.5;
+    }
+
+    .form-help a {
+        color: var(--accent-primary, #ff9a56);
+        font-weight: 600;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .gr-wrap .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: all 0.18s;
+        border: 1px solid transparent;
+        font-family: inherit;
+        white-space: nowrap;
+        text-decoration: none;
+        padding: 0.45rem 0.85rem;
+        font-size: 0.82rem;
+        line-height: 1.4;
+        box-shadow: none;
+    }
+
+    .gr-wrap .btn svg {
+        width: 13px;
+        height: 13px;
+        flex-shrink: 0;
+        stroke-width: 2.5;
+    }
+
+    .gr-wrap .btn-accent {
+        background: var(--accent-primary, #ff9a56);
+        color: #fff;
+        border-color: var(--accent-primary, #ff9a56);
+    }
+
+    .gr-wrap .btn-accent:hover {
+        opacity: 0.88;
+        transform: translateY(-1px);
+    }
+
+    .gr-wrap .btn-ghost {
+        background: var(--surface-medium);
+        color: var(--text-secondary);
+        border: 1px solid var(--neutral-200);
+    }
+
+    .gr-wrap .btn-ghost:hover {
+        background: var(--neutral-200);
+        color: var(--text-primary);
+    }
+
+    .gr-wrap .btn-danger {
+        background: transparent;
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.25);
+    }
+
+    .gr-wrap .btn-danger:hover {
+        background: rgba(239, 68, 68, 0.06);
+    }
+
+    .gr-wrap .btn-sm {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.75rem;
+        border-radius: 6px;
+    }
+
+    .gr-wrap .btn-full {
+        width: 100%;
+        justify-content: center;
+    }
+
+    @media (max-width: 400px) {
+        .gr-wrap .btn-sm {
+            padding: 0.28rem 0.45rem;
+            font-size: 0.7rem;
+        }
+
+        .gr-wrap .btn-sm .btn-lbl {
+            display: none;
+        }
+    }
+
+    /* ── Empty state ─────────────────────────────────────────── */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1.5rem;
+        background: var(--surface-light);
+        border: 1px dashed var(--neutral-200);
+        border-radius: 14px;
+        margin-bottom: 1.25rem;
+        color: var(--text-muted);
+    }
+
+    .empty-state .es-icon {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 1rem;
+        color: var(--accent-primary, #ff9a56);
+        opacity: 0.6;
+    }
+
+    .empty-state h3 {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0 0 0.4rem;
+    }
+
+    .empty-state p {
+        font-size: 0.875rem;
+        margin: 0 0 1.25rem;
+    }
+
+    /* ── Feedback section ────────────────────────────────────── */
+    .fb-section {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: 14px;
+        box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+
+    .fb-head {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--neutral-200);
+        background: var(--surface-medium);
+        flex-wrap: wrap;
+    }
+
+    .fb-head h3 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin: 0;
+        color: var(--text-primary);
+    }
+
+    .fb-tag {
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 0.15rem 0.5rem;
         border-radius: 999px;
-        font-size: 0.8rem;
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+    }
+
+    .fb-note {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-left: auto;
+    }
+
+    .fb-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .fb-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 520px;
+    }
+
+    .fb-table th,
+    .fb-table td {
+        padding: 0.75rem 1.25rem;
+        text-align: left;
+        border-bottom: 1px solid var(--neutral-200);
+        font-size: 0.83rem;
+    }
+
+    .fb-table th {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        background: var(--surface-medium);
+    }
+
+    .fb-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .fb-table tr:hover td {
+        background: rgba(0, 0, 0, 0.015);
+    }
+
+    .rating-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.15rem;
+        padding: 0.18rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
         font-weight: 700;
     }
 
     .rating-bad {
-        background: rgba(239, 68, 68, 0.1);
-        color: #EF4444;
+        background: rgba(239, 68, 68, .1);
+        color: #ef4444;
     }
 
     .rating-ok {
-        background: rgba(245, 158, 11, 0.1);
-        color: #F59E0B;
+        background: rgba(245, 158, 11, .1);
+        color: #f59e0b;
     }
 
-    .flash-alert {
-        padding: 0.75rem 1rem;
-        margin-bottom: 1rem;
-        border-radius: 0.5rem;
+    .fb-empty {
+        padding: 2.5rem 2rem;
+        text-align: center;
+        color: var(--text-muted);
         font-size: 0.875rem;
     }
-    .flash-success {
-        background: rgba(16, 185, 129, 0.15);
-        border: 1px solid rgba(16, 185, 129, 0.3);
+
+    .fb-empty svg {
+        width: 28px;
+        height: 28px;
         color: #10b981;
+        margin-bottom: 0.65rem;
     }
-    .flash-error, .flash-danger {
-        background: rgba(239, 68, 68, 0.15);
-        border: 1px solid rgba(239, 68, 68, 0.3);
-        color: #ef4444;
+
+    .fb-empty strong {
+        display: block;
+        color: var(--text-secondary);
+        margin-bottom: 0.2rem;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="gr-container">
-    <div class="gr-header">
-        <h1>Google Reviews Router</h1>
-        <p>Intercept negative feedback and use AI to generate 5-star Google Reviews from happy customers.</p>
+<div class="gr-wrap">
+
+    <!-- ── Hero ───────────────────────────────────────────── -->
+    <div class="gr-hero">
+        <div class="gr-hero-text">
+            <h1>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <polygon
+                        points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+                Google Reviews Router
+            </h1>
+            <p>Intercept negative feedback privately and guide satisfied customers to leave 5-star Google reviews —
+                powered by AI.</p>
+        </div>
+        {% if settings_list|length < max_businesses %} <button class="btn btn-accent" onclick="showNewForm()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span class="btn-lbl">Add Business</span>
+            </button>
+            {% endif %}
     </div>
 
-    <!-- Flash messages -->
+    <!-- ── Flash messages ─────────────────────────────────── -->
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
     {% for category, message in messages %}
     <div class="flash-alert flash-{{ category }}">
-        {{ message }}
-        <span onclick="this.parentElement.remove()" style="float:right; cursor:pointer; opacity:0.5; margin-left:1rem;">✕</span>
+        <span>{{ message }}</span>
+        <button onclick="this.parentElement.remove()"
+            style="background:none;border:none;cursor:pointer;opacity:0.5;font-size:1.1rem;color:inherit;padding:0;line-height:1;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+        </button>
     </div>
     {% endfor %}
     <script>
@@ -221,206 +848,340 @@
     {% endif %}
     {% endwith %}
 
-    <div style="display:flex; justify-content:flex-end; margin-bottom: 2rem;">
-        {% if settings_list|length < max_businesses %}
-        <button class="btn-dark" onclick="showNewForm()" style="font-size:0.9rem; padding:0.6rem 1.2rem; display:inline-flex; align-items:center; gap:0.4rem;">
-            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Add Business
-        </button>
-        {% endif %}
-    </div>
-
+    <!-- ── Business cards ─────────────────────────────────── -->
     {% if settings_list|length > 0 %}
-    <!-- ── LIST EXISTING BUSINESSES ── -->
     {% for settings in settings_list %}
-    <div class="gr-card viewMode-card" id="viewMode-{{ settings.get('id') }}">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; flex-wrap:wrap; gap:0.5rem;">
-            <div>
-                <h3 style="margin:0;">{{ settings.get('business_name') }}</h3>
-                <span style="font-size:0.78rem; color:var(--text-muted); font-family:monospace;">{{ settings.get('place_id') }} • Routing {{ settings.get('minimum_stars', 4) }}+ Stars to Google</span>
+    {% set s_id = settings.get('id') %}
+    {% set safe_name = settings.get('business_name','business') | replace(" ","-") | lower %}
+    {% set link_url = url_for('google_reviews.public_review_page', business_name=safe_name, settings_id=s_id,
+    _external=True) %}
+
+    <!-- VIEW MODE -->
+    <div class="gr-card viewMode-card" id="viewMode-{{ s_id }}">
+
+        <div class="card-head">
+            <div class="card-title-row">
+                <div class="biz-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <rect x="2" y="7" width="20" height="14" rx="2" />
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                    </svg>
+                </div>
+                <div style="min-width:0;">
+                    <div class="biz-name">{{ settings.get('business_name') }}</div>
+                    <div class="biz-meta">{{ settings.get('place_id','')[:32] }}… &bull; Routes {{
+                        settings.get('minimum_stars',4) }}&#9733;+ to Google</div>
+                </div>
             </div>
-            <div style="display:flex; gap:0.5rem;">
-                <button class="btn-secondary" onclick="showEditMode('{{ settings.get('id') }}')" style="font-size:0.82rem; padding:0.4rem 0.9rem;">
-                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                    Edit
+            <div class="card-actions">
+                <button class="btn btn-ghost btn-sm" onclick="showEditMode('{{ s_id }}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                    <span class="btn-lbl">Edit</span>
                 </button>
-                <form action="{{ url_for('google_reviews.delete_business', settings_id=settings.get('id')) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this business? All captured reviews linked to it will also be deleted.')" style="margin:0;">
-                    <button type="submit" class="btn-secondary" style="font-size:0.82rem; padding:0.4rem 0.9rem; color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">
-                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                        Delete
+                <form id="deleteForm-{{ s_id }}"
+                    action="{{ url_for('google_reviews.delete_business', settings_id=s_id) }}" method="POST"
+                    style="margin:0;">
+                    <button type="button" class="btn btn-danger btn-sm" data-settings-id="{{ s_id }}"
+                        onclick="confirmDeleteBusiness(this.dataset.settingsId, '{{ settings.get(" business_name","") |
+                        replace("'","&#39;") }}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                        <span class="btn-lbl">Delete</span>
                     </button>
                 </form>
             </div>
         </div>
 
-        {% set s_id = settings.get('id') %}
-        {% if stats and s_id in stats %}
-        <!-- Stats -->
-        <div style="margin-bottom:1.5rem; display:flex; gap:1rem; flex-wrap:wrap;">
-            <div style="background:rgba(0,0,0,0.02); border:1px solid var(--border-color); padding:0.6rem 1rem; border-radius:8px; flex:1; min-width:100px; text-align:center;">
-                <strong style="font-size:1.5rem; color:var(--text-color);">{{ stats[s_id]['total'] }}</strong>
-                <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Total Interacted</div>
-            </div>
-            <div style="background:rgba(16, 185, 129, 0.05); border:1px solid rgba(16, 185, 129, 0.2); padding:0.6rem 1rem; border-radius:8px; flex:1; min-width:100px; text-align:center;">
-                <strong style="font-size:1.5rem; color:#10b981;">{{ stats[s_id][5] + stats[s_id][4] }}</strong>
-                <div style="font-size:0.75rem; color:#10b981; text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Positive (4-5★)</div>
-            </div>
-            <div style="background:rgba(245, 158, 11, 0.05); border:1px solid rgba(245, 158, 11, 0.2); padding:0.6rem 1rem; border-radius:8px; flex:1; min-width:100px; text-align:center;">
-                <strong style="font-size:1.5rem; color:#f59e0b;">{{ stats[s_id][1] + stats[s_id][2] + stats[s_id][3] }}</strong>
-                <div style="font-size:0.75rem; color:#f59e0b; text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Negative (1-3★)</div>
-            </div>
-            <div style="background:rgba(59, 130, 246, 0.05); border:1px solid rgba(59, 130, 246, 0.2); padding:0.6rem 1rem; border-radius:8px; flex:1; min-width:100px; text-align:center;">
-                <strong style="font-size:1.5rem; color:#3b82f6;">{{ stats[s_id]['avg'] }}★</strong>
-                <div style="font-size:0.75rem; color:#3b82f6; text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Average Rating</div>
-            </div>
-        </div>
-        {% endif %}
+        <div class="card-body">
 
-        <!-- Public link -->
-        <div class="gr-link-box" style="margin-bottom:1.25rem;">
-            <div style="margin-bottom:0.75rem;">
-                <strong>Your Public Review Link</strong>
-                <p style="margin:0.2rem 0 0; font-size:0.82rem; color:var(--text-secondary);">Share this link via WhatsApp, SMS, or Email to start collecting reviews.</p>
-            </div>
-            {% set safe_name = settings.get('business_name', 'business') | replace(" ", "-") | lower %}
-            {% set link_url = url_for('google_reviews.public_review_page', business_name=safe_name, settings_id=settings.get('id'), _external=True) %}
-            <div style="display:flex; align-items:stretch; gap:0.5rem; flex-wrap:wrap;">
-                <input type="text" id="reviewLinkInput-{{ settings.get('id') }}" readonly value="{{ link_url }}" style="flex:1; min-width:200px; padding:0.6rem 0.8rem; border-radius:6px; border:1px solid rgba(59,130,246,0.3); background:transparent; color:var(--text-color); font-family:monospace; font-size:0.85rem;" />
-                <button type="button" class="btn-primary" onclick="copyReviewLink('{{ settings.get('id') }}')" style="display:flex; align-items:center; gap:0.4rem; padding:0 1rem; border-radius:6px; white-space:nowrap; margin:0;" id="copyBtn-{{ settings.get('id') }}">
-                    <svg id="copyIconSvg-{{ settings.get('id') }}" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-copy"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                    <span id="copyText-{{ settings.get('id') }}">Copy Link</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Google Reviews Context -->
-        <div style="border:1px solid var(--border-color); border-radius:0.65rem; padding:1rem; margin-bottom:0;">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.65rem; flex-wrap:wrap; gap:0.5rem;">
-                <span style="font-size:0.82rem; font-weight:600; color:var(--text-secondary); display:flex; align-items:center; gap:0.4rem;">
-                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg> 
-                    Cached Google Reviews Context
-                </span>
-                <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-                    <button class="btn-secondary" id="refreshBtn-{{ settings.get('id') }}" onclick="refreshContext('{{ settings.get('id') }}', 'newest')" style="font-size:0.78rem; padding:0.35rem 0.8rem;">
-                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 1 0 2.1-5.7L21 8"></path></svg> 
-                        Fetch Latest
-                    </button>
-                    <button class="btn-secondary" id="randomBtn-{{ settings.get('id') }}" onclick="refreshContext('{{ settings.get('id') }}', 'most_relevant')" style="font-size:0.78rem; padding:0.35rem 0.8rem;">
-                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
-                        Fetch Random
-                    </button>
+            <!-- Stats -->
+            {% if stats and s_id in stats %}
+            <div class="stat-grid">
+                <div class="stat-chip neutral">
+                    <div class="stat-value">{{ stats[s_id]['total'] }}</div>
+                    <div class="stat-label">Total</div>
                 </div>
-            </div>
-            {% if settings.get('cached_reviews_context') %}
-            <div id="contextBox-{{ settings.get('id') }}" style="font-size:0.82rem; color:var(--text-secondary); line-height:1.6; background:rgba(0,0,0,0.1); border-radius:0.4rem; padding:0.65rem; max-height:110px; overflow-y:auto;">
-                {{ settings.get('cached_reviews_context') | replace(' | ', '<br>—&nbsp;') | safe }}
-            </div>
-            {% else %}
-            <div id="contextBox-{{ settings.get('id') }}" style="font-size:0.82rem; color:var(--text-muted); font-style:italic; padding:0.4rem 0;">
-                No reviews fetched yet. Click "Fetch Latest from Google" to populate AI context.
+                <div class="stat-chip green">
+                    <div class="stat-value">{{ stats[s_id][5] + stats[s_id][4] }}</div>
+                    <div class="stat-label">Positive 4-5&#9733;</div>
+                </div>
+                <div class="stat-chip amber">
+                    <div class="stat-value">{{ stats[s_id][1] + stats[s_id][2] + stats[s_id][3] }}</div>
+                    <div class="stat-label">Captured 1-3&#9733;</div>
+                </div>
+                <div class="stat-chip blue">
+                    <div class="stat-value">{{ stats[s_id]['avg'] }}&#9733;</div>
+                    <div class="stat-label">Avg Rating</div>
+                </div>
             </div>
             {% endif %}
-            <div id="refreshStatus-{{ settings.get('id') }}" style="font-size:0.8rem; margin-top:0.5rem; display:none;"></div>
+
+            <!-- Public link -->
+            <div class="link-box">
+                <div class="link-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                    </svg>
+                    Public Review Link
+                </div>
+                <div class="link-row">
+                    <input type="text" id="reviewLinkInput-{{ s_id }}" readonly value="{{ link_url }}"
+                        class="link-input">
+                    <button type="button" class="btn btn-accent btn-sm" id="copyBtn-{{ s_id }}"
+                        onclick="copyReviewLink('{{ s_id }}')">
+                        <svg id="copyIconSvg-{{ s_id }}" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        <span id="copyText-{{ s_id }}">Copy</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Context panel -->
+            <div class="ctx-panel">
+                <div class="ctx-head">
+                    <span class="ctx-label">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        Cached Google Reviews (AI Context)
+                    </span>
+                    <div class="ctx-btns">
+                        <button class="btn btn-ghost btn-sm" id="refreshBtn-{{ s_id }}"
+                            onclick="refreshContext('{{ s_id }}','newest')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M21 2v6h-6" />
+                                <path d="M3 12a9 9 0 1 0 2.1-5.7L21 8" />
+                            </svg>
+                            <span class="btn-lbl">Fetch Latest</span>
+                        </button>
+                        <button class="btn btn-ghost btn-sm" id="randomBtn-{{ s_id }}"
+                            onclick="refreshContext('{{ s_id }}','most_relevant')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <polyline points="16 3 21 3 21 8" />
+                                <line x1="4" y1="20" x2="21" y2="3" />
+                                <polyline points="21 16 21 21 16 21" />
+                                <line x1="15" y1="15" x2="21" y2="21" />
+                                <line x1="4" y1="4" x2="9" y2="9" />
+                            </svg>
+                            <span class="btn-lbl">Most Relevant</span>
+                        </button>
+                    </div>
+                </div>
+
+                {% if settings.get('cached_reviews_context') %}
+                <div id="contextBox-{{ s_id }}" class="ctx-body">{{ settings.get('cached_reviews_context') | replace(' |
+                    ','<br>— ') | safe }}</div>
+                {% else %}
+                <div id="contextBox-{{ s_id }}" class="ctx-body empty">No reviews fetched yet. Click "Fetch Latest" to
+                    populate AI context.</div>
+                {% endif %}
+                <div id="refreshStatus-{{ s_id }}" class="ctx-status"></div>
+            </div>
+
         </div>
     </div>
 
-    <!-- ── EDIT MODE (hidden by default) ── -->
-    <div class="gr-card editMode-card" id="editMode-{{ settings.get('id') }}" style="display:none;">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
-            <h3 style="margin:0;">Edit Configuration</h3>
-            <button class="btn-secondary" type="button" onclick="showViewMode('{{ settings.get('id') }}')" style="font-size:0.82rem; padding:0.4rem 0.9rem;">✕ Cancel</button>
-        </div>
-        <form method="POST" action="/dashboard/google-reviews">
-            <input type="hidden" name="settings_id" value="{{ settings.get('id') }}">
-            <div class="form-group">
-                <label class="form-label">Business Name</label>
-                <input type="text" name="business_name" class="form-control" value="{{ settings.get('business_name', '') }}" placeholder="e.g. Joe's Coffee Shop" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Google Place ID</label>
-                <input type="text" name="place_id" class="form-control" value="{{ settings.get('place_id', '') }}" placeholder="ChI..." required>
-                <div class="form-help">
-                    <a href="https://developers.google.com/maps/documentation/places/web-service/place-id" target="_blank" style="color:var(--accent-primary); font-weight:600; text-decoration:underline;">👉 Click here to find your Place ID</a>.<br>
-                    Search for your business and copy the "Place ID".
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Business Description <span style="font-weight:400; color:var(--text-muted);">(optional — helps AI write accurate reviews)</span></label>
-                <textarea name="business_description" class="form-control" rows="3" placeholder="e.g. We are a travel agency...">{{ settings.get('business_description', '') }}</textarea>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Route to Google Threshold</label>
-                <select name="minimum_stars" class="form-control" required style="padding:0.75rem;">
-                    <option value="5" {% if settings.get('minimum_stars', 4)|int == 5 %}selected{% endif %}>5 Stars only</option>
-                    <option value="4" {% if settings.get('minimum_stars', 4)|int == 4 %}selected{% endif %}>4 & 5 Stars</option>
-                    <option value="3" {% if settings.get('minimum_stars', 4)|int == 3 %}selected{% endif %}>3, 4, 5 Stars</option>
-                    <option value="2" {% if settings.get('minimum_stars', 4)|int == 2 %}selected{% endif %}>2, 3, 4, 5 Stars</option>
-                    <option value="1" {% if settings.get('minimum_stars', 4)|int == 1 %}selected{% endif %}>All Ratings (1-5)</option>
-                </select>
-                <div class="form-help">Any rating below this threshold will be captured privately.</div>
-            </div>
-            <button type="submit" class="btn-primary" style="display:inline-flex; align-items:center; gap:0.5rem; justify-content:center; width:100%;">
-                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                Save Settings
+    <!-- EDIT MODE -->
+    <div class="form-card" id="editMode-{{ s_id }}" style="display:none;">
+        <div class="form-head">
+            <h3>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:0.35rem;">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                Edit — {{ settings.get('business_name') }}
+            </h3>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="showViewMode('{{ s_id }}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+                <span class="btn-lbl">Cancel</span>
             </button>
-        </form>
+        </div>
+        <div class="form-body">
+            <form method="POST" action="/dashboard/google-reviews">
+                <input type="hidden" name="settings_id" value="{{ s_id }}">
+                <div class="form-grid">
+                    <div class="fg">
+                        <label>Business Name</label>
+                        <input type="text" name="business_name" class="fc"
+                            value="{{ settings.get('business_name','') }}" placeholder="e.g. Joe's Coffee" required>
+                    </div>
+                    <div class="fg">
+                        <label>Route to Google Threshold</label>
+                        <select name="minimum_stars" class="fc" required>
+                            <option value="5" {% if settings.get('minimum_stars',4)|int==5 %}selected{% endif %}>5 Stars
+                                only</option>
+                            <option value="4" {% if settings.get('minimum_stars',4)|int==4 %}selected{% endif %}>4 &amp;
+                                5 Stars</option>
+                            <option value="3" {% if settings.get('minimum_stars',4)|int==3 %}selected{% endif %}>3, 4, 5
+                                Stars</option>
+                            <option value="2" {% if settings.get('minimum_stars',4)|int==2 %}selected{% endif %}>2–5
+                                Stars</option>
+                            <option value="1" {% if settings.get('minimum_stars',4)|int==1 %}selected{% endif %}>All
+                                Ratings</option>
+                        </select>
+                        <div class="form-help">Ratings below threshold are captured privately.</div>
+                    </div>
+                    <div class="fg full">
+                        <label>Google Place ID</label>
+                        <input type="text" name="place_id" class="fc" value="{{ settings.get('place_id','') }}"
+                            placeholder="ChI..." required>
+                        <div class="form-help"><a
+                                href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+                                target="_blank">Find your Place ID</a> — search your business and copy the ID.</div>
+                    </div>
+                    <div class="fg full">
+                        <label>Business Description <span>(optional — helps AI write accurate reviews)</span></label>
+                        <textarea name="business_description" class="fc" rows="3"
+                            placeholder="e.g. We are a travel agency specialising in…">{{ settings.get('business_description','') }}</textarea>
+                    </div>
+                </div>
+                <div style="margin-top:1.25rem;">
+                    <button type="submit" class="btn btn-accent btn-full" id="saveBtn-edit-{{ s_id }}"
+                        onclick="setSavingState(this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <polyline points="17 21 17 13 7 13 7 21" />
+                            <polyline points="7 3 7 8 15 8" />
+                        </svg>
+                        Save Settings
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
+
     {% endfor %}
+    {% else %}
+
+    <!-- Empty state -->
+    <div class="empty-state">
+        <svg class="es-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" />
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+        </svg>
+        <h3>No businesses configured yet</h3>
+        <p>Add your first business to start routing reviews and capturing feedback.</p>
+        <button class="btn btn-accent" onclick="showNewForm()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Add Your First Business
+        </button>
+    </div>
+
     {% endif %}
 
-    <!-- ── NEW FORM ── -->
-    <div class="gr-card" id="newFormMode" style="display:{% if settings_list|length == 0 %}block{% else %}none{% endif %};">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
-            <h3 style="margin:0;">Add New Business</h3>
+    <!-- ── New Business Form ───────────────────────────────── -->
+    <div class="form-card" id="newFormMode"
+        style="display:{% if settings_list|length == 0 %}block{% else %}none{% endif %};">
+        <div class="form-head">
+            <h3>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:0.35rem;">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Add New Business
+            </h3>
             {% if settings_list|length > 0 %}
-            <button class="btn-secondary" type="button" onclick="hideNewForm()" style="font-size:0.82rem; padding:0.4rem 0.9rem;">✕ Cancel</button>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="hideNewForm()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+                <span class="btn-lbl">Cancel</span>
+            </button>
             {% endif %}
         </div>
-        <p style="color:var(--text-secondary); margin-bottom:1.5rem;">Enter your Google details to power the AI and route positive reviews.</p>
-        <form method="POST" action="/dashboard/google-reviews">
-            <div class="form-group">
-                <label class="form-label">Business Name</label>
-                <input type="text" name="business_name" class="form-control" value="" placeholder="e.g. Joe's Coffee Shop" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Google Place ID</label>
-                <input type="text" name="place_id" class="form-control" value="" placeholder="ChI..." required>
-                <div class="form-help">
-                    <a href="https://developers.google.com/maps/documentation/places/web-service/place-id" target="_blank" style="color:var(--accent-primary); font-weight:600; text-decoration:underline;">👉 Click here to find your Place ID</a>.<br>
-                    Search for your business and copy the "Place ID".
+        <div class="form-body">
+            <form method="POST" action="/dashboard/google-reviews">
+                <div class="form-grid">
+                    <div class="fg">
+                        <label>Business Name</label>
+                        <input type="text" name="business_name" class="fc" placeholder="e.g. Joe's Coffee" required>
+                    </div>
+                    <div class="fg">
+                        <label>Route to Google Threshold</label>
+                        <select name="minimum_stars" class="fc" required>
+                            <option value="5">5 Stars only</option>
+                            <option value="4" selected>4 &amp; 5 Stars</option>
+                            <option value="3">3, 4, 5 Stars</option>
+                            <option value="2">2–5 Stars</option>
+                            <option value="1">All Ratings</option>
+                        </select>
+                        <div class="form-help">Ratings below threshold are captured privately.</div>
+                    </div>
+                    <div class="fg full">
+                        <label>Google Place ID</label>
+                        <input type="text" name="place_id" class="fc" placeholder="ChI..." required>
+                        <div class="form-help"><a
+                                href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+                                target="_blank">Find your Place ID</a> — search your business and copy the ID.</div>
+                    </div>
+                    <div class="fg full">
+                        <label>Business Description <span>(optional)</span></label>
+                        <textarea name="business_description" class="fc" rows="3"
+                            placeholder="e.g. We are a boutique travel agency…"></textarea>
+                    </div>
                 </div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Business Description <span style="font-weight:400; color:var(--text-muted);">(optional)</span></label>
-                <textarea name="business_description" class="form-control" rows="3" placeholder="e.g. We are a travel agency..."></textarea>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Route to Google Threshold</label>
-                <select name="minimum_stars" class="form-control" required style="padding:0.75rem;">
-                    <option value="5">5 Stars only</option>
-                    <option value="4" selected>4 & 5 Stars</option>
-                    <option value="3">3, 4, 5 Stars</option>
-                    <option value="2">2, 3, 4, 5 Stars</option>
-                    <option value="1">All Ratings (1-5)</option>
-                </select>
-                <div class="form-help">Any rating below this threshold will be captured privately.</div>
-            </div>
-            <button type="submit" class="btn-primary" style="display:inline-flex; align-items:center; gap:0.5rem; justify-content:center; width:100%;">
-                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                Save Settings
-            </button>
-        </form>
+                <div style="margin-top:1.25rem;">
+                    <button type="submit" class="btn btn-accent btn-full" id="saveBtn-new"
+                        onclick="setSavingState(this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <polyline points="17 21 17 13 7 13 7 21" />
+                            <polyline points="7 3 7 8 15 8" />
+                        </svg>
+                        Save &amp; Activate
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
-    <!-- ── Captured Feedback ── -->
-    <div class="gr-card">
-        <h3>Captured Feedback <span style="font-size:0.8rem; font-weight:400; color:var(--text-muted);">(private — not visible on Google)</span></h3>
+    <!-- ── Captured Feedback ──────────────────────────────── -->
+    <div class="fb-section">
+        <div class="fb-head">
+            <h3>Captured Feedback</h3>
+            <span class="fb-tag">Private</span>
+            <span class="fb-note">Not visible on Google</span>
+        </div>
+
         {% if feedbacks|length > 0 %}
-        <div style="overflow-x:auto;">
-            <table class="feedback-table">
+        {% set business_map = {} %}
+        {% for s in settings_list %}{% if business_map.update({s.get('id'): s.get('business_name','Unknown')}) %}{%
+        endif %}{% endfor %}
+        <div class="fb-table-wrap">
+            <table class="fb-table">
                 <thead>
                     <tr>
                         <th>Date</th>
+                        <th>Business</th>
                         <th>Customer</th>
                         <th>Rating</th>
                         <th>Feedback</th>
@@ -429,102 +1190,118 @@
                 <tbody>
                     {% for fb in feedbacks %}
                     <tr>
-                        <td style="white-space:nowrap;">{{ fb.created_at[:10] }}</td>
+                        <td style="white-space:nowrap;color:var(--text-muted);">{{ fb.created_at[:10] }}</td>
+                        <td style="white-space:nowrap;font-weight:600;font-size:0.82rem;">{{
+                            business_map.get(fb.settings_id,'—') }}</td>
                         <td>
-                            <strong>{{ fb.customer_name or 'Anonymous' }}</strong><br>
-                            <small style="color:var(--text-muted)">{{ fb.customer_email }}</small>
+                            <div style="font-weight:600;">{{ fb.customer_name or 'Anonymous' }}</div>
+                            {% if fb.customer_email %}<div style="font-size:0.75rem;color:var(--text-muted);">{{
+                                fb.customer_email }}</div>{% endif %}
                         </td>
                         <td>
-                            <span class="rating-badge {% if fb.rating <= 2 %}rating-bad{% else %}rating-ok{% endif %}">
-                                {{ fb.rating }}★
-                            </span>
+                            <span
+                                class="rating-badge {% if fb.rating <= 2 %}rating-bad{% else %}rating-ok{% endif %}">{{
+                                fb.rating }}&#9733;</span>
                         </td>
-                        <td>{{ fb.feedback_text }}</td>
+                        <td style="color:var(--text-secondary);max-width:280px;">{{ fb.feedback_text }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         {% else %}
-        <div style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.9rem; display:flex; flex-direction:column; align-items:center; gap:0.5rem;">
-            <svg class="btn-icon" style="width:24px; height:24px; color:#10b981;" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-            No negative feedback captured yet — great service!
+        <div class="fb-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <strong>No negative feedback yet — fantastic!</strong>
+            Positive ratings are flowing straight to Google.
         </div>
         {% endif %}
     </div>
+
 </div>
 
 <script>
     function showEditMode(id) {
         document.getElementById('viewMode-' + id).style.display = 'none';
-        document.getElementById('editMode-' + id).style.display = 'block';
+        const el = document.getElementById('editMode-' + id);
+        el.style.display = 'block';
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     function showViewMode(id) {
         document.getElementById('editMode-' + id).style.display = 'none';
         document.getElementById('viewMode-' + id).style.display = 'block';
     }
+    function showNewForm() {
+        const el = document.getElementById('newFormMode');
+        el.style.display = 'block';
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    function hideNewForm() { document.getElementById('newFormMode').style.display = 'none'; }
+
+    function confirmDeleteBusiness(settingsId, businessName) {
+        const dialog = document.getElementById('confirmDeleteDialog');
+        if (!dialog) { if (confirm('Delete "' + businessName + '"?')) document.getElementById('deleteForm-' + settingsId).submit(); return; }
+        dialog.querySelector('#channelToDeleteName').textContent = businessName;
+        const btn = dialog.querySelector('.confirm-btn');
+        btn.onclick = () => { dialog.style.display = 'none'; document.getElementById('deleteForm-' + settingsId).submit(); };
+        dialog.style.display = 'flex';
+    }
+
+    function setSavingState(btn) {
+        setTimeout(() => {
+            btn.disabled = true;
+            btn.innerHTML = '<svg style="width:14px;height:14px;animation:spin 0.8s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.1-5.7"/></svg> Saving…';
+        }, 0);
+    }
 
     function copyReviewLink(id) {
         const link = document.getElementById('reviewLinkInput-' + id).value;
         const btn = document.getElementById('copyBtn-' + id);
-        const iconSvg = document.getElementById('copyIconSvg-' + id);
-        const btnText = document.getElementById('copyText-' + id);
-
-        navigator.clipboard.writeText(link).then(() => {
-            const originalIcon = iconSvg.innerHTML;
-            const originalText = btnText.textContent;
-            
-            iconSvg.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>'; // Checkmark
-            btnText.textContent = 'Copied!';
-            btn.style.background = '#10b981'; // Green success color
-            
-            setTimeout(() => {
-                iconSvg.innerHTML = originalIcon;
-                btnText.textContent = originalText;
-                btn.style.background = '';
-            }, 2000);
-        });
+        const icon = document.getElementById('copyIconSvg-' + id);
+        const txt = document.getElementById('copyText-' + id);
+        const done = () => {
+            const oi = icon.innerHTML, ot = txt.textContent;
+            icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+            txt.textContent = 'Copied!'; btn.style.background = '#10b981';
+            setTimeout(() => { icon.innerHTML = oi; txt.textContent = ot; btn.style.background = ''; }, 2000);
+        };
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(link).then(done).catch(() => { prompt('Copy this link:', link); });
+        } else { prompt('Copy this link:', link); done(); }
     }
 
-    async function refreshContext(id, sort_mode='newest') {
-        const btn = sort_mode === 'most_relevant' ? document.getElementById('randomBtn-' + id) : document.getElementById('refreshBtn-' + id);
-        const otherBtn = sort_mode === 'most_relevant' ? document.getElementById('refreshBtn-' + id) : document.getElementById('randomBtn-' + id);
+    async function refreshContext(id, sort_mode = 'newest') {
+        const isRel = sort_mode === 'most_relevant';
+        const activeBtn = document.getElementById((isRel ? 'randomBtn-' : 'refreshBtn-') + id);
+        const otherBtn = document.getElementById((isRel ? 'refreshBtn-' : 'randomBtn-') + id);
         const status = document.getElementById('refreshStatus-' + id);
-        
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '⏳ Fetching…';
-        btn.disabled = true;
-        otherBtn.disabled = true;
+        const orig = activeBtn.innerHTML;
+        activeBtn.innerHTML = '<svg style="width:14px;height:14px;animation:spin 0.8s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.1-5.7"/></svg>';
+        activeBtn.disabled = otherBtn.disabled = true;
         status.style.display = 'none';
-
         try {
-            const res = await fetch('/dashboard/google-reviews/refresh-context', { 
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ settings_id: id, sort_mode: sort_mode })
-            });
+            const res = await fetch('/dashboard/google-reviews/refresh-context', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ settings_id: id, sort_mode }) });
             const data = await res.json();
-
+            const box = document.getElementById('contextBox-' + id);
             if (data.status === 'success') {
-                status.style.color = '#10b981';
-                status.textContent = '✅ ' + data.message;
-                // Update the context display live
-                const box = document.getElementById('contextBox-' + id);
-                box.style.fontStyle = 'normal';
-                box.style.color = 'var(--text-secondary)';
-                box.innerHTML = data.context.split(' | ').join('<br>— ');
+                status.style.color = '#10b981'; status.textContent = 'Context updated successfully.';
+                box.classList.remove('empty'); box.innerHTML = data.context.split(' | ').join('<br>— ');
             } else {
-                status.style.color = '#f59e0b';
-                status.textContent = '⚠️ ' + data.message;
+                status.style.color = '#f59e0b'; status.textContent = data.message;
             }
-        } catch (e) {
-            status.style.color = '#ef4444';
-            status.textContent = '❌ Network error. Please try again.';
-        }
+        } catch { status.style.color = '#ef4444'; status.textContent = 'Network error — please try again.'; }
         status.style.display = 'block';
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-        otherBtn.disabled = false;
+        activeBtn.innerHTML = orig; activeBtn.disabled = otherBtn.disabled = false;
     }
+
+    {% if needs_login %}
+    document.addEventListener('DOMContentLoaded', () => {
+        localStorage.setItem('login_redirect_url', window.location.pathname);
+        showLoginPopup();
+    });
+    {% endif %}
 </script>
 {% endblock %}

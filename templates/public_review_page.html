@@ -12,11 +12,13 @@
     <meta property="og:title" content="Rate {{ settings.business_name }}">
     <meta property="og:description" content="Share your experience and leave a review for {{ settings.business_name }}. Your feedback helps us improve!">
     <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:image" content="{{ request.host_url }}static/images/logo/primiry__logo.png">
     
     <!-- Twitter -->
-    <meta name="twitter:card" content="summary">
+    <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Rate {{ settings.business_name }}">
     <meta name="twitter:description" content="Share your experience and leave a review for {{ settings.business_name }}. Your feedback helps us improve!">
+    <meta name="twitter:image" content="{{ request.host_url }}static/images/logo/primiry__logo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -67,6 +69,10 @@
             color: var(--muted);
             text-align: center;
             margin-bottom: 1.75rem;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         h2 {
@@ -101,6 +107,7 @@
             user-select: none;
         }
         .star:hover { transform: scale(1.15); }
+        .star:focus { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
         .star.active { color: var(--yellow); filter: drop-shadow(0 0 6px rgba(245,158,11,0.4)); }
 
         /* Divider */
@@ -170,7 +177,7 @@
             -webkit-overflow-scrolling: touch;
             scrollbar-width: none; /* Firefox */
             -ms-overflow-style: none; /* IE/Edge */
-            margin-bottom: 1.25rem;
+            margin-bottom: 0.5rem;
             cursor: grab;
             user-select: none;
             -webkit-user-select: none;
@@ -178,6 +185,14 @@
         }
         .carousel-wrap:active { cursor: grabbing; }
         .carousel-wrap::-webkit-scrollbar { display: none; }
+
+        .carousel-scroll-hint {
+            text-align: center;
+            font-size: 0.7rem;
+            color: var(--muted);
+            margin-bottom: 1.25rem;
+            letter-spacing: 0.05em;
+        }
 
         .ai-card {
             flex: 0 0 78%;
@@ -246,6 +261,28 @@
         .btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
 
         .hidden { display: none !important; }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 0.75rem;
+            font-size: 0.8rem;
+            color: var(--muted);
+            cursor: pointer;
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .back-link:hover { color: var(--text); }
+
+        .inline-error {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+            border-radius: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.82rem;
+            margin-bottom: 0.75rem;
+        }
     </style>
 </head>
 
@@ -268,6 +305,7 @@
     <div class="card hidden" id="stepNegative">
         <h2 id="negativeTitle" style="color: var(--yellow);">We're sorry 😔</h2>
         <p class="subtitle">Help us improve — tell us what went wrong and we'll make it right.</p>
+        <div id="fbError" class="inline-error hidden">Please describe what went wrong.</div>
         <input type="text" id="fbName" class="input-field" placeholder="Your Name (optional)">
         <input type="email" id="fbEmail" class="input-field" placeholder="Email (optional)">
         <textarea id="fbText" class="input-field" rows="4" placeholder="What could we have done better?"></textarea>
@@ -294,6 +332,7 @@
                 <span>— tap a card to use it</span>
             </div>
             <div class="carousel-wrap" id="aiCarousel"></div>
+            <div class="carousel-scroll-hint">← swipe for more →</div>
         </div>
 
         <button class="btn btn-primary" id="continueBtn" onclick="continueToGoogle()">Continue without writing</button>
@@ -321,15 +360,26 @@
             document.getElementById('continueBtn').textContent = hasContent ? 'Continue to Google →' : 'Continue without writing';
         }
 
-        // Stars
+        // Stars — mouse + keyboard support
         const stars = document.querySelectorAll('.star');
         stars.forEach(star => {
+            star.setAttribute('tabindex', '0');
+            star.setAttribute('role', 'radio');
+            star.setAttribute('aria-label', `${star.dataset.rating} star`);
             star.addEventListener('mouseover', () => paintStars(star.dataset.rating));
             star.addEventListener('mouseout', () => paintStars(currentRating));
             star.addEventListener('click', function () {
                 currentRating = this.dataset.rating;
                 paintStars(currentRating);
                 setTimeout(() => route(currentRating), 350);
+            });
+            star.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    currentRating = this.dataset.rating;
+                    paintStars(currentRating);
+                    setTimeout(() => route(currentRating), 350);
+                }
             });
         });
 
@@ -338,6 +388,17 @@
         }
 
         const minStarsThreshold = parseInt("{{ settings.get('minimum_stars', 4) }}") || 4;
+
+        function goBack() {
+            document.getElementById('stepNegative').classList.add('hidden');
+            document.getElementById('stepPositive').classList.add('hidden');
+            document.getElementById('step1').classList.remove('hidden');
+            currentRating = 0;
+            paintStars(0);
+            document.getElementById('myReviewText').value = '';
+            hasContent = false;
+            syncBtn();
+        }
 
         function route(rating) {
             document.getElementById('step1').classList.add('hidden');
@@ -350,6 +411,7 @@
                     negTitle.innerHTML = "Thank you! ✨";
                     negTitle.style.color = "var(--text)";
                 }
+                document.getElementById('fbError').classList.add('hidden');
                 document.getElementById('stepNegative').classList.remove('hidden');
             } else {
                 document.getElementById('starDisplay').innerText = rating;
@@ -382,18 +444,22 @@
         let isDragging = false;
 
         function buildCarousel(reviews) {
-            document.getElementById('aiLoader').classList.add('hidden');
-            const carousel = document.getElementById('aiCarousel');
-            carousel.innerHTML = '';
-            reviews.forEach(text => {
-                const card = document.createElement('div');
-                card.className = 'ai-card';
-                card.innerHTML = `<div class="ai-card-hint">👆 Tap to use</div>${text}`;
-                card.addEventListener('click', () => { if (!isDragging) pick(card, text); });
-                carousel.appendChild(card);
-            });
-            document.getElementById('aiCarouselSection').classList.remove('hidden');
-            enableDragScroll(carousel);
+            try {
+                document.getElementById('aiLoader').classList.add('hidden');
+                const carousel = document.getElementById('aiCarousel');
+                carousel.innerHTML = '';
+                reviews.forEach(text => {
+                    const card = document.createElement('div');
+                    card.className = 'ai-card';
+                    card.innerHTML = `<div class="ai-card-hint">👆 Tap to use</div>${text}`;
+                    card.addEventListener('click', () => { if (!isDragging) pick(card, text); });
+                    carousel.appendChild(card);
+                });
+                document.getElementById('aiCarouselSection').classList.remove('hidden');
+                enableDragScroll(carousel);
+            } catch (err) {
+                document.getElementById('aiLoader').classList.add('hidden');
+            }
         }
 
         function enableDragScroll(slider) {
@@ -432,14 +498,23 @@
             document.getElementById('myReviewText').value = text;
             hasContent = true;
             syncBtn();
-            navigator.clipboard.writeText(text).catch(() => {});
+            // Clipboard with silent fallback
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).catch(() => {});
+            }
         }
 
         function submitFeedback() {
             const name = document.getElementById('fbName').value;
             const email = document.getElementById('fbEmail').value;
             const feedback = document.getElementById('fbText').value;
-            if (!feedback) return alert('Please describe what went wrong.');
+            const errEl = document.getElementById('fbError');
+            if (!feedback) {
+                errEl.classList.remove('hidden');
+                document.getElementById('fbText').focus();
+                return;
+            }
+            errEl.classList.add('hidden');
             
             const btn = document.querySelector('#stepNegative .btn');
             btn.disabled = true;
@@ -466,7 +541,11 @@
             }).catch(e => console.error(e));
 
             const go = () => window.location.href = googleUrl;
-            review ? navigator.clipboard.writeText(review).finally(go) : go();
+            if (review && navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(review).finally(go);
+            } else {
+                go();
+            }
         }
     </script>
 </body>
