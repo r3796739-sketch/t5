@@ -2876,7 +2876,7 @@
           if (res.ok) {
             const redirectUrl = localStorage.getItem('login_redirect_url');
             if (redirectUrl) { localStorage.removeItem('login_redirect_url'); window.location.href = redirectUrl; }
-            else { window.location.href = '/channel'; }
+            else { window.location.href = '/chatbot/create-ui'; }
           } else {
             if (errDiv) { errDiv.textContent = 'Login succeeded but session sync failed. Try again.'; errDiv.style.display = 'block'; }
           }

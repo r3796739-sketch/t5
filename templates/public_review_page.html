@@ -5,34 +5,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rate {{ settings.business_name }}</title>
-    <meta name="description" content="Share your experience and leave a review for {{ settings.business_name }}. Your feedback helps us improve!">
-    
+    <meta name="description"
+        content="Share your experience and leave a review for {{ settings.business_name }}. Your feedback helps us improve!">
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:title" content="Rate {{ settings.business_name }}">
-    <meta property="og:description" content="Share your experience and leave a review for {{ settings.business_name }}. Your feedback helps us improve!">
+    <meta property="og:description"
+        content="Share your experience and leave a review for {{ settings.business_name }}. Your feedback helps us improve!">
     <meta property="og:url" content="{{ request.url }}">
     <meta property="og:image" content="{{ request.host_url }}static/images/logo/primiry__logo.png">
-    
+
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Rate {{ settings.business_name }}">
-    <meta name="twitter:description" content="Share your experience and leave a review for {{ settings.business_name }}. Your feedback helps us improve!">
+    <meta name="twitter:description"
+        content="Share your experience and leave a review for {{ settings.business_name }}. Your feedback helps us improve!">
     <meta name="twitter:image" content="{{ request.host_url }}static/images/logo/primiry__logo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
         :root {
             --bg: #080f1a;
             --surface: #111827;
             --surface2: #1a2436;
-            --border: rgba(255,255,255,0.08);
+            --border: rgba(255, 255, 255, 0.08);
             --text: #f1f5f9;
             --muted: #64748b;
             --accent: #3b82f6;
-            --accent-glow: rgba(59,130,246,0.15);
+            --accent-glow: rgba(59, 130, 246, 0.15);
             --green: #10b981;
             --yellow: #f59e0b;
             --star-off: #1e2d40;
@@ -41,8 +50,8 @@
         body {
             font-family: 'Inter', -apple-system, sans-serif;
             background: var(--bg);
-            background-image: radial-gradient(ellipse at 30% 0%, rgba(59,130,246,0.08) 0%, transparent 60%),
-                              radial-gradient(ellipse at 70% 100%, rgba(16,185,129,0.05) 0%, transparent 60%);
+            background-image: radial-gradient(ellipse at 30% 0%, rgba(59, 130, 246, 0.08) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 100%, rgba(16, 185, 129, 0.05) 0%, transparent 60%);
             color: var(--text);
             min-height: 100vh;
             display: flex;
@@ -58,7 +67,7 @@
             padding: 2rem 1.75rem;
             width: 130%;
             max-width: 420px;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.03);
         }
 
         .brand {
@@ -73,6 +82,16 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+        .brand img {
+            display: block;
+            margin: 0 auto 0.5rem;
+            max-width: 56px;
+            max-height: 56px;
+            border-radius: 12px;
+            object-fit: contain;
+            background: rgba(255,255,255,0.05); /* subtle backdrop */
+            padding: 4px;
         }
 
         h2 {
@@ -106,9 +125,21 @@
             line-height: 1;
             user-select: none;
         }
-        .star:hover { transform: scale(1.15); }
-        .star:focus { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
-        .star.active { color: var(--yellow); filter: drop-shadow(0 0 6px rgba(245,158,11,0.4)); }
+
+        .star:hover {
+            transform: scale(1.15);
+        }
+
+        .star:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+
+        .star.active {
+            color: var(--yellow);
+            filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.4));
+        }
 
         /* Divider */
         .divider {
@@ -133,8 +164,15 @@
             transition: border-color 0.2s;
             margin-bottom: 1.25rem;
         }
-        .review-textarea:focus { outline: none; border-color: var(--accent); }
-        .review-textarea::placeholder { color: var(--muted); }
+
+        .review-textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .review-textarea::placeholder {
+            color: var(--muted);
+        }
 
         /* Input fields (negative flow) */
         .input-field {
@@ -149,9 +187,21 @@
             margin-bottom: 0.75rem;
             transition: border-color 0.2s;
         }
-        .input-field:focus { outline: none; border-color: var(--accent); }
-        .input-field::placeholder { color: var(--muted); }
-        textarea.input-field { resize: vertical; min-height: 80px; line-height: 1.5; }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .input-field::placeholder {
+            color: var(--muted);
+        }
+
+        textarea.input-field {
+            resize: vertical;
+            min-height: 80px;
+            line-height: 1.5;
+        }
 
         /* AI section */
         .ai-label {
@@ -165,7 +215,13 @@
             letter-spacing: 0.06em;
             margin-bottom: 0.65rem;
         }
-        .ai-label span { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+        .ai-label span {
+            color: var(--muted);
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: 0;
+        }
 
         /* Carousel */
         .carousel-wrap {
@@ -175,16 +231,24 @@
             overflow-y: hidden;
             padding-bottom: 0.5rem;
             -webkit-overflow-scrolling: touch;
-            scrollbar-width: none; /* Firefox */
-            -ms-overflow-style: none; /* IE/Edge */
+            scrollbar-width: none;
+            /* Firefox */
+            -ms-overflow-style: none;
+            /* IE/Edge */
             margin-bottom: 0.5rem;
             cursor: grab;
             user-select: none;
             -webkit-user-select: none;
             /* scroll-behavior: smooth; removed intentionally to fix JS manual drag lag */
         }
-        .carousel-wrap:active { cursor: grabbing; }
-        .carousel-wrap::-webkit-scrollbar { display: none; }
+
+        .carousel-wrap:active {
+            cursor: grabbing;
+        }
+
+        .carousel-wrap::-webkit-scrollbar {
+            display: none;
+        }
 
         .carousel-scroll-hint {
             text-align: center;
@@ -197,40 +261,68 @@
         .ai-card {
             flex: 0 0 78%;
             background: var(--accent-glow);
-            border: 1px dashed rgba(59,130,246,0.3);
+            border: 1px dashed rgba(59, 130, 246, 0.3);
             border-radius: 0.875rem;
             padding: 0.75rem 0.9rem;
             font-size: 0.875rem;
             line-height: 1.55;
             color: var(--text);
             transition: background 0.2s, border-color 0.2s, transform 0.15s;
-            height: fit-content; /* Prevents cards from stretching */
+            height: fit-content;
+            /* Prevents cards from stretching */
             user-select: none;
             -webkit-user-select: none;
         }
-        .ai-card:hover { background: rgba(59,130,246,0.2); border-color: var(--accent); transform: translateY(-2px); }
-        .ai-card.selected { background: rgba(59,130,246,0.18); border: 1px solid var(--accent); }
+
+        .ai-card:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .ai-card.selected {
+            background: rgba(59, 130, 246, 0.18);
+            border: 1px solid var(--accent);
+        }
+
         .ai-card-hint {
             display: flex;
             align-items: center;
             gap: 0.3rem;
             font-size: 0.7rem;
             font-weight: 600;
-            color: rgba(59,130,246,0.8);
+            color: rgba(59, 130, 246, 0.8);
             margin-bottom: 0.4rem;
         }
 
         /* Loader */
-        .loader-wrap { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0 1rem; }
+        .loader-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0 1rem;
+        }
+
         .loader {
-            width: 18px; height: 18px; flex-shrink: 0;
-            border: 2px solid rgba(255,255,255,0.08);
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            border: 2px solid rgba(255, 255, 255, 0.08);
             border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
-        .loader-text { font-size: 0.82rem; color: var(--muted); }
-        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loader-text {
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
 
         /* Button */
         .btn {
@@ -244,12 +336,18 @@
             cursor: pointer;
             transition: all 0.2s;
         }
+
         .btn-primary {
             background: linear-gradient(135deg, #3b82f6, #2563eb);
             color: white;
-            box-shadow: 0 4px 15px rgba(59,130,246,0.3);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
         }
-        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246,0.4); }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+
         .btn-ghost {
             background: transparent;
             color: var(--muted);
@@ -258,9 +356,15 @@
             font-size: 0.875rem;
             padding: 0.75rem;
         }
-        .btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
 
-        .hidden { display: none !important; }
+        .btn-ghost:hover {
+            color: var(--text);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .hidden {
+            display: none !important;
+        }
 
         .back-link {
             display: block;
@@ -272,7 +376,10 @@
             text-decoration: none;
             transition: color 0.15s;
         }
-        .back-link:hover { color: var(--text); }
+
+        .back-link:hover {
+            color: var(--text);
+        }
 
         .inline-error {
             background: rgba(239, 68, 68, 0.12);
@@ -289,7 +396,12 @@
 <body>
     <!-- Step 1: Star Rating -->
     <div class="card" id="step1">
-        <div class="brand">{{ settings.business_name }}</div>
+        <div class="brand">
+            {% if settings.get('logo_url') %}
+            <img src="{{ settings.logo_url }}" alt="{{ settings.business_name }} Logo">
+            {% endif %}
+            {{ settings.business_name }}
+        </div>
         <h2>How was your experience?</h2>
         <p class="subtitle">Tap a star to rate your recent visit</p>
         <div class="stars-wrap" id="starsGroup">
@@ -317,7 +429,8 @@
         <h2 style="color: var(--green);">You're amazing! <span id="starDisplay">5</span>★</h2>
         <p class="subtitle">Share your experience on Google — it means the world to us!</p>
 
-        <textarea id="myReviewText" class="review-textarea" placeholder="Write your review here, or tap an AI suggestion below…"></textarea>
+        <textarea id="myReviewText" class="review-textarea"
+            placeholder="Write your review here, or tap an AI suggestion below…"></textarea>
 
         <!-- Loader -->
         <div id="aiLoader" class="loader-wrap">
@@ -500,7 +613,7 @@
             syncBtn();
             // Clipboard with silent fallback
             if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(text).catch(() => {});
+                navigator.clipboard.writeText(text).catch(() => { });
             }
         }
 
@@ -515,7 +628,7 @@
                 return;
             }
             errEl.classList.add('hidden');
-            
+
             const btn = document.querySelector('#stepNegative .btn');
             btn.disabled = true;
 
@@ -532,7 +645,7 @@
 
         function continueToGoogle() {
             const review = document.getElementById('myReviewText').value.trim();
-            
+
             // Record the positive rating in background
             fetch('/api/google-reviews/submit-feedback', {
                 method: 'POST',

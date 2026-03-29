@@ -672,7 +672,7 @@
                             localStorage.removeItem('login_redirect_url');
                             window.location.href = redirectUrl;
                         } else {
-                            window.location.href = '/channel';
+                            window.location.href = '/chatbot/create-ui';
                         }
                     } else {
                         if (errorDiv) { errorDiv.textContent = 'Login succeeded but session sync failed. Please try again.'; errorDiv.style.display = 'block'; }

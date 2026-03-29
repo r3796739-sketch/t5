@@ -499,7 +499,7 @@ def whop_embed_auth():
         db_utils.link_user_to_community(app_user_id, community_id)
         
         flash("Welcome! You've been securely logged in.", 'success')
-        return redirect(url_for('channel'))
+        return redirect(url_for('chatbot_create_ui'))
 
     except jwt.ExpiredSignatureError:
         flash("Your authentication link has expired. Please try again.", "error")
@@ -559,7 +559,7 @@ def whop_installation_callback():
 
         session['user'] = auth_user.model_dump()
         flash('Your community has been successfully installed! You have 10 free queries to test out the bot.', 'success')
-        return redirect(url_for('channel'))
+        return redirect(url_for('chatbot_create_ui'))
 
     except Exception as e:
         print(f"An error occurred during Whop installation callback: {e}")
@@ -822,9 +822,8 @@ def auth_reset_password():
 
 @app.route('/')
 def home():
-    # If the user hits app.yoppychat.com/ they should be forced to /channel
-    # The /channel route handles unauthenticated users nicely by showing a sign up page.
-    return redirect(url_for('channel'))
+    # Force visitors to the new multi-source AI persona generation page
+    return redirect(url_for('chatbot_create_ui'))
 
 # --- All other routes like /channel, /ask, /stream_answer, etc. remain unchanged ---
 # ... (The rest of your app.py file from /channel downwards remains the same)

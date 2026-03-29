@@ -1,6 +1,8 @@
 import os
+import uuid
 import requests
 import logging
+from werkzeug.utils import secure_filename
 from flask import Blueprint, request, jsonify, render_template, session, redirect, url_for, flash
 from functools import wraps
 from utils.supabase_client import get_supabase_admin_client
@@ -195,6 +197,23 @@ def google_reviews_dashboard():
             'business_description': business_description,
             'minimum_stars': minimum_stars
         }
+
+        # Handle logo upload
+        logo_file = request.files.get('business_logo')
+        if logo_file and logo_file.filename:
+            allowed_ext = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'}
+            ext = logo_file.filename.rsplit('.', 1)[-1].lower() if '.' in logo_file.filename else ''
+            if ext in allowed_ext:
+                logos_dir = os.path.join(os.path.dirname(__file__), 'static', 'uploads', 'logos')
+                os.makedirs(logos_dir, exist_ok=True)
+                safe_name = f"{uuid.uuid4().hex}.{ext}"
+                logo_file.save(os.path.join(logos_dir, safe_name))
+                data['logo_url'] = f"/static/uploads/logos/{safe_name}"
+        elif settings_id:
+            # Preserve existing logo on edit if no new file uploaded
+            existing_row = supabase.table('google_review_settings').select('logo_url').eq('id', settings_id).maybe_single().execute()
+            if existing_row and existing_row.data and existing_row.data.get('logo_url'):
+                data['logo_url'] = existing_row.data['logo_url']
 
         if settings_id:
             # Update existing
