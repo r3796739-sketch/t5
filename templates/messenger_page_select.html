@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Select Facebook Page{% endblock %}
+
+{% block page_styles %}
+<style>
+.selection-container {
+    max-width: 600px;
+    margin: 40px auto;
+    background: var(--bg-primary, #ffffff);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    border: 1px solid var(--border-color, #e5e7eb);
+}
+.page-btn {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 15px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+}
+.page-btn:hover {
+    border-color: #0ea5e9;
+    background: rgba(14, 165, 233, 0.05);
+}
+.page-btn svg {
+    margin-right: 15px;
+    color: #0ea5e9;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="selection-container">
+    <h2 style="margin-bottom: 20px;">Select Facebook Page</h2>
+    <p style="color: var(--text-secondary); margin-bottom: 30px;">
+        You have multiple Facebook Pages. Which one would you like to connect to this chatbot?
+    </p>
+    
+    {% for page in pages %}
+    <form action="{{ url_for('messenger.select_page') }}" method="POST" style="margin: 0;">
+        <input type="hidden" name="channel_id" value="{{ channel_id }}">
+        <input type="hidden" name="page_id" value="{{ page.id }}">
+        <input type="hidden" name="page_access_token" value="{{ page.access_token }}">
+        <input type="hidden" name="page_name" value="{{ page.name }}">
+        
+        <button type="submit" class="page-btn">
+            <svg viewBox="0 0 24 24" fill="none" class="feature-icon" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="12" y1="8" x2="12" y2="16"></line>
+                <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+            <div style="flex-grow: 1;">
+                <div style="font-weight: 600; font-size: 1.1rem; color: var(--text-primary);">{{ page.name }}</div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary);">ID: {{ page.id }}</div>
+            </div>
+        </button>
+    </form>
+    {% endfor %}
+    
+    <div style="margin-top: 20px; text-align: center;">
+        <a href="{{ url_for('chatbot_settings', chatbot_id=channel_id) }}?tab=integrations" style="color: var(--text-secondary); text-decoration: none; font-size: 0.9rem;">
+            Cancel
+        </a>
+    </div>
+</div>
+{% endblock %}

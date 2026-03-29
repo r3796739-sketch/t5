@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Cookie Policy for YoppyChat - Learn about how we use cookies and similar technologies.">
+    <title>Cookie Policy - YoppyChat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#ff9a56',
+                        secondary: '#ff8c42',
+                        purple: '#9333ea',
+                        'purple-light': '#a855f7',
+                        success: '#4caf50',
+                        'text-primary': '#2a1f16',
+                        'text-secondary': '#5a4a32',
+                        'text-muted': '#7d6847',
+                        'neutral-100': '#f8f1e8',
+                        'neutral-200': '#f0e6d6',
+                        'neutral-300': '#e6d5c1',
+                        'neutral-400': '#c4a882',
+                        cream: '#fdf8f3',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #fdf8f3;
+            color: #2a1f16;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #ff9a56 0%, #ff8c42 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f8f1e8;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c4a882;
+            border-radius: 9999px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ff9a56;
+        }
+
+        ::selection {
+            background: rgba(255, 154, 86, 0.3);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen overflow-x-hidden">
+    <!-- Background decorations -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+        <div class="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full opacity-30"
+            style="background: radial-gradient(circle, rgba(255,154,86,0.3) 0%, transparent 70%);"></div>
+        <div class="absolute top-1/3 -left-40 w-[500px] h-[500px] rounded-full opacity-20"
+            style="background: radial-gradient(circle, rgba(147,51,234,0.25) 0%, transparent 70%);"></div>
+        <div class="absolute inset-0 opacity-[0.015]"
+            style="background-image: linear-gradient(#c4a882 1px, transparent 1px), linear-gradient(90deg, #c4a882 1px, transparent 1px); background-size: 60px 60px;">
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-neutral-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav class="flex items-center justify-between h-16 lg:h-20">
+                <a href="{{ url_for('home') }}" class="flex items-center gap-2 group">
+                    <img src="{{ url_for('static', filename='images/logo/primiry__logo.png') }}" alt="YoppyChat Logo"
+                        class="h-12 lg:h-14 w-auto">
+                </a>
+
+                <div class="flex items-center gap-4">
+                    <a href="{{ url_for('channel') }}"
+                        class="px-6 py-2.5 rounded-full bg-gradient-to-r from-primary to-secondary text-white font-semibold shadow-lg hover:shadow-xl hover:shadow-primary/30 transform hover:-translate-y-0.5 transition-all duration-300">
+                        Try Free
+                    </a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="relative z-10 pt-24 pb-16">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Page Header -->
+            <div class="text-center mb-12">
+                <div
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
+                    <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                    </svg>
+                    <span class="text-sm font-medium text-primary">Legal</span>
+                </div>
+                <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold text-text-primary mb-4">
+                    Cookie <span class="gradient-text">Policy</span>
+                </h1>
+                <p class="text-lg text-text-muted">Last Updated: February 1, 2026</p>
+            </div>
+
+            <!-- Content -->
+            <div class="bg-white rounded-3xl shadow-xl border border-neutral-200 p-8 lg:p-12">
+                <div class="prose prose-lg max-w-none">
+                    <p class="text-text-secondary leading-relaxed mb-8">
+                        This Cookie Policy explains how YoppyChat ("we," "us," or "our") uses cookies and similar
+                        technologies when you visit our website and use our services. By using our Service, you consent
+                        to the use of cookies as described in this policy.
+                    </p>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        What Are Cookies?
+                    </h2>
+                    <div
+                        class="bg-gradient-to-br from-primary/5 to-secondary/5 border border-primary/20 rounded-2xl p-6 mb-6">
+                        <div class="flex items-start gap-4">
+                            <div
+                                class="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                                <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-text-primary mb-2">Understanding Cookies</h3>
+                                <p class="text-text-secondary leading-relaxed">
+                                    Cookies are small text files that are placed on your device when you visit a
+                                    website. They help websites remember information about your visit, such as your
+                                    preferences and login status, making your next visit easier and the site more useful
+                                    to you.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        How We Use Cookies
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-6">
+                        We use cookies and similar technologies for several purposes, including:
+                    </p>
+
+                    <div class="space-y-4 mb-8">
+                        <div
+                            class="bg-white border-2 border-neutral-200 rounded-2xl p-6 hover:border-primary/30 transition-all duration-300">
+                            <div class="flex items-start gap-4">
+                                <div
+                                    class="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24"
+                                        stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-text-primary mb-2">Authentication & Security
+                                    </h3>
+                                    <p class="text-text-secondary leading-relaxed">
+                                        We use cookies to keep you logged in and maintain your session securely. These
+                                        cookies are essential for the proper functioning of our authentication system.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="bg-white border-2 border-neutral-200 rounded-2xl p-6 hover:border-primary/30 transition-all duration-300">
+                            <div class="flex items-start gap-4">
+                                <div
+                                    class="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24"
+                                        stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-text-primary mb-2">Preferences & Settings</h3>
+                                    <p class="text-text-secondary leading-relaxed">
+                                        Cookies help us remember your preferences, such as language settings and display
+                                        options, so you don't have to set them every time you visit.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="bg-white border-2 border-neutral-200 rounded-2xl p-6 hover:border-primary/30 transition-all duration-300">
+                            <div class="flex items-start gap-4">
+                                <div
+                                    class="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24"
+                                        stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-text-primary mb-2">Analytics & Performance
+                                    </h3>
+                                    <p class="text-text-secondary leading-relaxed">
+                                        We use cookies to understand how you interact with our Service, which helps us
+                                        improve functionality and user experience. This includes tracking page views,
+                                        session duration, and feature usage.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="bg-white border-2 border-neutral-200 rounded-2xl p-6 hover:border-primary/30 transition-all duration-300">
+                            <div class="flex items-start gap-4">
+                                <div
+                                    class="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24"
+                                        stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-text-primary mb-2">Service Functionality</h3>
+                                    <p class="text-text-secondary leading-relaxed">
+                                        Essential cookies enable core functionality such as page navigation, access to
+                                        secure areas, and maintaining your chat history during your session.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        Types of Cookies We Use
+                    </h2>
+                    <div class="overflow-x-auto mb-8">
+                        <table class="w-full border-collapse">
+                            <thead>
+                                <tr class="bg-gradient-to-r from-primary/10 to-secondary/10">
+                                    <th
+                                        class="border border-neutral-200 px-4 py-3 text-left text-text-primary font-semibold">
+                                        Cookie Type</th>
+                                    <th
+                                        class="border border-neutral-200 px-4 py-3 text-left text-text-primary font-semibold">
+                                        Purpose</th>
+                                    <th
+                                        class="border border-neutral-200 px-4 py-3 text-left text-text-primary font-semibold">
+                                        Duration</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="hover:bg-neutral-100 transition-colors">
+                                    <td class="border border-neutral-200 px-4 py-3 text-text-primary font-semibold">
+                                        Essential Cookies</td>
+                                    <td class="border border-neutral-200 px-4 py-3 text-text-secondary">Required for
+                                        authentication and core functionality</td>
+                                    <td class="border border-neutral-200 px-4 py-3 text-text-secondary">Session /
+                                        Persistent</td>
+                                </tr>
+                                <tr class="hover:bg-neutral-100 transition-colors">
+                                    <td class="border border-neutral-200 px-4 py-3 text-text-primary font-semibold">
+                                        Functional Cookies</td>
+                                    <td class="border border-neutral-200 px-4 py-3 text-text-secondary">Remember your
+                                        preferences and settings</td>
+                                    <td class="border border-neutral-200 px-4 py-3 text-text-secondary">Persistent</td>
+                                </tr>
+                                <tr class="hover:bg-neutral-100 transition-colors">
+                                    <td class="border border-neutral-200 px-4 py-3 text-text-primary font-semibold">
+                                        Analytics Cookies</td>
+                                    <td class="border border-neutral-200 px-4 py-3 text-text-secondary">Help us
+                                        understand usage patterns and improve our service</td>
+                                    <td class="border border-neutral-200 px-4 py-3 text-text-secondary">Persistent</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        Third-Party Cookies
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-4">
+                        We use services from third-party providers that may set their own cookies. These include:
+                    </p>
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong
+                                    class="text-text-primary">Authentication
+                                    Providers:</strong> For secure sign-in and account management purposes.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong class="text-text-primary">Backend
+                                    Infrastructure:</strong> Our service providers may
+                                use cookies for authentication and session management.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-text-secondary leading-relaxed"><strong
+                                    class="text-text-primary">Analytics Services:</strong> We may use analytics tools to
+                                understand how users interact with our service.</span>
+                        </li>
+                    </ul>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        Managing Your Cookie Preferences
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-4">
+                        You have several options for managing cookies:
+                    </p>
+                    <div
+                        class="bg-gradient-to-br from-primary/5 to-secondary/5 border border-primary/20 rounded-2xl p-6 mb-6">
+                        <ul class="space-y-3">
+                            <li class="flex items-start gap-3">
+                                <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span class="text-text-secondary leading-relaxed"><strong
+                                        class="text-text-primary">Browser Settings:</strong> Most web browsers allow you
+                                    to control cookies through their settings. You can set your browser to refuse
+                                    cookies or delete certain cookies.</span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <svg class="w-5 h-5 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span class="text-text-secondary leading-relaxed"><strong
+                                        class="text-text-primary">Third-Party Tools:</strong> You can opt out of
+                                    third-party cookies by visiting the relevant provider's opt-out page.</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-6 rounded-lg mb-6">
+                        <div class="flex items-start gap-3">
+                            <svg class="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div>
+                                <h3 class="text-lg font-semibold text-yellow-800 mb-2">Important Note</h3>
+                                <p class="text-yellow-700 leading-relaxed">
+                                    Please note that blocking or deleting cookies may impact your ability to use certain
+                                    features of our Service. Essential cookies are necessary for the Service to function
+                                    properly.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        Updates to This Cookie Policy
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-6">
+                        We may update this Cookie Policy from time to time to reflect changes in our practices or for
+                        other operational, legal, or regulatory reasons. We will notify you of any material changes by
+                        updating the "Last Updated" date at the top of this policy.
+                    </p>
+
+                    <h2 class="text-2xl font-bold text-text-primary mt-8 mb-4 pb-3 border-b-2 border-neutral-200">
+                        Contact Us
+                    </h2>
+                    <p class="text-text-secondary leading-relaxed mb-4">
+                        If you have any questions about our use of cookies or this Cookie Policy, please contact us at:
+                    </p>
+                    <div class="flex items-center gap-3">
+                        <svg class="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        <strong class="text-primary text-lg">support@YoppyChatai.com</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Back to Home -->
+            <div class="text-center mt-12">
+                <a href="{{ url_for('home') }}"
+                    class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white border-2 border-neutral-200 text-text-primary font-semibold hover:border-primary hover:text-primary transform hover:-translate-y-0.5 transition-all duration-300 shadow-lg">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Home
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative z-10 bg-white border-t border-neutral-200 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="text-center text-text-muted text-sm">
+                <p>&copy; 2025 YoppyChat. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>

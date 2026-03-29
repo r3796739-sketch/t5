@@ -1,0 +1,1303 @@
+{% extends "base.html" %}
+
+{% block title %}Creator Dashboard - YoppyChat AI{% endblock %}
+
+{% block page_styles %}
+<style>
+    /* ========================================
+       DASHBOARD v2 — Data-Rich Creator Hub
+       ======================================== */
+
+    .db-container {
+        padding: 1.5rem;
+        max-width: 1280px;
+        margin: 0 auto;
+    }
+
+    /* ---- Header + Plan Bar ---- */
+    .db-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .db-header-text h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.2rem;
+    }
+
+    .db-header-text h1 svg {
+        color: var(--accent-primary);
+    }
+
+    .db-header-text p {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+
+    /* Plan pill + quota */
+    .plan-quota-bar {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        padding: 0.875rem 1.25rem;
+        min-width: 260px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .plan-quota-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .plan-badge {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: rgba(var(--accent-primary-rgb, 249, 115, 22), 0.12);
+        color: var(--accent-primary);
+    }
+
+    .plan-badge.creator {
+        background: rgba(139, 92, 246, 0.12);
+        color: #8B5CF6;
+    }
+
+    .plan-badge.personal {
+        background: rgba(16, 185, 129, 0.12);
+        color: #10B981;
+    }
+
+    .quota-nums {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+    .quota-nums strong {
+        color: var(--text-primary);
+    }
+
+    .quota-track {
+        width: 100%;
+        height: 6px;
+        background: var(--neutral-200);
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .quota-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: var(--accent-primary);
+        transition: width 0.8s ease;
+    }
+
+    .quota-fill.warning {
+        background: #F59E0B;
+    }
+
+    .quota-fill.critical {
+        background: #EF4444;
+    }
+
+    /* ---- 4-Card Earnings Overview ---- */
+    .earnings-overview {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .eo-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        padding: 1.125rem 1.25rem;
+        position: relative;
+        overflow: hidden;
+        transition: box-shadow 0.2s ease;
+    }
+
+    .eo-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        border-radius: 3px 3px 0 0;
+    }
+
+    .eo-card.green::before {
+        background: #10B981;
+    }
+
+    .eo-card.violet::before {
+        background: #8B5CF6;
+    }
+
+    .eo-card.blue::before {
+        background: #3B82F6;
+    }
+
+    .eo-card.orange::before {
+        background: #F97316;
+    }
+
+    .eo-card:hover {
+        box-shadow: var(--shadow-md);
+    }
+
+    .eo-card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+    }
+
+    .eo-label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .eo-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .eo-icon svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .eo-icon.green {
+        background: rgba(16, 185, 129, 0.12);
+        color: #10B981;
+    }
+
+    .eo-icon.violet {
+        background: rgba(139, 92, 246, 0.12);
+        color: #8B5CF6;
+    }
+
+    .eo-icon.blue {
+        background: rgba(59, 130, 246, 0.12);
+        color: #3B82F6;
+    }
+
+    .eo-icon.orange {
+        background: rgba(249, 115, 22, 0.12);
+        color: #F97316;
+    }
+
+    .eo-value {
+        font-size: 1.7rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        line-height: 1.1;
+    }
+
+    .eo-sub {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+    }
+
+    /* ---- Charts Row ---- */
+    .charts-row {
+        display: grid;
+        grid-template-columns: 1fr 360px;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .chart-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        padding: 1.25rem;
+    }
+
+    .chart-card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+    }
+
+    .chart-card-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .chart-card-title svg {
+        color: var(--accent-primary);
+        width: 16px;
+        height: 16px;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 190px;
+    }
+
+    /* ---- Referral Growth Mini Stats ---- */
+    .growth-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .growth-stat-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        background: var(--surface-medium);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--neutral-200);
+    }
+
+    .growth-stat-left {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    .growth-stat-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .growth-stat-icon svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .growth-stat-label {
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+
+    .growth-stat-val {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    /* ---- Section Header ---- */
+    .db-section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+    }
+
+    .db-section-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .db-section-title svg {
+        color: var(--accent-primary);
+        width: 16px;
+        height: 16px;
+    }
+
+    /* ---- Chatbot Cards ---- */
+    .chatbot-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        margin-bottom: 0.875rem;
+        overflow: hidden;
+        transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .chatbot-card:hover {
+        box-shadow: var(--shadow-md);
+        border-color: var(--accent-primary);
+    }
+
+    .chatbot-card-main {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+        flex-wrap: wrap;
+    }
+
+    .chatbot-avatar {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+        border: 2px solid var(--neutral-200);
+    }
+
+    .chatbot-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .chatbot-name-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.2rem;
+        flex-wrap: wrap;
+    }
+
+    .chatbot-name {
+        font-weight: 600;
+        font-size: 1rem;
+        color: var(--text-primary);
+    }
+
+    .chatbot-status-badge {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        padding: 2px 8px;
+        border-radius: 999px;
+        letter-spacing: 0.4px;
+    }
+
+    .chatbot-status-badge.ready {
+        background: rgba(16, 185, 129, 0.15);
+        color: #10B981;
+    }
+
+    .chatbot-status-badge.pending {
+        background: rgba(245, 158, 11, 0.15);
+        color: #F59E0B;
+    }
+
+    .chatbot-status-badge.processing {
+        background: rgba(59, 130, 246, 0.15);
+        color: #3B82F6;
+    }
+
+    .chatbot-status-badge.failed {
+        background: rgba(239, 68, 68, 0.15);
+        color: #EF4444;
+    }
+
+    .chatbot-link {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .chatbot-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-shrink: 0;
+        align-items: center;
+    }
+
+    .btn-copy {
+        padding: 5px 12px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        background: var(--accent-primary);
+        color: white;
+        border: none;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: opacity 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .btn-copy svg {
+        width: 13px;
+        height: 13px;
+    }
+
+    .btn-copy:hover {
+        opacity: 0.85;
+    }
+
+    .btn-edit-sm {
+        padding: 5px 12px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        background: var(--surface-medium);
+        color: var(--text-primary);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 0.2s;
+    }
+
+    .btn-edit-sm svg {
+        width: 13px;
+        height: 13px;
+    }
+
+    .btn-edit-sm:hover {
+        background: var(--accent-primary);
+        color: white;
+        border-color: var(--accent-primary);
+    }
+
+    .btn-sell {
+        padding: 5px 12px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        background: rgba(139, 92, 246, 0.1);
+        color: #8B5CF6;
+        border: 1px solid rgba(139, 92, 246, 0.3);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 0.2s;
+    }
+
+    .btn-sell:hover {
+        background: rgba(139, 92, 246, 0.2);
+    }
+
+    .btn-sell svg {
+        width: 13px;
+        height: 13px;
+    }
+
+    /* ---- Chatbot Stats Row (bottom strip) ---- */
+    .chatbot-stats-strip {
+        display: flex;
+        border-top: 1px solid var(--neutral-200);
+        background: var(--surface-medium);
+    }
+
+    .cstat {
+        flex: 1;
+        padding: 0.6rem 0.75rem;
+        text-align: center;
+        border-right: 1px solid var(--neutral-200);
+    }
+
+    .cstat:last-child {
+        border-right: none;
+    }
+
+    .cstat-val {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        line-height: 1;
+    }
+
+    .cstat-lbl {
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: var(--text-muted);
+        font-weight: 500;
+        margin-top: 2px;
+    }
+
+    /* Marketplace listing chip */
+    .mp-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: rgba(139, 92, 246, 0.1);
+        color: #8B5CF6;
+        border: 1px solid rgba(139, 92, 246, 0.2);
+    }
+
+    .mp-chip svg {
+        width: 10px;
+        height: 10px;
+    }
+
+    /* ---- Empty State ---- */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+        background: var(--surface-medium);
+        border-radius: var(--radius-lg);
+        border: 2px dashed var(--neutral-200);
+    }
+
+    .empty-state-icon {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 1rem;
+        color: var(--text-muted);
+    }
+
+    .empty-state h3 {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.4rem;
+    }
+
+    .empty-state p {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        margin-bottom: 1.25rem;
+    }
+
+    /* ---- Quick Actions ---- */
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.875rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .qa-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        padding: 1rem 1.125rem;
+        display: flex;
+        align-items: center;
+        gap: 0.875rem;
+        text-decoration: none;
+        color: var(--text-primary);
+        transition: all 0.2s ease;
+    }
+
+    .qa-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--accent-primary);
+    }
+
+    .qa-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .qa-icon svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .qa-icon.orange {
+        background: rgba(249, 115, 22, 0.1);
+        color: #F97316;
+    }
+
+    .qa-icon.violet {
+        background: rgba(139, 92, 246, 0.1);
+        color: #8B5CF6;
+    }
+
+    .qa-icon.green {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10B981;
+    }
+
+    .qa-text strong {
+        display: block;
+        font-size: 0.88rem;
+        font-weight: 600;
+    }
+
+    .qa-text span {
+        font-size: 0.77rem;
+        color: var(--text-muted);
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 1100px) {
+        .earnings-overview {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .charts-row {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .db-container {
+            padding: 1rem;
+        }
+
+        .earnings-overview {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .quick-actions {
+            grid-template-columns: 1fr;
+        }
+
+        .chatbot-card-main {
+            gap: 0.75rem;
+        }
+
+        .chatbot-stats-strip {
+            flex-wrap: wrap;
+        }
+
+        .cstat {
+            min-width: 33%;
+        }
+
+        .db-header {
+            flex-direction: column;
+        }
+
+        .plan-quota-bar {
+            min-width: 100%;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .earnings-overview {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Skeleton loader */
+    .skel {
+        display: inline-block;
+        background: linear-gradient(90deg, var(--neutral-200) 25%, var(--surface-medium) 50%, var(--neutral-200) 75%);
+        background-size: 200% 100%;
+        animation: skel-anim 1.5s infinite;
+        border-radius: 4px;
+        min-width: 40px;
+        height: 1em;
+        vertical-align: middle;
+    }
+
+    @keyframes skel-anim {
+        from {
+            background-position: 200% 0;
+        }
+
+        to {
+            background-position: -200% 0;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="db-container">
+
+    <!-- ===================== HEADER + PLAN QUOTA ===================== -->
+    <div class="db-header">
+        <div class="db-header-text">
+            <h1>
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 3v18h18" />
+                    <path d="m19 9-5 5-4-4-3 3" />
+                </svg>
+                Creator Dashboard
+            </h1>
+            <p>Your AI chatbot business — revenues, growth, and activity in one place.</p>
+        </div>
+
+        <!-- Plan + Quote Bar -->
+        <div class="plan-quota-bar" id="quotaBarWrap">
+            <div class="plan-quota-top">
+                <span class="plan-badge" id="planBadge">
+                    <span class="skel" style="width:50px"></span>
+                </span>
+                <span class="quota-nums" id="quotaNums">
+                    <span class="skel" style="width:70px;height:0.8em"></span>
+                </span>
+            </div>
+            <div class="quota-track">
+                <div class="quota-fill" id="quotaFill" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== EARNINGS OVERVIEW (4 CARDS) ===================== -->
+    <div class="earnings-overview">
+
+        <div class="eo-card green">
+            <div class="eo-card-top">
+                <span class="eo-label">Total Earned</span>
+                <div class="eo-icon green">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                        <polyline points="17 6 23 6 23 12" />
+                    </svg>
+                </div>
+            </div>
+            <div class="eo-value" id="val-total-earned"><span class="skel" style="width:70px;height:1.5em"></span></div>
+            <div class="eo-sub">Total all-time earnings</div>
+        </div>
+
+        <div class="eo-card violet">
+            <div class="eo-card-top">
+                <span class="eo-label">Withdrawable</span>
+                <div class="eo-icon violet">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="5" width="20" height="14" rx="2" />
+                        <line x1="2" y1="10" x2="22" y2="10" />
+                    </svg>
+                </div>
+            </div>
+            <div class="eo-value" id="val-withdrawable"><span class="skel" style="width:70px;height:1.5em"></span></div>
+            <div class="eo-sub">Ready to withdraw now <a href="/earnings"
+                    style="color:var(--accent-primary);text-decoration:none;font-weight:600">→</a></div>
+        </div>
+
+        <div class="eo-card blue">
+            <div class="eo-card-top">
+                <span class="eo-label">Total MRR</span>
+                <div class="eo-icon blue">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                </div>
+            </div>
+            <div class="eo-value" id="val-total-mrr"><span class="skel" style="width:70px;height:1.5em"></span>
+            </div>
+            <div class="eo-sub" id="val-mrr-sub">from <span id="val-paid-referrals">--</span> referrals & <span
+                    id="val-mp-sales">--</span> mp sales
+            </div>
+        </div>
+
+        <div class="eo-card orange">
+            <div class="eo-card-top">
+                <span class="eo-label">Your Plan</span>
+                <div class="eo-icon orange">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon
+                            points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                </div>
+            </div>
+            <div class="eo-value" id="val-plan-name" style="font-size:1.3rem;"><span class="skel"
+                    style="width:70px;height:1.2em"></span></div>
+            <div class="eo-sub" id="val-adds-sub"><span id="val-adds">--</span> users added your chatbots</div>
+        </div>
+
+    </div>
+
+    <!-- ===================== CHARTS ROW ===================== -->
+    <div class="charts-row">
+        <!-- Revenue Trend -->
+        <div class="chart-card">
+            <div class="chart-card-head">
+                <div class="chart-card-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="1" x2="12" y2="23" />
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                    </svg>
+                    Revenue Trend — Last 6 Months
+                </div>
+                <a href="/earnings"
+                    style="font-size:0.78rem;color:var(--accent-primary);text-decoration:none;font-weight:600">Full
+                    Earnings →</a>
+            </div>
+            <div class="chart-container">
+                <canvas id="revenueChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Growth Stats -->
+        <div class="chart-card">
+            <div class="chart-card-head">
+                <div class="chart-card-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    Audience Growth
+                </div>
+            </div>
+            <div class="growth-stats">
+                <div class="growth-stat-row">
+                    <div class="growth-stat-left">
+                        <div class="growth-stat-icon" style="background:rgba(99,102,241,0.1);color:#6366F1;">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                                <circle cx="9" cy="7" r="4" />
+                                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                            </svg>
+                        </div>
+                        <span class="growth-stat-label">Total Referrals</span>
+                    </div>
+                    <span class="growth-stat-val" id="gs-referrals"><span class="skel" style="width:28px"></span></span>
+                </div>
+                <div class="growth-stat-row">
+                    <div class="growth-stat-left">
+                        <div class="growth-stat-icon" style="background:rgba(16,185,129,0.1);color:#10B981;">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                                <line x1="1" y1="10" x2="23" y2="10" />
+                            </svg>
+                        </div>
+                        <span class="growth-stat-label">Paying Subscribers</span>
+                    </div>
+                    <span class="growth-stat-val" id="gs-paid"><span class="skel" style="width:28px"></span></span>
+                </div>
+                <div class="growth-stat-row">
+                    <div class="growth-stat-left">
+                        <div class="growth-stat-icon" style="background:rgba(245,158,11,0.1);color:#F59E0B;">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                                <circle cx="12" cy="7" r="4" />
+                            </svg>
+                        </div>
+                        <span class="growth-stat-label">Active Chatbot Users</span>
+                    </div>
+                    <span class="growth-stat-val" id="gs-adds"><span class="skel" style="width:28px"></span></span>
+                </div>
+                <div class="growth-stat-row">
+                    <div class="growth-stat-left">
+                        <div class="growth-stat-icon" style="background:rgba(236,72,153,0.1);color:#EC4899;">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                            </svg>
+                        </div>
+                        <span class="growth-stat-label">Total Conversations</span>
+                    </div>
+                    <span class="growth-stat-val" id="gs-convos"><span class="skel" style="width:28px"></span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== QUICK ACTIONS ===================== -->
+    <div class="quick-actions">
+        <a href="{{ url_for('chatbot_create_ui') }}" class="qa-card">
+            <div class="qa-icon orange">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="16" />
+                    <line x1="8" y1="12" x2="16" y2="12" />
+                </svg>
+            </div>
+            <div class="qa-text">
+                <strong>Create New Chatbot</strong>
+                <span>YouTube, website, WhatsApp, or PDF</span>
+            </div>
+        </a>
+        <a href="{{ url_for('earnings_page') }}" class="qa-card">
+            <div class="qa-icon green">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="1" x2="12" y2="23" />
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+            </div>
+            <div class="qa-text">
+                <strong>Earnings & Payouts</strong>
+                <span>View balance and request withdrawals</span>
+            </div>
+        </a>
+    </div>
+
+    <!-- ===================== CHATBOT FLEET ===================== -->
+    <div class="db-section-head">
+        <div class="db-section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
+                <polyline points="17 2 12 7 7 2" />
+            </svg>
+            Your Chatbot Fleet
+        </div>
+    </div>
+
+    {% if creator_channels %}
+    {% for name, channel in creator_channels.items() %}
+    <div class="chatbot-card">
+        <div class="chatbot-card-main">
+            <!-- Avatar -->
+            <img src="{{ channel.channel_thumbnail or 'https://ui-avatars.com/api/?name=' + (name|urlencode) + '&background=F97316&color=fff&bold=true&rounded=true' }}"
+                alt="{{ name }}" class="chatbot-avatar"
+                onerror="this.src='https://ui-avatars.com/api/?name={{ name|urlencode }}&background=F97316&color=fff&bold=true&rounded=true'">
+
+            <!-- Info -->
+            <div class="chatbot-info">
+                <div class="chatbot-name-row">
+                    <span class="chatbot-name">{{ name }}</span>
+                    {% set status = channel.status %}
+                    <span class="chatbot-status-badge {{ status }}">{{ status }}</span>
+                    <!-- Marketplace chip (populated by JS) -->
+                    <span class="mp-chip" id="mp-chip-{{ channel.id }}" style="display:none;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="9" cy="21" r="1" />
+                            <circle cx="20" cy="21" r="1" />
+                            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                        </svg>
+                        Listed
+                    </span>
+                </div>
+                <div class="chatbot-link">{{ url_for('public_chat_page', channel_name=name, _external=True) }}</div>
+            </div>
+
+            <!-- Actions -->
+            <div class="chatbot-actions">
+                <button class="btn-copy"
+                    data-link="{{ url_for('public_chat_page', channel_name=name, _external=True) }}"
+                    onclick="copyShareLink(this, this.getAttribute('data-link'))">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    Copy Link
+                </button>
+                <a href="{{ url_for('chatbot_settings', chatbot_id=channel.id) }}" class="btn-edit-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                    Edit
+                </a>
+                {% if channel.status == 'ready' %}
+                <a href="{{ url_for('marketplace_transfer', chatbot_id=channel.id) }}" class="btn-sell"
+                    id="sell-btn-{{ channel.id }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="9" cy="21" r="1" />
+                        <circle cx="20" cy="21" r="1" />
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                    </svg>
+                    Sell
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Stats Strip -->
+        <div class="chatbot-stats-strip" data-channel-id="{{ channel.id }}">
+            <div class="cstat">
+                <div class="cstat-val" id="cstat-conv-{{ channel.id }}"><span class="skel"
+                        style="width:24px;height:0.9em"></span></div>
+                <div class="cstat-lbl">Conversations</div>
+            </div>
+            <div class="cstat">
+                <div class="cstat-val" id="cstat-sources-{{ channel.id }}"><span class="skel"
+                        style="width:24px;height:0.9em"></span></div>
+                <div class="cstat-lbl">Data Sources</div>
+            </div>
+            <div class="cstat">
+                <div class="cstat-val" id="cstat-ref-{{ channel.id }}"><span class="skel"
+                        style="width:24px;height:0.9em"></span></div>
+                <div class="cstat-lbl">Referrals</div>
+            </div>
+            <div class="cstat">
+                <div class="cstat-val" id="cstat-paid-{{ channel.id }}"><span class="skel"
+                        style="width:24px;height:0.9em"></span></div>
+                <div class="cstat-lbl">Subscribed</div>
+            </div>
+            <div class="cstat">
+                <div class="cstat-val" id="cstat-mrr-{{ channel.id }}"><span class="skel"
+                        style="width:40px;height:0.9em"></span></div>
+                <div class="cstat-lbl">Aff. MRR</div>
+            </div>
+            <div class="cstat">
+                <div class="cstat-val" id="cstat-add-{{ channel.id }}"><span class="skel"
+                        style="width:24px;height:0.9em"></span></div>
+                <div class="cstat-lbl">Adds</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">
+        <svg class="empty-state-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
+            <polyline points="17 2 12 7 7 2" />
+        </svg>
+        <h3>No Chatbots Yet</h3>
+        <p>Create your first AI chatbot powered by YouTube, website content, WhatsApp exports, or PDFs.</p>
+        <a href="{{ url_for('chatbot_create_ui') }}" class="btn btn-primary">Create Your First Chatbot</a>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    // ---- Copy Share Link ----
+    function copyShareLink(button, url) {
+        navigator.clipboard.writeText(url).then(() => {
+            const orig = button.innerHTML;
+            button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+            button.style.background = '#10B981';
+            setTimeout(() => { button.innerHTML = orig; button.style.background = ''; }, 2000);
+        });
+    }
+
+    // ---- Helper: format currency (USD→INR display) ----
+    function fmtUSD(val) {
+        if (!val && val !== 0) return '$--';
+        return '$' + parseFloat(val).toFixed(2);
+    }
+
+    function fmtINR(val) {
+        if (!val && val !== 0) return '₹--';
+        // Show in INR (approx ×83)
+        const inr = parseFloat(val) * 83;
+        if (inr >= 1000) return '₹' + (inr / 1000).toFixed(1) + 'K';
+        return '₹' + inr.toFixed(0);
+    }
+
+    // ---- Fetch Data ----
+    document.addEventListener('DOMContentLoaded', function () {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColor = isDark ? '#9ca3af' : '#6b7280';
+        const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
+
+        fetch('/api/dashboard/metrics')
+            .then(r => r.json())
+            .then(data => {
+                if (data.status !== 'success') return;
+
+                // ---- Plan / Quota Bar ----
+                const pi = data.plan_info || {};
+                const planId = (pi.plan_id || 'free').toLowerCase();
+                const planName = pi.plan_name || 'Free';
+                const qUsed = pi.queries_used || 0;
+                const qMax = pi.max_queries;
+
+                const badge = document.getElementById('planBadge');
+                badge.textContent = planName;
+                badge.className = 'plan-badge';
+                if (planId.includes('creator')) badge.classList.add('creator');
+                else if (planId.includes('personal')) badge.classList.add('personal');
+
+                const fill = document.getElementById('quotaFill');
+                const nums = document.getElementById('quotaNums');
+                if (qMax === -1) {
+                    nums.innerHTML = `<strong>${qUsed.toLocaleString()}</strong> queries used • Unlimited`;
+                    fill.style.width = '40%';
+                } else {
+                    const pct = qMax > 0 ? Math.min(100, Math.round((qUsed / qMax) * 100)) : 0;
+                    nums.innerHTML = `<strong>${qUsed.toLocaleString()}</strong> / ${qMax.toLocaleString()} queries`;
+                    fill.style.width = pct + '%';
+                    fill.className = 'quota-fill' + (pct >= 90 ? ' critical' : pct >= 70 ? ' warning' : '');
+                }
+
+                // ---- Earnings Overview Cards ----
+                const es = data.earnings_snapshot || {};
+                const ts = data.total_stats || {};
+
+                document.getElementById('val-total-earned').textContent = fmtINR(es.total_earned);
+                document.getElementById('val-withdrawable').textContent = fmtINR(es.withdrawable);
+                document.getElementById('val-total-mrr').textContent = fmtINR(es.total_mrr);
+                document.getElementById('val-paid-referrals').textContent = ts.paid_referrals || 0;
+                document.getElementById('val-mp-sales').textContent = es.marketplace_active_count || 0;
+                document.getElementById('val-plan-name').textContent = planName;
+                document.getElementById('val-adds').textContent = ts.current_adds || 0;
+
+                // ---- Growth Stats Panel ----
+                document.getElementById('gs-referrals').textContent = ts.referrals || 0;
+                document.getElementById('gs-paid').textContent = ts.paid_referrals || 0;
+                document.getElementById('gs-adds').textContent = ts.current_adds || 0;
+
+                // Total conversations = sum across all chatbot extras
+                const extras = data.chatbot_extra || {};
+                let totalConvos = 0;
+                Object.values(extras).forEach(e => { totalConvos += (e.conversations || 0); });
+                document.getElementById('gs-convos').textContent = totalConvos.toLocaleString();
+
+                // ---- Per-Chatbot Stats Strip ----
+                const cStats = data.creator_stats || {};
+                document.querySelectorAll('.chatbot-stats-strip').forEach(strip => {
+                    const cid = parseInt(strip.getAttribute('data-channel-id'));
+                    const cs = cStats[cid] || {};
+                    const ex = extras[cid] || {};
+
+                    const set = (id, val) => {
+                        const el = document.getElementById(id);
+                        if (el) el.textContent = val;
+                    };
+
+                    set(`cstat-conv-${cid}`, (ex.conversations || 0).toLocaleString());
+                    set(`cstat-sources-${cid}`, `${ex.data_sources || 0}/4`);
+                    set(`cstat-ref-${cid}`, cs.referrals || 0);
+                    set(`cstat-paid-${cid}`, cs.paid_referrals || 0);
+                    set(`cstat-mrr-${cid}`, fmtINR(cs.creator_mrr));
+                    set(`cstat-add-${cid}`, cs.current_adds || 0);
+
+                    // Marketplace chip
+                    const mpListing = ex.marketplace_listing;
+                    const mpChip = document.getElementById(`mp-chip-${cid}`);
+                    if (mpListing && mpChip) {
+                        if (mpListing.status === 'active' || mpListing.status === 'pending') {
+                            mpChip.style.display = 'inline-flex';
+                            mpChip.title = `Listed at ₹${mpListing.price}/mo · ${mpListing.query_limit} credits`;
+                            // Update sell button text
+                            const sellBtn = document.getElementById(`sell-btn-${cid}`);
+                            if (sellBtn) {
+                                sellBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Listed`;
+                            }
+                        }
+                    }
+                });
+
+                // ---- Revenue Chart ----
+                const rev = data.monthly_revenue || {};
+                const revenueCtx = document.getElementById('revenueChart');
+                if (revenueCtx && rev.labels) {
+                    const affData = rev.datasets?.affiliate || [];
+                    const mpData = rev.datasets?.chatbot || [];
+
+                    // Convert USD→INR for display
+                    const affINR = affData.map(v => Math.round(v * 83));
+                    const mpINR = mpData.map(v => Math.round(v));
+
+                    // Check if there's any data at all
+                    const hasData = [...affINR, ...mpINR].some(v => v > 0);
+
+                    new Chart(revenueCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: rev.labels,
+                            datasets: [
+                                {
+                                    label: 'Affiliate (₹)',
+                                    data: affINR,
+                                    backgroundColor: '#3B82F6',
+                                    borderRadius: 5,
+                                },
+                                {
+                                    label: 'Marketplace (₹)',
+                                    data: mpINR,
+                                    backgroundColor: '#10B981',
+                                    borderRadius: 5,
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                    labels: { color: textColor, font: { size: 11 }, boxWidth: 12, padding: 12 }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: ctx => ` ₹${ctx.parsed.y.toLocaleString()}`
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    stacked: true,
+                                    grid: { color: gridColor, drawBorder: false },
+                                    ticks: { color: textColor, font: { size: 11 } }
+                                },
+                                y: {
+                                    stacked: true,
+                                    grid: { color: gridColor, drawBorder: false },
+                                    ticks: {
+                                        color: textColor, font: { size: 11 },
+                                        callback: v => '₹' + v.toLocaleString()
+                                    },
+                                    beginAtZero: true,
+                                    min: 0,
+                                    suggestedMax: hasData ? undefined : 5000
+                                }
+                            }
+                        }
+                    });
+
+                    // Motivational empty-state overlay on chart
+                    if (!hasData) {
+                        const parent = revenueCtx.parentElement;
+                        const overlay = document.createElement('div');
+                        overlay.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;';
+                        overlay.innerHTML = `
+                            <div style="font-size:0.85rem;color:var(--text-muted);text-align:center;padding:0 1rem;">
+                                <div style="font-size:1.5rem;margin-bottom:0.3rem;">💰</div>
+                                <strong style="color:var(--text-secondary);display:block;margin-bottom:0.25rem;">Your first revenue is one referral away</strong>
+                                Share your chatbot link — every subscriber earns you ₹120–₹670/month
+                            </div>`;
+                        parent.appendChild(overlay);
+                    }
+                }
+            })
+            .catch(err => console.error('Dashboard metrics error:', err));
+    });
+</script>
+{% endblock %}

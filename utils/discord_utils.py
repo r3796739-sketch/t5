@@ -21,53 +21,15 @@ class YoppyBot(commands.Bot):
         self.bot_db_id = kwargs.get('bot_db_id')
         self.history_cache = {}
 
+    # --- START: ADD THIS METHOD ---
     async def setup_hook(self):
-        """This is called once the bot is ready and correctly starts the background task."""
-        self.check_status_periodically.start()
-
-    @tasks.loop(seconds=2)
-    async def check_status_periodically(self):
-        """Periodically checks the database for a shutdown signal."""
-        try:
-            url: str = os.environ.get("SUPABASE_URL")
-            key: str = os.environ.get("SUPABASE_SERVICE_KEY")
-            if not url or not key:
-                log.error("Supabase credentials not found in status check loop.")
-                return
-            
-            supabase_admin: Client = create_client(url, key)
-            
-            # --- START: THE FIX ---
-            # Use maybe_single() to gracefully handle cases where the bot has been deleted.
-            response = supabase_admin.table('discord_bots').select('status').eq('id', self.bot_db_id).maybe_single().execute()
-
-            # If response.data is None, it means the bot was deleted from the DB.
-            if not response.data:
-                log.warning(f"Bot ID {self.bot_db_id} not found in DB (likely deleted). Shutting down task.")
-                await self.close()
-                self.check_status_periodically.stop()
-                return # Exit the function to prevent further processing
-            # --- END: THE FIX ---
-
-            db_status = response.data.get('status')
-            log.info(f"Bot ID {self.bot_db_id} periodic status check. Status in DB: '{db_status}'")
-
-            if db_status == 'offline':
-                log.info(f"Bot ID {self.bot_db_id} received 'offline' signal from DB. Shutting down...")
-                await self.close()
-                self.check_status_periodically.stop()
-
-        except Exception as e:
-            log.error(f"CRITICAL Error in status check loop for bot {self.bot_db_id}: {e}", exc_info=True)
-
-    @check_status_periodically.before_loop
-    async def before_status_check(self):
-        """Ensures the bot is fully connected before the loop starts."""
-        await self.wait_until_ready()
+        """This is called when the bot is ready to start, and it syncs the slash commands."""
+        await self.tree.sync()
+    # --- END: ADD THIS METHOD ---
 
     async def on_ready(self):
         log.info(f'Logged in as {self.user} (ID: {self.user.id})')
-        await self.tree.sync()
+        # The tree.sync() call has been moved to setup_hook
         
         if self.bot_db_id:
             try:
@@ -83,6 +45,7 @@ class YoppyBot(commands.Bot):
         else:
             log.warning("Bot is running without a database ID (bot_db_id), so it cannot update its status.")
 
+    # The on_message method remains the same
     async def on_message(self, message):
         if message.author == self.user:
             return
@@ -143,7 +106,8 @@ class YoppyBot(commands.Bot):
                     channel_data=channel_data,
                     user_id=user_id,
                     access_token=None,
-                    conversation_id=conversation_id
+                    conversation_id=conversation_id,
+                    integration_source='discord'
                 )
 
                 for chunk in stream:
@@ -153,6 +117,10 @@ class YoppyBot(commands.Bot):
                             break
                         try:
                             data = json.loads(data_str)
+                            if data.get('error') == 'QUERY_LIMIT_REACHED':
+                                log.warning(f"Credit limit reached for bot {self.bot_db_id}. Message: {data.get('message')}")
+                                full_answer = "LIMIT_REACHED"
+                                break
                             if data.get('answer'):
                                 full_answer += data['answer']
                             if data.get('sources'):
@@ -168,6 +136,9 @@ class YoppyBot(commands.Bot):
                     self.history_cache[conversation_id] = self.history_cache[conversation_id][-20:]
                     log.info(f"Updated in-memory cache for {conversation_id}. Cache size: {len(self.history_cache[conversation_id])}")
 
+                if full_answer == "LIMIT_REACHED":
+                    return
+
                 if not full_answer:
                     full_answer = "I couldn't find an answer to that in the channel's videos."
 
@@ -181,6 +152,7 @@ class YoppyBot(commands.Bot):
             except Exception as e:
                 log.error(f"Error getting AI answer for bot {self.bot_db_id}: {e}", exc_info=True)
                 await message.reply("Sorry, an error occurred while trying to find an answer.")
+
 
 class SourcesView(discord.ui.View):
     def __init__(self, *, sources: list):

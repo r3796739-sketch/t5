@@ -1,6 +1,8 @@
+# In utils/embed_utils.py
+
 import logging
 import numpy as np
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 import concurrent.futures
 import os
 import time
@@ -11,7 +13,11 @@ from .qa_utils import EMBEDDING_PROVIDER_MAP
 # Load environment variables from .env if present
 load_dotenv()
 
-def create_and_store_embeddings(transcripts, _unused_config, user_id, progress_callback=None):
+# --- START: THE FIX ---
+# The function signature is updated to accept user_id and channel_id.
+# The _unused_config parameter is kept for compatibility with the sync task.
+def create_and_store_embeddings(transcripts, _unused_config, user_id, channel_id=None, progress_callback=None):
+# --- END: THE FIX ---
     """Create embeddings for transcript chunks in parallel and upsert to the vector store."""
     try:
         embed_provider = os.environ.get('EMBED_PROVIDER', 'openai')
@@ -111,18 +117,27 @@ def create_and_store_embeddings(transcripts, _unused_config, user_id, progress_c
         for i, embedding in enumerate(all_embeddings):
             if embedding is None: continue # Ensure we don't process failed embeddings
             meta = all_metadata[i]
+            # --- START: THE FIX ---
+            # The user_id and channel_id are now correctly included in the data to be inserted.
             vectors_to_insert.append({
                 'user_id': user_id,
+                'channel_id': channel_id,
                 'video_id': meta['video_id'],
                 'embedding': embedding.tolist(),
                 'metadata': meta
             })
+            # --- END: THE FIX ---
 
         if not vectors_to_insert:
             logging.warning("No valid vectors to insert. Skipping database operation.")
             return True
         
-        insert_batch_size = 100
+        # --- START OF FIX: Reduced batch size for database insertion ---
+        # Changed from 50 to 20 to prevent statement timeouts on large channels.
+        # This is the key change to solve the error.
+        insert_batch_size = 20
+        # --- END OF FIX ---
+        
         total_batches = (len(vectors_to_insert) + insert_batch_size - 1) // insert_batch_size
         
         logging.info(f"Preparing to insert {len(vectors_to_insert)} vectors in {total_batches} batches.")
@@ -133,7 +148,22 @@ def create_and_store_embeddings(transcripts, _unused_config, user_id, progress_c
             batch = vectors_to_insert[start_index:end_index]
             
             logging.info(f"Inserting batch {i + 1}/{total_batches} ({len(batch)} vectors)...")
-            supabase.table('embeddings').insert(batch).execute()
+            
+            # Retry logic for database insertion
+            max_db_retries = 3
+            for attempt in range(max_db_retries):
+                try:
+                    supabase.table('embeddings').insert(batch).execute()
+                    break # Success, exit retry loop
+                except Exception as db_err:
+                    if attempt < max_db_retries - 1:
+                        wait = 2 * (attempt + 1)
+                        logging.warning(f"DB Insert failed (Attempt {attempt+1}/{max_db_retries}). Retrying in {wait}s... Error: {db_err}")
+                        time.sleep(wait)
+                    else:
+                        logging.error(f"Failed to insert batch {i+1} after all retries. Skipping this batch. Error: {db_err}")
+                        # We continue to the next batch even if this one fails to avoid total task failure
+
             if progress_callback:
                 progress_callback(i + 1, total_batches)
                 
