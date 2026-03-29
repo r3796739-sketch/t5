@@ -164,16 +164,19 @@ def get_transcript(video_id: str) -> Optional[str]:
     1. youtube_transcript_api (fast, primary)
     2. yt-dlp subtitle extraction (slower, fallback)
     3. yt-dlp with Android/iOS clients (bypasses PO token & IP blocks)
-    
-    Includes retry logic with exponential backoff for rate limiting.
+
+    On rate limiting: backs off in _extract_subtitle_text, then restarts
+    from Method 1 via the outer retry loop (up to MAX_FULL_ATTEMPTS times).
     """
+    import urllib.error  # Ensure urllib.error is available for 429 detection
+
     # Expanded language list to cover all common variants
     PREFERRED_LANGUAGES = [
         'en', 'en-US', 'en-GB', 'en-AU', 'en-CA', 'en-IN',  # English variants
         'hi', 'hi-IN',  # Hindi variants
         'a.en', 'a.hi',  # Auto-generated prefixes sometimes used
     ]
-    
+
     def _fetch_with_retry(transcript_obj, video_id, max_retries=3):
         """Helper to fetch transcript with exponential backoff retry."""
         for attempt in range(max_retries):
@@ -191,176 +194,197 @@ def get_transcript(video_id: str) -> Optional[str]:
                 else:
                     raise  # Non-rate-limit errors should fail immediately
         return None
-    
-    # --- METHOD 1: YOUTUBE TRANSCRIPT API (Primary) ---
-    try:
-        # Instantiate the API client (required for newer versions)
-        ytt_api = YouTubeTranscriptApi()
-        transcript_list = ytt_api.list(video_id)
-        
-        # First, list all available transcripts for debugging
-        available_transcripts = []
+
+    MAX_FULL_ATTEMPTS = 3  # How many times we restart all methods after a 429
+
+    for full_attempt in range(MAX_FULL_ATTEMPTS):
+        if full_attempt > 0:
+            print(f"[{video_id}] 🔄 Full retry #{full_attempt}/{MAX_FULL_ATTEMPTS - 1} — restarting from Method 1...")
+
+        # --- METHOD 1: YOUTUBE TRANSCRIPT API (Primary) ---
         try:
-            for transcript in transcript_list:
-                available_transcripts.append({
-                    'language': transcript.language,
-                    'language_code': transcript.language_code,
-                    'is_generated': transcript.is_generated,
-                    'is_translatable': transcript.is_translatable
-                })
-            print(f"[{video_id}] Available transcripts: {available_transcripts}")
-        except Exception:
-            pass
-        
-        # Try to get manual transcripts first (more accurate)
-        try:
-            transcript = transcript_list.find_manually_created_transcript(PREFERRED_LANGUAGES)
-            result = _fetch_with_retry(transcript, video_id)
-            if result:
-                print(f"[{video_id}] ✅ Got manual transcript ({transcript.language_code})")
-                return result
-        except Exception as e:
-            log.debug(f"[{video_id}] No manual transcript in preferred languages: {e}")
-        
-        # Fall back to auto-generated transcripts
-        try:
-            transcript = transcript_list.find_generated_transcript(PREFERRED_LANGUAGES)
-            result = _fetch_with_retry(transcript, video_id)
-            if result:
-                print(f"[{video_id}] ✅ Got auto-generated transcript ({transcript.language_code})")
-                return result
-        except Exception as e:
-            log.debug(f"[{video_id}] No generated transcript in preferred languages: {e}")
-        
-        # Last resort: try to get ANY available transcript and translate if possible
-        try:
-            for transcript in transcript_list:
-                # If it's translatable, translate to English
-                if transcript.is_translatable:
+            # Instantiate the API client (required for newer versions)
+            ytt_api = YouTubeTranscriptApi()
+            transcript_list = ytt_api.list(video_id)
+
+            # First, list all available transcripts for debugging
+            available_transcripts = []
+            try:
+                for transcript in transcript_list:
+                    available_transcripts.append({
+                        'language': transcript.language,
+                        'language_code': transcript.language_code,
+                        'is_generated': transcript.is_generated,
+                        'is_translatable': transcript.is_translatable
+                    })
+                print(f"[{video_id}] Available transcripts: {available_transcripts}")
+            except Exception:
+                pass
+
+            # Try to get manual transcripts first (more accurate)
+            try:
+                transcript = transcript_list.find_manually_created_transcript(PREFERRED_LANGUAGES)
+                result = _fetch_with_retry(transcript, video_id)
+                if result:
+                    print(f"[{video_id}] ✅ Got manual transcript ({transcript.language_code})")
+                    return result
+            except Exception as e:
+                log.debug(f"[{video_id}] No manual transcript in preferred languages: {e}")
+
+            # Fall back to auto-generated transcripts
+            try:
+                transcript = transcript_list.find_generated_transcript(PREFERRED_LANGUAGES)
+                result = _fetch_with_retry(transcript, video_id)
+                if result:
+                    print(f"[{video_id}] ✅ Got auto-generated transcript ({transcript.language_code})")
+                    return result
+            except Exception as e:
+                log.debug(f"[{video_id}] No generated transcript in preferred languages: {e}")
+
+            # Last resort: try to get ANY available transcript and translate if possible
+            try:
+                for transcript in transcript_list:
+                    # If it's translatable, translate to English
+                    if transcript.is_translatable:
+                        try:
+                            translated = transcript.translate('en')
+                            result = _fetch_with_retry(translated, video_id)
+                            if result:
+                                print(f"[{video_id}] ✅ Got translated transcript ({transcript.language_code} -> en)")
+                                return result
+                        except Exception:
+                            pass
+                    # Otherwise just use whatever is available
                     try:
-                        translated = transcript.translate('en')
-                        result = _fetch_with_retry(translated, video_id)
+                        result = _fetch_with_retry(transcript, video_id)
                         if result:
-                            print(f"[{video_id}] ✅ Got translated transcript ({transcript.language_code} -> en)")
+                            print(f"[{video_id}] ✅ Got transcript in {transcript.language_code}")
                             return result
                     except Exception:
-                        pass
-                # Otherwise just use whatever is available
-                try:
-                    result = _fetch_with_retry(transcript, video_id)
-                    if result:
-                        print(f"[{video_id}] ✅ Got transcript in {transcript.language_code}")
-                        return result
-                except Exception:
-                    continue
+                        continue
+            except Exception as e:
+                log.debug(f"[{video_id}] Could not get any transcript: {e}")
+
+        except (TranscriptsDisabled, NoTranscriptFound) as e:
+            log.debug(f"[{video_id}] No transcript available via API: {e}")
         except Exception as e:
-            log.debug(f"[{video_id}] Could not get any transcript: {e}")
-                
-    except (TranscriptsDisabled, NoTranscriptFound) as e:
-        log.debug(f"[{video_id}] No transcript available via API: {e}")
-    except Exception as e:
-        log.debug(f"[{video_id}] YouTubeTranscriptApi method failed: {e}")
-    
-    # --- METHOD 2: YT-DLP (Fallback with rate limiting protection) ---
-    print(f'Using method 2 yt-dlp for {video_id}')
-    try:
-        video_url = f"https://www.youtube.com/watch?v={video_id}"
-        
-        # Expanded language list for yt-dlp - request all language variants
-        subtitle_langs = ['en', 'en-US', 'en-GB', 'en-AU', 'en-CA', 'en-IN', 'hi', 'hi-IN', 'all']
-        
-        ydl_opts = {
-            'skip_download': True,
-            'writesubtitles': True,
-            'writeautomaticsub': True,
-            'subtitleslangs': subtitle_langs,
-            'quiet': True,
-            'no_warnings': True,
-            'sleep_interval': 1,  # Add delay between requests
-            'max_sleep_interval': 3,  # Maximum delay
-            'extractor_retries': 3,  # Retry on failures
-        }
-        
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(video_url, download=False)
-            
-            # Try to get subtitles from the info
-            subtitles = info.get('subtitles', {})
-            automatic_captions = info.get('automatic_captions', {})
-            
-            # Debug: Log what captions are available
-            if subtitles:
-                log.debug(f"[{video_id}] Manual subtitles available in: {list(subtitles.keys())}")
-            if automatic_captions:
-                log.debug(f"[{video_id}] Auto-captions available in: {list(automatic_captions.keys())}")
-            
-            if not subtitles and not automatic_captions:
-                print(f"[{video_id}] yt-dlp found NO subtitles or auto-captions at all")
-            
-            # Expanded preferred language list
-            preferred_langs = ['en', 'en-US', 'en-GB', 'en-AU', 'en-CA', 'en-IN', 'en-orig', 'hi', 'hi-IN']
-            
-            # Prefer manual subtitles over automatic
-            transcript_lines = []
-            
-            # First try: manual subtitles in preferred languages
-            for lang in preferred_langs:
-                if lang in subtitles:
-                    sub_data = subtitles[lang]
-                    transcript_lines = _extract_subtitle_text(sub_data)
+            log.debug(f"[{video_id}] YouTubeTranscriptApi method failed: {e}")
+
+        # --- METHOD 2: YT-DLP (Fallback with rate limiting protection) ---
+        print(f"[{video_id}] Using method 2 yt-dlp (attempt {full_attempt + 1}/{MAX_FULL_ATTEMPTS})")
+        try:
+            video_url = f"https://www.youtube.com/watch?v={video_id}"
+
+            # Expanded language list for yt-dlp - request all language variants
+            subtitle_langs = ['en', 'en-US', 'en-GB', 'en-AU', 'en-CA', 'en-IN', 'hi', 'hi-IN', 'all']
+
+            ydl_opts = {
+                'skip_download': True,
+                'writesubtitles': True,
+                'writeautomaticsub': True,
+                'subtitleslangs': subtitle_langs,
+                'quiet': True,
+                'no_warnings': True,
+                'sleep_interval': 1,  # Add delay between requests
+                'max_sleep_interval': 3,  # Maximum delay
+                'extractor_retries': 3,  # Retry on failures
+            }
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(video_url, download=False)
+
+                # Try to get subtitles from the info
+                subtitles = info.get('subtitles', {})
+                automatic_captions = info.get('automatic_captions', {})
+
+                # Debug: Log what captions are available
+                if subtitles:
+                    log.debug(f"[{video_id}] Manual subtitles available in: {list(subtitles.keys())}")
+                if automatic_captions:
+                    log.debug(f"[{video_id}] Auto-captions available in: {list(automatic_captions.keys())}")
+
+                if not subtitles and not automatic_captions:
+                    print(f"[{video_id}] yt-dlp found NO subtitles or auto-captions at all")
+
+                # Expanded preferred language list
+                preferred_langs = ['en', 'en-US', 'en-GB', 'en-AU', 'en-CA', 'en-IN', 'en-orig', 'hi', 'hi-IN']
+
+                # Prefer manual subtitles over automatic
+                transcript_lines = []
+
+                video_title_ydlp = info.get('title', '')
+
+                # First try: manual subtitles in preferred languages
+                for lang in preferred_langs:
+                    if lang in subtitles:
+                        sub_data = subtitles[lang]
+                        transcript_lines = _extract_subtitle_text(sub_data, video_id, video_title_ydlp)
+                        if transcript_lines:
+                            print(f"[{video_id}] Found manual subtitles in: {lang}")
+                            return '\n'.join(transcript_lines)
+
+                # Second try: automatic captions in preferred languages
+                for lang in preferred_langs:
+                    if lang in automatic_captions:
+                        auto_data = automatic_captions[lang]
+                        transcript_lines = _extract_subtitle_text(auto_data, video_id, video_title_ydlp)
+                        if transcript_lines:
+                            print(f"[{video_id}] Found auto-captions in: {lang}")
+                            return '\n'.join(transcript_lines)
+
+                # Third try: ANY available manual subtitle
+                for lang, sub_data in subtitles.items():
+                    transcript_lines = _extract_subtitle_text(sub_data, video_id, video_title_ydlp)
                     if transcript_lines:
-                        print(f"[{video_id}] Found manual subtitles in: {lang}")
+                        print(f"[{video_id}] Using manual subtitles in: {lang}")
                         return '\n'.join(transcript_lines)
-            
-            # Second try: automatic captions in preferred languages
-            for lang in preferred_langs:
-                if lang in automatic_captions:
-                    auto_data = automatic_captions[lang]
-                    transcript_lines = _extract_subtitle_text(auto_data)
+
+                # Fourth try: ANY available auto-caption
+                for lang, auto_data in automatic_captions.items():
+                    transcript_lines = _extract_subtitle_text(auto_data, video_id, video_title_ydlp)
                     if transcript_lines:
-                        print(f"[{video_id}] Found auto-captions in: {lang}")
+                        print(f"[{video_id}] Using auto-captions in: {lang}")
                         return '\n'.join(transcript_lines)
-            
-            # Third try: ANY available manual subtitle
-            for lang, sub_data in subtitles.items():
-                transcript_lines = _extract_subtitle_text(sub_data)
-                if transcript_lines:
-                    print(f"[{video_id}] Using manual subtitles in: {lang}")
-                    return '\n'.join(transcript_lines)
-            
-            # Fourth try: ANY available auto-caption
-            for lang, auto_data in automatic_captions.items():
-                transcript_lines = _extract_subtitle_text(auto_data)
-                if transcript_lines:
-                    print(f"[{video_id}] Using auto-captions in: {lang}")
-                    return '\n'.join(transcript_lines)
-            
-            raise ValueError("No subtitles found via yt-dlp (checked all available languages)")
-                
-    except Exception as e:
-        log.warning(f"[{video_id}] Methods 1 & 2 failed: {e}")
-    
-    # --- METHOD 3: CLIENT FALLBACK (Android/iOS bypasses PO token) ---
-    print(f"[{video_id}] Using method 3: yt-dlp with alternative clients...")
-    try:
-        fallback_result = _get_transcript_with_fallback_clients(video_id)
-        if fallback_result:
-            return fallback_result
-    except Exception as e:
-        log.error(f"[{video_id}] Client fallback method also failed: {e}")
-    
+
+                raise ValueError("No subtitles found via yt-dlp (checked all available languages)")
+
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                # Rate-limited in subtitle download — the outer loop will restart from Method 1
+                log.warning(f"[{video_id}] Method 2 hit 429 — restarting all methods (attempt {full_attempt + 1}/{MAX_FULL_ATTEMPTS})")
+                continue  # Restart the outer loop → retry Method 1 first
+            log.warning(f"[{video_id}] Method 2 HTTP error: {e}")
+        except Exception as e:
+            log.warning(f"[{video_id}] Methods 1 & 2 failed: {e}")
+
+        # --- METHOD 3: CLIENT FALLBACK (Android/iOS bypasses PO token) ---
+        # Only run Method 3 if we didn't get rate-limited (rate limit = continue above)
+        print(f"[{video_id}] Using method 3: yt-dlp with alternative clients...")
+        try:
+            fallback_result = _get_transcript_with_fallback_clients(video_id)
+            if fallback_result:
+                return fallback_result
+        except Exception as e:
+            log.error(f"[{video_id}] Client fallback method also failed: {e}")
+
+        # All three methods tried and none worked — no point retrying
+        break
+
     log.error(f"[{video_id}] All transcript methods failed")
     return None
 
-def _extract_subtitle_text(subtitle_data: List[Dict]) -> List[str]:
+def _extract_subtitle_text(subtitle_data: List[Dict], video_id: str = '?', video_title: str = '') -> List[str]:
     """
     Helper function to extract text from yt-dlp subtitle data.
     Handles different subtitle formats safely.
     """
     import json
     import urllib.request
-    
+
+    label = f"[{video_id}] '{video_title[:60]}'" if video_title else f"[{video_id}]"
+
     lines = []
+    rate_limit_count = 0  # Tracks 429s hit for this video, used for exponential backoff
     for sub in subtitle_data:
         try:
             # Prefer json3 format
@@ -369,6 +393,7 @@ def _extract_subtitle_text(subtitle_data: List[Dict]) -> List[str]:
                 if sub_url:
                     # Add timeout and error handling for rate limiting
                     time.sleep(0.5)  # Small delay to avoid rate limiting
+                    print(f"{label} Fetching json3 subtitles...")
                     request = urllib.request.Request(
                         sub_url,
                         headers={'User-Agent': 'Mozilla/5.0'}
@@ -388,6 +413,7 @@ def _extract_subtitle_text(subtitle_data: List[Dict]) -> List[str]:
                 sub_url = sub.get('url')
                 if sub_url:
                     time.sleep(0.5)
+                    print(f"{label} Fetching {sub.get('ext')} subtitles...")
                     request = urllib.request.Request(
                         sub_url,
                         headers={'User-Agent': 'Mozilla/5.0'}
@@ -403,13 +429,16 @@ def _extract_subtitle_text(subtitle_data: List[Dict]) -> List[str]:
                         break
         except urllib.error.HTTPError as e:
             if e.code == 429:
-                log.warning(f"Rate limited (429) while fetching subtitles. Backing off...")
-                time.sleep(5)  # Wait longer on rate limit
+                rate_limit_count += 1
+                wait_time = min(5 * (2 ** (rate_limit_count - 1)), 120)  # 5, 10, 20, 40, 80, 120s cap
+                log.warning(f"{label} Rate limited (429) — retry #{rate_limit_count}, backing off {wait_time}s...")
+                time.sleep(wait_time)
+                raise  # Propagate 429 so get_transcript can restart ALL methods from Method 1
             continue
         except Exception as e:
-            log.debug(f"Error extracting subtitle format {sub.get('ext')}: {e}")
+            log.debug(f"{label} Error extracting subtitle format {sub.get('ext')}: {e}")
             continue
-    
+
     return lines
 
 def _fetch_transcript_worker(info_dict: Dict) -> Optional[Dict]:
@@ -419,26 +448,29 @@ def _fetch_transcript_worker(info_dict: Dict) -> Optional[Dict]:
     video_id = info_dict.get('id')
     snippet = info_dict.get('snippet', {})
     content_details = info_dict.get('contentDetails', {})
+    video_title = snippet.get('title', 'Unknown Title')
     try:
+        print(f"[{video_id}] ▶ Starting transcript fetch for: '{video_title[:70]}'")
         transcript_text = get_transcript(video_id)
         if not transcript_text:
-            return None # Skip videos where no transcript could be found
+            print(f"[{video_id}] ⚠ No transcript found for: '{video_title[:70]}'")
+            return None  # Skip videos where no transcript could be found
         duration_iso = content_details.get('duration', 'PT0S')
         duration_seconds = isodate.parse_duration(duration_iso).total_seconds()
         video_data = {
             'video_id': video_id,
             'url': f"https://www.youtube.com/watch?v={video_id}",
-            'title': snippet.get('title'),
+            'title': video_title,
             'uploader': snippet.get('channelTitle'),
             'description': snippet.get('description'),
             'duration': duration_seconds,
             'upload_date': snippet.get('publishedAt', '').split('T')[0],
             'transcript': transcript_text
         }
-        print(f"✅ Successfully processed transcript for: {video_data['title'][:50]}...")
+        print(f"[{video_id}] ✅ Successfully processed: '{video_title[:70]}'")
         return video_data
     except Exception as e:
-        log.error(f"❌ Worker failed for video ID {video_id}: {e}", exc_info=False)
+        log.error(f"[{video_id}] ❌ Worker failed for '{video_title[:70]}': {e}", exc_info=False)
         return None
 
 # ==================================================================

@@ -1,0 +1,2781 @@
+{% extends "base.html" %}
+
+{% block title %}Google Reviews Router — YoppyChat{% endblock %}
+
+{% block page_styles %}
+<style>
+    /* ── Force parent containers to not overflow ────────────── */
+    .main-content>.card:has(.gr-wrap) {
+        overflow-x: hidden;
+        max-width: 100vw;
+    }
+
+    /* ── Global reset ─────────────────────────────────────────── */
+    .gr-wrap,
+    .gr-wrap *,
+    .gr-wrap *::before,
+    .gr-wrap *::after {
+        box-sizing: border-box;
+    }
+
+    /* Reset base.html's global button styling inside our scope */
+    .gr-wrap button,
+    .gr-wrap .btn {
+        background: none;
+        color: inherit;
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        font-size: inherit;
+        font-weight: inherit;
+    }
+
+    /* Reset base.html's global input styling inside our scope */
+    .gr-wrap input,
+    .gr-wrap select,
+    .gr-wrap textarea {
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        font-size: inherit;
+        background: none;
+    }
+
+    /* ── Wrapper ──────────────────────────────────────────────── */
+    .gr-wrap {
+        width: 100%;
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 1rem 0.75rem 3rem;
+        overflow-x: hidden;
+    }
+
+    /* @media (max-width: 768px) {
+        .gr-wrap {
+            margin-top: 50px;
+        }
+    } */
+
+    @media (min-width: 480px) {
+        .gr-wrap {
+            padding: 1.5rem 1rem 4rem;
+        }
+    }
+
+    @media (min-width: 640px) {
+        .gr-wrap {
+            padding: 2rem 1.5rem 4rem;
+        }
+    }
+
+    /* ── Hero header ─────────────────────────────────────────── */
+    .gr-hero {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.25rem;
+        padding: 1rem;
+        background: rgba(var(--accent-primary-rgb, 255, 154, 86), 0.08);
+        border: 1px solid rgba(var(--accent-primary-rgb, 255, 154, 86), 0.2);
+        border-radius: 12px;
+    }
+
+    @media (min-width: 480px) {
+        .gr-hero {
+            padding: 1.25rem;
+            border-radius: 14px;
+            margin-top: 50px;
+        }
+    }
+
+    .gr-hero-text h1 {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: var(--accent-primary, #ff9a56);
+        margin: 0 0 0.3rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    @media (min-width: 480px) {
+        .gr-hero-text h1 {
+            font-size: 1.35rem;
+        }
+    }
+
+    .gr-hero-text h1 svg {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+    }
+
+    .gr-hero-text p {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        margin: 0;
+        line-height: 1.5;
+        word-break: break-word;
+    }
+
+    @media (min-width: 480px) {
+        .gr-hero-text p {
+            font-size: 0.875rem;
+        }
+    }
+
+    /* ── Flash messages ──────────────────────────────────────── */
+    .flash-alert {
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        border-radius: 10px;
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
+    .flash-success {
+        background: rgba(16, 185, 129, .1);
+        border: 1px solid rgba(16, 185, 129, .3);
+        color: #10b981;
+    }
+
+    .flash-error,
+    .flash-danger {
+        background: rgba(239, 68, 68, .1);
+        border: 1px solid rgba(239, 68, 68, .3);
+        color: #ef4444;
+    }
+
+    /* ── Card shell ──────────────────────────────────────────── */
+    .gr-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        margin-bottom: 1rem;
+        overflow: hidden;
+        width: 100%;
+    }
+
+    @media (min-width: 480px) {
+        .gr-card {
+            border-radius: 14px;
+            margin-bottom: 1.25rem;
+        }
+    }
+
+    /* ── Card header band ────────────────────────────────────── */
+    .card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        padding: 0.75rem 0.85rem;
+        border-bottom: 1px solid var(--neutral-200);
+        background: var(--surface-medium);
+    }
+
+    @media (min-width: 480px) {
+        .card-head {
+            padding: 1rem 1.25rem;
+            gap: 0.75rem;
+        }
+    }
+
+    .card-title-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 0;
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .biz-icon {
+        width: 38px;
+        height: 38px;
+        flex-shrink: 0;
+        border-radius: 10px;
+        background: rgba(var(--accent-primary-rgb, 255, 154, 86), 0.12);
+        border: 1px solid rgba(var(--accent-primary-rgb, 255, 154, 86), 0.25);
+        color: var(--accent-primary, #ff9a56);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .biz-icon svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .biz-name {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .biz-meta {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .card-actions {
+        display: flex;
+        gap: 0.35rem;
+        flex-shrink: 0;
+    }
+
+    /* ── Card body ───────────────────────────────────────────── */
+    .card-body {
+        padding: 0.85rem;
+        overflow: hidden;
+    }
+
+    @media (min-width: 480px) {
+        .card-body {
+            padding: 1.25rem;
+        }
+    }
+
+    /* ── Stat grid ───────────────────────────────────────────── */
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.6rem;
+        margin-bottom: 1rem;
+    }
+
+    @media (min-width: 480px) {
+        .stat-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    .stat-chip {
+        border-radius: 10px;
+        padding: 0.7rem 0.6rem;
+        text-align: center;
+        border: 1px solid transparent;
+    }
+
+    .stat-chip.neutral {
+        background: var(--surface-medium);
+        border-color: var(--neutral-200);
+    }
+
+    .stat-chip.green {
+        background: rgba(16, 185, 129, .07);
+        border-color: rgba(16, 185, 129, .2);
+    }
+
+    .stat-chip.amber {
+        background: rgba(245, 158, 11, .07);
+        border-color: rgba(245, 158, 11, .2);
+    }
+
+    .stat-chip.blue {
+        background: rgba(59, 130, 246, .07);
+        border-color: rgba(59, 130, 246, .2);
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+        line-height: 1;
+        margin-bottom: 0.2rem;
+    }
+
+    .stat-chip.neutral .stat-value {
+        color: var(--text-primary);
+    }
+
+    .stat-chip.green .stat-value {
+        color: #10b981;
+    }
+
+    .stat-chip.amber .stat-value {
+        color: #f59e0b;
+    }
+
+    .stat-chip.blue .stat-value {
+        color: #3b82f6;
+    }
+
+    .stat-label {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 700;
+        color: var(--text-muted);
+    }
+
+    /* ── Link box ────────────────────────────────────────────── */
+    .link-box {
+        background: rgba(var(--accent-primary-rgb, 255, 154, 86), 0.06);
+        border: 1px solid rgba(var(--accent-primary-rgb, 255, 154, 86), 0.18);
+        border-radius: 10px;
+        padding: 0.75rem;
+        margin-bottom: 0.9rem;
+    }
+
+    @media (min-width: 480px) {
+        .link-box {
+            padding: 0.9rem 1rem;
+        }
+    }
+
+    .link-label {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--accent-primary, #ff9a56);
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        margin-bottom: 0.4rem;
+    }
+
+    .link-label svg {
+        width: 12px;
+        height: 12px;
+    }
+
+    .link-row {
+        display: flex;
+        gap: 0.4rem;
+        align-items: stretch;
+    }
+
+    .link-input {
+        flex: 1;
+        width: 0;
+        /* force flex shrink */
+        min-width: 0;
+        padding: 0.45rem 0.6rem;
+        border-radius: 8px;
+        border: 1px solid var(--neutral-300);
+        background: var(--surface-medium);
+        color: var(--text-primary);
+        font-family: monospace;
+        font-size: 0.72rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .link-input:focus {
+        outline: none;
+        border-color: var(--accent-primary, #ff9a56);
+    }
+
+    /* ── Context panel ───────────────────────────────────────── */
+    .ctx-panel {
+        border: 1px solid var(--neutral-200);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .ctx-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.65rem 1rem;
+        background: var(--surface-medium);
+        border-bottom: 1px solid var(--neutral-200);
+    }
+
+    .ctx-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .ctx-label svg {
+        width: 13px;
+        height: 13px;
+    }
+
+    .ctx-btns {
+        display: flex;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+    }
+
+    .ctx-body {
+        padding: 0.65rem 0.75rem;
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        max-height: 110px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        background: var(--surface-light);
+    }
+
+    @media (min-width: 480px) {
+        .ctx-body {
+            padding: 0.75rem 1rem;
+            font-size: 0.81rem;
+        }
+    }
+
+    .ctx-body.empty {
+        color: var(--text-muted);
+        font-style: italic;
+    }
+
+    .ctx-status {
+        font-size: 0.79rem;
+        padding: 0.35rem 1rem;
+        display: none;
+    }
+
+    /* ── Form card ───────────────────────────────────────────── */
+    .form-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        margin-bottom: 1rem;
+        overflow: hidden;
+        width: 100%;
+    }
+
+    @media (min-width: 480px) {
+        .form-card {
+            border-radius: 14px;
+            margin-bottom: 1.25rem;
+        }
+    }
+
+    .form-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--neutral-200);
+        background: var(--surface-medium);
+    }
+
+    .form-head h3 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin: 0;
+        color: var(--text-primary);
+    }
+
+    .form-body {
+        padding: 0.85rem;
+    }
+
+    @media (min-width: 480px) {
+        .form-body {
+            padding: 1.25rem;
+        }
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    @media (min-width: 560px) {
+        .form-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    .fg {
+        /* form group */
+    }
+
+    .fg.full {
+        grid-column: 1 / -1;
+    }
+
+    .fg label {
+        display: block;
+        font-size: 0.83rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.4rem;
+    }
+
+    .fg label span {
+        font-weight: 400;
+        color: var(--text-muted);
+    }
+
+    .fg .fc {
+        /* form control */
+        width: 100%;
+        padding: 0.65rem 0.85rem;
+        border: 1px solid var(--neutral-300);
+        border-radius: 9px;
+        background: var(--surface-medium);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 0.875rem;
+        transition: border-color 0.15s;
+        box-sizing: border-box;
+    }
+
+    .fg .fc:focus {
+        outline: none;
+        border-color: var(--accent-primary, #ff9a56);
+    }
+
+    .form-help {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 0.3rem;
+        line-height: 1.5;
+    }
+
+    .form-help a {
+        color: var(--accent-primary, #ff9a56);
+        font-weight: 600;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .gr-wrap .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: all 0.18s;
+        border: 1px solid transparent;
+        font-family: inherit;
+        white-space: nowrap;
+        text-decoration: none;
+        padding: 0.45rem 0.85rem;
+        font-size: 0.82rem;
+        line-height: 1.4;
+        box-shadow: none;
+    }
+
+    .gr-wrap .btn svg {
+        width: 13px;
+        height: 13px;
+        flex-shrink: 0;
+        stroke-width: 2.5;
+    }
+
+    .gr-wrap .btn-accent {
+        background: var(--accent-primary, #ff9a56);
+        color: #fff;
+        border-color: var(--accent-primary, #ff9a56);
+    }
+
+    .gr-wrap .btn-accent:hover {
+        opacity: 0.88;
+        transform: translateY(-1px);
+    }
+
+    .gr-wrap .btn-ghost {
+        background: var(--surface-medium);
+        color: var(--text-secondary);
+        border: 1px solid var(--neutral-200);
+    }
+
+    .gr-wrap .btn-ghost:hover {
+        background: var(--neutral-200);
+        color: var(--text-primary);
+    }
+
+    .gr-wrap .btn-danger {
+        background: transparent;
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.25);
+    }
+
+    .gr-wrap .btn-danger:hover {
+        background: rgba(239, 68, 68, 0.06);
+    }
+
+    .gr-wrap .btn-sm {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.75rem;
+        border-radius: 6px;
+    }
+
+    .gr-wrap .btn-full {
+        width: 100%;
+        justify-content: center;
+    }
+
+    @media (max-width: 400px) {
+        .gr-wrap .btn-sm {
+            padding: 0.28rem 0.45rem;
+            font-size: 0.7rem;
+        }
+
+        .gr-wrap .btn-sm .btn-lbl {
+            display: none;
+        }
+    }
+
+    /* ── Empty state ─────────────────────────────────────────── */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1.5rem;
+        background: var(--surface-light);
+        border: 1px dashed var(--neutral-200);
+        border-radius: 14px;
+        margin-bottom: 1.25rem;
+        color: var(--text-muted);
+    }
+
+    .empty-state .es-icon {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 1rem;
+        color: var(--accent-primary, #ff9a56);
+        opacity: 0.6;
+    }
+
+    .empty-state h3 {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0 0 0.4rem;
+    }
+
+    .empty-state p {
+        font-size: 0.875rem;
+        margin: 0 0 1.25rem;
+    }
+
+    /* ── Feedback section ────────────────────────────────────── */
+    .fb-section {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: 14px;
+        box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+
+    .fb-head {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--neutral-200);
+        background: var(--surface-medium);
+        flex-wrap: wrap;
+    }
+
+    .fb-head h3 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin: 0;
+        color: var(--text-primary);
+    }
+
+    .fb-tag {
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+    }
+
+    .fb-note {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-left: auto;
+    }
+
+    .fb-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .fb-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 520px;
+    }
+
+    .fb-table th,
+    .fb-table td {
+        padding: 0.75rem 1.25rem;
+        text-align: left;
+        border-bottom: 1px solid var(--neutral-200);
+        font-size: 0.83rem;
+    }
+
+    .fb-table th {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        background: var(--surface-medium);
+    }
+
+    .fb-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .fb-table tr:hover td {
+        background: rgba(0, 0, 0, 0.015);
+    }
+
+    .rating-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.15rem;
+        padding: 0.18rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    .rating-bad {
+        background: rgba(239, 68, 68, .1);
+        color: #ef4444;
+    }
+
+    .rating-ok {
+        background: rgba(245, 158, 11, .1);
+        color: #f59e0b;
+    }
+
+    .fb-empty {
+        padding: 2.5rem 2rem;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 0.875rem;
+    }
+
+    .fb-empty svg {
+        width: 28px;
+        height: 28px;
+        color: #10b981;
+        margin-bottom: 0.65rem;
+    }
+
+    .fb-empty strong {
+        display: block;
+        color: var(--text-secondary);
+        margin-bottom: 0.2rem;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* ── QR Code Modal ───────────────────────────────────────── */
+    .qr-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.6);
+        backdrop-filter: blur(4px);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .qr-overlay.active {
+        display: flex;
+    }
+
+    .qr-modal {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        width: 100%;
+        max-width: 380px;
+        overflow: hidden;
+        animation: qrModalIn 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes qrModalIn {
+        from { opacity: 0; transform: scale(0.88) translateY(12px); }
+        to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .qr-modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--neutral-200);
+        background: var(--surface-medium);
+    }
+
+    .qr-modal-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .qr-modal-title svg {
+        width: 16px;
+        height: 16px;
+        color: var(--accent-primary, #ff9a56);
+        flex-shrink: 0;
+    }
+
+    /* ── QR Code Modal — Google Poster Preview ────────────────── */
+    .qr-modal-body {
+        padding: 1.25rem;
+        text-align: center;
+    }
+
+    /* Miniature Google review poster preview */
+    .g-poster-preview {
+        width: 100%;
+        max-width: 260px;
+        margin: 0 auto 1.1rem;
+        background: #fff;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+        position: relative;
+    }
+
+    /* Corner triangles */
+    .g-poster-preview .corner {
+        position: absolute;
+        width: 54px;
+        height: 54px;
+        overflow: hidden;
+        pointer-events: none;
+        z-index: 2;
+    }
+    .g-poster-preview .corner::before {
+        content: '';
+        position: absolute;
+        width: 0;
+        height: 0;
+    }
+    .g-poster-preview .corner-tl { top: 0; left: 0; }
+    .g-poster-preview .corner-tl::before {
+        border-top: 54px solid #EA4335;
+        border-right: 54px solid transparent;
+    }
+    .g-poster-preview .corner-tr { top: 0; right: 0; }
+    .g-poster-preview .corner-tr::before {
+        border-top: 54px solid #4285F4;
+        border-left: 54px solid transparent;
+    }
+    .g-poster-preview .corner-bl { bottom: 0; left: 0; }
+    .g-poster-preview .corner-bl::before {
+        border-bottom: 54px solid #34A853;
+        border-right: 54px solid transparent;
+    }
+    .g-poster-preview .corner-br { bottom: 0; right: 0; }
+    .g-poster-preview .corner-br::before {
+        border-bottom: 54px solid #FBBC05;
+        border-left: 54px solid transparent;
+    }
+
+    .g-poster-inner {
+        padding: 1rem 1rem 0.75rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.6rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Google wordmark */
+    .g-wordmark {
+        font-size: 1.35rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 1;
+    }
+    .g-wordmark .g-blue  { color: #4285F4; }
+    .g-wordmark .g-red   { color: #EA4335; }
+    .g-wordmark .g-yellow{ color: #FBBC05; }
+    .g-wordmark .g-green { color: #34A853; }
+
+    /* QR bordered box */
+    .g-qr-box {
+        position: relative;
+        display: inline-block;
+        padding: 5px;
+        background: #fff;
+    }
+
+    /* Red corner brackets */
+    .g-qr-box::before, .g-qr-box::after,
+    .g-qr-box .br::before, .g-qr-box .br::after {
+        content: '';
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        border-color: #EA4335;
+        border-style: solid;
+    }
+    .g-qr-box::before  { top: 0; left: 0;  border-width: 3px 0 0 3px; }
+    .g-qr-box::after   { top: 0; right: 0; border-width: 3px 3px 0 0; }
+    .g-qr-box .br::before { bottom: 0; left: 0;  border-width: 0 0 3px 3px; }
+    .g-qr-box .br::after  { bottom: 0; right: 0; border-width: 0 3px 3px 0; }
+
+    .g-qr-box img {
+        width: 150px;
+        height: 150px;
+        display: block;
+    }
+
+    /* SCAN ME banner */
+    .g-scan-me {
+        background: #EA4335;
+        color: #fff;
+        font-size: 0.9rem;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding: 0.35rem 1.5rem;
+        border-radius: 4px;
+    }
+
+    .g-caption {
+        font-size: 0.65rem;
+        color: #333;
+        text-align: center;
+        line-height: 1.5;
+        padding: 0 0.5rem 0.25rem;
+    }
+
+    .qr-hint {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+        line-height: 1.5;
+    }
+
+    .qr-actions {
+        display: flex;
+        gap: 0.6rem;
+        justify-content: center;
+    }
+
+    @media (max-width: 360px) {
+        .g-qr-box img { width: 120px; height: 120px; }
+        .g-wordmark { font-size: 1.1rem; }
+    }
+
+    /* ── Modal button reset (overrides base.html global styles) ───── */
+    .qr-modal button,
+    .qr-modal .btn,
+    .nfc-modal button,
+    .nfc-modal .btn {
+        /* Undo base.html's orange button defaults */
+        background: none;
+        color: inherit;
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        font-size: inherit;
+        font-weight: inherit;
+        line-height: inherit;
+        width: auto;
+        cursor: pointer;
+        font-family: inherit;
+    }
+
+    /* Working .btn base inside both modals */
+    .qr-modal .btn,
+    .nfc-modal .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        font-weight: 600;
+        border-radius: 8px;
+        transition: all 0.18s;
+        border: 1px solid transparent;
+        white-space: nowrap;
+        text-decoration: none;
+        padding: 0.5rem 1rem;
+        font-size: 0.84rem;
+    }
+
+    .qr-modal .btn svg,
+    .nfc-modal .btn svg {
+        width: 15px;
+        height: 15px;
+        flex-shrink: 0;
+        stroke-width: 2;
+    }
+
+    /* Accent */
+    .qr-modal .btn-accent,
+    .nfc-modal .btn-accent {
+        background: var(--accent-primary, #ff9a56);
+        color: #fff !important;
+        border-color: var(--accent-primary, #ff9a56);
+    }
+    .qr-modal .btn-accent:hover,
+    .nfc-modal .btn-accent:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    /* Ghost */
+    .qr-modal .btn-ghost,
+    .nfc-modal .btn-ghost {
+        background: var(--surface-medium, #f5f5f5);
+        color: var(--text-secondary, #555) !important;
+        border: 1px solid var(--neutral-200, #e0e0e0);
+    }
+    .qr-modal .btn-ghost:hover,
+    .nfc-modal .btn-ghost:hover {
+        background: var(--neutral-200, #e0e0e0);
+        color: var(--text-primary, #111) !important;
+    }
+
+    /* Small variant — used for the close button */
+    .qr-modal .btn-sm,
+    .nfc-modal .btn-sm {
+        padding: 0.35rem;
+        font-size: 0.78rem;
+        border-radius: 7px;
+        width: 30px;
+        height: 30px;
+    }
+    .qr-modal .btn-sm svg,
+    .nfc-modal .btn-sm svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    /* Fix nfc url input (base.html zeroes padding on inputs) */
+    .nfc-modal .nfc-url-input {
+        padding: 0.5rem 0.75rem !important;
+        border: 1px solid var(--neutral-300, #ccc) !important;
+        background: var(--surface-medium, #f5f5f5) !important;
+        border-radius: 8px !important;
+    }
+
+    /* ── NFC Card Modal ──────────────────────────────────────── */
+    .nfc-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.65);
+        backdrop-filter: blur(5px);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .nfc-overlay.active { display: flex; }
+
+    .nfc-modal {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: 18px;
+        box-shadow: 0 24px 70px rgba(0,0,0,0.35);
+        width: 100%;
+        max-width: 500px;
+        overflow: hidden;
+        animation: qrModalIn 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .nfc-modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--neutral-200);
+        background: var(--surface-medium);
+    }
+
+    .nfc-modal-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .nfc-modal-title svg {
+        width: 16px;
+        height: 16px;
+        color: var(--accent-primary, #ff9a56);
+        flex-shrink: 0;
+    }
+
+    .nfc-modal-body {
+        padding: 1.25rem;
+    }
+
+    /* The card preview */
+    .nfc-card-preview {
+        width: 100%;
+        max-width: 360px;
+        aspect-ratio: 1.586 / 1;
+        margin: 0 auto 1.25rem;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+        box-shadow:
+            0 8px 32px rgba(0,0,0,0.4),
+            inset 0 1px 0 rgba(255,255,255,0.08);
+        position: relative;
+        overflow: hidden;
+        padding: 1.2rem 1.4rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        color: #fff;
+    }
+
+    .nfc-card-preview::before {
+        content: '';
+        position: absolute;
+        top: -60px;
+        right: -60px;
+        width: 220px;
+        height: 220px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255,154,86,0.25) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    .nfc-card-preview::after {
+        content: '';
+        position: absolute;
+        bottom: -40px;
+        left: -40px;
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    .nfc-card-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+    }
+
+    .nfc-card-brand {
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.5);
+    }
+
+    .nfc-symbol {
+        width: 32px;
+        height: 32px;
+        opacity: 0.85;
+    }
+
+    .nfc-card-mid {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    .nfc-card-biz {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #fff;
+        letter-spacing: -0.01em;
+        line-height: 1.2;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+
+    .nfc-card-cta {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--accent-primary, #ff9a56);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .nfc-card-bottom {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+    }
+
+    .nfc-card-url {
+        font-size: 0.58rem;
+        color: rgba(255,255,255,0.45);
+        font-family: monospace;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .nfc-stars {
+        display: flex;
+        gap: 1px;
+    }
+
+    .nfc-stars svg {
+        width: 9px;
+        height: 9px;
+        fill: #ff9a56;
+    }
+
+    /* Steps */
+    .nfc-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        margin-bottom: 1.1rem;
+    }
+
+    .nfc-step {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.65rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 10px;
+        background: var(--surface-medium);
+        border: 1px solid var(--neutral-200);
+    }
+
+    .nfc-step-num {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--accent-primary, #ff9a56);
+        color: #fff;
+        font-size: 0.65rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+
+    .nfc-step-text {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        line-height: 1.45;
+    }
+
+    .nfc-step-text strong {
+        color: var(--text-primary);
+        font-weight: 700;
+    }
+
+    .nfc-step-text a {
+        color: var(--accent-primary, #ff9a56);
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .nfc-url-row {
+        display: flex;
+        gap: 0.4rem;
+        margin-bottom: 1.1rem;
+    }
+
+    .nfc-url-input {
+        flex: 1;
+        min-width: 0;
+        padding: 0.5rem 0.75rem;
+        border-radius: 8px;
+        border: 1px solid var(--neutral-300);
+        background: var(--surface-medium);
+        color: var(--text-primary);
+        font-family: monospace;
+        font-size: 0.72rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .nfc-url-input:focus { outline: none; border-color: var(--accent-primary, #ff9a56); }
+
+    .nfc-actions {
+        display: flex;
+        gap: 0.6rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    /* make both action buttons equal width */
+    .nfc-actions .btn,
+    .qr-actions .btn {
+        flex: 1;
+        min-width: 120px;
+        justify-content: center;
+    }
+
+    @media (max-width: 400px) {
+        .nfc-card-biz { font-size: 0.85rem; }
+        .nfc-card-preview { padding: 0.9rem 1rem; }
+    }
+
+    /* Logo Upload Drop Zone */
+    .logo-drop-zone {
+        display: block;
+        width: 100%;
+        border: 2px dashed var(--border);
+        border-radius: 12px;
+        background: rgba(255,255,255,0.02);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: center;
+        overflow: hidden;
+    }
+    .logo-drop-zone:hover {
+        border-color: var(--accent-primary, #ff9a56);
+        background: rgba(255, 154, 86, 0.04);
+    }
+    .logo-drop-inner {
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    .logo-drop-inner img {
+        max-width: 100%;
+        max-height: 120px;
+        border-radius: 8px;
+        object-fit: contain;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="gr-wrap">
+
+    <!-- ── Hero ───────────────────────────────────────────── -->
+    <div class="gr-hero">
+        <div class="gr-hero-text">
+            <h1>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <polygon
+                        points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+                Google Reviews Router
+            </h1>
+            <p>Intercept negative feedback privately and guide satisfied customers to leave 5-star Google reviews —
+                powered by AI.</p>
+        </div>
+        {% if settings_list|length < max_businesses %} <button class="btn btn-accent" onclick="showNewForm()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span class="btn-lbl">Add Business</span>
+            </button>
+            {% endif %}
+    </div>
+
+    <!-- ── Flash messages ─────────────────────────────────── -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="flash-alert flash-{{ category }}">
+        <span>{{ message }}</span>
+        <button onclick="this.parentElement.remove()"
+            style="background:none;border:none;cursor:pointer;opacity:0.5;font-size:1.1rem;color:inherit;padding:0;line-height:1;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+        </button>
+    </div>
+    {% endfor %}
+    <script>
+        setTimeout(() => document.querySelectorAll('.flash-alert').forEach(el => {
+            el.style.transition = 'opacity 0.5s'; el.style.opacity = '0';
+            setTimeout(() => el.remove(), 500);
+        }), 4000);
+    </script>
+    {% endif %}
+    {% endwith %}
+
+    <!-- ── Business cards ─────────────────────────────────── -->
+    {% if settings_list|length > 0 %}
+    {% for settings in settings_list %}
+    {% set s_id = settings.get('id') %}
+    {% set safe_name = settings.get('business_name','business') | replace(" ","-") | lower %}
+    {% set link_url = url_for('google_reviews.public_review_page', business_name=safe_name, settings_id=s_id,
+    _external=True) %}
+
+    <!-- VIEW MODE -->
+    <div class="gr-card viewMode-card" id="viewMode-{{ s_id }}">
+
+        <div class="card-head">
+            <div class="card-title-row">
+                <div class="biz-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <rect x="2" y="7" width="20" height="14" rx="2" />
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                    </svg>
+                </div>
+                <div style="min-width:0;">
+                    <div class="biz-name">{{ settings.get('business_name') }}</div>
+                    <div class="biz-meta">{{ settings.get('place_id','')[:32] }}… &bull; Routes {{
+                        settings.get('minimum_stars',4) }}&#9733;+ to Google</div>
+                </div>
+            </div>
+            <div class="card-actions">
+                <button class="btn btn-ghost btn-sm" onclick="showEditMode('{{ s_id }}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                    <span class="btn-lbl">Edit</span>
+                </button>
+                <form id="deleteForm-{{ s_id }}"
+                    action="{{ url_for('google_reviews.delete_business', settings_id=s_id) }}" method="POST"
+                    style="margin:0;">
+                    <button type="button" class="btn btn-danger btn-sm" data-settings-id="{{ s_id }}"
+                        onclick="confirmDeleteBusiness(this.dataset.settingsId, '{{ settings.get(" business_name","") |
+                        replace("'","&#39;") }}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                        <span class="btn-lbl">Delete</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card-body">
+
+            <!-- Stats -->
+            {% if stats and s_id in stats %}
+            <div class="stat-grid">
+                <div class="stat-chip neutral">
+                    <div class="stat-value">{{ stats[s_id]['total'] }}</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat-chip green">
+                    <div class="stat-value">{{ stats[s_id][5] + stats[s_id][4] }}</div>
+                    <div class="stat-label">Positive 4-5&#9733;</div>
+                </div>
+                <div class="stat-chip amber">
+                    <div class="stat-value">{{ stats[s_id][1] + stats[s_id][2] + stats[s_id][3] }}</div>
+                    <div class="stat-label">Captured 1-3&#9733;</div>
+                </div>
+                <div class="stat-chip blue">
+                    <div class="stat-value">{{ stats[s_id]['avg'] }}&#9733;</div>
+                    <div class="stat-label">Avg Rating</div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Public link -->
+            <div class="link-box">
+                <div class="link-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                    </svg>
+                    Public Review Link
+                </div>
+                <div class="link-row">
+                    <input type="text" id="reviewLinkInput-{{ s_id }}" readonly value="{{ link_url }}"
+                        class="link-input">
+                    <button type="button" class="btn btn-accent btn-sm" id="copyBtn-{{ s_id }}"
+                        onclick="copyReviewLink('{{ s_id }}')">
+                        <svg id="copyIconSvg-{{ s_id }}" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        <span id="copyText-{{ s_id }}">Copy</span>
+                    </button>
+                    <button type="button" class="btn btn-ghost btn-sm" title="Generate QR Code"
+                        data-settings-id="{{ s_id }}"
+                        data-biz-name="{{ settings.get('business_name','') | e }}"
+                        data-logo-url="{{ settings.get('logo_url','') | e }}"
+                        onclick="openQrModalFromBtn(this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7" rx="1"/>
+                            <rect x="14" y="3" width="7" height="7" rx="1"/>
+                            <rect x="3" y="14" width="7" height="7" rx="1"/>
+                            <rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none"/>
+                            <rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none"/>
+                            <rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none"/>
+                            <path d="M14 14h3v3h-3z" fill="currentColor" stroke="none"/>
+                            <path d="M17 17h3v3h-3z" fill="currentColor" stroke="none"/>
+                            <path d="M14 20h3" stroke-width="2"/>
+                            <path d="M20 14v3" stroke-width="2"/>
+                        </svg>
+                        <span class="btn-lbl">QR Code</span>
+                    </button>
+                    <button type="button" class="btn btn-ghost btn-sm" title="NFC Card"
+                        data-settings-id="{{ s_id }}"
+                        data-biz-name="{{ settings.get('business_name','') | e }}"
+                        onclick="openNfcModalFromBtn(this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 7a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h16z"/>
+                            <path d="M12 11v2" stroke-width="2.5"/>
+                            <path d="M9.5 9.5A3.5 3.5 0 0 0 8.5 12a3.5 3.5 0 0 0 1 2.5" stroke-width="1.5"/>
+                            <path d="M14.5 9.5A3.5 3.5 0 0 1 15.5 12a3.5 3.5 0 0 1-1 2.5" stroke-width="1.5"/>
+                            <path d="M7 7.5A6 6 0 0 0 5.5 12 6 6 0 0 0 7 16.5" stroke-width="1.2"/>
+                            <path d="M17 7.5A6 6 0 0 1 18.5 12 6 6 0 0 1 17 16.5" stroke-width="1.2"/>
+                        </svg>
+                        <span class="btn-lbl">NFC Card</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Context panel -->
+            <div class="ctx-panel">
+                <div class="ctx-head">
+                    <span class="ctx-label">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        Cached Google Reviews (AI Context)
+                    </span>
+                    <div class="ctx-btns">
+                        <button class="btn btn-ghost btn-sm" id="refreshBtn-{{ s_id }}"
+                            onclick="refreshContext('{{ s_id }}','newest')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M21 2v6h-6" />
+                                <path d="M3 12a9 9 0 1 0 2.1-5.7L21 8" />
+                            </svg>
+                            <span class="btn-lbl">Fetch Latest</span>
+                        </button>
+                        <button class="btn btn-ghost btn-sm" id="randomBtn-{{ s_id }}"
+                            onclick="refreshContext('{{ s_id }}','most_relevant')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <polyline points="16 3 21 3 21 8" />
+                                <line x1="4" y1="20" x2="21" y2="3" />
+                                <polyline points="21 16 21 21 16 21" />
+                                <line x1="15" y1="15" x2="21" y2="21" />
+                                <line x1="4" y1="4" x2="9" y2="9" />
+                            </svg>
+                            <span class="btn-lbl">Most Relevant</span>
+                        </button>
+                    </div>
+                </div>
+
+                {% if settings.get('cached_reviews_context') %}
+                <div id="contextBox-{{ s_id }}" class="ctx-body">{{ settings.get('cached_reviews_context') | replace(' |
+                    ','<br>— ') | safe }}</div>
+                {% else %}
+                <div id="contextBox-{{ s_id }}" class="ctx-body empty">No reviews fetched yet. Click "Fetch Latest" to
+                    populate AI context.</div>
+                {% endif %}
+                <div id="refreshStatus-{{ s_id }}" class="ctx-status"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- EDIT MODE -->
+    <div class="form-card" id="editMode-{{ s_id }}" style="display:none;">
+        <div class="form-head">
+            <h3>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:0.35rem;">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                Edit — {{ settings.get('business_name') }}
+            </h3>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="showViewMode('{{ s_id }}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+                <span class="btn-lbl">Cancel</span>
+            </button>
+        </div>
+        <div class="form-body">
+            <form method="POST" action="/dashboard/google-reviews" enctype="multipart/form-data">
+                <input type="hidden" name="settings_id" value="{{ s_id }}">
+                <div class="form-grid">
+                    <div class="fg">
+                        <label>Business Name</label>
+                        <input type="text" name="business_name" class="fc"
+                            value="{{ settings.get('business_name','') }}" placeholder="e.g. Joe's Coffee" required>
+                    </div>
+                    <div class="fg">
+                        <label>Route to Google Threshold</label>
+                        <select name="minimum_stars" class="fc" required>
+                            <option value="5" {% if settings.get('minimum_stars',4)|int==5 %}selected{% endif %}>5 Stars
+                                only</option>
+                            <option value="4" {% if settings.get('minimum_stars',4)|int==4 %}selected{% endif %}>4 &amp;
+                                5 Stars</option>
+                            <option value="3" {% if settings.get('minimum_stars',4)|int==3 %}selected{% endif %}>3, 4, 5
+                                Stars</option>
+                            <option value="2" {% if settings.get('minimum_stars',4)|int==2 %}selected{% endif %}>2–5
+                                Stars</option>
+                            <option value="1" {% if settings.get('minimum_stars',4)|int==1 %}selected{% endif %}>All
+                                Ratings</option>
+                        </select>
+                        <div class="form-help">Ratings below threshold are captured privately.</div>
+                    </div>
+                    <div class="fg full">
+                        <label>Google Place ID</label>
+                        <input type="text" name="place_id" class="fc" value="{{ settings.get('place_id','') }}"
+                            placeholder="ChI..." required>
+                        <div class="form-help"><a
+                                href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+                                target="_blank">Find your Place ID</a> — search your business and copy the ID.</div>
+                    </div>
+                    <div class="fg full">
+                        <label>Business Description <span>(optional — helps AI write accurate reviews)</span></label>
+                        <textarea name="business_description" class="fc" rows="3"
+                            placeholder="e.g. We are a travel agency specialising in…">{{ settings.get('business_description','') }}</textarea>
+                    </div>
+                    <!-- Logo upload -->
+                    <div class="fg full">
+                        <label>Business Logo / Icon <span>(optional — shown on review page &amp; QR code)</span></label>
+                        {% if settings.get('logo_url') %}
+                        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+                            <img src="{{ settings.logo_url }}" alt="Current Logo"
+                                style="width:48px;height:48px;object-fit:contain;border-radius:8px;border:1px solid var(--neutral-200);background:#fff;padding:4px;">
+                            <span style="font-size:0.78rem;color:var(--text-muted);">Current logo &mdash; upload a new one to replace</span>
+                        </div>
+                        {% endif %}
+                        <label class="logo-drop-zone" id="logoDropEdit-{{ s_id }}">
+                            <input type="file" name="business_logo" accept="image/*"
+                                onchange="previewLogo(this,'logoPreviewEdit-{{ s_id }}','logoDropEdit-{{ s_id }}')" style="display:none;">
+                            <div class="logo-drop-inner" id="logoPreviewEdit-{{ s_id }}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;color:var(--text-muted);">
+                                    <rect x="3" y="3" width="18" height="18" rx="3"/>
+                                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                                    <polyline points="21 15 16 10 5 21"/>
+                                </svg>
+                                <span style="font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem;">Click or drag image here<br><small>PNG, JPG, SVG, WebP</small></span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <div style="margin-top:1.25rem;">
+                    <button type="submit" class="btn btn-accent btn-full" id="saveBtn-edit-{{ s_id }}"
+                        onclick="setSavingState(this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <polyline points="17 21 17 13 7 13 7 21" />
+                            <polyline points="7 3 7 8 15 8" />
+                        </svg>
+                        Save Settings
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% endfor %}
+    {% else %}
+
+    <!-- Empty state -->
+    <div class="empty-state">
+        <svg class="es-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" />
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+        </svg>
+        <h3>No businesses configured yet</h3>
+        <p>Add your first business to start routing reviews and capturing feedback.</p>
+        <button class="btn btn-accent" onclick="showNewForm()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Add Your First Business
+        </button>
+    </div>
+
+    {% endif %}
+
+    <!-- ── New Business Form ───────────────────────────────── -->
+    <div class="form-card" id="newFormMode"
+        style="display:{% if settings_list|length == 0 %}block{% else %}none{% endif %};">
+        <div class="form-head">
+            <h3>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:0.35rem;">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Add New Business
+            </h3>
+            {% if settings_list|length > 0 %}
+            <button class="btn btn-ghost btn-sm" type="button" onclick="hideNewForm()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+                <span class="btn-lbl">Cancel</span>
+            </button>
+            {% endif %}
+        </div>
+        <div class="form-body">
+            <form method="POST" action="/dashboard/google-reviews" enctype="multipart/form-data">
+                <div class="form-grid">
+                    <div class="fg">
+                        <label>Business Name</label>
+                        <input type="text" name="business_name" class="fc" placeholder="e.g. Joe's Coffee" required>
+                    </div>
+                    <div class="fg">
+                        <label>Route to Google Threshold</label>
+                        <select name="minimum_stars" class="fc" required>
+                            <option value="5">5 Stars only</option>
+                            <option value="4" selected>4 &amp; 5 Stars</option>
+                            <option value="3">3, 4, 5 Stars</option>
+                            <option value="2">2–5 Stars</option>
+                            <option value="1">All Ratings</option>
+                        </select>
+                        <div class="form-help">Ratings below threshold are captured privately.</div>
+                    </div>
+                    <div class="fg full">
+                        <label>Google Place ID</label>
+                        <input type="text" name="place_id" class="fc" placeholder="ChI..." required>
+                        <div class="form-help"><a
+                                href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+                                target="_blank">Find your Place ID</a> — search your business and copy the ID.</div>
+                    </div>
+                    <div class="fg full">
+                        <label>Business Description <span>(optional)</span></label>
+                        <textarea name="business_description" class="fc" rows="3"
+                            placeholder="e.g. We are a boutique travel agency…"></textarea>
+                    </div>
+                    <!-- Logo upload -->
+                    <div class="fg full">
+                        <label>Business Logo / Icon <span>(optional — shown on review page &amp; QR code)</span></label>
+                        <label class="logo-drop-zone" id="logoDropNew">
+                            <input type="file" name="business_logo" accept="image/*"
+                                onchange="previewLogo(this,'logoPreviewNew','logoDropNew')" style="display:none;">
+                            <div class="logo-drop-inner" id="logoPreviewNew">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;color:var(--text-muted);">
+                                    <rect x="3" y="3" width="18" height="18" rx="3"/>
+                                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                                    <polyline points="21 15 16 10 5 21"/>
+                                </svg>
+                                <span style="font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem;">Click or drag image here<br><small>PNG, JPG, SVG, WebP</small></span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <div style="margin-top:1.25rem;">
+                    <button type="submit" class="btn btn-accent btn-full" id="saveBtn-new"
+                        onclick="setSavingState(this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <polyline points="17 21 17 13 7 13 7 21" />
+                            <polyline points="7 3 7 8 15 8" />
+                        </svg>
+                        Save &amp; Activate
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── Captured Feedback ──────────────────────────────── -->
+    <div class="fb-section">
+        <div class="fb-head">
+            <h3>Captured Feedback</h3>
+            <span class="fb-tag">Private</span>
+            <span class="fb-note">Not visible on Google</span>
+        </div>
+
+        {% if feedbacks|length > 0 %}
+        {% set business_map = {} %}
+        {% for s in settings_list %}{% if business_map.update({s.get('id'): s.get('business_name','Unknown')}) %}{%
+        endif %}{% endfor %}
+        <div class="fb-table-wrap">
+            <table class="fb-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Business</th>
+                        <th>Customer</th>
+                        <th>Rating</th>
+                        <th>Feedback</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fb in feedbacks %}
+                    <tr>
+                        <td style="white-space:nowrap;color:var(--text-muted);">{{ fb.created_at[:10] }}</td>
+                        <td style="white-space:nowrap;font-weight:600;font-size:0.82rem;">{{
+                            business_map.get(fb.settings_id,'—') }}</td>
+                        <td>
+                            <div style="font-weight:600;">{{ fb.customer_name or 'Anonymous' }}</div>
+                            {% if fb.customer_email %}<div style="font-size:0.75rem;color:var(--text-muted);">{{
+                                fb.customer_email }}</div>{% endif %}
+                        </td>
+                        <td>
+                            <span
+                                class="rating-badge {% if fb.rating <= 2 %}rating-bad{% else %}rating-ok{% endif %}">{{
+                                fb.rating }}&#9733;</span>
+                        </td>
+                        <td style="color:var(--text-secondary);max-width:280px;">{{ fb.feedback_text }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="fb-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <strong>No negative feedback yet — fantastic!</strong>
+            Positive ratings are flowing straight to Google.
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- ── QR Code Modal ──────────────────────────────────────── -->
+<div class="qr-overlay" id="qrOverlay" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle"
+    onclick="if(event.target===this)closeQrModal()">
+    <div class="qr-modal">
+        <div class="qr-modal-head">
+            <div class="qr-modal-title" id="qrModalTitle">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/>
+                    <rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1"/>
+                    <rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none"/>
+                    <rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none"/>
+                    <rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none"/>
+                    <path d="M14 14h3v3h-3z" fill="currentColor" stroke="none"/>
+                    <path d="M17 17h3v3h-3z" fill="currentColor" stroke="none"/>
+                    <path d="M14 20h3" stroke-width="2"/>
+                    <path d="M20 14v3" stroke-width="2"/>
+                </svg>
+                QR Code
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="closeQrModal()" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+        <div class="qr-modal-body">
+            <!-- Google-branded poster preview -->
+            <div class="g-poster-preview">
+                <div class="corner corner-tl"></div>
+                <div class="corner corner-tr"></div>
+                <div class="corner corner-bl"></div>
+                <div class="corner corner-br"></div>
+                <div class="g-poster-inner">
+                    <img id="qrLogoImage" src="" alt="Logo" style="display:none; width:80px; height:80px; object-fit:contain; margin-bottom:0.5rem; border-radius:8px;">
+                    <div class="g-wordmark">
+                        <span class="g-blue">G</span><span class="g-red">o</span><span class="g-yellow">o</span><span class="g-blue">g</span><span class="g-green">l</span><span class="g-red">e</span>
+                    </div>
+                    <div class="g-qr-box">
+                        <span class="br"></span>
+                        <img id="qrImage" src="" alt="QR Code" />
+                    </div>
+                    <div class="g-scan-me">SCAN ME</div>
+                    <div class="g-caption">Please take a moment to give<br>us a Google review!</div>
+                </div>
+            </div>
+            <p style="font-weight:700;color:var(--text-primary);font-size:0.82rem;margin-bottom:0.2rem;text-align:center;" id="qrBizName"></p>
+            <p style="font-size:0.74rem;color:var(--text-muted);text-align:center;margin-bottom:1rem;">Print &amp; display in-store, or download to share digitally.</p>
+            <div class="qr-actions">
+                <button class="btn btn-accent" id="qrDownloadBtn" onclick="downloadQr()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download (2 images)
+                </button>
+                <button class="btn btn-ghost" onclick="printQr()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 6 2 18 2 18 9" />
+                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                        <rect x="6" y="14" width="12" height="8" />
+                    </svg>
+                    Print Poster
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── NFC Card Modal ────────────────────────────────────── -->
+<div class="nfc-overlay" id="nfcOverlay" role="dialog" aria-modal="true" aria-labelledby="nfcModalTitle"
+    onclick="if(event.target===this)closeNfcModal()">
+    <div class="nfc-modal">
+
+        <div class="nfc-modal-head">
+            <div class="nfc-modal-title" id="nfcModalTitle">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                    <path d="M8.5 10A3.5 3.5 0 0 0 8.5 14" stroke-width="2"/>
+                    <path d="M15.5 10A3.5 3.5 0 0 1 15.5 14" stroke-width="2"/>
+                    <path d="M6 8A6 6 0 0 0 6 16" stroke-width="1.5"/>
+                    <path d="M18 8A6 6 0 0 1 18 16" stroke-width="1.5"/>
+                    <circle cx="12" cy="12" r="1" fill="currentColor"/>
+                </svg>
+                NFC Review Card
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="closeNfcModal()" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="nfc-modal-body">
+
+            <!-- Card Preview -->
+            <div class="nfc-card-preview" id="nfcCardPreview">
+                <div class="nfc-card-top">
+                    <div class="nfc-card-brand">Review Card</div>
+                    <svg class="nfc-symbol" viewBox="0 0 40 40" fill="none">
+                        <!-- NFC wave symbol -->
+                        <circle cx="20" cy="20" r="4" fill="#ff9a56"/>
+                        <path d="M12 20a8 8 0 0 1 8-8" stroke="#ff9a56" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                        <path d="M12 20a8 8 0 0 0 8 8" stroke="rgba(255,154,86,0.5)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                        <path d="M28 20a8 8 0 0 1-8 8" stroke="#ff9a56" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                        <path d="M28 20a8 8 0 0 0-8-8" stroke="rgba(255,154,86,0.5)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                        <path d="M7 20a13 13 0 0 1 13-13" stroke="rgba(255,154,86,0.35)" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+                        <path d="M33 20a13 13 0 0 1-13 13" stroke="rgba(255,154,86,0.35)" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+                    </svg>
+                </div>
+                <div class="nfc-card-mid">
+                    <div class="nfc-card-biz" id="nfcCardBizName">Business Name</div>
+                    <div class="nfc-card-cta">Tap to Leave a Review ✦</div>
+                </div>
+                <div class="nfc-card-bottom">
+                    <div class="nfc-card-url" id="nfcCardUrl"></div>
+                    <div class="nfc-stars">
+                        <svg viewBox="0 0 10 10"><polygon points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8"/></svg>
+                        <svg viewBox="0 0 10 10"><polygon points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8"/></svg>
+                        <svg viewBox="0 0 10 10"><polygon points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8"/></svg>
+                        <svg viewBox="0 0 10 10"><polygon points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8"/></svg>
+                        <svg viewBox="0 0 10 10"><polygon points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8"/></svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- URL to program -->
+            <p style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.4rem;">Program this URL into your NFC tag</p>
+            <div class="nfc-url-row">
+                <input type="text" class="nfc-url-input" id="nfcUrlInput" readonly />
+                <button class="btn btn-accent btn-sm" id="nfcCopyBtn" onclick="copyNfcUrl()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                    <span id="nfcCopyText">Copy</span>
+                </button>
+            </div>
+
+            <!-- Setup steps -->
+            <div class="nfc-steps">
+                <div class="nfc-step">
+                    <div class="nfc-step-num">1</div>
+                    <div class="nfc-step-text"><strong>Buy NFC tags</strong> — Get blank NTAG213/215 stickers or cards from <a href="https://www.amazon.com/s?k=nfc+tags+ntag213" target="_blank">Amazon</a> or <a href="https://www.aliexpress.com/w/wholesale-nfc-tag-ntag213.html" target="_blank">AliExpress</a> (~$0.30–$1 each).</div>
+                </div>
+                <div class="nfc-step">
+                    <div class="nfc-step-num">2</div>
+                    <div class="nfc-step-text"><strong>Program with a free app</strong> — Use <a href="https://play.google.com/store/apps/details?id=com.wakdev.wdnfc" target="_blank">NFC Tools (Android)</a> or <a href="https://apps.apple.com/app/nfc-tools/id1252962749" target="_blank">NFC Tools (iPhone)</a>. Tap &ldquo;Write&rdquo; → &ldquo;URL/URI&rdquo; → paste the URL above.</div>
+                </div>
+                <div class="nfc-step">
+                    <div class="nfc-step-num">3</div>
+                    <div class="nfc-step-text"><strong>Place at your counter</strong> — Stick the tag inside a card holder, on a receipt board, or on your counter. Customers tap to leave a review instantly!</div>
+                </div>
+            </div>
+
+            <div class="nfc-actions">
+                <button class="btn btn-accent" onclick="printNfcCard()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 6 2 18 2 18 9"/>
+                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                        <rect x="6" y="14" width="12" height="8"/>
+                    </svg>
+                    Print Card Design
+                </button>
+                <button class="btn btn-ghost" onclick="closeNfcModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                    Close
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    function showEditMode(id) {
+        document.getElementById('viewMode-' + id).style.display = 'none';
+        const el = document.getElementById('editMode-' + id);
+        el.style.display = 'block';
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    function showViewMode(id) {
+        document.getElementById('editMode-' + id).style.display = 'none';
+        document.getElementById('viewMode-' + id).style.display = 'block';
+    }
+    function showNewForm() {
+        const el = document.getElementById('newFormMode');
+        el.style.display = 'block';
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    function hideNewForm() { document.getElementById('newFormMode').style.display = 'none'; }
+
+    function confirmDeleteBusiness(settingsId, businessName) {
+        const dialog = document.getElementById('confirmDeleteDialog');
+        if (!dialog) { if (confirm('Delete "' + businessName + '"?')) document.getElementById('deleteForm-' + settingsId).submit(); return; }
+        dialog.querySelector('#channelToDeleteName').textContent = businessName;
+        const btn = dialog.querySelector('.confirm-btn');
+        btn.onclick = () => { dialog.style.display = 'none'; document.getElementById('deleteForm-' + settingsId).submit(); };
+        dialog.style.display = 'flex';
+    }
+
+    function setSavingState(btn) {
+        setTimeout(() => {
+            btn.disabled = true;
+            btn.innerHTML = '<svg style="width:14px;height:14px;animation:spin 0.8s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.1-5.7"/></svg> Saving…';
+        }, 0);
+    }
+
+    function copyReviewLink(id) {
+        const link = document.getElementById('reviewLinkInput-' + id).value;
+        const btn = document.getElementById('copyBtn-' + id);
+        const icon = document.getElementById('copyIconSvg-' + id);
+        const txt = document.getElementById('copyText-' + id);
+        const done = () => {
+            const oi = icon.innerHTML, ot = txt.textContent;
+            icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+            txt.textContent = 'Copied!'; btn.style.background = '#10b981';
+            setTimeout(() => { icon.innerHTML = oi; txt.textContent = ot; btn.style.background = ''; }, 2000);
+        };
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(link).then(done).catch(() => { prompt('Copy this link:', link); });
+        } else { prompt('Copy this link:', link); done(); }
+    }
+
+    async function refreshContext(id, sort_mode = 'newest') {
+        const isRel = sort_mode === 'most_relevant';
+        const activeBtn = document.getElementById((isRel ? 'randomBtn-' : 'refreshBtn-') + id);
+        const otherBtn = document.getElementById((isRel ? 'refreshBtn-' : 'randomBtn-') + id);
+        const status = document.getElementById('refreshStatus-' + id);
+        const orig = activeBtn.innerHTML;
+        activeBtn.innerHTML = '<svg style="width:14px;height:14px;animation:spin 0.8s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.1-5.7"/></svg>';
+        activeBtn.disabled = otherBtn.disabled = true;
+        status.style.display = 'none';
+        try {
+            const res = await fetch('/dashboard/google-reviews/refresh-context', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ settings_id: id, sort_mode }) });
+            const data = await res.json();
+            const box = document.getElementById('contextBox-' + id);
+            if (data.status === 'success') {
+                status.style.color = '#10b981'; status.textContent = 'Context updated successfully.';
+                box.classList.remove('empty'); box.innerHTML = data.context.split(' | ').join('<br>— ');
+            } else {
+                status.style.color = '#f59e0b'; status.textContent = data.message;
+            }
+        } catch { status.style.color = '#ef4444'; status.textContent = 'Network error — please try again.'; }
+        status.style.display = 'block';
+        activeBtn.innerHTML = orig; activeBtn.disabled = otherBtn.disabled = false;
+    }
+
+    {% if needs_login %}
+    document.addEventListener('DOMContentLoaded', () => {
+        localStorage.setItem('login_redirect_url', window.location.pathname);
+        showLoginPopup();
+    });
+    {% endif %}
+
+    /* ── QR Code Modal ─────────────────────────────────────── */
+    let _qrCurrentUrl = '';
+    let _qrCurrentBizName = '';
+    let _qrCurrentLogoUrl = '';
+
+    function openQrModalFromBtn(btn) {
+        const sid = btn.dataset.settingsId;
+        const bizName = btn.dataset.bizName;
+        const url = document.getElementById('reviewLinkInput-' + sid).value;
+        const logoUrl = btn.dataset.logoUrl || '';
+        openQrModal(sid, bizName, url, logoUrl);
+    }
+
+    function openQrModal(id, bizName, url, logoUrl) {
+        _qrCurrentUrl = url;
+        _qrCurrentBizName = bizName;
+        _qrCurrentLogoUrl = logoUrl;
+
+        const overlay = document.getElementById('qrOverlay');
+        const img     = document.getElementById('qrImage');
+        const label   = document.getElementById('qrBizName');
+        const logoImg = document.getElementById('qrLogoImage');
+
+        label.textContent = bizName;
+
+        if (logoUrl) {
+            logoImg.src = logoUrl;
+            logoImg.style.display = 'block';
+        } else {
+            logoImg.style.display = 'none';
+        }
+
+        // Use the free QR server API — generates a crisp 400×400 px QR
+        const encodedUrl = encodeURIComponent(url);
+        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=0&data=${encodedUrl}`;
+
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeQrModal() {
+        document.getElementById('qrOverlay').classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    // Close on Escape key
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeQrModal();
+    });
+
+    async function downloadQr() {
+        const btn      = document.getElementById('qrDownloadBtn');
+        const origHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<svg style="width:14px;height:14px;animation:spin 0.8s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.1-5.7"/></svg> Preparing…';
+
+        const safeName   = (_qrCurrentBizName || 'review').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const encodedUrl = encodeURIComponent(_qrCurrentUrl);
+        const qrApiUrl   = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=0&data=${encodedUrl}`;
+
+        // ───────────────────────────────────────────────────────
+        // Helper: trigger a file download from a data-URL or blob URL
+        // ───────────────────────────────────────────────────────
+        const triggerDownload = (href, filename) => {
+            const a = document.createElement('a');
+            a.href = href; a.download = filename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        };
+
+        try {
+            // Load the QR image (and logo if it exists) via canvas so we can reuse it for both outputs
+            const promises = [
+                new Promise((resolve, reject) => {
+                    const img  = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload  = () => resolve(img);
+                    img.onerror = reject;
+                    img.src = qrApiUrl;
+                })
+            ];
+            
+            if (_qrCurrentLogoUrl) {
+                const fullLogoUrl = _qrCurrentLogoUrl.startsWith('/') ? window.location.origin + _qrCurrentLogoUrl : _qrCurrentLogoUrl;
+                promises.push(new Promise((resolve) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => resolve(img);
+                    img.onerror = () => resolve(null); // Fallback to null if broken
+                    img.src = fullLogoUrl;
+                }));
+            }
+
+            const results = await Promise.all(promises);
+            const qrImg = results[0];
+            const logoImgObj = results.length > 1 ? results[1] : null;
+
+            // —————————————————————————
+            // FILE 1: Plain QR code (600×600 with white background)
+            // —————————————————————————
+            const c1 = document.createElement('canvas');
+            c1.width = 640; c1.height = 640;
+            const k1 = c1.getContext('2d');
+            k1.fillStyle = '#ffffff';
+            k1.fillRect(0, 0, 640, 640);
+            k1.drawImage(qrImg, 20, 20, 600, 600);
+            triggerDownload(c1.toDataURL('image/png'), `${safeName}_qr_code.png`);
+
+            // Small gap so browsers don't block the second download
+            await new Promise(r => setTimeout(r, 600));
+
+            // —————————————————————————
+            // FILE 2: Google-branded review poster (760×960)
+            // —————————————————————————
+            const W = 760, H = 960;
+            const c2 = document.createElement('canvas');
+            c2.width = W; c2.height = H;
+            const k2 = c2.getContext('2d');
+
+            // White background
+            k2.fillStyle = '#ffffff';
+            k2.fillRect(0, 0, W, H);
+
+            // Google corner triangles
+            const T = 180;
+            const tri = (x1,y1, x2,y2, x3,y3, color) => {
+                k2.fillStyle = color;
+                k2.beginPath(); k2.moveTo(x1,y1); k2.lineTo(x2,y2); k2.lineTo(x3,y3); k2.closePath(); k2.fill();
+            };
+            tri(0,0,   T,0,   0,T,   '#EA4335'); // top-left  red
+            tri(W,0,   W-T,0, W,T,   '#4285F4'); // top-right blue
+            tri(0,H,   T,H,   0,H-T, '#34A853'); // bot-left  green
+            tri(W,H,   W-T,H, W,H-T, '#FBBC05'); // bot-right yellow
+
+            // Business logo
+            if (logoImgObj) {
+                // Draw logo above Google wordmark
+                k2.drawImage(logoImgObj, W/2 - 70, 50, 140, 140);
+            }
+
+            // Google wordmark (coloured letters)
+            const gLetters = [
+                ['G','#4285F4'],['o','#EA4335'],['o','#FBBC05'],
+                ['g','#4285F4'],['l','#34A853'],['e','#EA4335']
+            ];
+            const gFont = 'bold 90px Arial, Helvetica, sans-serif';
+            k2.font = gFont;
+            const totalGW = gLetters.reduce((s,[c]) => s + k2.measureText(c).width, 0);
+            let gx = (W - totalGW) / 2, gy = (logoImgObj ? 220 : 175);
+            for (const [ch, col] of gLetters) {
+                k2.fillStyle = col;
+                k2.fillText(ch, gx, gy);
+                gx += k2.measureText(ch).width;
+            }
+
+            // Business name
+            k2.fillStyle = '#202124';
+            k2.textAlign = 'center';
+            k2.font = 'bold 34px Arial, Helvetica, sans-serif';
+            const bizLabel = _qrCurrentBizName || '';
+            k2.fillText(bizLabel, W/2, (logoImgObj ? 275 : 230));
+
+            // QR image area
+            const qrSize = 420, qrX = (W - qrSize) / 2, qrY = (logoImgObj ? 310 : 265);
+            k2.fillStyle = '#ffffff';
+            k2.fillRect(qrX - 20, qrY - 20, qrSize + 40, qrSize + 40);
+            k2.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+
+            // Red corner brackets around QR
+            const bLen = 44, bThick = 9;
+            k2.strokeStyle = '#EA4335'; k2.lineWidth = bThick; k2.lineCap = 'square';
+            const px = qrX - 20, py = qrY - 20, ps = qrSize + 40;
+            const bracket = (ox, oy, dx, dy) => {
+                k2.beginPath();
+                k2.moveTo(ox + dx*bLen, oy);         // horizontal arm
+                k2.lineTo(ox, oy);                   // corner
+                k2.lineTo(ox, oy + dy*bLen);         // vertical arm
+                k2.stroke();
+            };
+            bracket(px,      py,       1,  1);  // TL
+            bracket(px+ps,   py,      -1,  1);  // TR
+            bracket(px,      py+ps,    1, -1);  // BL
+            bracket(px+ps,   py+ps,   -1, -1);  // BR
+
+            // SCAN ME button
+            const btnY = qrY + qrSize + 55;
+            const btnW = 320, btnH = 68, btnX = (W - btnW) / 2, btnR = 10;
+            k2.fillStyle = '#EA4335';
+            k2.beginPath();
+            k2.moveTo(btnX + btnR, btnY);
+            k2.lineTo(btnX + btnW - btnR, btnY);
+            k2.quadraticCurveTo(btnX + btnW, btnY, btnX + btnW, btnY + btnR);
+            k2.lineTo(btnX + btnW, btnY + btnH - btnR);
+            k2.quadraticCurveTo(btnX + btnW, btnY + btnH, btnX + btnW - btnR, btnY + btnH);
+            k2.lineTo(btnX + btnR, btnY + btnH);
+            k2.quadraticCurveTo(btnX, btnY + btnH, btnX, btnY + btnH - btnR);
+            k2.lineTo(btnX, btnY + btnR);
+            k2.quadraticCurveTo(btnX, btnY, btnX + btnR, btnY);
+            k2.closePath(); k2.fill();
+
+            k2.fillStyle = '#ffffff';
+            k2.font = 'bold 36px Arial, Helvetica, sans-serif';
+            k2.textAlign = 'center';
+            k2.letterSpacing = '4px';
+            k2.fillText('SCAN ME', W/2, btnY + 46);
+
+            // Caption below button
+            k2.fillStyle = '#333333';
+            k2.font = '28px Arial, Helvetica, sans-serif';
+            k2.textAlign = 'center';
+            k2.fillText('Please take a moment to give', W/2, btnY + 115);
+            k2.fillText('us a Google review!', W/2, btnY + 152);
+
+            triggerDownload(c2.toDataURL('image/png'), `${safeName}_google_review_poster.png`);
+
+        } catch (err) {
+            console.error('Download failed:', err);
+            // Fallback: open both URLs in new tabs
+            window.open(qrApiUrl, '_blank');
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = origHTML;
+    }
+
+    function printQr() {
+        const encodedUrl = encodeURIComponent(_qrCurrentUrl);
+        const imgSrc     = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=0&data=${encodedUrl}`;
+        const bizName    = _qrCurrentBizName;
+        const reviewUrl  = _qrCurrentUrl;
+        const logoHtml   = _qrCurrentLogoUrl ? `<img src="${_qrCurrentLogoUrl}" style="width:84px;height:84px;object-fit:contain;margin-bottom:-0.3rem;border-radius:8px;" alt="Logo">` : '';
+
+        const printWin = window.open('', '_blank', 'width=540,height=760');
+        printWin.document.write(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Google Review QR — ${bizName}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        @import url('https://fonts.googleapis.com/css2?family=Product+Sans:wght@400;700&display=swap');
+        body {
+            font-family: 'Product Sans', 'Google Sans', Arial, sans-serif;
+            background: #e8e8e8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1.5rem;
+        }
+        .poster {
+            width: 380px;
+            background: #ffffff;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+        }
+        /* ─── Corner triangles ─── */
+        .ct { position: absolute; width: 90px; height: 90px; overflow: hidden; z-index: 2; pointer-events: none; }
+        .ct::before { content:''; position:absolute; width:0; height:0; }
+        .ct-tl { top:0; left:0; }
+        .ct-tl::before { border-top:90px solid #EA4335; border-right:90px solid transparent; }
+        .ct-tr { top:0; right:0; }
+        .ct-tr::before { border-top:90px solid #4285F4; border-left:90px solid transparent; }
+        .ct-bl { bottom:0; left:0; }
+        .ct-bl::before { border-bottom:90px solid #34A853; border-right:90px solid transparent; }
+        .ct-br { bottom:0; right:0; }
+        .ct-br::before { border-bottom:90px solid #FBBC05; border-left:90px solid transparent; }
+        /* ─── Inner content ─── */
+        .inner {
+            padding: 2rem 2rem 1.75rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.1rem;
+            position: relative;
+            z-index: 1;
+        }
+        /* Google wordmark */
+        .wordmark {
+            font-size: 2.4rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1;
+        }
+        .g-b { color: #4285F4; }
+        .g-r { color: #EA4335; }
+        .g-y { color: #FBBC05; }
+        .g-g { color: #34A853; }
+        /* Business name */
+        .biz-name {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #202124;
+            text-align: center;
+        }
+        /* QR with red corner brackets */
+        .qr-wrap {
+            position: relative;
+            padding: 10px;
+            background: #fff;
+        }
+        .qr-wrap::before, .qr-wrap::after,
+        .qr-wrap .b::before, .qr-wrap .b::after {
+            content: '';
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            border-color: #EA4335;
+            border-style: solid;
+        }
+        .qr-wrap::before  { top:0;    left:0;  border-width:4px 0 0 4px; }
+        .qr-wrap::after   { top:0;    right:0; border-width:4px 4px 0 0; }
+        .qr-wrap .b::before { bottom:0; left:0;  border-width:0 0 4px 4px; }
+        .qr-wrap .b::after  { bottom:0; right:0; border-width:0 4px 4px 0; }
+        .qr-wrap img { width:240px; height:240px; display:block; }
+        /* SCAN ME */
+        .scan-me {
+            background: #EA4335;
+            color: #fff;
+            font-size: 1.45rem;
+            font-weight: 900;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            padding: 0.5rem 2.5rem;
+            border-radius: 6px;
+        }
+        .caption {
+            font-size: 0.88rem;
+            color: #444;
+            text-align: center;
+            line-height: 1.6;
+        }
+        .url-note {
+            font-size: 0.55rem;
+            color: #b0b0b0;
+            text-align: center;
+            word-break: break-all;
+            padding-bottom: 0.25rem;
+        }
+        @media print {
+            body { background: #fff; padding: 0; }
+            @page { margin: 0; size: 380px 580px; }
+            .poster { box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+<div class="poster">
+    <div class="ct ct-tl"></div>
+    <div class="ct ct-tr"></div>
+    <div class="ct ct-bl"></div>
+    <div class="ct ct-br"></div>
+    <div class="inner">
+        ${logoHtml}
+        <div class="wordmark"><span class="g-b">G</span><span class="g-r">o</span><span class="g-y">o</span><span class="g-b">g</span><span class="g-g">l</span><span class="g-r">e</span></div>
+        <div class="biz-name">${bizName}</div>
+        <div class="qr-wrap"><span class="b"></span><img src="${imgSrc}" alt="QR Code" /></div>
+        <div class="scan-me">SCAN ME</div>
+        <div class="caption">Please take a moment to give<br>us a Google review!</div>
+        <div class="url-note">${reviewUrl}</div>
+    </div>
+</div>
+<script>window.onload=()=>{ setTimeout(()=>{ window.print(); }, 700); }<\/script>
+</body>
+</html>`);
+        printWin.document.close();
+    }
+
+    /* ── NFC Card Modal ────────────────────────────────────── */
+    let _nfcCurrentUrl = '';
+    let _nfcCurrentBizName = '';
+
+    function openNfcModalFromBtn(btn) {
+        const sid     = btn.dataset.settingsId;
+        const bizName = btn.dataset.bizName;
+        const url     = document.getElementById('reviewLinkInput-' + sid).value;
+        openNfcModal(sid, bizName, url);
+    }
+
+    function openNfcModal(id, bizName, url) {
+        _nfcCurrentUrl      = url;
+        _nfcCurrentBizName  = bizName;
+
+        document.getElementById('nfcCardBizName').textContent = bizName;
+        document.getElementById('nfcCardUrl').textContent     = url;
+        document.getElementById('nfcUrlInput').value          = url;
+
+        // Reset copy button
+        document.getElementById('nfcCopyText').textContent   = 'Copy';
+        document.getElementById('nfcCopyBtn').style.background = '';
+
+        document.getElementById('nfcOverlay').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeNfcModal() {
+        document.getElementById('nfcOverlay').classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { closeQrModal(); closeNfcModal(); }
+    });
+
+    function copyNfcUrl() {
+        const input = document.getElementById('nfcUrlInput');
+        const btn   = document.getElementById('nfcCopyBtn');
+        const txt   = document.getElementById('nfcCopyText');
+        const done  = () => {
+            txt.textContent = 'Copied!'; btn.style.background = '#10b981';
+            setTimeout(() => { txt.textContent = 'Copy'; btn.style.background = ''; }, 2000);
+        };
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(input.value).then(done).catch(() => { input.select(); document.execCommand('copy'); done(); });
+        } else { input.select(); document.execCommand('copy'); done(); }
+    }
+
+    function printNfcCard() {
+        const bizName   = _nfcCurrentBizName;
+        const reviewUrl = _nfcCurrentUrl;
+        const qrUrl     = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=0&data=${encodeURIComponent(reviewUrl)}`;
+
+        const printWin = window.open('', '_blank', 'width=800,height=650');
+        printWin.document.write(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NFC Card — ${bizName}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 2rem;
+            gap: 1.5rem;
+        }
+        .instruction {
+            font-size: 0.78rem;
+            color: #666;
+            text-align: center;
+            max-width: 600px;
+        }
+        .cards-wrap {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        /* Credit card size: 85.6mm x 54mm at 96dpi = 322.5 x 204 px */
+        .card {
+            width: 322px;
+            height: 204px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+            box-shadow: 0 6px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+            position: relative;
+            overflow: hidden;
+            padding: 18px 22px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            color: #fff;
+            page-break-inside: avoid;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -50px; right: -50px;
+            width: 180px; height: 180px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,154,86,0.3) 0%, transparent 70%);
+        }
+        .card::after {
+            content: '';
+            position: absolute;
+            bottom: -35px; left: -35px;
+            width: 130px; height: 130px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(99,102,241,0.25) 0%, transparent 70%);
+        }
+        .card-top { display: flex; justify-content: space-between; align-items: flex-start; }
+        .card-brand { font-size: 0.55rem; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+        .nfc-icon { width: 26px; height: 26px; opacity: 0.85; }
+        .card-mid { display: flex; flex-direction: column; gap: 3px; }
+        .card-biz { font-size: 0.9rem; font-weight: 800; color: #fff; letter-spacing: -0.01em; line-height: 1.2; }
+        .card-cta { font-size: 0.6rem; font-weight: 700; color: #ff9a56; letter-spacing: 0.06em; text-transform: uppercase; }
+        .card-bottom { display: flex; align-items: flex-end; justify-content: space-between; }
+        .card-url { font-size: 0.48rem; color: rgba(255,255,255,0.38); font-family: monospace; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .stars { display: flex; gap: 1px; }
+        .stars svg { width: 8px; height: 8px; fill: #ff9a56; }
+        /* Back of card */
+        .card-back {
+            width: 322px;
+            height: 204px;
+            border-radius: 14px;
+            background: #fff;
+            border: 2px solid #1a1a2e;
+            box-shadow: 0 6px 28px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            padding: 18px 22px;
+            page-break-inside: avoid;
+        }
+        .back-qr img { width: 100px; height: 100px; display: block; border: 1px solid #eee; border-radius: 6px; }
+        .back-text { flex: 1; }
+        .back-title { font-size: 0.75rem; font-weight: 800; color: #1a1a2e; margin-bottom: 6px; }
+        .back-sub { font-size: 0.62rem; color: #555; line-height: 1.5; margin-bottom: 8px; }
+        .back-url { font-size: 0.52rem; color: #888; font-family: monospace; word-break: break-all; }
+        .nfc-badge { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; padding: 3px 8px; background: #1a1a2e; border-radius: 99px; }
+        .nfc-badge span { font-size: 0.55rem; font-weight: 700; color: #ff9a56; letter-spacing: 0.08em; text-transform: uppercase; }
+        .label { font-size: 0.7rem; text-align: center; color: #888; margin-top: 4px; }
+        .pair { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        @media print {
+            body { background: #fff; padding: 1cm; }
+            @page { margin: 1cm; size: A4 landscape; }
+        }
+    </style>
+</head>
+<body>
+    <div class="instruction">Print this page and cut along the card outlines. Hand the &ldquo;front&rdquo; card to your NFC card vendor or stick an NFC tag on it. The &ldquo;back&rdquo; side shows a QR code as fallback for phones without NFC.</div>
+    <div class="cards-wrap">
+        <!-- FRONT -->
+        <div class="pair">
+            <div class="card">
+                <div class="card-top">
+                    <div class="card-brand">Review Card</div>
+                    <svg class="nfc-icon" viewBox="0 0 40 40" fill="none">
+                        <circle cx="20" cy="20" r="4" fill="#ff9a56"/>
+                        <path d="M12 20a8 8 0 0 1 8-8" stroke="#ff9a56" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                        <path d="M12 20a8 8 0 0 0 8 8" stroke="rgba(255,154,86,0.5)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                        <path d="M28 20a8 8 0 0 1-8 8" stroke="#ff9a56" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                        <path d="M28 20a8 8 0 0 0-8-8" stroke="rgba(255,154,86,0.5)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                        <path d="M7 20a13 13 0 0 1 13-13" stroke="rgba(255,154,86,0.35)" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+                        <path d="M33 20a13 13 0 0 1-13 13" stroke="rgba(255,154,86,0.35)" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+                    </svg>
+                </div>
+                <div class="card-mid">
+                    <div class="card-biz">${bizName}</div>
+                    <div class="card-cta">Tap to Leave a Review ✶</div>
+                </div>
+                <div class="card-bottom">
+                    <div class="card-url">${reviewUrl}</div>
+                    <div class="stars">
+                        <svg viewBox="0 0 10 10"><polygon points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8"/></svg>
+                        <svg viewBox="0 0 10 10"><polygon points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8"/></svg>
+                        <svg viewBox="0 0 10 10"><polygon points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8"/></svg>
+                        <svg viewBox="0 0 10 10"><polygon points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8"/></svg>
+                        <svg viewBox="0 0 10 10"><polygon points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8"/></svg>
+                    </div>
+                </div>
+            </div>
+            <div class="label">Front</div>
+        </div>
+        <!-- BACK -->
+        <div class="pair">
+            <div class="card-back">
+                <div class="back-qr"><img src="${qrUrl}" alt="QR Code"/></div>
+                <div class="back-text">
+                    <div class="back-title">Leave Us a Review</div>
+                    <div class="back-sub">No NFC? Scan the QR code or visit the link below.</div>
+                    <div class="back-url">${reviewUrl}</div>
+                    <div class="nfc-badge">
+                        <svg width="10" height="10" viewBox="0 0 40 40" fill="none">
+                            <circle cx="20" cy="20" r="3.5" fill="#ff9a56"/>
+                            <path d="M13 20a7 7 0 0 1 7-7" stroke="#ff9a56" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M27 20a7 7 0 0 1-7 7" stroke="#ff9a56" stroke-width="2.5" stroke-linecap="round"/>
+                        </svg>
+                        <span>NFC Enabled</span>
+                    </div>
+                </div>
+            </div>
+            <div class="label">Back</div>
+        </div>
+    </div>
+    <script>window.onload=()=>{ setTimeout(()=>{ window.print(); }, 800); }<\/script>
+</body>
+</html>`);
+        printWin.document.close();
+    }
+
+    function previewLogo(input, previewId, dropId) {
+        const preview = document.getElementById(previewId);
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.innerHTML = `<img src="${e.target.result}" alt="Logo Preview" style="max-height:80px; object-fit:contain; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1);">`;
+                document.getElementById(dropId).style.borderColor = 'var(--accent-primary, #ff9a56)';
+            }
+            reader.readAsDataURL(input.files[0]);
+        } else {
+            preview.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;color:var(--text-muted);">
+                    <rect x="3" y="3" width="18" height="18" rx="3"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span style="font-size:0.75rem;color:var(--text-muted);margin-top:0.4rem;">Click to change image</span>
+            `;
+            document.getElementById(dropId).style.borderColor = 'var(--border)';
+        }
+    }
+
+    /* Drag and drop support */
+    document.querySelectorAll('.logo-drop-zone').forEach(dropZone => {
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--accent-primary, #ff9a56)';
+            dropZone.style.backgroundColor = 'rgba(255, 154, 86, 0.08)';
+        });
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--border)';
+            dropZone.style.backgroundColor = 'rgba(255,255,255,0.02)';
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--accent-primary, #ff9a56)';
+            dropZone.style.backgroundColor = 'rgba(255,255,255,0.02)';
+            if (e.dataTransfer.files.length) {
+                const input = dropZone.querySelector('input[type="file"]');
+                input.files = e.dataTransfer.files;
+                
+                // Dispatch event to trigger preview
+                const event = new Event('change', { bubbles: true });
+                input.dispatchEvent(event);
+            }
+        });
+    });
+</script>
+{% endblock %}

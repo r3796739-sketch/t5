@@ -802,14 +802,13 @@ def answer_question_stream(
         text = chunk.get('chunk_text', '')
 
         if source_type == 'whatsapp':
-            context_parts.append(f"From WhatsApp Chat '{title}' (Date: {date}): {text}")
+            context_parts.append(f"[WhatsApp Chat: \"{title}\" | {date}]\n{text}")
         elif source_type == 'website':
-            context_parts.append(f"From Website Page '{title}' (URL: {chunk.get('url')}): {text}")
+            context_parts.append(f"[Website: \"{title}\" | {chunk.get('url')}]\n{text}")
         else:
-            context_parts.append(f"From video '{title}' (uploaded on {date}): {text}")
+            context_parts.append(f"[Video: \"{title}\" | {date}]\n{text}")
     context = '\n\n'.join(context_parts)
     
-    identity_anchor_to_print = None
     if channel_data:
         creator_name = channel_data.get('creator_name', channel_data.get('channel_name', 'the creator'))
         speaking_style = channel_data.get('speaking_style', 'Professional and helpful. Provide clear, accurate information.')
@@ -823,18 +822,11 @@ def answer_question_stream(
         if bot_type == 'business':
             prompt_template = prompts.BUSINESS_SUPPORT_PROMPT
             print("Using BUSINESS SUPPORT Persona Prompt")
-            one_line_voice = (speaking_style[:100] + '...') if speaking_style else "Professional and helpful."
-            identity_anchor = prompts.IDENTITY_ANCHOR.format(
-                creator_name=creator_name,
-                one_line_soul="Business support assistant.",
-                one_line_voice=one_line_voice
-            )
-            identity_anchor_to_print = identity_anchor
             prompt = prompt_template.format(
                 business_name=creator_name,
                 context=context,
                 current_date=current_date,
-                question=f"{identity_anchor}\n{original_question}",
+                question=original_question,
                 chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
                 word_count=word_count_guideline,
                 speaking_style=speaking_style
@@ -842,18 +834,11 @@ def answer_question_stream(
         elif bot_type == 'general':
             prompt_template = prompts.GENERAL_ASSISTANT_PROMPT
             print("Using GENERAL ASSISTANT Persona Prompt")
-            one_line_voice = (speaking_style[:100] + '...') if speaking_style else "Professional and helpful."
-            identity_anchor = prompts.IDENTITY_ANCHOR.format(
-                creator_name=creator_name,
-                one_line_soul="Knowledgeable general assistant.",
-                one_line_voice=one_line_voice
-            )
-            identity_anchor_to_print = identity_anchor
             prompt = prompt_template.format(
                 bot_name=creator_name,
                 context=context,
                 current_date=current_date,
-                question=f"{identity_anchor}\n{original_question}",
+                question=original_question,
                 chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
                 word_count=word_count_guideline,
                 speaking_style=speaking_style
@@ -862,23 +847,47 @@ def answer_question_stream(
             prompt_template = prompts.HYBRID_PERSONA_PROMPT
             print("Using YOUTUBER/CREATOR Persona Prompt with Soul + Style Guidance")
             creator_soul = channel_data.get('creator_soul', '')
-            one_line_soul = (creator_soul[:100] + '...') if creator_soul else "Not yet analyzed."
-            one_line_voice = (speaking_style[:100] + '...') if speaking_style else "Professional and helpful."
-            identity_anchor = prompts.IDENTITY_ANCHOR.format(
-                creator_name=creator_name,
-                one_line_soul=one_line_soul,
-                one_line_voice=one_line_voice
-            )
-            identity_anchor_to_print = identity_anchor
+
+            # --- Extract creator-specific anti-patterns from soul profile at runtime ---
+            # Looks for the 'LANGUAGE & STYLE TO AVOID' section added by the updated extraction prompt.
+            # Backward-compatible: returns empty string for channels processed before this update.
+            creator_antipatterns = ""
+            if creator_soul:
+                soul_lower = creator_soul.lower()
+                antipattern_markers = [
+                    '**language & style to avoid',
+                    '**language to avoid',
+                    '**anti-patterns',
+                    '**what they never say',
+                    '**style to avoid',
+                ]
+                for marker in antipattern_markers:
+                    idx = soul_lower.find(marker)
+                    if idx != -1:
+                        section_start = creator_soul.find('\n', idx) + 1
+                        next_section_idx = creator_soul.find('\n**', section_start)
+                        if next_section_idx != -1:
+                            raw_antipatterns = creator_soul[section_start:next_section_idx].strip()
+                        else:
+                            raw_antipatterns = creator_soul[section_start:section_start + 600].strip()
+                        if raw_antipatterns:
+                            creator_antipatterns = (
+                                "\n**Additional Creator-Specific Anti-Patterns (from their actual content):**\n"
+                                + raw_antipatterns
+                            )
+                            print(f"[PERSONA] Injected creator anti-patterns ({len(creator_antipatterns)} chars)")
+                        break
+
             prompt = prompt_template.format(
-                creator_name=creator_name, 
-                context=context, 
+                creator_name=creator_name,
+                context=context,
                 current_date=current_date,
-                question=f"{identity_anchor}\n{original_question}",
+                question=original_question,
                 chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
                 word_count=word_count_guideline,
                 speaking_style=speaking_style,
-                creator_soul=creator_soul or "Not yet analyzed. Use speaking style and context to infer personality."
+                creator_soul=creator_soul or "Not yet analyzed. Use speaking style and context to infer personality.",
+                creator_antipatterns=creator_antipatterns
             )
     else:
         prompt = prompts.NEUTRAL_ASSISTANT_PROMPT.format(context=context, question=original_question)
@@ -908,7 +917,7 @@ def answer_question_stream(
         try:
             from . import db_utils
             # Let's see if we have flow tools
-            flow_res = db_utils._get_supabase().table('channel_flows').select('id, name, flow_data').eq('channel_id', channel_data['id']).eq('is_active', True).execute()
+            flow_res = get_supabase_admin_client().table('channel_flows').select('id, name, flow_data').eq('channel_id', channel_data['id']).eq('is_active', True).execute()
             if flow_res.data:
                 flows_list = []
                 for f in flow_res.data:
@@ -937,13 +946,6 @@ def answer_question_stream(
     temperature = float(os.environ.get('LLM_TEMPERATURE', 0.7))
     prompt_token_count = count_tokens(prompt, model)
     print(f"  Prompt Token Count:     {prompt_token_count}")
-    
-    if identity_anchor_to_print:
-        print("\n" + "="*50)
-        print("IDENTITY ANCHOR SENT:")
-        print("="*50)
-        print(identity_anchor_to_print.strip())
-        print("="*50 + "\n")
     
     stream_function = LLM_STREAM_PROVIDER_MAP.get(llm_provider)
     if not stream_function:

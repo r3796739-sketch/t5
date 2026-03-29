@@ -63,6 +63,26 @@
                         placeholder="e.g. My AI Assistant, Tech Guru Bot" required>
                     <div class="input-hint">This name will be visible to everyone who chats with your bot</div>
                 </div>
+
+                <div class="quick-create-divider" style="display: flex; align-items: center; margin: 1.5rem 0 1rem; color: var(--border);">
+                    <div style="flex:1; height: 1px; background: var(--border);"></div>
+                    <span style="padding: 0 1rem; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: var(--muted);">OR</span>
+                    <div style="flex:1; height: 1px; background: var(--border);"></div>
+                </div>
+
+                <div class="quick-create-box" style="padding: 1rem; border: 1px dashed var(--accent-primary, #ff9a56); border-radius: 12px; background: rgba(255, 154, 86, 0.05);">
+                    <h4 style="margin: 0 0 0.5rem; font-size: 0.95rem; color: var(--accent-primary, #ff9a56); display: flex; align-items: center; gap: 0.4rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                        </svg>
+                        Quick Create from YouTube
+                    </h4>
+                    <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 0.8rem; line-height: 1.4;">Paste your YouTube Channel link to instantly build an AI persona and skip the other steps.</p>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <input type="url" id="quick_youtube_url" class="channel-input" placeholder="https://youtube.com/@channelname" style="flex: 1; min-width: 200px;">
+                        <button type="button" class="btn-next" onclick="quickCreate()" style="margin: 0; padding: 0.6rem 1.2rem; white-space: nowrap;">⚡ Build Now</button>
+                    </div>
+                </div>
             </div>
 
             <div class="step-nav">
@@ -429,6 +449,62 @@
         toStep2Btn.addEventListener('click', function () {
             if (nameInput.value.trim().length >= 2) goToStep(2);
         });
+
+        window.quickCreate = function() {
+            let nameValue = nameInput.value.trim();
+            const urlValue = document.getElementById('quick_youtube_url').value.trim();
+
+            if (!urlValue) {
+                alert('Please enter a YouTube Channel URL first.');
+                return;
+            }
+
+            if (!nameValue) {
+                nameValue = "My AI Persona";
+            }
+
+            const formData = new FormData();
+            formData.append('chatbot_name', nameValue);
+            formData.append('youtube_urls[]', urlValue);
+
+            // Hide UI and show Processing
+            document.getElementById('chatbotForm').style.display = 'none';
+            document.querySelector('.stepper').style.display = 'none';
+            processingContainer.style.display = 'block';
+
+            // Submit using fetch identical to regular manual submit
+            fetch('/chatbot/create', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'processing') {
+                    chatbotId = data.chatbot_id;
+                    totalSources = data.task_ids.length;
+                    completedSources = 0;
+                    completionHandled = false;
+
+                    data.task_ids.forEach(task => {
+                        createSourceCard(task);
+                        startPolling(task.source_id);
+                    });
+
+                    safetyTimeout = setTimeout(() => {
+                        if (!completionHandled) handleAllComplete(true);
+                    }, 10 * 60 * 1000);
+
+                } else if (data.status === 'error') {
+                    throw new Error(data.message);
+                }
+            })
+            .catch(error => {
+                alert(error.message || 'Failed to quickly create chatbot');
+                document.getElementById('chatbotForm').style.display = 'block';
+                document.querySelector('.stepper').style.display = 'flex';
+                processingContainer.style.display = 'none';
+            });
+        };
 
         // ========== Step 2: Source toggles ==========
         window.toggleSource = function (source) {

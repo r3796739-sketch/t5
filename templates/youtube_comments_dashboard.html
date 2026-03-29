@@ -1,0 +1,1596 @@
+{% extends "base.html" %}
+
+{% block title %}YouTube Comment Replies — {{ chatbot.channel_name }} | YoppyChat{% endblock %}
+
+{% block page_styles %}
+<style>
+  /* ── Brand Token System ───────────────────────────────────────────────────────*/
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+  :root {
+    --brand-orange: #F97316;
+    --brand-orange-light: #FFF0E6;
+    --brand-orange-mid: #FFDDBB;
+    --brand-orange-hover: #EA6C0A;
+    --yt-red: #FF0000;
+    --yt-red-soft: rgba(255, 0, 0, .08);
+    --yt-red-border: rgba(255, 0, 0, .2);
+
+    --surface-bg: #FAF7F2;
+    --card-bg: #FFFFFF;
+    --card-border: #EDE8E0;
+    --card-shadow: 0 1px 4px rgba(120, 90, 50, .07), 0 4px 16px rgba(120, 90, 50, .05);
+    --card-shadow-hover: 0 4px 20px rgba(120, 90, 50, .12), 0 1px 6px rgba(120, 90, 50, .08);
+
+    --text-primary: #1A1208;
+    --text-secondary: #6B5E4A;
+    --text-muted: #A3917C;
+    --border-color: #EDE8E0;
+
+    /* fallback overrides for inherited vars */
+    --bg-primary: #FAF7F2;
+    --bg-secondary: #FFFFFF;
+  }
+
+  /* ── Layout ──────────────────────────────────────────────────────────────────*/
+  .ytc-wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2.25rem 1.5rem 5rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+
+  /* ── Top Bar ─────────────────────────────────────────────────────────────────*/
+  .ytc-topbar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .ytc-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: .8125rem;
+    font-weight: 500;
+    letter-spacing: .01em;
+    transition: color .2s;
+    padding: .35rem .6rem;
+    border-radius: 7px;
+    margin-left: -.6rem;
+  }
+
+  .ytc-back:hover {
+    color: var(--text-secondary);
+    background: rgba(0, 0, 0, .04);
+  }
+
+  .ytc-title {
+    font-size: 1.65rem;
+    font-weight: 800;
+    background: linear-gradient(130deg, #cc0000 0%, #ff4444 55%, #ff8c42 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0 0 3px;
+    letter-spacing: -.02em;
+    line-height: 1.15;
+  }
+
+  .ytc-subtitle {
+    color: var(--text-secondary);
+    font-size: .85rem;
+    margin: 0;
+    font-weight: 400;
+  }
+
+  .ytc-subtitle strong {
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+
+  /* ── Stats ───────────────────────────────────────────────────────────────────*/
+  .ytc-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+    gap: .875rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .ytc-stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 1.1rem 1.25rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .875rem;
+    box-shadow: var(--card-shadow);
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow .2s, transform .2s;
+  }
+
+  .ytc-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .ytc-stat-card:nth-child(1)::before {
+    background: linear-gradient(90deg, #FF0000, #FF6B6B);
+  }
+
+  .ytc-stat-card:nth-child(2)::before {
+    background: linear-gradient(90deg, #6366F1, #A78BFA);
+  }
+
+  .ytc-stat-card:nth-child(3)::before {
+    background: linear-gradient(90deg, #22C55E, #4ADE80);
+  }
+
+  .ytc-stat-card:nth-child(4)::before {
+    background: linear-gradient(90deg, #F97316, #FBBF24);
+  }
+
+  .ytc-stat-card:hover {
+    box-shadow: var(--card-shadow-hover);
+    transform: translateY(-1px);
+  }
+
+  .ytc-stat-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  .ytc-stat-val {
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -.03em;
+    color: var(--text-primary);
+  }
+
+  .ytc-stat-label {
+    font-size: .73rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  /* ── Tab nav ─────────────────────────────────────────────────────────────────*/
+  .ytc-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 1.75rem;
+    box-shadow: var(--card-shadow);
+  }
+
+  .ytc-tab {
+    flex: 1;
+    padding: .55rem 1rem;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: .875rem;
+    font-weight: 600;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    cursor: pointer;
+    transition: all .2s;
+    letter-spacing: -.01em;
+  }
+
+  .ytc-tab.active {
+    background: var(--surface-bg);
+    color: var(--text-primary);
+    box-shadow: 0 1px 4px rgba(100, 70, 30, .1);
+  }
+
+  .ytc-tab.active[id="tab-comments"] {
+    color: var(--yt-red);
+  }
+
+  .ytc-tab.active[id="tab-rules"] {
+    color: var(--brand-orange);
+  }
+
+  /* ── Controls ────────────────────────────────────────────────────────────────*/
+  .ytc-controls {
+    display: flex;
+    gap: .625rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .ytc-select,
+  .ytc-input {
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: 9px;
+    padding: .525rem .9rem;
+    color: var(--text-primary);
+    font-size: .875rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 500;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+  }
+
+  .ytc-select:focus,
+  .ytc-input:focus {
+    border-color: var(--brand-orange);
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, .1);
+  }
+
+  .ytc-select {
+    min-width: 205px;
+  }
+
+  .ytc-input {
+    flex: 1;
+    min-width: 180px;
+  }
+
+  .ytc-load-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--yt-red);
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    padding: .55rem 1.15rem;
+    font-size: .875rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .2s, transform .15s, box-shadow .2s;
+    box-shadow: 0 2px 8px rgba(255, 0, 0, .25);
+    letter-spacing: -.01em;
+  }
+
+  .ytc-load-btn:hover {
+    background: #cc0000;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(255, 0, 0, .3);
+  }
+
+  .ytc-load-btn:disabled {
+    opacity: .6;
+    cursor: default;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .ytc-auto-toggle {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-left: auto;
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: 9px;
+    padding: .525rem .9rem;
+    font-size: .83rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: border-color .2s;
+  }
+
+  .ytc-auto-toggle:hover {
+    border-color: var(--brand-orange);
+  }
+
+  .ytc-toggle-pill {
+    width: 38px;
+    height: 21px;
+    background: #D1C7BB;
+    border-radius: 99px;
+    position: relative;
+    cursor: pointer;
+    transition: background .25s;
+    flex-shrink: 0;
+  }
+
+  .ytc-toggle-pill::after {
+    content: '';
+    width: 15px;
+    height: 15px;
+    background: #fff;
+    border-radius: 50%;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    transition: transform .25s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+  }
+
+  .ytc-toggle-pill.on {
+    background: var(--brand-orange);
+  }
+
+  .ytc-toggle-pill.on::after {
+    transform: translateX(17px);
+  }
+
+  /* ── Comment Cards ───────────────────────────────────────────────────────────*/
+  .ytc-comment-list {
+    display: flex;
+    flex-direction: column;
+    gap: .875rem;
+  }
+
+  .ytc-comment-card {
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: 16px;
+    padding: 1.35rem 1.4rem;
+    transition: border-color .2s, box-shadow .2s, transform .2s;
+    box-shadow: var(--card-shadow);
+  }
+
+  .ytc-comment-card:hover {
+    border-color: rgba(249, 115, 22, .3);
+    box-shadow: 0 6px 24px rgba(249, 115, 22, .08), 0 1px 4px rgba(0, 0, 0, .06);
+    transform: translateY(-1px);
+  }
+
+  .ytc-comment-header {
+    display: flex;
+    align-items: flex-start;
+    gap: .875rem;
+    margin-bottom: .8rem;
+  }
+
+  .ytc-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--card-border);
+    border: 2px solid var(--card-border);
+  }
+
+  .ytc-avatar-placeholder {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #FF4444, #FF8C42);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .95rem;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(255, 68, 68, .25);
+  }
+
+  .ytc-meta {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ytc-author {
+    font-weight: 700;
+    font-size: .9rem;
+    color: var(--text-primary);
+    letter-spacing: -.01em;
+  }
+
+  .ytc-video-label {
+    font-size: .74rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+    margin-top: 1px;
+  }
+
+  .ytc-comment-text {
+    font-size: .9rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0 0 .9rem;
+  }
+
+  .ytc-comment-footer {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex-wrap: wrap;
+  }
+
+  .ytc-meta-pill {
+    font-size: .71rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--surface-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    padding: 2px 10px;
+  }
+
+  .ytc-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: .8rem;
+    font-weight: 700;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    padding: .38rem .9rem;
+    border-radius: 8px;
+    border: 1.5px solid;
+    cursor: pointer;
+    transition: all .18s;
+    margin-left: auto;
+    letter-spacing: -.01em;
+  }
+
+  .ytc-action-btn.generate {
+    background: var(--brand-orange-light);
+    border-color: var(--brand-orange-mid);
+    color: var(--brand-orange-hover);
+  }
+
+  .ytc-action-btn.generate:hover {
+    background: var(--brand-orange-mid);
+    border-color: var(--brand-orange);
+    box-shadow: 0 2px 8px rgba(249, 115, 22, .2);
+  }
+
+  .ytc-action-btn.post {
+    background: var(--yt-red);
+    border-color: var(--yt-red);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(255, 0, 0, .2);
+  }
+
+  .ytc-action-btn.post:hover {
+    background: #cc0000;
+    box-shadow: 0 3px 12px rgba(255, 0, 0, .3);
+  }
+
+  .ytc-action-btn.posted {
+    background: rgba(34, 197, 94, .08);
+    border-color: rgba(34, 197, 94, .25);
+    color: #16a34a;
+    cursor: default;
+  }
+
+  .ytc-action-btn:disabled {
+    opacity: .5;
+    cursor: default;
+  }
+
+  .ytc-reply-box {
+    margin-top: 1rem;
+    border-top: 1.5px solid var(--card-border);
+    padding-top: 1rem;
+    display: none;
+  }
+
+  .ytc-reply-box.visible {
+    display: block;
+  }
+
+  .ytc-reply-label {
+    font-size: .75rem;
+    font-weight: 700;
+    color: var(--brand-orange);
+    margin-bottom: .45rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+
+  .ytc-reply-textarea {
+    width: 100%;
+    background: var(--surface-bg);
+    border: 1.5px solid rgba(249, 115, 22, .2);
+    border-radius: 10px;
+    padding: .7rem .95rem;
+    color: var(--text-primary);
+    font-size: .875rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    line-height: 1.55;
+    resize: vertical;
+    outline: none;
+    min-height: 82px;
+    box-sizing: border-box;
+    transition: border-color .2s, box-shadow .2s;
+  }
+
+  .ytc-reply-textarea:focus {
+    border-color: var(--brand-orange);
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, .1);
+  }
+
+  .ytc-reply-actions {
+    display: flex;
+    gap: .5rem;
+    justify-content: flex-end;
+    margin-top: .6rem;
+  }
+
+  .ytc-discard-btn {
+    background: none;
+    border: 1.5px solid var(--card-border);
+    color: var(--text-muted);
+    border-radius: 8px;
+    padding: .38rem .9rem;
+    font-size: .8rem;
+    font-weight: 600;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    cursor: pointer;
+    transition: all .2s;
+  }
+
+  .ytc-discard-btn:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-secondary);
+  }
+
+  /* ── Keyword match highlight ─────────────────────────────────────────────────*/
+  .ytc-kw-hit {
+    background: rgba(249, 115, 22, .15);
+    border-radius: 4px;
+    padding: 0 3px;
+    font-weight: 700;
+    color: #c2460a;
+  }
+
+  /* ── Rules Section ───────────────────────────────────────────────────────────*/
+  .ytc-rules-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .ytc-rule-form {
+    background: var(--card-bg);
+    border: 1.5px dashed var(--brand-orange-mid);
+    border-radius: 16px;
+    padding: 1.6rem;
+    box-shadow: var(--card-shadow);
+  }
+
+  .ytc-rule-form h3 {
+    margin: 0 0 1.25rem;
+    font-size: 1rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-primary);
+    letter-spacing: -.02em;
+  }
+
+  .ytc-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  @media(max-width:640px) {
+    .ytc-form-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .ytc-field {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+  }
+
+  .ytc-field.full {
+    grid-column: 1/-1;
+  }
+
+  .ytc-label {
+    font-size: .77rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+
+  .ytc-field input,
+  .ytc-field select,
+  .ytc-field textarea {
+    background: var(--surface-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: 9px;
+    padding: .525rem .8rem;
+    color: var(--text-primary);
+    font-size: .875rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 500;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+
+  .ytc-field input:focus,
+  .ytc-field select:focus,
+  .ytc-field textarea:focus {
+    border-color: var(--brand-orange);
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, .1);
+  }
+
+  .ytc-field textarea {
+    resize: vertical;
+    min-height: 72px;
+  }
+
+  .ytc-hint {
+    font-size: .72rem;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .ytc-save-rule-btn {
+    margin-top: 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--brand-orange);
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    padding: .6rem 1.35rem;
+    font-size: .875rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .2s;
+    box-shadow: 0 2px 10px rgba(249, 115, 22, .3);
+    letter-spacing: -.01em;
+  }
+
+  .ytc-save-rule-btn:hover {
+    background: var(--brand-orange-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(249, 115, 22, .35);
+  }
+
+  .ytc-save-rule-btn:disabled {
+    opacity: .6;
+    cursor: default;
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* Keyword chips */
+  .ytc-kw-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 4px;
+  }
+
+  .ytc-chip {
+    background: var(--brand-orange-light);
+    color: var(--brand-orange-hover);
+    border: 1.5px solid var(--brand-orange-mid);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: .75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .ytc-chip button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+    font-size: .9rem;
+    padding: 0;
+    line-height: 1;
+    opacity: .7;
+  }
+
+  .ytc-chip button:hover {
+    opacity: 1;
+  }
+
+  /* Rule cards */
+  .ytc-rule-card {
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: 13px;
+    padding: 1.1rem 1.3rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    transition: border-color .2s, box-shadow .2s;
+    box-shadow: var(--card-shadow);
+  }
+
+  .ytc-rule-card:hover {
+    border-color: rgba(249, 115, 22, .25);
+  }
+
+  .ytc-rule-card.inactive {
+    opacity: .5;
+  }
+
+  .ytc-rule-card-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ytc-rule-card-header {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    margin-bottom: .45rem;
+    flex-wrap: wrap;
+  }
+
+  .ytc-rule-badge {
+    font-size: .68rem;
+    font-weight: 700;
+    border-radius: 20px;
+    padding: 2px 9px;
+    border: 1.5px solid;
+    letter-spacing: .02em;
+  }
+
+  .ytc-rule-badge.video-scope {
+    background: rgba(59, 130, 246, .08);
+    color: #2563EB;
+    border-color: rgba(59, 130, 246, .25);
+  }
+
+  .ytc-rule-badge.all-scope {
+    background: rgba(100, 80, 55, .07);
+    color: var(--text-secondary);
+    border-color: var(--card-border);
+  }
+
+  .ytc-rule-badge.fixed {
+    background: rgba(34, 197, 94, .08);
+    color: #15803D;
+    border-color: rgba(34, 197, 94, .25);
+  }
+
+  .ytc-rule-badge.ai-type {
+    background: rgba(139, 92, 246, .08);
+    color: #7C3AED;
+    border-color: rgba(139, 92, 246, .25);
+  }
+
+  .ytc-rule-keywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: .4rem;
+  }
+
+  .ytc-rule-keyword {
+    background: var(--brand-orange-light);
+    color: var(--brand-orange-hover);
+    border: 1px solid var(--brand-orange-mid);
+    font-size: .7rem;
+    font-weight: 700;
+    border-radius: 20px;
+    padding: 1px 8px;
+  }
+
+  .ytc-rule-reply-preview {
+    margin-top: .5rem;
+    font-size: .82rem;
+    color: var(--text-secondary);
+    background: var(--surface-bg);
+    border-left: 3px solid var(--brand-orange-mid);
+    padding: .45rem .75rem;
+    border-radius: 0 8px 8px 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .ytc-rule-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: .5rem;
+    flex-shrink: 0;
+  }
+
+  .ytc-rule-del {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: .82rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: .25rem .5rem;
+    border-radius: 7px;
+    transition: all .2s;
+  }
+
+  .ytc-rule-del:hover {
+    color: #DC2626;
+    background: rgba(220, 38, 38, .08);
+  }
+
+  /* ── Status banner ───────────────────────────────────────────────────────────*/
+  .ytc-status-banner {
+    border-radius: 14px;
+    padding: 1.15rem 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .ytc-status-banner.connected {
+    background: linear-gradient(135deg, rgba(34, 197, 94, .06) 0%, rgba(34, 197, 94, .03) 100%);
+    border: 1.5px solid rgba(34, 197, 94, .2);
+    box-shadow: 0 1px 6px rgba(34, 197, 94, .08);
+  }
+
+  .ytc-status-banner.disconnected {
+    background: rgba(239, 68, 68, .04);
+    border: 1.5px solid rgba(239, 68, 68, .15);
+  }
+
+  /* ── Skeleton / empty / spinner ──────────────────────────────────────────────*/
+  .ytc-skeleton-card {
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: 16px;
+    padding: 1.35rem 1.4rem;
+    box-shadow: var(--card-shadow);
+  }
+
+  .ytc-skeleton-line {
+    height: 11px;
+    background: linear-gradient(90deg, #EDE8E0 25%, #FAF7F2 50%, #EDE8E0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 6px;
+    margin-bottom: 9px;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  .ytc-empty {
+    text-align: center;
+    padding: 3.5rem 2rem;
+    color: var(--text-secondary);
+  }
+
+  .ytc-empty-icon {
+    font-size: 3rem;
+    margin-bottom: .875rem;
+    display: block;
+  }
+
+  .ytc-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2.5px solid rgba(249, 115, 22, .2);
+    border-top-color: var(--brand-orange);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* ── Toast ───────────────────────────────────────────────────────────────────*/
+  .ytc-toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: 12px;
+    padding: .875rem 1.25rem;
+    font-size: .85rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 600;
+    color: var(--text-primary);
+    box-shadow: 0 8px 30px rgba(100, 70, 30, .15);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    transform: translateY(8px);
+    opacity: 0;
+    transition: all .3s;
+    max-width: 320px;
+  }
+
+  .ytc-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .ytc-toast.success {
+    border-left: 3px solid #22C55E;
+  }
+
+  .ytc-toast.error {
+    border-left: 3px solid #EF4444;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ytc-wrap">
+
+  <!-- ── Top Bar ──────────────────────────────────────────────────────────── -->
+  <div class="ytc-topbar">
+    <a href="{{ url_for('chatbot_settings', chatbot_id=chatbot.id) }}?tab=integrations" class="ytc-back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+        <polyline points="15 18 9 12 15 6" />
+      </svg>
+      Back to Settings
+    </a>
+    <div style="flex:1;">
+      <h1 class="ytc-title">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="26" height="26"
+          style="vertical-align:middle;margin-right:6px;margin-bottom:3px;">
+          <path
+            d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"
+            fill="#FF0000" />
+        </svg>
+        YouTube Comments
+      </h1>
+      <p class="ytc-subtitle">AI-powered replies for <strong>{{ chatbot.channel_name }}</strong></p>
+    </div>
+  </div>
+
+  <!-- ── Connection Banner ─────────────────────────────────────────────────── -->
+  {% if chatbot.yt_comments_enabled %}
+  <div class="ytc-status-banner connected">
+    <span style="font-size:1.5rem;">✅</span>
+    <div>
+      <div style="font-weight:600;font-size:.95rem;">YouTube Account Connected</div>
+      <div style="font-size:.82rem;color:var(--text-secondary);">Your AI can read and reply to comments on your videos.
+      </div>
+    </div>
+    <button onclick="disconnectYT()"
+      style="margin-left:auto;background:none;border:1.5px solid rgba(239,68,68,.25);color:#DC2626;border-radius:8px;padding:.35rem .85rem;font-size:.8rem;font-weight:700;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:-.01em;"
+      onmouseover="this.style.background='rgba(239,68,68,.07)'"
+      onmouseout="this.style.background='none'">Disconnect</button>
+  </div>
+  {% else %}
+  <div class="ytc-status-banner disconnected">
+    <span style="font-size:1.5rem;">🔌</span>
+    <div>
+      <div style="font-weight:600;font-size:.95rem;">YouTube Not Connected</div>
+      <div style="font-size:.82rem;color:var(--text-secondary);">Connect your account to start replying to comments with
+        AI.</div>
+    </div>
+    <a href="{{ url_for('youtube_comments.connect_youtube_comments', channel_id=chatbot.id) }}"
+      style="margin-left:auto;background:var(--yt-red);color:#fff;border:none;border-radius:9px;padding:.45rem 1.1rem;font-size:.85rem;font-weight:700;cursor:pointer;text-decoration:none;font-family:'Plus Jakarta Sans',sans-serif;box-shadow:0 2px 8px rgba(255,0,0,.25);">Connect
+      YouTube →</a>
+  </div>
+  {% endif %}
+
+  {% if chatbot.yt_comments_enabled %}
+
+  <!-- ── Stats ─────────────────────────────────────────────────────────────── -->
+  <div class="ytc-stats">
+    <div class="ytc-stat-card">
+      <div class="ytc-stat-icon" style="background:rgba(255,0,0,.08);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FF0000" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round" width="20" height="20">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+      </div>
+      <div>
+        <div class="ytc-stat-val" id="stat-loaded">—</div>
+        <div class="ytc-stat-label">Comments Loaded</div>
+      </div>
+    </div>
+    <div class="ytc-stat-card">
+      <div class="ytc-stat-icon" style="background:rgba(99,102,241,.1);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round" width="20" height="20">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 8v4l3 3" />
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+          <circle cx="12" cy="17" r=".5" fill="#6366F1" />
+        </svg>
+      </div>
+      <div>
+        <div class="ytc-stat-val" id="stat-generated">0</div>
+        <div class="ytc-stat-label">Generated</div>
+      </div>
+    </div>
+    <div class="ytc-stat-card">
+      <div class="ytc-stat-icon" style="background:rgba(34,197,94,.1);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2.5" stroke-linecap="round"
+          stroke-linejoin="round" width="20" height="20">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </div>
+      <div>
+        <div class="ytc-stat-val" id="stat-posted">0</div>
+        <div class="ytc-stat-label">Posted</div>
+      </div>
+    </div>
+    <div class="ytc-stat-card">
+      <div class="ytc-stat-icon" style="background:rgba(249,115,22,.1);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round" width="20" height="20">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+        </svg>
+      </div>
+      <div>
+        <div class="ytc-stat-val" id="stat-rules">—</div>
+        <div class="ytc-stat-label">Active Rules</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab nav ───────────────────────────────────────────────────────────── -->
+  <div class="ytc-tabs">
+    <button class="ytc-tab active" id="tab-comments" onclick="switchTab('comments')">💬 Browse Comments</button>
+    <button class="ytc-tab" id="tab-rules" onclick="switchTab('rules')">⚡ Auto-Reply Rules</button>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <!--  TAB 1 — BROWSE & REPLY                                                 -->
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <div id="panel-comments">
+    <div class="ytc-controls">
+      <select class="ytc-select" id="videoFilter" onchange="loadComments()">
+        <option value="">All Recent Videos</option>
+      </select>
+      <input class="ytc-input" id="searchFilter" placeholder="🔍  Filter comments…"
+        oninput="filterComments(this.value)">
+      <button class="ytc-load-btn" id="loadBtn" onclick="loadComments()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14">
+          <polyline points="23 4 23 10 17 10" />
+          <polyline points="1 20 1 14 7 14" />
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+        </svg>
+        Refresh
+      </button>
+      <label class="ytc-auto-toggle" title="Reply automatically when rules match">
+        <span>Auto-Reply Rules</span>
+        <div class="ytc-toggle-pill {% if chatbot.yt_comments_auto_reply %}on{% endif %}" id="autoReplyPill"
+          onclick="toggleAutoReply()"></div>
+        <input type="checkbox" id="autoReplyChk" {% if chatbot.yt_comments_auto_reply %}checked{% endif %}
+          style="display:none">
+      </label>
+    </div>
+
+    <div id="commentList" class="ytc-comment-list">
+      {% for i in range(4) %}
+      <div class="ytc-skeleton-card">
+        <div style="display:flex;gap:.75rem;margin-bottom:.75rem;">
+          <div style="width:38px;height:38px;border-radius:50%;background:var(--border-color);flex-shrink:0;"></div>
+          <div style="flex:1;">
+            <div class="ytc-skeleton-line" style="width:30%;"></div>
+            <div class="ytc-skeleton-line" style="width:55%;height:9px;"></div>
+          </div>
+        </div>
+        <div class="ytc-skeleton-line"></div>
+        <div class="ytc-skeleton-line" style="width:80%;"></div>
+        <div class="ytc-skeleton-line" style="width:55%;"></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <!--  TAB 2 — AUTO-REPLY RULES                                               -->
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <div id="panel-rules" style="display:none;" class="ytc-rules-wrap">
+
+    <!-- CREATE RULE FORM -->
+    <div class="ytc-rule-form">
+      <h3>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+        Create New Auto-Reply Rule
+      </h3>
+
+      <div class="ytc-form-grid">
+
+        <!-- Video Scope -->
+        <div class="ytc-field">
+          <label class="ytc-label">📹 Target Video</label>
+          <select id="ruleVideoId" onchange="onVideoChange()">
+            <option value="">All videos (global)</option>
+          </select>
+          <span class="ytc-hint">Replies only fire on comments from the selected video.</span>
+        </div>
+
+        <!-- Match Mode -->
+        <div class="ytc-field">
+          <label class="ytc-label">🎯 Keyword Match Mode</label>
+          <select id="ruleMatchMode">
+            <option value="any">Match ANY keyword (OR)</option>
+            <option value="all">Match ALL keywords (AND)</option>
+          </select>
+        </div>
+
+        <!-- Keywords -->
+        <div class="ytc-field full">
+          <label class="ytc-label">🔑 Trigger Keywords <span style="font-weight:400;color:var(--text-muted)">(press
+              Enter or comma to add)</span></label>
+          <div
+            style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;padding:.5rem .75rem;display:flex;flex-wrap:wrap;gap:5px;align-items:center;cursor:text;"
+            id="kwContainer" onclick="document.getElementById('kwInput').focus()">
+            <div class="ytc-kw-chips" id="kwChips"></div>
+            <input id="kwInput"
+              style="border:none;background:transparent;outline:none;font-size:.875rem;color:var(--text-primary);min-width:140px;flex:1;"
+              placeholder="e.g.  link,  free,  how to…" onkeydown="handleKwInput(event)">
+          </div>
+          <span class="ytc-hint">Comments containing any of these words will trigger this rule.</span>
+        </div>
+
+        <!-- Reply Type -->
+        <div class="ytc-field">
+          <label class="ytc-label">💬 Reply Type</label>
+          <select id="ruleReplyType" onchange="toggleReplyType()">
+            <option value="fixed">Fixed Text / Link</option>
+            <option value="ai">AI-Generated</option>
+          </select>
+        </div>
+
+        <!-- Reply Text -->
+        <div class="ytc-field" id="replyTextField">
+          <label class="ytc-label">✏️ Reply Text or Link</label>
+          <textarea id="ruleReplyText"
+            placeholder="e.g.  Hey! Here's the link you asked for: https://…&#10;Thanks for watching! 🙌"></textarea>
+          <span class="ytc-hint">Exactly this text will be posted as a reply.</span>
+        </div>
+
+        <!-- AI note -->
+        <div class="ytc-field" id="aiNoteField" style="display:none;">
+          <label class="ytc-label">🤖 AI Reply (auto)</label>
+          <div
+            style="background:rgba(139,92,246,.07);border:1px solid rgba(139,92,246,.2);border-radius:8px;padding:.75rem;font-size:.82rem;color:var(--text-secondary);">
+            The AI will generate a unique, persona-matched reply for each matching comment. No fixed text needed.
+          </div>
+        </div>
+
+      </div>
+
+      <button class="ytc-save-rule-btn" id="saveRuleBtn" onclick="createRule()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15" height="15">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        Save Rule
+      </button>
+    </div>
+
+    <!-- EXISTING RULES -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+        <h3 style="margin:0;font-size:1rem;font-weight:700;">Your Rules</h3>
+        <button onclick="loadRules()"
+          style="background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:.8rem;display:flex;align-items:center;gap:4px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+            <polyline points="23 4 23 10 17 10" />
+            <polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+          Refresh
+        </button>
+      </div>
+      <div id="rulesList" style="display:flex;flex-direction:column;gap:.75rem;">
+        <div class="ytc-empty"><span class="ytc-spinner"></span></div>
+      </div>
+    </div>
+
+  </div><!-- /panel-rules -->
+
+  {% else %}
+  <div class="ytc-empty">
+    <div class="ytc-empty-icon">🎬</div>
+    <h3 style="margin:0 0 .5rem;font-size:1.15rem;">Connect YouTube to get started</h3>
+    <p style="max-width:420px;margin:0 auto;font-size:.875rem;">Once connected your AI can read comments across your
+      videos and craft personalised replies in your own voice.</p>
+  </div>
+  {% endif %}
+
+</div>
+<div class="ytc-toast" id="ytcToast"></div>
+
+<script>
+  const CHANNEL_ID = {{ chatbot.id }};
+  let allComments = [];
+  let allVideos = [];
+  let keywords = [];  // chips in rule form
+  let generatedCount = 0, postedCount = 0;
+  let autoReplyEnabled = {{ 'true' if chatbot.yt_comments_auto_reply else 'false' }};
+
+  // ── Init ──────────────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    {% if chatbot.yt_comments_enabled %}
+    loadVideos().then(() => loadComments());
+    loadRules();
+    {% endif %}
+  });
+
+  // ── Tab switch ────────────────────────────────────────────────────────────────
+  function switchTab(tab) {
+    document.querySelectorAll('.ytc-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('panel-comments').style.display = tab === 'comments' ? '' : 'none';
+    document.getElementById('panel-rules').style.display = tab === 'rules' ? '' : 'none';
+    document.getElementById(`tab-${tab}`).classList.add('active');
+  }
+
+  // ── Load Videos ───────────────────────────────────────────────────────────────
+  async function loadVideos() {
+    try {
+      const res = await fetch(`/api/youtube-comments/videos/${CHANNEL_ID}`);
+      const data = await res.json();
+      if (data.status !== 'success') return;
+      allVideos = data.videos;
+
+      // Populate BOTH dropdowns
+      ['videoFilter', 'ruleVideoId'].forEach(id => {
+        const sel = document.getElementById(id);
+        // keep first "all" option, remove old
+        while (sel.options.length > 1) sel.remove(1);
+        allVideos.forEach(v => {
+          const o = document.createElement('option');
+          o.value = v.id;
+          o.textContent = v.title.length > 60 ? v.title.slice(0, 60) + '…' : v.title;
+          sel.appendChild(o);
+        });
+      });
+    } catch (e) { console.error(e); }
+  }
+
+  // ── Load Comments ─────────────────────────────────────────────────────────────
+  async function loadComments() {
+    const btn = document.getElementById('loadBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="ytc-spinner"></span> Loading…';
+    const vid = document.getElementById('videoFilter').value;
+    let url = `/api/youtube-comments/list/${CHANNEL_ID}?max_results=30`;
+    if (vid) url += `&video_id=${encodeURIComponent(vid)}`;
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.status !== 'success') { showToast('❌ ' + (data.message || 'Failed'), 'error'); renderEmpty('commentList', 'Could not load comments.'); return; }
+      allComments = data.comments || [];
+      document.getElementById('stat-loaded').textContent = allComments.length;
+      renderComments(allComments);
+    } catch (e) { showToast('❌ Network error', 'error'); renderEmpty('commentList', 'Network error.'); }
+    finally {
+      btn.disabled = false;
+      btn.innerHTML = '↺ Refresh';
+    }
+  }
+
+  function filterComments(q) {
+    const ql = q.toLowerCase();
+    renderComments(ql ? allComments.filter(c => c.text.toLowerCase().includes(ql) || c.author.toLowerCase().includes(ql)) : allComments);
+  }
+
+  function renderComments(list) {
+    const el = document.getElementById('commentList');
+    if (!list.length) { renderEmpty('commentList', 'No comments found.'); return; }
+    el.innerHTML = '';
+    list.forEach((c, i) => el.appendChild(buildCard(c, i)));
+  }
+
+  function renderEmpty(elId, msg) {
+    document.getElementById(elId).innerHTML = `<div class="ytc-empty"><div class="ytc-empty-icon">💬</div><p>${msg}</p></div>`;
+  }
+
+  // ── Build comment card ────────────────────────────────────────────────────────
+  function buildCard(c, idx) {
+    const el = document.createElement('div');
+    el.className = 'ytc-comment-card';
+    el.id = `card-${idx}`;
+    const init = (c.author || '?')[0].toUpperCase();
+    const av = c.author_image
+      ? `<img class="ytc-avatar" src="${esc(c.author_image)}" alt="${esc(c.author)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="ytc-avatar-placeholder" style="display:none">${init}</div>`
+      : `<div class="ytc-avatar-placeholder">${init}</div>`;
+    const date = c.published_at ? new Date(c.published_at).toLocaleDateString() : '';
+    const vl = c.video_title ? `🎬 ${c.video_title.slice(0, 50)}` : '';
+    el.innerHTML = `
+    <div class="ytc-comment-header">${av}
+      <div class="ytc-meta"><div class="ytc-author">${esc(c.author)}</div>${vl ? `<div class="ytc-video-label">${esc(vl)}</div>` : ''}</div>
+    </div>
+    <p class="ytc-comment-text">${highlightKeywords(esc(c.text))}</p>
+    <div class="ytc-comment-footer">
+      ${date ? `<span class="ytc-meta-pill">📅 ${date}</span>` : ''}
+      ${c.likes ? `<span class="ytc-meta-pill">👍 ${c.likes}</span>` : ''}
+      ${c.reply_count ? `<span class="ytc-meta-pill">💬 ${c.reply_count} replies</span>` : ''}
+      <button class="ytc-action-btn generate" id="genBtn-${idx}" onclick="generateReply(${idx})">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Generate AI Reply
+      </button>
+    </div>
+    <div class="ytc-reply-box" id="replyBox-${idx}">
+      <div class="ytc-reply-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> AI Reply — edit if needed</div>
+      <textarea class="ytc-reply-textarea" id="replyText-${idx}" rows="3"></textarea>
+      <div class="ytc-reply-actions">
+        <button class="ytc-discard-btn" onclick="discardReply(${idx})">Discard</button>
+        <button class="ytc-action-btn generate" id="regenBtn-${idx}" onclick="generateReply(${idx})" style="margin-left:0;">↺ Regen</button>
+        <button class="ytc-action-btn post" id="postBtn-${idx}" onclick="postReply(${idx},'${esc(c.thread_id)}')">Post Reply ➤</button>
+      </div>
+    </div>`;
+    el.dataset.comment = JSON.stringify(c);
+    return el;
+  }
+
+  // Highlight any active rule keywords found in comment text
+  function highlightKeywords(text) {
+    // collect all keywords from loaded rules
+    const kwSet = new Set();
+    document.querySelectorAll('.ytc-rule-keyword').forEach(el => kwSet.add(el.textContent.trim().toLowerCase()));
+    if (!kwSet.size) return text;
+    const regex = new RegExp(`\\b(${[...kwSet].map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\$&')).join('|')})\\b`, 'gi');
+    return text.replace(regex, m => `<span class="ytc-kw-hit">${m}</span>`);
+  }
+
+  // ── Generate Reply ────────────────────────────────────────────────────────────
+  async function generateReply(idx) {
+    const card = document.getElementById(`card-${idx}`);
+    const c = JSON.parse(card.dataset.comment);
+    const btn = document.getElementById(`genBtn-${idx}`);
+    const rbtn = document.getElementById(`regenBtn-${idx}`);
+    const origHTML = btn.innerHTML;
+    btn.disabled = true; if (rbtn) rbtn.disabled = true;
+    btn.innerHTML = '<span class="ytc-spinner" style="width:14px;height:14px;border-width:2px;"></span> Generating…';
+    try {
+      const res = await fetch('/api/youtube-comments/generate-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel_id: CHANNEL_ID, comment_text: c.text, comment_author: c.author, video_title: c.video_title || '' }) });
+      const data = await res.json();
+      if (data.status !== 'success') { showToast('❌ ' + (data.message || 'Failed'), 'error'); return; }
+      document.getElementById(`replyText-${idx}`).value = data.reply;
+      document.getElementById(`replyBox-${idx}`).classList.add('visible');
+      generatedCount++;
+      document.getElementById('stat-generated').textContent = generatedCount;
+      showToast('✨ Reply generated!', 'success');
+    } catch (e) { showToast('❌ Network error', 'error'); }
+    finally { btn.disabled = false; if (rbtn) rbtn.disabled = false; btn.innerHTML = origHTML; }
+  }
+
+  // ── Post Reply ────────────────────────────────────────────────────────────────
+  async function postReply(idx, threadId) {
+    const txt = document.getElementById(`replyText-${idx}`).value.trim();
+    if (!txt) { showToast('⚠️ Reply cannot be empty', 'error'); return; }
+    const btn = document.getElementById(`postBtn-${idx}`);
+    btn.disabled = true;
+    btn.innerHTML = '<span class="ytc-spinner" style="width:14px;height:14px;border-width:2px;border-top-color:#fff;"></span> Posting…';
+    try {
+      const res = await fetch('/api/youtube-comments/post-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel_id: CHANNEL_ID, parent_id: threadId, reply_text: txt }) });
+      const data = await res.json();
+      if (data.status !== 'success') { showToast('❌ ' + (data.message || 'Failed'), 'error'); btn.disabled = false; btn.innerHTML = 'Post Reply ➤'; return; }
+      btn.className = 'ytc-action-btn posted'; btn.innerHTML = '✅ Posted!';
+      document.getElementById(`regenBtn-${idx}`).style.display = 'none';
+      postedCount++; document.getElementById('stat-posted').textContent = postedCount;
+      showToast('🎉 Reply posted to YouTube!', 'success');
+    } catch (e) { showToast('❌ Network error', 'error'); btn.disabled = false; btn.innerHTML = 'Post Reply ➤'; }
+  }
+  function discardReply(idx) { document.getElementById(`replyBox-${idx}`).classList.remove('visible'); document.getElementById(`replyText-${idx}`).value = ''; }
+
+  // ── Auto-Reply Toggle ─────────────────────────────────────────────────────────
+  async function toggleAutoReply() {
+    autoReplyEnabled = !autoReplyEnabled;
+    document.getElementById('autoReplyPill').classList.toggle('on', autoReplyEnabled);
+    document.getElementById('autoReplyChk').checked = autoReplyEnabled;
+    try { await fetch('/api/youtube-comments/toggle-auto-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel_id: CHANNEL_ID, enabled: autoReplyEnabled }) }); showToast(autoReplyEnabled ? '⚡ Auto-reply enabled' : '🔕 Auto-reply disabled', 'success'); } catch (e) { }
+  }
+
+  // ── Disconnect ────────────────────────────────────────────────────────────────
+  async function disconnectYT() {
+    if (!confirm('Disconnect YouTube? Comment replies will stop.')) return;
+    try { const res = await fetch(`/youtube-comments/disconnect/${CHANNEL_ID}`, { method: 'POST' }); const d = await res.json(); if (d.status === 'success') { showToast('Disconnected', 'success'); setTimeout(() => location.reload(), 1200); } else showToast('❌ ' + d.message, 'error'); } catch (e) { showToast('❌ Error', 'error'); }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  //  RULES ENGINE
+  // ══════════════════════════════════════════════════════════════════════════════
+
+  // ── Keyword chips ─────────────────────────────────────────────────────────────
+  function handleKwInput(e) {
+    const inp = document.getElementById('kwInput');
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const val = inp.value.replace(/,/g, '').trim().toLowerCase();
+      if (val && !keywords.includes(val)) { keywords.push(val); renderChips(); }
+      inp.value = '';
+    } else if (e.key === 'Backspace' && !inp.value && keywords.length) {
+      keywords.pop(); renderChips();
+    }
+  }
+  function renderChips() {
+    const c = document.getElementById('kwChips');
+    c.innerHTML = keywords.map((k, i) => `<span class="ytc-chip">${esc(k)}<button type="button" onclick="removeKw(${i})" title="Remove">×</button></span>`).join('');
+  }
+  function removeKw(i) { keywords.splice(i, 1); renderChips(); }
+
+  function toggleReplyType() {
+    const t = document.getElementById('ruleReplyType').value;
+    document.getElementById('replyTextField').style.display = t === 'fixed' ? '' : 'none';
+    document.getElementById('aiNoteField').style.display = t === 'ai' ? '' : 'none';
+  }
+
+  function onVideoChange() {
+    const sel = document.getElementById('ruleVideoId');
+    // Store video_title as data attribute on the option
+    // (we already have allVideos array)
+    const vid = allVideos.find(v => v.id === sel.value);
+    sel.dataset.title = vid ? vid.title : '';
+  }
+
+  // ── Create Rule ───────────────────────────────────────────────────────────────
+  async function createRule() {
+    const videoSel = document.getElementById('ruleVideoId');
+    const videoId = videoSel.value || null;
+    const videoTitle = videoId ? (allVideos.find(v => v.id === videoId) || {}).title : null;
+    const matchMode = document.getElementById('ruleMatchMode').value;
+    const replyType = document.getElementById('ruleReplyType').value;
+    const replyText = document.getElementById('ruleReplyText').value.trim();
+
+    // Flush any text in the input field
+    const kwInp = document.getElementById('kwInput').value.replace(/,/g, '').trim().toLowerCase();
+    if (kwInp && !keywords.includes(kwInp)) { keywords.push(kwInp); renderChips(); document.getElementById('kwInput').value = ''; }
+
+    if (!keywords.length) { showToast('⚠️ Add at least one keyword', 'error'); return; }
+    if (replyType === 'fixed' && !replyText) { showToast('⚠️ Reply text is required for Fixed type', 'error'); return; }
+
+    const btn = document.getElementById('saveRuleBtn');
+    btn.disabled = true; btn.innerHTML = '<span class="ytc-spinner" style="width:14px;height:14px;border-width:2px;border-top-color:#fff;"></span> Saving…';
+
+    try {
+      const res = await fetch('/api/youtube-comments/rules', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel_id: CHANNEL_ID, video_id: videoId, video_title: videoTitle, keywords: keywords.join(','), reply_type: replyType, reply_text: replyText, match_mode: matchMode })
+      });
+      const data = await res.json();
+      if (data.status !== 'success') { showToast('❌ ' + (data.message || 'Failed'), 'error'); return; }
+      // Reset form
+      keywords = []; renderChips();
+      document.getElementById('kwInput').value = '';
+      document.getElementById('ruleReplyText').value = '';
+      document.getElementById('ruleVideoId').value = '';
+      showToast('✅ Rule created!', 'success');
+      loadRules();
+    } catch (e) { showToast('❌ Network error', 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15" height="15"><polyline points="20 6 9 17 4 12"/></svg> Save Rule'; }
+  }
+
+  // ── Load Rules ────────────────────────────────────────────────────────────────
+  async function loadRules() {
+    const el = document.getElementById('rulesList');
+    el.innerHTML = '<div class="ytc-empty"><span class="ytc-spinner"></span></div>';
+    try {
+      const res = await fetch(`/api/youtube-comments/rules/${CHANNEL_ID}`);
+      const data = await res.json();
+      if (data.status !== 'success') { el.innerHTML = '<div class="ytc-empty"><p>Failed to load rules.</p></div>'; return; }
+      const rules = data.rules || [];
+      document.getElementById('stat-rules').textContent = rules.filter(r => r.is_active).length;
+      if (!rules.length) { el.innerHTML = '<div class="ytc-empty"><div class="ytc-empty-icon">📝</div><p>No rules yet. Create one above.</p></div>'; return; }
+      el.innerHTML = '';
+      rules.forEach(r => el.appendChild(buildRuleCard(r)));
+    } catch (e) { el.innerHTML = '<div class="ytc-empty"><p>Network error.</p></div>'; }
+  }
+
+  // ── Build rule card ───────────────────────────────────────────────────────────
+  function buildRuleCard(r) {
+    const el = document.createElement('div');
+    el.className = 'ytc-rule-card' + (r.is_active ? '' : ' inactive');
+    el.id = `rule-${r.id}`;
+
+    const scopeBadge = r.video_id
+      ? `<span class="ytc-rule-badge video-scope">📹 ${esc((r.video_title || r.video_id).slice(0, 35))}</span>`
+      : `<span class="ytc-rule-badge all-scope">🌐 All Videos</span>`;
+
+    const typeBadge = r.reply_type === 'fixed'
+      ? `<span class="ytc-rule-badge fixed">Fixed Reply</span>`
+      : `<span class="ytc-rule-badge ai-type">🤖 AI Reply</span>`;
+
+    const modeBadge = `<span class="ytc-rule-badge all-scope" style="font-size:.67rem;">${r.match_mode === 'all' ? 'Match ALL' : 'Match ANY'}</span>`;
+
+    const kwHtml = (r.keywords || []).map(k => `<span class="ytc-rule-keyword">${esc(k)}</span>`).join('');
+    const previewHTML = r.reply_type === 'fixed' && r.reply_text
+      ? `<div class="ytc-rule-reply-preview">${esc(r.reply_text)}</div>` : '';
+
+    const pillOn = r.is_active;
+    el.innerHTML = `
+    <div class="ytc-rule-card-body">
+      <div class="ytc-rule-card-header">${scopeBadge}${typeBadge}${modeBadge}</div>
+      <div class="ytc-rule-keywords">${kwHtml}</div>
+      ${previewHTML}
+    </div>
+    <div class="ytc-rule-actions">
+      <div style="display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:500;color:var(--text-secondary);">
+        <div class="ytc-toggle-pill ${pillOn ? 'on' : ''}" id="rulePill-${r.id}" onclick="toggleRule(${r.id},${!pillOn})"></div>
+        ${pillOn ? 'Active' : 'Paused'}
+      </div>
+      <button class="ytc-rule-del" onclick="deleteRule(${r.id})">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        Delete
+      </button>
+    </div>`;
+    return el;
+  }
+
+  async function toggleRule(ruleId, newState) {
+    try {
+      await fetch(`/api/youtube-comments/rules/${ruleId}/toggle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: newState }) });
+      loadRules();
+      showToast(newState ? '✅ Rule activated' : '⏸ Rule paused', 'success');
+    } catch (e) { showToast('❌ Failed to update rule', 'error'); }
+  }
+
+  async function deleteRule(ruleId) {
+    if (!confirm('Delete this rule permanently?')) return;
+    try {
+      await fetch(`/api/youtube-comments/rules/${ruleId}`, { method: 'DELETE' });
+      loadRules();
+      showToast('🗑 Rule deleted', 'success');
+    } catch (e) { showToast('❌ Failed to delete', 'error'); }
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────────────────
+  let toastTimer;
+  function showToast(msg, type = 'success') {
+    const t = document.getElementById('ytcToast');
+    t.textContent = msg; t.className = `ytc-toast ${type} show`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+</script>
+{% endblock %}
