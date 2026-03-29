@@ -614,8 +614,15 @@
         grid-template-columns: 1fr;
     }
 
-    .pricing-card.featured {
+    .pricing-card.featured,
+    .pricing-card.premium {
         transform: scale(1);
+    }
+}
+
+@media (min-width: 951px) {
+    #pricing-modal-overlay .login-popup-content {
+        transform: scale(0.8);
     }
 }
 
@@ -851,4 +858,81 @@ html[data-theme='dark'] .query-usage-indicator {
 
 html[data-theme='dark'] .usage-bar-container {
     background-color: var(--neutral-700);
+}
+
+/* Premium Tier Modifications */
+.pricing-card.premium {
+    border: 3px solid transparent;
+    background: linear-gradient(var(--surface-light), var(--surface-light)) padding-box,
+                linear-gradient(135deg, #F59E0B 0%, #EA580C 50%, #8b5cf6 100%) border-box;
+    box-shadow: 0 15px 35px -5px rgba(245, 158, 11, 0.15), 0 10px 15px -5px rgba(245, 158, 11, 0.1);
+    transform: scale(1.02);
+    z-index: 2;
+}
+
+.pricing-card.premium:hover {
+    box-shadow: 0 20px 40px -5px rgba(245, 158, 11, 0.25), 0 10px 15px -5px rgba(245, 158, 11, 0.1);
+    transform: scale(1.04);
+}
+
+.premium-badge {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, #F59E0B 0%, #EA580C 100%);
+    color: #ffffff;
+    font-size: 0.8rem;
+    font-weight: 800;
+    padding: 0.4rem 1.2rem;
+    border-radius: var(--radius-full);
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    text-transform: uppercase;
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.4);
+}
+
+.pricing-card.premium .price {
+    background: linear-gradient(135deg, #EA580C, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 3rem !important; /* Make the price distinctly larger */
+    margin-bottom: 1rem;
+}
+
+.pricing-card.premium h4 {
+    display: inline-block;
+    background: linear-gradient(135deg, #111827 0%, #EA580C 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 1.8rem;
+}
+
+.btn-pricing-premium {
+    background: linear-gradient(135deg, #F59E0B 0%, #EA580C 100%);
+    color: #ffffff;
+    border: none;
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);
+}
+
+.btn-pricing-premium:not(.disabled):hover {
+    background: linear-gradient(135deg, #EA580C 0%, #c2410c 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(234, 88, 12, 0.4);
+    color: #ffffff;
+}
+
+/* Make the disabled button look premium too if they own it */
+.pricing-card.premium .btn-pricing-disabled {
+    background: linear-gradient(135deg, #fbf2e9 0%, #f3ebfa 100%);
+    color: #EA580C;
+    border: 1px solid #fed7aa;
+    font-weight: 700;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+}
+
+html[data-theme='dark'] .pricing-card.premium .btn-pricing-disabled {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+    border-color: rgba(245, 158, 11, 0.3);
 }
