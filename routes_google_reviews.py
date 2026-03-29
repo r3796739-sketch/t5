@@ -167,7 +167,16 @@ def google_reviews_dashboard():
     if 'user' not in session:
         if request.method == 'POST':
             return redirect(url_for('channel') + '?login=1')
-        return render_template('google_reviews_dashboard.html', settings_list=[], feedbacks=[], user_id=None, max_businesses=0, stats={}, needs_login=True)
+        return render_template(
+            'google_reviews_dashboard.html',
+            settings_list=[],
+            feedbacks=[],
+            user_id=None,
+            max_businesses=0,
+            stats={},
+            needs_login=True,
+            user_status=None,
+        )
 
     user_id = session['user']['id']
     supabase = get_supabase_admin_client()
@@ -260,7 +269,15 @@ def google_reviews_dashboard():
             sum_ratings = sum(k * stats[s_id][k] for k in range(1, 6))
             stats[s_id]['avg'] = round(sum_ratings / total, 1)
 
-    return render_template('google_reviews_dashboard.html', settings_list=settings_list, feedbacks=feedbacks, user_id=user_id, max_businesses=max_businesses, stats=stats)
+    return render_template(
+        'google_reviews_dashboard.html',
+        settings_list=settings_list,
+        feedbacks=feedbacks,
+        user_id=user_id,
+        max_businesses=max_businesses,
+        stats=stats,
+        user_status=user_status,
+    )
 
 
 @google_reviews_bp.route('/dashboard/google-reviews/delete/<int:settings_id>', methods=['POST'])

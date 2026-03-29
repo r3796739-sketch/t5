@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -1720,56 +1720,71 @@
         <div class="container text-center">
             <div class="reveal">
                 <span class="section-label" style="background:rgba(147,51,234,0.1);color:var(--purple);">Pricing</span>
-                <div class="section-title">Simple, honest pricing.<br><span class="gradient-text-purple">Cancel whenever
-                        you want.</span></div>
+                <div class="section-title">Simple, honest pricing.<br><span class="gradient-text-purple">Cancel whenever you want.</span></div>
+                <p class="section-body centered" style="margin-top:14px;">Now powered by WhatsApp, Messenger, Google Reviews &amp; more.</p>
             </div>
             <div class="pricing-grid">
+                <!-- Explorer -->
                 <div class="price-card reveal reveal-d1">
                     <div class="plan-name">Explorer</div>
                     <div class="plan-price">Free</div>
                     <span class="plan-period">Forever</span>
-                    <p class="plan-desc">Get started. No credit card. No strings.</p>
+                    <p class="plan-desc">Try the magic. No credit card. No strings.</p>
                     <ul>
-                        <li>30 AI conversations/month</li>
+                        <li>20 AI Credits/month</li>
+                        <li>1 YouTube channel persona</li>
                         <li>Public chat page</li>
-                        <li>Powered by your YouTube channel</li>
+                        <li>Basic analytics</li>
+                        <li>Community support</li>
                     </ul>
-                    <a href="{{ url_for('channel') }}" class="price-btn">Get Started</a>
+                    <a href="{{ url_for('channel') }}" class="price-btn">Get Started Free</a>
                 </div>
+                <!-- Personal (featured) -->
                 <div class="price-card featured reveal reveal-d2">
                     <div class="plan-name">Personal</div>
-                    <div class="plan-price gradient-text">₹299</div>
+                    <div class="plan-price gradient-text">&#x20B9;299</div>
                     <span class="plan-period">/month</span>
-                    <p class="plan-desc">For fans who want unlimited access.</p>
+                    <p class="plan-desc">For fans &amp; creators who want unlimited power across every channel.</p>
                     <ul>
-                        <li>Unlimited conversations</li>
+                        <li>310 AI Credits/month</li>
+                        <li>Unlimited YouTube channels</li>
+                        <li>WhatsApp &amp; Messenger bot</li>
+                        <li>Google Reviews dashboard</li>
+                        <li>YouTube Comments manager</li>
+                        <li>Flow Builder (visual automation)</li>
                         <li>Priority AI responses</li>
                         <li>Full conversation history</li>
                         <li>Advanced analytics</li>
+                        <li>Email support</li>
                     </ul>
                     <button class="price-btn" onclick="buySubscription('personal', this)">Get Started</button>
                 </div>
+                <!-- Creator -->
                 <div class="price-card reveal reveal-d3">
                     <div class="plan-name">Creator</div>
-                    <div class="plan-price">₹2,799</div>
+                    <div class="plan-price">&#x20B9;2,799</div>
                     <span class="plan-period">/month</span>
-                    <p class="plan-desc">For creators who want their AI everywhere.</p>
+                    <p class="plan-desc">For creators scaling AI across every platform and community.</p>
                     <ul>
-                        <li>10,000 fan interactions/month</li>
-                        <li>Discord & Telegram deployment</li>
+                        <li>Everything in Personal, plus:</li>
+                        <li>10,000 AI Credits/month</li>
+                        <li>Discord &amp; Telegram deployment</li>
                         <li>Website embed widget</li>
-                        <li>Custom branding</li>
+                        <li>Multi-source AI (docs, URLs, PDFs)</li>
+                        <li>Marketplace listing &amp; transfers</li>
+                        <li>Custom branding &amp; white-label</li>
                         <li>45% affiliate revenue share</li>
                         <li>API access</li>
-                        <li>Priority support</li>
+                        <li>Priority support + onboarding call</li>
                     </ul>
                     <button class="price-btn" onclick="buySubscription('creator', this)">Become a Creator</button>
                 </div>
             </div>
             <div class="pricing-trust reveal">
-                <span>✓ No contracts</span>
-                <span>✓ Cancel anytime</span>
-                <span>✓ Your AI stays live 30 days after cancellation</span>
+                <span>&#x2713; No contracts</span>
+                <span>&#x2713; Cancel anytime</span>
+                <span>&#x2713; 30-day money-back guarantee</span>
+                <span>&#x2713; Your AI stays live 30 days after cancellation</span>
             </div>
         </div>
     </section>
