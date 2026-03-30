@@ -99,7 +99,6 @@
                     <span>Google Reviews</span>
                 </a>
                 
-                {% if is_creator %}
                 <a href="{{ url_for('dashboard') }}"
                     class="sidebar-action-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -117,7 +116,6 @@
                     </svg>
                     <span>Earnings</span>
                 </a>
-                {% endif %}
                 
                 {% if is_admin %}
                 <a href="{{ url_for('admin_dashboard') }}"

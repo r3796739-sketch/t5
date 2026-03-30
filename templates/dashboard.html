@@ -148,9 +148,17 @@
     }
 
     @keyframes upgradeShimmer {
-        0%   { background-position: 0% 50%; }
-        50%  { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
+        0% {
+            background-position: 0% 50%;
+        }
+
+        50% {
+            background-position: 100% 50%;
+        }
+
+        100% {
+            background-position: 0% 50%;
+        }
     }
 
     /* ---- 4-Card Earnings Overview ---- */
@@ -807,7 +815,10 @@
                 <div class="quota-fill" id="quotaFill" style="width: 0%"></div>
             </div>
             <button class="btn-upgrade-quota" onclick="showPricingModal()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
                 ✨ Upgrade Plan
             </button>
         </div>
@@ -1021,8 +1032,6 @@
             Your Chatbot Fleet
         </div>
     </div>
-
-    {% if creator_channels %}
     {% for name, channel in creator_channels.items() %}
     <div class="chatbot-card">
         <div class="chatbot-card-main">
@@ -1121,7 +1130,7 @@
         </div>
     </div>
     {% endfor %}
-    {% else %}
+    {% if not creator_channels %}
     <div class="empty-state">
         <svg class="empty-state-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

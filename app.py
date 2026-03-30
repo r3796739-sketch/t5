@@ -953,6 +953,7 @@ def channel():
         return render_template(
             'channel.html',
             saved_channels=get_user_channels(),
+            prefilled_channel_url=request.args.get('channel_url', '').strip(),
             SUPABASE_URL=os.environ.get('SUPABASE_URL'),
             SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY'),
             razorpay_plan_id_personal=personal_plan_id,
