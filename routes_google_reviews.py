@@ -22,8 +22,8 @@ def login_required(f):
 
 def _fetch_and_cache_reviews_context(place_id, business_name, user_id, supabase, business_description="", sort_mode="newest", settings_id=None):
     """
-    Fetches top reviews from Google Places API and caches them.
-    Falls back to business_description if no API key is set.
+    Fetches top 5 5-star reviews from Google Places API and combines them 
+    with the business description to create a comprehensive SEO context.
     """
     google_api_key = os.environ.get('GOOGLE_PLACES_API_KEY')
     reviews_context = ""
@@ -37,21 +37,30 @@ def _fetch_and_cache_reviews_context(place_id, business_name, user_id, supabase,
             )
             place_data = res.json()
             if place_data.get('status') == 'OK' and 'reviews' in place_data.get('result', {}):
-                good_reviews = [r['text'] for r in place_data['result']['reviews'] if r.get('rating', 0) >= 4]
+                # Fetch only purely 5-star reviews with actual text
+                good_reviews = [r['text'] for r in place_data['result']['reviews'] if r.get('rating', 0) == 5 and r.get('text', '').strip()]
+                if not good_reviews:
+                    # Fallback to 4+ stars if no 5-star textual reviews exist
+                    good_reviews = [r['text'] for r in place_data['result']['reviews'] if r.get('rating', 0) >= 4 and r.get('text', '').strip()]
+                    
                 if good_reviews:
-                    reviews_context = "Here are some examples of what other people like about this business: " + " | ".join(good_reviews[:3])
+                    reviews_context = "Past 5-star customer reviews: " + " | ".join(good_reviews[:5])
         except Exception as e:
             logging.warning(f"[Google Reviews] Could not fetch Places reviews: {e}")
 
-    # Fallback: use the business description as context
-    if not reviews_context and business_description:
-        reviews_context = f"Business context: {business_description}"
+    # Combine business description and reviews for the AI
+    final_context = ""
+    if business_description:
+        final_context += f"Business Description & SEO Target Keywords: {business_description}\n\n"
+    if reviews_context:
+        final_context += f"{reviews_context}"
 
-    # Persist to DB — always scope to settings_id when available to avoid
-    # overwriting all businesses for this user.
+    if not final_context.strip():
+        final_context = f"Business context: A local business named {business_name}"
+
     try:
         query = supabase.table('google_review_settings').update(
-            {'cached_reviews_context': reviews_context}
+            {'cached_reviews_context': final_context}
         ).eq('user_id', user_id)
         if settings_id:
             query = query.eq('id', settings_id)
@@ -59,7 +68,7 @@ def _fetch_and_cache_reviews_context(place_id, business_name, user_id, supabase,
     except Exception as e:
         logging.warning(f"[Google Reviews] Could not cache reviews context: {e}")
 
-    return reviews_context
+    return final_context
 
 def _gr_generate_fast(prompt: str, llm_provider: str, llm_model: str, api_key: str) -> str:
     """
@@ -150,11 +159,7 @@ def _send_limit_email_async(app, user_id):
             msg = Message(
                 subject="Action Required: Review AI Limit Reached",
                 recipients=[user_email],
-                html=f"""<h3>Hi {name},</h3>
-                <p>You have reached your monthly credit limit for generating AI Google Review suggestions.</p>
-                <p>Please <a href='https://app.yoppychat.com/pricing'>upgrade your plan</a> to continue collecting high-quality AI-generated reviews on auto-pilot.</p>
-                <br>
-                <p>Best regards,<br>The YoppyChat Team</p>"""
+                html=f"<h3>Hi {name},</h3>\n                <p>You have reached your monthly credit limit for generating AI Google Review suggestions.</p>\n                <p>Please <a href='https://app.yoppychat.com/pricing'>upgrade your plan</a> to continue collecting high-quality AI-generated reviews on auto-pilot.</p>\n                <br>\n                <p>Best regards,<br>The YoppyChat Team</p>"
             )
             mail.send(msg)
         except Exception as e:
@@ -410,15 +415,16 @@ def generate_review():
     # Build a grounded context block
     if reviews_context:
         context_block = (
-            f"Here are some REAL reviews left by previous customers of '{business_name}'. "
-            f"Use ONLY the themes, sentiments, and specific details from these real reviews. "
-            f"Do NOT invent any services, destinations, or experiences not mentioned here:\n\n{reviews_context}\n\n"
+            f"Here is information about the business '{business_name}':\n\n{reviews_context}\n\n"
+            f"Your task is to write SEO-optimized review ideas that a real customer could copy-paste as their own 5-star Google review. "
+            f"If Business Description or target SEO keywords are provided, seamlessly weave them into the review naturally to rank higher on local search. "
+            f"Use the themes, sentiments, and specific details from the past customer reviews if provided to sound deeply authentic.\n\n"
         )
     else:
         context_block = (
-            f"You are writing a review for a business called '{business_name}'. "
-            f"You do NOT know what specific services they offer, so keep the review generic and positive. "
-            f"Do NOT mention any specific destinations, trips, products, or services — stay vague about the experience details.\n\n"
+            f"You are writing an SEO optimized 5-star review for a business called '{business_name}'. "
+            f"You do NOT know what specific services they offer, so keep the review focused on generic but strong positive sentiment. "
+            f"Do NOT invent any specific destinations, trips, products, or services — stay vague about the exact details.\n\n"
         )
 
     from utils.qa_utils import _get_api_key, LLM_STREAM_PROVIDER_MAP
@@ -438,9 +444,10 @@ def generate_review():
     def _generate_one(i, style):
         prompt = (
             f"{context_block}"
-            f"Now write a new, unique 5-star Google review. {style} "
-            f"Sound like a genuine customer. Do NOT invent specific places, trips, products, or experiences that aren't mentioned above. "
-            f"Do NOT use clichés like 'highly recommended' or mention star ratings. Output ONLY the review text, nothing else."
+            f"Now write ONE unique, highly-authentic 5-star Google review. {style} "
+            f"Sound like a genuine happy customer. Avoid robotic phrasing or marketing speak. "
+            f"Do NOT invent specific places or names not found in the context. "
+            f"Do NOT mention star ratings directly. Output ONLY the raw review text, nothing else."
         )
         text = _gr_generate_fast(prompt, llm_provider, llm_model, api_key)
         return i, text if (text and "Error:" not in text) else fallbacks[i]
