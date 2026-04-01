@@ -301,7 +301,7 @@
                         <p>AI Assistant</p>
                     </div>
                     <div class="yoppychat-powered">
-                        <a href="${BASE_URL}" target="_blank">Powered by YoppyChat</a>
+                        <a href="${BASE_URL}" target="_blank" rel="nofollow noopener noreferrer">Powered by YoppyChat</a>
                     </div>
                 </div>
                 <div class="yoppychat-messages" id="yoppychat-messages">

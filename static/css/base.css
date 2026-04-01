@@ -751,13 +751,19 @@ html[data-theme='dark'] .channel-item-wrapper:hover .channel-link {
     color: var(--neutral-900);
 }
 
-html[data-theme='dark'] .channel-item-wrapper:hover .delete-btn {
+html[data-theme='dark'] .channel-item-wrapper:hover .delete-btn,
+html[data-theme='dark'] .channel-item-wrapper:hover .channel-action-btn {
     color: var(--text-secondary);
 }
 
 html[data-theme='dark'] .channel-item-wrapper:hover .delete-btn:hover {
     background-color: var(--neutral-300);
     color: var(--accent-error);
+}
+
+html[data-theme='dark'] .channel-item-wrapper:hover .channel-action-btn:hover {
+    background-color: var(--neutral-300);
+    color: var(--accent-primary);
 }
 
 .sidebar-actions-section a.sidebar-action-item {

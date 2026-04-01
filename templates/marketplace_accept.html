@@ -419,10 +419,20 @@
                 })
             });
 
-            const result = await response.json();
+            let result;
+            try {
+                result = await response.json();
+            } catch (parseError) {
+                console.error('[Checkout] Failed to parse response JSON:', response.status, response.statusText, parseError);
+                showNotification('Invalid response from server. Please try again.', 'error');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                return;
+            }
 
             // FIX Issue #11: Handle 401 from the subscribe endpoint for logged-out users
             if (response.status === 401) {
+                console.warn('[Checkout] Unauthorized (401) - user not logged in');
                 showNotification('Please log in to subscribe to this chatbot.', 'error');
                 if (typeof showLoginPopup === 'function') {
                     showLoginPopup();
@@ -432,13 +442,18 @@
                 return;
             }
 
+            if (response.status !== 200 && response.status !== 201) {
+                console.error('[Checkout] Error response from server:', response.status, result);
+            }
+
             if (result.status === 'success') {
+                console.log('[Checkout] Success - subscription created:', result.subscription_id);
                 const cancelCheckout = () => {
                     fetch('/api/marketplace/cancel_checkout', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ transfer_code: '{{ transfer.transfer_code }}' })
-                    }).catch(err => console.error("Error cancelling checkout", err));
+                    }).catch(err => console.error("[Checkout] Error cancelling checkout:", err));
                 };
 
                 const options = {
@@ -448,11 +463,13 @@
                     "description": result.plan_name,
                     "image": "https://app.yoppychat.com/static/images/logo/logo.png",
                     "handler": function (response) {
+                        console.log('[Checkout] Payment successful:', response);
                         showNotification("Payment successful! The chatbot is now in your account.", 'success');
                         window.location.href = "{{ url_for('dashboard') }}";
                     },
                     "modal": {
                         "ondismiss": function () {
+                            console.log('[Checkout] Modal dismissed');
                             cancelCheckout();
                             btn.innerHTML = originalText;
                             btn.disabled = false;
@@ -469,6 +486,7 @@
 
                 const rzp = new Razorpay(options);
                 rzp.on('payment.failed', function (response) {
+                    console.error('[Checkout] Payment failed:', response);
                     showNotification("Payment failed: " + response.error.description, 'error');
                     cancelCheckout();
                     btn.innerHTML = originalText;
@@ -477,16 +495,21 @@
                 rzp.open();
 
             } else {
+                console.error('[Checkout] Error from endpoint:', result.message || 'Unknown error');
                 showNotification(result.message || 'Error initiating checkout.', 'error');
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
         } catch (error) {
-            console.error(error);
-            showNotification('A network error occurred.', 'error');
+            console.error('[Checkout] Network/Fetch Error:', error.message, error.stack);
+            showNotification('A network error occurred. Please check your connection and try again.', 'error');
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
     }
 </script>
+
+<!-- Razorpay SDK -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
 {% endblock %}

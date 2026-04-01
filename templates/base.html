@@ -53,27 +53,45 @@
                     <div class="channel-section-title">Channels</div>
                     <div class="channel-list">
                         {% if user_status %}
-                        {% set can_add_personal = user_status.usage.channels_processed < user_status.limits.max_channels
-                            %} {# For community owners, check if they can add more shared channels #} {% set
-                            can_add_shared=False %} {% if user_status.is_active_community_owner %} {# This part requires
-                            fetching community status, which might be complex here. Assuming a simple check for now, but
-                            a more robust solution might need a dedicated function. For simplicity, we'll just check if
-                            they are an owner. #} {% set can_add_shared=True %} {% endif %} {% if can_add_personal or
-                            can_add_shared %} <div class="add-channel-btn"
-                            onclick='location.href="/chatbot/create-ui"'>+ Add Channel</div>
-                    {% elif user_status.is_whop_user %}
-                    <div class="add-channel-btn"
-                        onclick="showUpgradePopup('You have reached your channel limit. Please upgrade for more.')">+
-                        Add Channel (Upgrade)</div>
-                    {% else %}
-                    <div class="add-channel-btn disabled">Channel Limit Reached</div>
-                    {% endif %}
+                        {% set can_add_personal = user_status.usage.channels_processed < user_status.limits.max_channels %}
+                        {# For community owners, check if they can add more shared channels #}
+                        {% set can_add_shared=False %}
+                        {% if user_status.is_active_community_owner %}
+                        {% set can_add_shared=True %}
+                        {% endif %}
+                        {% set is_google_reviews = request.endpoint == 'google_reviews.google_reviews_dashboard' %}
+
+                        {% if can_add_personal or can_add_shared %}
+                        <div class="add-channel-btn" onclick="{% if is_google_reviews %}showNewForm(){% else %}location.href='/chatbot/create-ui'{% endif %}">
+                            {% if is_google_reviews %}+ Add Business{% else %}+ Add Channel{% endif %}
+                        </div>
+                        {% elif user_status.is_whop_user %}
+                        <div class="add-channel-btn" onclick="{% if is_google_reviews %}showUpgradePopup('You have reached your business limit. Please upgrade for more.'){% else %}showUpgradePopup('You have reached your channel limit. Please upgrade for more.'){% endif %}">
+                            {% if is_google_reviews %}+ Add Business (Upgrade){% else %}+ Add Channel (Upgrade){% endif %}
+                        </div>
+                        {% else %}
+                        <div class="add-channel-btn disabled">{% if is_google_reviews %}Business{% else %}Channel{% endif %} Limit Reached</div>
+                        {% endif %}
                     {% endif %}
 
                     {% if saved_channels %}
                     {% for name, channel in saved_channels.items() %}
                     {{ render_sidebar_channel_item(channel, name, community_status) }}
                     {% endfor %}
+                    {% endif %}
+
+                    {% if is_google_reviews and settings_list|default([])|length > 0 %}
+                    <div style="margin-top: 0.8rem; padding-top: 0.65rem; border-top: 1px solid var(--neutral-200);">
+                        {% for business in settings_list %}
+                        {% set avg = stats[business.id]['avg'] if stats and business.id in stats else None %}
+                        <a href="{{ url_for('google_reviews.google_reviews_dashboard') }}#viewMode-{{ business.id }}"
+                            style="display:flex;align-items:center;justify-content:space-between;padding:0.45rem 0.6rem;border-radius:8px;color:var(--text-primary);text-decoration:none;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:0.2rem;background:var(--surface-light);border:1px solid var(--neutral-200);"
+                            title="{{ business.business_name }}">
+                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">{{ business.business_name or 'Untitled business' }}</span>
+                            <span style="margin-left:0.5rem;color:var(--text-muted);font-weight:700;white-space:nowrap;">{{ avg if avg is not none else '0.0' }}&#9733;</span>
+                        </a>
+                        {% endfor %}
+                    </div>
                     {% endif %}
                 </div>
             </div>
@@ -91,14 +109,6 @@
         
         <div id="businessToolsMenu" style="max-height: 0; overflow: hidden; transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1); padding-left: 0.5rem;">
             <div style="padding-bottom: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem;">
-                <a href="{{ url_for('google_reviews.google_reviews_dashboard') }}"
-                    class="sidebar-action-item {% if request.endpoint == 'google_reviews.google_reviews_dashboard' %}active{% endif %}">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                    </svg>
-                    <span>Google Reviews</span>
-                </a>
-                
                 <a href="{{ url_for('dashboard') }}"
                     class="sidebar-action-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -107,6 +117,20 @@
                         <line x1="9" y1="21" x2="9" y2="9"></line>
                     </svg>
                     <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('chatbot_create_ui') }}"
+                    class="sidebar-action-item {% if request.endpoint == 'chatbot_create_ui' %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span>AI Chatbots</span>
+                </a>
+                <a href="{{ url_for('google_reviews.google_reviews_dashboard') }}"
+                    class="sidebar-action-item {% if request.endpoint == 'google_reviews.google_reviews_dashboard' %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                    </svg>
+                    <span>Google Reviews</span>
                 </a>
                 <a href="{{ url_for('earnings_page') }}"
                     class="sidebar-action-item {% if request.endpoint == 'earnings_page' %}active{% endif %}">

@@ -1102,7 +1102,7 @@ def set_default_channel(channel_id):
 @login_required
 def chatbot_create_ui():
     """Render the multi-source chatbot creation page."""
-    return render_template('chatbot_create.html')
+    return render_template('chatbot_create.html', saved_channels=get_user_channels())
 
 
 @app.route('/chatbot/create', methods=['POST'])
@@ -4488,95 +4488,109 @@ def marketplace_accept(transfer_code):
 @app.route('/api/marketplace/subscribe', methods=['POST'])
 @login_required
 def create_marketplace_subscription():
-    data = request.get_json()
-    transfer_code = data.get('transfer_code')
-    user_id = session['user']['id']
-    
-    transfer = marketplace_utils.get_transfer_by_code(transfer_code)
-    
-    if not transfer or transfer['status'] not in ('pending', 'subscription_pending'):
-        return jsonify({'status': 'error', 'message': 'Invalid or expired transfer link. It may already be in use.'}), 400
-        
-    if transfer['status'] == 'subscription_pending':
-        if transfer.get('buyer_id') and str(transfer.get('buyer_id')) != str(user_id):
-            return jsonify({'status': 'error', 'message': 'This link is currently being claimed by someone else.'}), 409
-    
-    # Immediately mark as 'subscription_pending' to block other buyers
-    supabase_admin_mp = get_supabase_admin_client()
-    supabase_admin_mp.table('chatbot_transfers').update({
-        'status': 'subscription_pending',
-        'buyer_id': user_id
-    }).eq('id', transfer['id']).execute()
-        
-    profile = db_utils.get_profile(user_id)
-    
-    base_plan_id = os.environ.get('RAZORPAY_MARKETPLACE_BASE_PLAN_ID')
-    if not base_plan_id:
-        return jsonify({'status': 'error', 'message': 'Marketplace is not fully configured.'}), 500
-        
-    razorpay_client = get_razorpay_client()
-    
-    # Handle Customer ID (similar to regular subscription logic)
-    customer_id = profile.get('razorpay_customer_id')
-    user_email = profile.get('email') or session.get('user', {}).get('email')
-    
-    if customer_id:
-        try:
-            # Verify the customer_id is valid
-            razorpay_client.customer.fetch(customer_id)
-        except Exception as e:
-            # If the customer_id is invalid, set it to None to trigger creation
-            logger.warning(f"Invalid cached customer_id {customer_id}: {e}")
-            customer_id = None
-            
-    if not customer_id:
-        try:
-            # Reusing existing logic
-            customers_response = razorpay_client.customer.all()
-            for c in customers_response.get('items', []):
-                if c.get('email') == user_email:
-                    customer_id = c['id']
-                    break
-            if not customer_id:
-                customer = razorpay_client.customer.create({'email': user_email})
-                customer_id = customer['id']
-                db_utils.create_or_update_profile({'id': user_id, 'email': user_email, 'razorpay_customer_id': customer_id})
-        except Exception as e:
-            logger.error(f"Razorpay customer error: {e}")
-            supabase_admin_mp.table('chatbot_transfers').update({'status': 'pending', 'buyer_id': None}).eq('id', transfer['id']).execute()
-            return jsonify({'status': 'error', 'message': f"Razorpay error: {e}"}), 500
-            
-    # Quantity is the total paise divided by 100 for the ₹1 base plan.
-    # So if price is ₹5000, paise=500000. For ₹1 plans (100 paise), quantity=5000
-    quantity = transfer['creator_price_monthly'] // 100
-    
     try:
-        total_count = int(os.environ.get('RAZORPAY_SUBSCRIPTION_TOTAL_COUNT', 12))
-        subscription = razorpay_client.subscription.create({
-            "plan_id": base_plan_id,
-            "customer_id": customer_id,
-            "total_count": total_count,  # FIX Issue #12: Configurable via env var
-            "quantity": quantity,
-        })
+        data = request.get_json()
+        transfer_code = data.get('transfer_code')
+        user_id = session['user']['id']
         
-        # Link this preliminary subscription ID to the transfer record
-        supabase_admin = get_supabase_admin_client()
-        supabase_admin.table('chatbot_transfers').update({
-            'razorpay_subscription_id': subscription['id']
+        logging.info(f"[Marketplace Subscribe] User {user_id} initiating subscription for transfer_code: {transfer_code}")
+        
+        transfer = marketplace_utils.get_transfer_by_code(transfer_code)
+        
+        if not transfer or transfer['status'] not in ('pending', 'subscription_pending'):
+            logging.warning(f"[Marketplace Subscribe] Invalid or expired transfer for code {transfer_code}")
+            return jsonify({'status': 'error', 'message': 'Invalid or expired transfer link. It may already be in use.'}), 400
+            
+        if transfer['status'] == 'subscription_pending':
+            if transfer.get('buyer_id') and str(transfer.get('buyer_id')) != str(user_id):
+                logging.warning(f"[Marketplace Subscribe] Transfer {transfer_code} locked by another user")
+                return jsonify({'status': 'error', 'message': 'This link is currently being claimed by someone else.'}), 409
+        
+        # Immediately mark as 'subscription_pending' to block other buyers
+        supabase_admin_mp = get_supabase_admin_client()
+        supabase_admin_mp.table('chatbot_transfers').update({
+            'status': 'subscription_pending',
+            'buyer_id': user_id
         }).eq('id', transfer['id']).execute()
+            
+        profile = db_utils.get_profile(user_id)
         
+        base_plan_id = os.environ.get('RAZORPAY_MARKETPLACE_BASE_PLAN_ID')
+        if not base_plan_id:
+            logging.error(f"[Marketplace Subscribe] RAZORPAY_MARKETPLACE_BASE_PLAN_ID not configured")
+            return jsonify({'status': 'error', 'message': 'Marketplace is not fully configured.'}), 500
+            
+        razorpay_client = get_razorpay_client()
+        
+        # Handle Customer ID (similar to regular subscription logic)
+        customer_id = profile.get('razorpay_customer_id')
+        user_email = profile.get('email') or session.get('user', {}).get('email')
+        
+        if customer_id:
+            try:
+                # Verify the customer_id is valid
+                razorpay_client.customer.fetch(customer_id)
+            except Exception as e:
+                # If the customer_id is invalid, set it to None to trigger creation
+                logging.warning(f"[Marketplace Subscribe] Invalid cached customer_id {customer_id}: {e}")
+                customer_id = None
+                
+        if not customer_id:
+            try:
+                # Reusing existing logic
+                customers_response = razorpay_client.customer.all()
+                for c in customers_response.get('items', []):
+                    if c.get('email') == user_email:
+                        customer_id = c['id']
+                        break
+                if not customer_id:
+                    customer = razorpay_client.customer.create({'email': user_email})
+                    customer_id = customer['id']
+                    db_utils.create_or_update_profile({'id': user_id, 'email': user_email, 'razorpay_customer_id': customer_id})
+                logging.info(f"[Marketplace Subscribe] Created/Found customer {customer_id} for user {user_id}")
+            except Exception as e:
+                logging.error(f"[Marketplace Subscribe] Razorpay customer error for user {user_id}: {e}", exc_info=True)
+                supabase_admin_mp.table('chatbot_transfers').update({'status': 'pending', 'buyer_id': None}).eq('id', transfer['id']).execute()
+                return jsonify({'status': 'error', 'message': f"Failed to setup payment: {str(e)}"}), 500
+                
+        # Quantity is the total paise divided by 100 for the ₹1 base plan.
+        # So if price is ₹5000, paise=500000. For ₹1 plans (100 paise), quantity=5000
+        quantity = transfer['creator_price_monthly'] // 100
+        logging.info(f"[Marketplace Subscribe] Creating subscription with quantity={quantity}, price={transfer['creator_price_monthly']}")
+        
+        try:
+            total_count = int(os.environ.get('RAZORPAY_SUBSCRIPTION_TOTAL_COUNT', 12))
+            subscription = razorpay_client.subscription.create({
+                "plan_id": base_plan_id,
+                "customer_id": customer_id,
+                "total_count": total_count,  # FIX Issue #12: Configurable via env var
+                "quantity": quantity,
+            })
+            
+            logging.info(f"[Marketplace Subscribe] Subscription created: {subscription['id']}")
+            
+            # Link this preliminary subscription ID to the transfer record
+            supabase_admin = get_supabase_admin_client()
+            supabase_admin.table('chatbot_transfers').update({
+                'razorpay_subscription_id': subscription['id']
+            }).eq('id', transfer['id']).execute()
+            
+        except Exception as e:
+            logging.error(f"[Marketplace Subscribe] Failed to create subscription: {e}", exc_info=True)
+            supabase_admin_mp.table('chatbot_transfers').update({'status': 'pending', 'buyer_id': None}).eq('id', transfer['id']).execute()
+            return jsonify({'status': 'error', 'message': f'Could not create subscription: {str(e)}'}), 500
+            
+        return jsonify({
+            'status': 'success',
+            'subscription_id': subscription['id'],
+            'razorpay_key_id': os.environ.get('RAZORPAY_KEY_ID'),
+            'plan_name': f"Marketplace Chatbot: {transfer['channels']['channel_name']}",
+            'user_name': profile.get('full_name'),
+            'user_email': user_email
+        })
     except Exception as e:
-        supabase_admin_mp.table('chatbot_transfers').update({'status': 'pending', 'buyer_id': None}).eq('id', transfer['id']).execute()
-        return jsonify({'status': 'error', 'message': f'Could not create subscription: {e}'}), 500
-        
-    return jsonify({
-        'status': 'success',
-        'subscription_id': subscription['id'],
-        'razorpay_key_id': os.environ.get('RAZORPAY_KEY_ID'),
-        'plan_name': f"Marketplace Chatbot: {transfer['channels']['channel_name']}",
-        'user_name': profile.get('full_name'),
-        'user_email': user_email
-    })
+        logging.error(f"[Marketplace Subscribe] Unexpected error: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': f'Unexpected error: {str(e)}'}), 500
 
 @app.route('/api/marketplace/cancel_checkout', methods=['POST'])
 @login_required
@@ -4600,6 +4614,59 @@ def cancel_marketplace_checkout():
             return jsonify({'status': 'success', 'message': 'Checkout cancelled.'})
             
     return jsonify({'status': 'error', 'message': 'Could not cancel checkout or not authorized.'}), 400
+
+@app.route('/api/marketplace/test-razorpay', methods=['GET'])
+@login_required
+def test_razorpay_config():
+    """Diagnostic endpoint to test Razorpay configuration and connectivity."""
+    results = {
+        'razorpay_configured': False,
+        'env_vars': {},
+        'razorpay_client': None,
+        'test_api_call': None,
+        'errors': []
+    }
+    
+    try:
+        # Check environment variables
+        key_id = os.environ.get('RAZORPAY_KEY_ID')
+        key_secret = os.environ.get('RAZORPAY_KEY_SECRET')
+        marketplace_plan = os.environ.get('RAZORPAY_MARKETPLACE_BASE_PLAN_ID')
+        
+        results['env_vars'] = {
+            'RAZORPAY_KEY_ID': '✓' if key_id else '✗ MISSING',
+            'RAZORPAY_KEY_SECRET': '✓' if key_secret else '✗ MISSING',
+            'RAZORPAY_MARKETPLACE_BASE_PLAN_ID': '✓' if marketplace_plan else f'✗ MISSING'
+        }
+        
+        if not key_id or not key_secret:
+            results['errors'].append('Razorpay API credentials not configured')
+            return jsonify(results), 400
+        
+        # Try to initialize Razorpay client
+        razorpay_client = get_razorpay_client()
+        if not razorpay_client:
+            results['errors'].append('Failed to initialize Razorpay client')
+            return jsonify(results), 400
+        
+        results['razorpay_client'] = 'Initialized successfully'
+        
+        # Test API call - fetch plans (without count parameter for compatibility)
+        try:
+            plans = razorpay_client.plan.all()
+            results['test_api_call'] = f'✓ Successfully connected to Razorpay API'
+            results['razorpay_configured'] = True
+        except Exception as api_err:
+            results['errors'].append(f'API connection failed: {str(api_err)}')
+            results['test_api_call'] = f'✗ {str(api_err)}'
+        
+        return jsonify(results)
+    
+    except Exception as e:
+        results['errors'].append(f'Unexpected error: {str(e)}')
+        logging.error(f"[Test Razorpay] Error: {e}", exc_info=True)
+        return jsonify(results), 500
+
 @app.route('/api/marketplace/request_payout', methods=['POST'])
 @login_required
 def marketplace_request_payout():

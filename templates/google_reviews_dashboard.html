@@ -927,7 +927,7 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding: 0 1.25rem;
+        padding: 0 0.5rem;
         box-sizing: border-box;
         margin-bottom: -10%;
     }
@@ -2731,8 +2731,10 @@
         <div class="qr-modal-body">
 
             <div style="position: relative;">
-                <button type="button" class="btn btn-ghost" onclick="navigateQr(-1)" style="position: absolute; top: 45%; left: -0.25rem; transform: translateY(-50%); z-index: 10; width: 36px; height: 36px; padding: 0; border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.15); background: var(--surface-light); border: 1px solid var(--neutral-200); display: flex; align-items: center; justify-content: center;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;">
+                <button type="button" class="btn btn-ghost" onclick="navigateQr(-1)"
+                    style="position: absolute; top: 45%; left: -0.25rem; transform: translateY(-50%); z-index: 10; width: 36px; height: 36px; padding: 0; border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.15); background: var(--surface-light); border: 1px solid var(--neutral-200); display: flex; align-items: center; justify-content: center;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round" style="width: 18px; height: 18px;">
                         <polyline points="15 18 9 12 15 6"></polyline>
                     </svg>
                 </button>
@@ -2741,8 +2743,10 @@
                     <!-- Slides injected here by renderQrPreview() -->
                 </div>
 
-                <button type="button" class="btn btn-ghost" onclick="navigateQr(1)" style="position: absolute; top: 45%; right: -0.25rem; transform: translateY(-50%); z-index: 10; width: 36px; height: 36px; padding: 0; border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.15); background: var(--surface-light); border: 1px solid var(--neutral-200); display: flex; align-items: center; justify-content: center;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;">
+                <button type="button" class="btn btn-ghost" onclick="navigateQr(1)"
+                    style="position: absolute; top: 45%; right: -0.25rem; transform: translateY(-50%); z-index: 10; width: 36px; height: 36px; padding: 0; border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.15); background: var(--surface-light); border: 1px solid var(--neutral-200); display: flex; align-items: center; justify-content: center;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round" style="width: 18px; height: 18px;">
                         <polyline points="9 18 15 12 9 6"></polyline>
                     </svg>
                 </button>
@@ -3102,7 +3106,7 @@
         </div>`;
 
         /* ── YOPPYCHAT LIGHT ── */
-        const ylpLogoInner = _qrCurrentLogoUrl 
+        const ylpLogoInner = _qrCurrentLogoUrl
             ? `<img src="${_qrCurrentLogoUrl}" alt="Logo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:2px solid #fff;">`
             : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
@@ -3197,10 +3201,10 @@
         const carousel = document.getElementById('qrPosterCarousel');
         const slides = carousel.querySelectorAll('.qr-poster-slide');
         if (!slides.length) return;
-        
+
         let activeIndex = 0;
         document.querySelectorAll('.qr-carousel-dot').forEach((dot, i) => {
-            if(dot.classList.contains('active')) activeIndex = i;
+            if (dot.classList.contains('active')) activeIndex = i;
         });
 
         let newIndex = activeIndex + direction;
@@ -3315,7 +3319,7 @@
             if (isYoppy) H = 1180;
             else if (isMinimal) H = 1160;
             else if (isGoogle || isYoppyLight) H = 1120;
-            
+
             const c2 = document.createElement('canvas');
             c2.width = W; c2.height = H;
             const k2 = c2.getContext('2d');
@@ -3342,9 +3346,9 @@
             // Top accent bar
             if (isGoogle) {
                 const topC = ['#EA4335', '#FBBC05', '#34A853', '#4285F4'];
-                topC.forEach((c, i) => { k2.fillStyle = c; k2.fillRect(i * W/4, 0, W/4, 12); });
+                topC.forEach((c, i) => { k2.fillStyle = c; k2.fillRect(i * W / 4, 0, W / 4, 12); });
                 const botC = ['#4285F4', '#34A853', '#FBBC05', '#EA4335'];
-                botC.forEach((c, i) => { k2.fillStyle = c; k2.fillRect(i * W/4, H - 12, W/4, 12); });
+                botC.forEach((c, i) => { k2.fillStyle = c; k2.fillRect(i * W / 4, H - 12, W / 4, 12); });
             } else if (isMinimal) {
                 k2.strokeStyle = '#ebebeb';
                 k2.lineWidth = 10;
@@ -3364,10 +3368,10 @@
                     k2.save();
                     k2.shadowColor = 'rgba(0,0,0,0.1)'; k2.shadowBlur = 10; k2.shadowOffsetY = 2;
                     k2.fillStyle = '#fff';
-                    k2.beginPath(); k2.roundRect(W/2 - 70, 70, 140, 140, 24); k2.fill();
+                    k2.beginPath(); k2.roundRect(W / 2 - 70, 70, 140, 140, 24); k2.fill();
                     k2.shadowBlur = 0; k2.shadowOffsetY = 0;
-                    k2.beginPath(); k2.roundRect(W/2 - 70, 70, 140, 140, 24); k2.clip();
-                    k2.drawImage(logoImgObj, W/2 - 70, 70, 140, 140);
+                    k2.beginPath(); k2.roundRect(W / 2 - 70, 70, 140, 140, 24); k2.clip();
+                    k2.drawImage(logoImgObj, W / 2 - 70, 70, 140, 140);
                     k2.restore();
                     gy = 250;
                 } else { gy = 120; }
@@ -3403,9 +3407,9 @@
                     k2.save();
                     k2.shadowColor = 'rgba(0,0,0,0.4)'; k2.shadowBlur = 16; k2.shadowOffsetY = 2;
                     k2.strokeStyle = 'rgba(255,255,255,0.1)'; k2.lineWidth = 2; k2.fillStyle = '#fff';
-                    k2.beginPath(); k2.roundRect(W/2 - 60, 60, 120, 120, 20); k2.fill(); k2.stroke();
-                    k2.shadowBlur = 0; k2.shadowOffsetY = 0; k2.beginPath(); k2.roundRect(W/2 - 60, 60, 120, 120, 20); k2.clip();
-                    k2.drawImage(logoImgObj, W/2 - 60, 60, 120, 120);
+                    k2.beginPath(); k2.roundRect(W / 2 - 60, 60, 120, 120, 20); k2.fill(); k2.stroke();
+                    k2.shadowBlur = 0; k2.shadowOffsetY = 0; k2.beginPath(); k2.roundRect(W / 2 - 60, 60, 120, 120, 20); k2.clip();
+                    k2.drawImage(logoImgObj, W / 2 - 60, 60, 120, 120);
                     k2.restore();
                     gy = 200;
                 } else { gy = 70; }
@@ -3413,13 +3417,13 @@
                 k2.fillStyle = 'rgba(255,255,255,0.05)';
                 k2.strokeStyle = 'rgba(255,255,255,0.08)';
                 k2.lineWidth = 2;
-                k2.beginPath(); k2.roundRect(W/2 - 160, gy + 10, 320, 44, 22); k2.fill(); k2.stroke();
+                k2.beginPath(); k2.roundRect(W / 2 - 160, gy + 10, 320, 44, 22); k2.fill(); k2.stroke();
                 k2.fillStyle = '#ff9a56'; k2.textAlign = 'center'; k2.font = 'bold 18px Arial, Helvetica, sans-serif'; k2.letterSpacing = '2px';
-                k2.fillText('SHARE YOUR EXPERIENCE', W/2 + 10, gy + 38);
-                
+                k2.fillText('SHARE YOUR EXPERIENCE', W / 2 + 10, gy + 38);
+
                 // chat icon
-                k2.strokeStyle = '#ff9a56'; k2.lineWidth = 2; k2.beginPath(); k2.roundRect(W/2 - 138, gy + 22, 18, 14, 4); k2.stroke();
-                
+                k2.strokeStyle = '#ff9a56'; k2.lineWidth = 2; k2.beginPath(); k2.roundRect(W / 2 - 138, gy + 22, 18, 14, 4); k2.stroke();
+
                 k2.fillStyle = '#fff';
                 k2.font = '900 48px Arial, Helvetica, sans-serif';
                 k2.letterSpacing = '0px';
@@ -3445,18 +3449,18 @@
                     k2.save();
                     k2.beginPath(); k2.arc(W / 2, 100, 70, 0, Math.PI * 2); k2.fillStyle = '#ff9a56'; k2.fill();
                     k2.fillStyle = '#fff'; k2.textAlign = 'center'; k2.textBaseline = 'middle';
-                    k2.font = 'bold 50px Arial'; k2.fillText('+', W/2, 105); k2.restore();
+                    k2.font = 'bold 50px Arial'; k2.fillText('+', W / 2, 105); k2.restore();
                 }
                 const baseGy = (logoImgObj ? 220 : 200);
                 k2.fillStyle = '#2a1f16'; k2.textAlign = 'center'; k2.font = '900 46px Arial, Helvetica, sans-serif'; k2.letterSpacing = '-1px';
                 k2.fillText(_qrCurrentBizName || 'suzu travels', W / 2, baseGy);
-                
+
                 k2.fillStyle = '#ff9a56'; k2.font = '800 20px Arial, Helvetica, sans-serif'; k2.letterSpacing = '5px';
                 k2.fillText('REVIEW STATION', W / 2, baseGy + 34);
-                
+
                 // Divider line
                 k2.strokeStyle = '#e6d5c1'; k2.lineWidth = 1.5;
-                k2.beginPath(); k2.moveTo(W/2 - 240, baseGy + 60); k2.lineTo(W/2 + 240, baseGy + 60); k2.stroke();
+                k2.beginPath(); k2.moveTo(W / 2 - 240, baseGy + 60); k2.lineTo(W / 2 + 240, baseGy + 60); k2.stroke();
 
                 // Loved your visit?
                 k2.fillStyle = '#2a1f16'; k2.font = '900 36px Arial, Helvetica, sans-serif'; k2.letterSpacing = '-1px';
@@ -3473,12 +3477,12 @@
                 // Top accent bar black
                 k2.fillStyle = '#111';
                 k2.fillRect(0, 0, W, 10);
-                
+
                 // Border around entire canvas
                 k2.strokeStyle = '#111';
                 k2.lineWidth = 4;
                 k2.beginPath(); k2.roundRect(2, 2, W - 4, H - 4, 24); k2.stroke();
-                
+
                 let baseGy = 80;
                 if (logoImgObj) {
                     k2.save();
@@ -3496,16 +3500,16 @@
 
                 k2.fillStyle = '#9aa0a6'; k2.textAlign = 'center'; k2.font = '800 20px Arial, Helvetica, sans-serif'; k2.letterSpacing = '4px';
                 k2.fillText("WE'D LOVE YOUR FEEDBACK", W / 2, baseGy);
-                
+
                 baseGy += 60;
                 k2.fillStyle = '#111'; k2.font = '900 52px Arial, Helvetica, sans-serif'; k2.letterSpacing = '-1px';
                 k2.fillText('Leave Us', W / 2, baseGy);
                 k2.fillText('a Review', W / 2, baseGy + 55);
-                
+
                 baseGy += 95;
                 // Rule
                 k2.fillStyle = '#111';
-                k2.fillRect(W/2 - 40, baseGy, 80, 4);
+                k2.fillRect(W / 2 - 40, baseGy, 80, 4);
 
                 baseGy += 60;
                 // 5 unfilled black stars
@@ -3520,10 +3524,10 @@
             const qrSize = (isGoogle || isYoppy || isMinimal) ? 420 : 400;
             const qrX = (W - qrSize) / 2;
             const qrY = gy + qrYAdd;
-            
+
             k2.fillStyle = isYoppy ? 'rgba(255,255,255,0.05)' : isYoppyLight ? '#f4ece0' : '#ffffff';
             const qrRadius = isYoppy ? 32 : isYoppyLight ? 24 : isMinimal ? 16 : 12;
-            
+
             k2.save();
             if (isGoogle) {
                 k2.shadowColor = "rgba(0,0,0,0.1)"; k2.shadowBlur = 15; k2.shadowOffsetY = 4;
@@ -3541,7 +3545,7 @@
             } else if (isYoppyLight) {
                 k2.fillStyle = '#fff';
                 k2.beginPath(); k2.roundRect(qrX - 12, qrY - 12, qrSize + 24, qrSize + 24, 16); k2.fill();
-                
+
                 k2.strokeStyle = '#e6d5c1'; k2.lineWidth = 1.5;
                 k2.beginPath(); k2.roundRect(qrX - 24, qrY - 24, qrSize + 48, qrSize + 48, qrRadius); k2.stroke();
             } else if (isMinimal) {
@@ -3555,7 +3559,7 @@
                 const bLen = 22, bThick = 4;
                 k2.lineWidth = bThick; k2.lineCap = 'butt';
                 const px = qrX - 24, py = qrY - 24, ps = qrSize + 48;
-                
+
                 k2.strokeStyle = '#EA4335'; k2.beginPath(); k2.moveTo(px + bLen, py); k2.lineTo(px, py); k2.lineTo(px, py + bLen); k2.stroke();
                 k2.strokeStyle = '#4285F4'; k2.beginPath(); k2.moveTo(px + ps - bLen, py); k2.lineTo(px + ps, py); k2.lineTo(px + ps, py + bLen); k2.stroke();
                 k2.strokeStyle = '#34A853'; k2.beginPath(); k2.moveTo(px, py + ps - bLen); k2.lineTo(px, py + ps); k2.lineTo(px + bLen, py + ps); k2.stroke();
@@ -3569,7 +3573,7 @@
             const btnW = (isGoogle || isYoppy || isYoppyLight || isMinimal) ? W - 140 : 340, btnH = 76, btnX = (W - btnW) / 2;
             const btnR = isYoppy ? 38 : isYoppyLight ? 16 : isMinimal ? 12 : (isGoogle ? 14 : 12);
             k2.fillStyle = isGoogle ? '#EA4335' : isYoppy ? '#ff9a56' : isYoppyLight ? '#ff9a56' : '#fff';
-            
+
             k2.save();
             if (isYoppy || isYoppyLight) { k2.shadowColor = 'rgba(255, 154, 86, 0.4)'; k2.shadowBlur = 30; }
             k2.beginPath(); k2.roundRect(btnX, btnY, btnW, btnH, btnR); k2.fill();
