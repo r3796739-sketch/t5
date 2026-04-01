@@ -4416,7 +4416,40 @@ def marketplace_transfer(chatbot_id):
         
     return render_template(
         'marketplace_transfer.html',
-        chatbot=channel_res.data,
+        item_type='chatbot',
+        item=channel_res.data,
+        cost_per_query=cost_per_query,
+        saved_channels=get_user_channels()
+    )
+
+@app.route('/marketplace/transfer/google-review/<int:settings_id>', methods=['GET'])
+@login_required
+def marketplace_transfer_google_review(settings_id):
+    user_id = session['user']['id']
+    supabase_admin = get_supabase_admin_client()
+    try:
+        gr_res = supabase_admin.table('google_review_settings').select('*').eq('id', settings_id).maybe_single().execute()
+    except Exception as e:
+        logger.error(f"Error fetching gr business for marketplace transfer: {e}")
+        flash("Something went wrong. Please try again.", "error")
+        return redirect(url_for('google_reviews.google_reviews_dashboard'))
+    
+    if not gr_res or not gr_res.data:
+        flash("Google Review Business not found.", "error")
+        return redirect(url_for('google_reviews.google_reviews_dashboard'))
+    
+    # Verify ownership
+    owner_id = gr_res.data.get('user_id')
+    if str(owner_id) != str(user_id):
+        flash("You don't have permission to transfer this business.", "error")
+        return redirect(url_for('google_reviews.google_reviews_dashboard'))
+        
+    cost_per_query = int(os.environ.get('MARKETPLACE_COST_PER_QUERY_PAISE', 90))
+        
+    return render_template(
+        'marketplace_transfer.html',
+        item_type='google_review',
+        item=gr_res.data,
         cost_per_query=cost_per_query,
         saved_channels=get_user_channels()
     )
@@ -4426,28 +4459,62 @@ def marketplace_transfer(chatbot_id):
 def create_marketplace_transfer():
     user_id = session['user']['id']
     data = request.json
-    chatbot_id = data.get('chatbot_id')
-    query_limit = int(data.get('query_limit_monthly', 1000))
-    creator_price_monthly = int(data.get('creator_price_monthly', 0)) * 100 # convert to paise
-    
+    item_id = data.get('item_id')
+    item_type = data.get('item_type')
+    if not item_type and data.get('chatbot_id'):
+        item_type = 'chatbot'
+        item_id = data.get('chatbot_id')
+
+    query_limit = int(data.get('query_limit_monthly', 100))
+    creator_price_monthly = int(float(data.get('creator_price_monthly', 0))) * 100 # convert to paise
+
+    if creator_price_monthly < 100:  # minimum ₹1
+        return jsonify({'status': 'error', 'message': 'Price must be at least ₹1.'}), 400
+    if query_limit < 1:
+        return jsonify({'status': 'error', 'message': 'Credit allowance must be at least 1.'}), 400
+
+    # Anti-money laundering check: Price cannot exceed Credits * 10
+    max_price_paise = query_limit * 10 * 100
+    if creator_price_monthly > max_price_paise:
+        return jsonify({'status': 'error', 'message': f'Price is too high for the amount of credits. Maximum allowed price for {query_limit} credits is ₹{query_limit * 10}.'}), 400
+
+    # Capacity Check: Ensure seller isn't overselling credits beyond their global limits
+    from utils.subscription_utils import get_user_status
+    seller_status = get_user_status(user_id)
+    if not seller_status or not seller_status.get('has_personal_plan'):
+        return jsonify({'status': 'error', 'message': 'You must have an active paid subscription to sell on the marketplace.'}), 403
+        
+    s_max = seller_status['limits'].get('max_queries_per_month', 0)
+    if s_max != float('inf'):
+        supabase_admin = get_supabase_admin_client()
+        active_transfers_res = supabase_admin.table('chatbot_transfers').select('query_limit_monthly').eq('creator_id', user_id).eq('status', 'active').execute()
+        total_allocated = sum(t.get('query_limit_monthly', 0) for t in active_transfers_res.data) if active_transfers_res.data else 0
+        
+        if total_allocated + query_limit > s_max:
+            available = max(0, s_max - total_allocated)
+            return jsonify({'status': 'error', 'message': f'You cannot allocate {query_limit} credits. You only have {int(available)} credits left. Upgrade your plan to sell more.'}), 400
+
     # Validate ownership
     supabase_admin = get_supabase_admin_client()
-    channel_res = supabase_admin.table('channels').select('id').eq('id', chatbot_id).eq('creator_id', user_id).single().execute()
-    if not channel_res.data:
-        return jsonify({'status': 'error', 'message': 'Chatbot not found or permission denied.'}), 403
-        
-    cost_per_query = int(os.environ.get('MARKETPLACE_COST_PER_QUERY_PAISE', 90))
-    platform_fee_paise = cost_per_query * query_limit
-    
-    if creator_price_monthly < platform_fee_paise:
-         return jsonify({'status': 'error', 'message': f'Price must be at least ₹{platform_fee_paise/100:.2f} to cover platform fees.'}), 400
-         
+    if item_type == 'chatbot':
+        channel_res = supabase_admin.table('channels').select('id').eq('id', item_id).eq('creator_id', user_id).single().execute()
+        if not channel_res.data:
+            return jsonify({'status': 'error', 'message': 'Chatbot not found or permission denied.'}), 403
+    elif item_type == 'google_review':
+        gr_res = supabase_admin.table('google_review_settings').select('id').eq('id', item_id).eq('user_id', user_id).single().execute()
+        if not gr_res.data:
+            return jsonify({'status': 'error', 'message': 'Business not found or permission denied.'}), 403
+
+    # Platform fee is 0 — seller keeps 100% of price. Credits come from seller's own plan.
+    platform_fee_paise = 0
+
     transfer_code = marketplace_utils.create_transfer_record(
         creator_id=user_id,
-        chatbot_id=chatbot_id,
+        chatbot_id=item_id if item_type == 'chatbot' else None,
         query_limit=query_limit,
         platform_fee_paise=platform_fee_paise,
-        creator_price_paise=creator_price_monthly
+        creator_price_paise=creator_price_monthly,
+        google_review_id=item_id if item_type == 'google_review' else None
     )
     
     if transfer_code:
@@ -4472,12 +4539,18 @@ def marketplace_accept(transfer_code):
             return render_template('error.html', error_message="This transfer is currently being processed by another buyer. Please try again later."), 409
         
     chatbot = transfer.get('channels')
+    google_review_settings = transfer.get('google_review_settings')
+    
+    item = chatbot if chatbot else google_review_settings
+    item_type = 'chatbot' if chatbot else 'google_review'
     
     # Render checkout page for the buyer
     return render_template(
         'marketplace_accept.html',
         transfer=transfer,
-        chatbot=chatbot,
+        item=item,
+        item_type=item_type,
+        chatbot=chatbot,  # Keep for backwards compatibility
         creator_price_inr=transfer['creator_price_monthly'] / 100.0,
         is_logged_in=is_logged_in,
         saved_channels=get_user_channels() if is_logged_in else {},
@@ -4584,7 +4657,7 @@ def create_marketplace_subscription():
             'status': 'success',
             'subscription_id': subscription['id'],
             'razorpay_key_id': os.environ.get('RAZORPAY_KEY_ID'),
-            'plan_name': f"Marketplace Chatbot: {transfer['channels']['channel_name']}",
+            'plan_name': f"Marketplace: {transfer.get('channels', {}).get('channel_name') or transfer.get('google_review_settings', {}).get('business_name')}",
             'user_name': profile.get('full_name'),
             'user_email': user_email
         })

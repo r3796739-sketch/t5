@@ -391,14 +391,18 @@ def generate_review():
     if not settings_id:
         return jsonify({'status': 'error', 'message': 'Settings ID required'}), 400
 
-    # 1. Deduct 1 credit & verify limits using user's plan via user_id
-    allowed, err_msg, _, _ = check_bot_query_allowed(user_id)
+    # 1. Deduct 1 credit & verify limits, checking marketplace allocation first
+    allowed, err_msg, _, seller_id_to_charge = check_bot_query_allowed(user_id, google_review_settings_id=settings_id)
     if not allowed:
         app_instance = current_app._get_current_object()
         threading.Thread(target=_send_limit_email_async, args=(app_instance, user_id)).start()
         return jsonify({'status': 'error', 'message': err_msg}), 403
 
-    record_bot_query_usage(user_id)
+    # Deduct from seller if marketplace allocation is active, otherwise buyer
+    if seller_id_to_charge:
+        record_bot_query_usage(seller_id_to_charge)
+    else:
+        record_bot_query_usage(user_id)
 
     supabase = get_supabase_admin_client()
     settings_res = supabase.table('google_review_settings').select('business_name, cached_reviews_context').eq('id', settings_id).limit(1).execute()

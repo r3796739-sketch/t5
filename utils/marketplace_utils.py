@@ -9,9 +9,9 @@ def generate_transfer_code():
     """Generates a unique, URL-safe transfer code."""
     return uuid.uuid4().hex[:12]
 
-def create_transfer_record(creator_id: str, chatbot_id: int, query_limit: int, platform_fee_paise: int, creator_price_paise: int) -> str:
+def create_transfer_record(creator_id: str, chatbot_id: int, query_limit: int, platform_fee_paise: int, creator_price_paise: int, google_review_id: int = None) -> str:
     """
-    Creates a new pending transfer record for a chatbot.
+    Creates a new pending transfer record for a chatbot or a google review business.
     Returns the unique transfer code.
     """
     supabase = get_supabase_admin_client()
@@ -21,6 +21,7 @@ def create_transfer_record(creator_id: str, chatbot_id: int, query_limit: int, p
         supabase.table('chatbot_transfers').insert({
             'creator_id': creator_id,
             'chatbot_id': chatbot_id,
+            'google_review_id': google_review_id,
             'transfer_code': transfer_code,
             'status': 'pending',
             'query_limit_monthly': query_limit,
@@ -37,18 +38,24 @@ def get_transfer_by_code(transfer_code: str):
     """Fetches a transfer record by its unique code."""
     supabase = get_supabase_admin_client()
     try:
-        res = supabase.table('chatbot_transfers').select(
-            '*, channels!chatbot_transfers_chatbot_id_fkey(*)'
-        ).eq('transfer_code', transfer_code).single().execute()
-        return res.data
+        res = supabase.table('chatbot_transfers').select('*').eq('transfer_code', transfer_code).single().execute()
+        data = res.data
+        if data:
+            if data.get('chatbot_id'):
+                ch_res = supabase.table('channels').select('*').eq('id', data['chatbot_id']).maybe_single().execute()
+                data['channels'] = ch_res.data
+            elif data.get('google_review_id'):
+                gr_res = supabase.table('google_review_settings').select('*').eq('id', data['google_review_id']).maybe_single().execute()
+                data['google_review_settings'] = gr_res.data
+        return data
     except Exception as e:
         log.error(f"Error fetching transfer by code {transfer_code}: {e}")
         return None
 
 def move_chatbot_to_buyer(transfer_id: str, buyer_id: str, subscription_id: str) -> bool:
     """
-    Executes the transfer: assigns the chatbot to the buyer, removes it from the creator's dashboard,
-    and updates the transfer record to active.
+    Executes the transfer: assigns the chatbot or google review business to the buyer, 
+    removes it from the creator's dashboard, and updates the transfer record to active.
     """
     from . import db_utils
     supabase = get_supabase_admin_client()
@@ -61,17 +68,37 @@ def move_chatbot_to_buyer(transfer_id: str, buyer_id: str, subscription_id: str)
             return False
             
         transfer = transfer_res.data
-        chatbot_id = transfer['chatbot_id']
+        chatbot_id = transfer.get('chatbot_id')
+        google_review_id = transfer.get('google_review_id')
         creator_id = transfer['creator_id']
         
-        # 1. Update the chatbot owner in the channels table
-        supabase.table('channels').update({'creator_id': buyer_id}).eq('id', chatbot_id).execute()
-        
-        # 2. Update the user_channels link (remove creator, add buyer)
-        # We delete any existing link to this channel for safety, then link to buyer
-        supabase.table('user_channels').delete().eq('channel_id', chatbot_id).execute()
-        db_utils.link_user_to_channel(buyer_id, chatbot_id)
-        
+        if chatbot_id:
+            # 1. Update the chatbot owner in the channels table
+            supabase.table('channels').update({'creator_id': buyer_id}).eq('id', chatbot_id).execute()
+            
+            # 2. Update the user_channels link (remove creator, add buyer)
+            # We delete any existing link to this channel for safety, then link to buyer
+            supabase.table('user_channels').delete().eq('channel_id', chatbot_id).execute()
+            db_utils.link_user_to_channel(buyer_id, chatbot_id)
+            
+            # 4. Invalidate cache for BOTH users so their dashboards update
+            cache_key_buyer = f"user_visible_channels:{buyer_id}:community:none"
+            cache_key_creator = f"user_visible_channels:{creator_id}:community:none"
+            try:
+                from .subscription_utils import redis_client
+                if redis_client:
+                    redis_client.delete(cache_key_buyer)
+                    redis_client.delete(cache_key_creator)
+            except Exception as e:
+                 log.warning(f"Could not invalidate Redis cache: {e}")
+             
+            log.info(f"Successfully moved chatbot {chatbot_id} to buyer {buyer_id}.")
+        elif google_review_id:
+            # Update the google review business owner
+            supabase.table('google_review_settings').update({'user_id': buyer_id}).eq('id', google_review_id).execute()
+            # Also invalidate cache if needed
+            log.info(f"Successfully moved google review {google_review_id} to buyer {buyer_id}.")
+            
         # 3. Mark the transfer as active and record the subscription and buyer
         supabase.table('chatbot_transfers').update({
             'status': 'active',
@@ -79,18 +106,6 @@ def move_chatbot_to_buyer(transfer_id: str, buyer_id: str, subscription_id: str)
             'razorpay_subscription_id': subscription_id
         }).eq('id', transfer_id).execute()
         
-        # 4. Invalidate cache for BOTH users so their dashboards update
-        cache_key_buyer = f"user_visible_channels:{buyer_id}:community:none"
-        cache_key_creator = f"user_visible_channels:{creator_id}:community:none"
-        try:
-            from .subscription_utils import redis_client
-            if redis_client:
-                redis_client.delete(cache_key_buyer)
-                redis_client.delete(cache_key_creator)
-        except Exception as e:
-             log.warning(f"Could not invalidate Redis cache: {e}")
-             
-        log.info(f"Successfully moved chatbot {chatbot_id} to buyer {buyer_id}.")
         return True
 
     except Exception as e:

@@ -317,15 +317,15 @@ def delete_discord_bot_for_user(bot_id: int, user_id: str):
         log.error(f"Error deleting discord bot {bot_id} for user {user_id}: {e}")
         return False
     
-def check_bot_query_allowed(user_id: str, channel_data: dict = None, active_community_id: str = None):
+def check_bot_query_allowed(user_id: str, channel_data: dict = None, active_community_id: str = None, google_review_settings_id: str = None):
     """
     Checks if a bot/integration query is allowed based on the user's plan limits.
     This mirrors the limit_enforcer decorator logic but works outside Flask request context.
     
-    Returns (allowed: bool, error_message: str or None, resolved_community_id: str or None, is_marketplace: bool)
+    Returns (allowed: bool, error_message: str or None, resolved_community_id: str or None, seller_id_to_charge: str or False)
     
-    When is_marketplace=True, the marketplace counter has already been incremented and
-    the caller should NOT deduct from the personal/community pool.
+    If seller_id_to_charge is string, it's a marketplace query and we must deduct from the seller's personal pool.
+    If it's False, it's a standard query or fallback, and we must deduct from the buyer's personal/community pool.
     """
     from .subscription_utils import get_user_status, get_community_status
 
@@ -335,26 +335,37 @@ def check_bot_query_allowed(user_id: str, channel_data: dict = None, active_comm
             active_community_id = channel_data.get('community_id')
 
         # --- Check marketplace transfer FIRST ---
-        # Marketplace buyers get their own separate query pool that is independent
-        # of their personal plan. Check this before personal limits so buyers
-        # aren't blocked when their personal quota runs out.
-        if channel_data and channel_data.get('id'):
-            try:
+        transfer = None
+        try:
+            if channel_data and channel_data.get('id'):
                 transfer_res = supabase.table('chatbot_transfers').select(
-                    'id, query_limit_monthly, queries_used_this_month'
+                    'id, query_limit_monthly, queries_used_this_month, creator_id'
                 ).eq('chatbot_id', channel_data['id']).eq('buyer_id', user_id).eq('status', 'active').maybe_single().execute()
-
                 if transfer_res and transfer_res.data:
                     transfer = transfer_res.data
-                    if transfer['queries_used_this_month'] >= transfer['query_limit_monthly']:
-                        return False, f"Monthly credit limit of {transfer['query_limit_monthly']} reached for this marketplace chatbot.", active_community_id, True
-                    # Increment marketplace counter and allow — personal pool is NOT touched
-                    supabase.rpc('increment_marketplace_query', {'p_transfer_id': transfer['id']}).execute()
-                    return True, None, active_community_id, True  # is_marketplace=True
-            except Exception as e:
-                log.warning(f"Could not check marketplace limits: {e}")
+            elif google_review_settings_id:
+                transfer_res = supabase.table('chatbot_transfers').select(
+                    'id, query_limit_monthly, queries_used_this_month, creator_id'
+                ).eq('google_review_id', google_review_settings_id).eq('buyer_id', user_id).eq('status', 'active').maybe_single().execute()
+                if transfer_res and transfer_res.data:
+                    transfer = transfer_res.data
+            
+            if transfer:
+                if transfer['queries_used_this_month'] < transfer['query_limit_monthly']:
+                    # Allocation is valid. Check if seller has actual global credits.
+                    seller_status = get_user_status(transfer['creator_id'])
+                    if seller_status and seller_status.get('has_personal_plan'):
+                        s_max = seller_status['limits'].get('max_queries_per_month', 0)
+                        s_used = seller_status['usage'].get('queries_this_month', 0)
+                        if s_max == float('inf') or s_used < s_max:
+                            # Phase 1: Seller has credits! Increment transfer counter and return seller's ID
+                            supabase.rpc('increment_marketplace_query', {'p_transfer_id': transfer['id']}).execute()
+                            return True, None, active_community_id, transfer['creator_id']
+                # Phase 2: If we reach here, allocation exhausted OR seller out of credits. Fallback to buyer!
+        except Exception as e:
+            log.warning(f"Could not check marketplace limits: {e}")
 
-        # --- Not a marketplace query — check personal/community limits ---
+        # --- Phase 2 / Standard check — check buyer's personal/community limits ---
         user_status = get_user_status(user_id, active_community_id)
         if not user_status:
             return True, None, active_community_id, False  # Fail open if status unavailable
