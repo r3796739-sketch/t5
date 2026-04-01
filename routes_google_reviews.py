@@ -274,10 +274,15 @@ def google_reviews_dashboard():
             sum_ratings = sum(k * stats[s_id][k] for k in range(1, 6))
             stats[s_id]['avg'] = round(sum_ratings / total, 1)
 
+    captured_feedbacks = [fb for fb in feedbacks if (fb.get('rating') or 0) < 4]
+    public_reviews = [fb for fb in feedbacks if (fb.get('rating') or 0) >= 4]
+
     return render_template(
         'google_reviews_dashboard.html',
         settings_list=settings_list,
         feedbacks=feedbacks,
+        captured_feedbacks=captured_feedbacks,
+        public_reviews=public_reviews,
         user_id=user_id,
         max_businesses=max_businesses,
         stats=stats,
