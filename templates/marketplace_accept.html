@@ -1,6 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}Claim Chatbot: {{ chatbot.channel_name or chatbot.creator_name }} - YoppyChat AI{% endblock %}
+{% block title %}Claim {{ 'Chatbot' if item_type == 'chatbot' else 'Tool' }}: {{ item.business_name if item_type != 'chatbot' else (item.channel_name or item.creator_name) }} - YoppyChat AI{% endblock %}
+
+{% block seo_head %}
+    {% set obj_name = item.business_name if item_type != 'chatbot' else (item.channel_name or item.creator_name) %}
+    {% set title_text = 'Claim ' ~ ('Chatbot' if item_type == 'chatbot' else 'Google Review Tool') ~ ': ' ~ (obj_name or 'YoppyChat Tool') %}
+    {% set desc_text = 'Subscribe to ' ~ (obj_name or 'this amazing tool') ~ ' and get ' ~ transfer.query_limit_monthly ~ ' monthly credits.' %}
+    {% set image_url = item.logo_url if item_type != 'chatbot' else item.channel_thumbnail %}
+    {% if not image_url %}
+        {% set image_url = url_for('static', filename='images/default-avatar.png', _external=True) %}
+    {% endif %}
+
+    <meta name="description" content="{{ desc_text }}">
+    <meta property="og:title" content="{{ title_text }}">
+    <meta property="og:description" content="{{ desc_text }}">
+    <meta property="og:image" content="{{ image_url }}">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ title_text }}">
+    <meta name="twitter:description" content="{{ desc_text }}">
+    <meta name="twitter:image" content="{{ image_url }}">
+{% endblock %}
 
 {% block page_styles %}
 <style>
@@ -273,21 +293,22 @@
         <!-- Left Side: Bot Info -->
         <div class="bot-info-side">
             <div class="bot-avatar-container">
-                <img src="{{ chatbot.channel_thumbnail or url_for('static', filename='images/default-avatar.png') }}"
-                    alt="{{ chatbot.channel_name or 'Chatbot' }}" class="bot-avatar"
+                <img src="{{ item.channel_thumbnail or item.logo_url or url_for('static', filename='images/default-avatar.png') }}"
+                    alt="{{ item.channel_name or item.business_name or 'Item' }}" class="bot-avatar"
                     onerror="this.src='{{ url_for('static', filename='images/default-avatar.png') }}'">
             </div>
 
-            <h1 class="bot-title">{{ chatbot.channel_name or chatbot.creator_name }}</h1>
+            <h1 class="bot-title">{{ item.channel_name or item.creator_name or item.business_name }}</h1>
             <div class="bot-badge">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                 </svg>
-                Premium {{ chatbot.bot_type|capitalize }} Agent
+                {% if item_type == 'chatbot' %}Premium {{ item.bot_type|capitalize }} Agent{% else %}Google Review Business{% endif %}
             </div>
 
             <ul class="features-list">
-                {% if chatbot.bot_type == 'creator' %}
+                {% if item_type == 'chatbot' %}
+                {% if item.bot_type == 'creator' %}
                 <li class="feature-item">
                     <div class="feature-icon">✓</div>
                     <div class="feature-text">
@@ -302,7 +323,7 @@
                         Every answer links exactly to the source video or document where they said it.
                     </div>
                 </li>
-                {% elif chatbot.bot_type == 'business' %}
+                {% elif item.bot_type == 'business' %}
                 <li class="feature-item">
                     <div class="feature-icon">✓</div>
                     <div class="feature-text">
@@ -333,11 +354,27 @@
                     </div>
                 </li>
                 {% endif %}
+                {% else %}
+                <li class="feature-item">
+                    <div class="feature-icon">✓</div>
+                    <div class="feature-text">
+                        <strong>Automated Review Generation</strong>
+                        Automates the collection of fresh 5-star Google reviews.
+                    </div>
+                </li>
+                <li class="feature-item">
+                    <div class="feature-icon">✓</div>
+                    <div class="feature-text">
+                        <strong>Public Review Page</strong>
+                        Fully functioning standalone page for collecting and capturing feedback.
+                    </div>
+                </li>
+                {% endif %}
                 <li class="feature-item">
                     <div class="feature-icon">✓</div>
                     <div class="feature-text">
                         <strong>Always Available 24/7</strong>
-                        Skip the waiting. Deploy this automated agent anywhere at any time.
+                        Skip the waiting. Deploy this {{ 'agent' if item_type == 'chatbot' else 'review tool' }} anywhere at any time.
                     </div>
                 </li>
             </ul>
@@ -346,7 +383,7 @@
         <!-- Right Side: Checkout Details -->
         <div class="checkout-side">
             <div class="checkout-header">
-                <h3>Subscription Summary</h3>
+                <h3>Payment Summary</h3>
             </div>
 
             <div class="summary-box">
@@ -360,7 +397,7 @@
                         <span class="summary-val" style="color: #10B981;">Opt-in</span>
                     </div>
                     <span style="font-size: 0.8rem; color: var(--text-muted);">You choose whether the original creator
-                        can push future updates to your agent after purchase.</span>
+                        can push future updates to your {{ 'agent' if item_type == 'chatbot' else 'system' }} after purchase.</span>
                 </div>
                 <div class="summary-row" style="margin-top: 1rem; border: none; align-items: flex-end;">
                     <span class="summary-label" style="margin-bottom: 6px;">Total due today</span>

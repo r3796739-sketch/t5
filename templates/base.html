@@ -62,13 +62,17 @@
                         {% set is_google_reviews = request.endpoint == 'google_reviews.google_reviews_dashboard' %}
 
                         {% if can_add_personal or can_add_shared %}
-                        <div class="add-channel-btn" onclick="{% if is_google_reviews %}showNewForm(){% else %}location.href='/chatbot/create-ui'{% endif %}">
-                            {% if is_google_reviews %}+ Add Business{% else %}+ Add Channel{% endif %}
-                        </div>
+                            {% if is_google_reviews %}
+                                <div class="add-channel-btn" onclick="showNewForm()">+ Add Business</div>
+                            {% else %}
+                                <div class="add-channel-btn" onclick="location.href='/chatbot/create-ui'">+ Add Channel</div>
+                            {% endif %}
                         {% elif user_status.is_whop_user %}
-                        <div class="add-channel-btn" onclick="{% if is_google_reviews %}showUpgradePopup('You have reached your business limit. Please upgrade for more.'){% else %}showUpgradePopup('You have reached your channel limit. Please upgrade for more.'){% endif %}">
-                            {% if is_google_reviews %}+ Add Business (Upgrade){% else %}+ Add Channel (Upgrade){% endif %}
-                        </div>
+                            {% if is_google_reviews %}
+                                <div class="add-channel-btn" onclick="showUpgradePopup('You have reached your business limit. Please upgrade for more.')">+ Add Business (Upgrade)</div>
+                            {% else %}
+                                <div class="add-channel-btn" onclick="showUpgradePopup('You have reached your channel limit. Please upgrade for more.')">+ Add Channel (Upgrade)</div>
+                            {% endif %}
                         {% else %}
                         <div class="add-channel-btn disabled">{% if is_google_reviews %}Business{% else %}Channel{% endif %} Limit Reached</div>
                         {% endif %}
@@ -81,14 +85,12 @@
                     {% endif %}
 
                     {% if is_google_reviews and settings_list|default([])|length > 0 %}
-                    <div style="margin-top: 0.8rem; padding-top: 0.65rem; border-top: 1px solid var(--neutral-200);">
+                    <div class="gr-business-list">
                         {% for business in settings_list %}
-                        {% set avg = stats[business.id]['avg'] if stats and business.id in stats else None %}
-                        <a href="{{ url_for('google_reviews.google_reviews_dashboard') }}#viewMode-{{ business.id }}"
-                            style="display:flex;align-items:center;justify-content:space-between;padding:0.45rem 0.6rem;border-radius:8px;color:var(--text-primary);text-decoration:none;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:0.2rem;background:var(--surface-light);border:1px solid var(--neutral-200);"
-                            title="{{ business.business_name }}">
-                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">{{ business.business_name or 'Untitled business' }}</span>
-                            <span style="margin-left:0.5rem;color:var(--text-muted);font-weight:700;white-space:nowrap;">{{ avg if avg is not none else '0.0' }}&#9733;</span>
+                        {% set avg = stats[business.id]['avg'] if stats and business.id in stats else 0.0 %}
+                        <a class="gr-business-card" href="{{ url_for('google_reviews.google_reviews_dashboard') }}#viewMode-{{ business.id }}" title="{{ business.business_name }}">
+                            <div class="gr-business-title">{{ business.business_name or 'Untitled business' }}</div>
+                            <div class="gr-business-score">{{ "%.1f"|format(avg) }} <span>★</span></div>
                         </a>
                         {% endfor %}
                     </div>
@@ -935,7 +937,7 @@
                     if (themeToggle) themeToggle.checked = false;
                 }
             };
-            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            const currentTheme = localStorage.getItem('theme') || 'light';
             updateThemeUI(currentTheme);
             if (themeToggle) {
                 themeToggle.addEventListener('change', () => {

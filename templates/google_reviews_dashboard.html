@@ -2276,6 +2276,12 @@
                 </div>
             </div>
             <div class="card-actions">
+                <a href="{{ url_for('marketplace_transfer_google_review', settings_id=s_id) }}" class="btn btn-ghost btn-sm" title="Sell in Marketplace">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    <span class="btn-lbl">Sell</span>
+                </a>
                 <button class="btn btn-ghost btn-sm" onclick="showEditMode('{{ s_id }}')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
                         stroke-linejoin="round">
@@ -2649,10 +2655,10 @@
             <span class="fb-note">Not visible on Google</span>
         </div>
 
-        {% if feedbacks|length > 0 %}
         {% set business_map = {} %}
-        {% for s in settings_list %}{% if business_map.update({s.get('id'): s.get('business_name','Unknown')}) %}{%
-        endif %}{% endfor %}
+        {% for s in settings_list %}{% if business_map.update({s.get('id'): s.get('business_name','Unknown')}) %}{% endif %}{% endfor %}
+
+        {% if captured_feedbacks|length > 0 %}
         <div class="fb-table-wrap">
             <table class="fb-table">
                 <thead>
@@ -2665,20 +2671,16 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for fb in feedbacks %}
+                    {% for fb in captured_feedbacks %}
                     <tr>
                         <td style="white-space:nowrap;color:var(--text-muted);">{{ fb.created_at[:10] }}</td>
-                        <td style="white-space:nowrap;font-weight:600;font-size:0.82rem;">{{
-                            business_map.get(fb.settings_id,'—') }}</td>
+                        <td style="white-space:nowrap;font-weight:600;font-size:0.82rem;">{{ business_map.get(fb.settings_id,'—') }}</td>
                         <td>
                             <div style="font-weight:600;">{{ fb.customer_name or 'Anonymous' }}</div>
-                            {% if fb.customer_email %}<div style="font-size:0.75rem;color:var(--text-muted);">{{
-                                fb.customer_email }}</div>{% endif %}
+                            {% if fb.customer_email %}<div style="font-size:0.75rem;color:var(--text-muted);">{{ fb.customer_email }}</div>{% endif %}
                         </td>
                         <td>
-                            <span
-                                class="rating-badge {% if fb.rating <= 2 %}rating-bad{% else %}rating-ok{% endif %}">{{
-                                fb.rating }}&#9733;</span>
+                            <span class="rating-badge {% if fb.rating <= 2 %}rating-bad{% else %}rating-ok{% endif %}">{{ fb.rating }}&#9733;</span>
                         </td>
                         <td style="color:var(--text-secondary);max-width:280px;">{{ fb.feedback_text }}</td>
                     </tr>
@@ -2692,8 +2694,58 @@
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
-            <strong>No negative feedback yet — fantastic!</strong>
-            Positive ratings are flowing straight to Google.
+            <strong>No captured feedback yet — awesome!</strong>
+            All submitted feedback is either positive or not captured yet.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ── Public Reviews ─────────────────────────────────── -->
+    <div class="fb-section">
+        <div class="fb-head">
+            <h3>Public Reviews</h3>
+            <span class="fb-tag">Public</span>
+            <span class="fb-note">Visible on Google</span>
+        </div>
+
+        {% if public_reviews|length > 0 %}
+        <div class="fb-table-wrap">
+            <table class="fb-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Business</th>
+                        <th>Customer</th>
+                        <th>Rating</th>
+                        <th>Review</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fb in public_reviews %}
+                    <tr>
+                        <td style="white-space:nowrap;color:var(--text-muted);">{{ fb.created_at[:10] }}</td>
+                        <td style="white-space:nowrap;font-weight:600;font-size:0.82rem;">{{ business_map.get(fb.settings_id,'—') }}</td>
+                        <td>
+                            <div style="font-weight:600;">{{ fb.customer_name or 'Anonymous' }}</div>
+                            {% if fb.customer_email %}<div style="font-size:0.75rem;color:var(--text-muted);">{{ fb.customer_email }}</div>{% endif %}
+                        </td>
+                        <td>
+                            <span class="rating-badge {% if fb.rating <= 2 %}rating-bad{% else %}rating-ok{% endif %}">{{ fb.rating }}&#9733;</span>
+                        </td>
+                        <td style="color:var(--text-secondary);max-width:280px;">{{ fb.feedback_text }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="fb-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <strong>No public reviews yet</strong>
+            Positive ratings will appear here as they are collected.
         </div>
         {% endif %}
     </div>
