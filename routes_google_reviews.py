@@ -253,9 +253,25 @@ def google_reviews_dashboard():
         flash('Google Review Settings saved! Your review link is ready.', 'success')
         return redirect(url_for('google_reviews.google_reviews_dashboard'))
 
-    # Load all settings for user
+    # Load all settings owned by this user (as creator)
     settings_res = supabase.table('google_review_settings').select('*').eq('user_id', user_id).execute()
     settings_list = settings_res.data if settings_res.data else []
+
+    # Also load Google Review businesses the user has bought via the marketplace
+    # (they are the active buyer in chatbot_transfers with a google_review_id)
+    buyer_transfers_res = supabase.table('chatbot_transfers').select(
+        'google_review_id'
+    ).eq('buyer_id', user_id).eq('status', 'active').not_.is_('google_review_id', 'null').execute()
+    
+    if buyer_transfers_res.data:
+        bought_gr_ids = [t['google_review_id'] for t in buyer_transfers_res.data]
+        # Exclude any already owned (in case of edge cases)
+        owned_ids = {s['id'] for s in settings_list}
+        ids_to_fetch = [gid for gid in bought_gr_ids if gid not in owned_ids]
+        if ids_to_fetch:
+            bought_settings_res = supabase.table('google_review_settings').select('*').in_('id', ids_to_fetch).execute()
+            if bought_settings_res.data:
+                settings_list = settings_list + bought_settings_res.data
 
     feedback_res = supabase.table('google_reviews_feedback').select('*').eq('user_id', user_id).order('created_at', desc=True).execute()
     feedbacks = feedback_res.data if feedback_res.data else []
