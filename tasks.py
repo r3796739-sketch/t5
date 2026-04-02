@@ -22,7 +22,7 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import logging
 from utils.history_utils import save_chat_history
-from utils.history_utils import get_chat_history_for_service
+from utils.history_utils import get_chat_history_for_service, append_service_history
 from utils import db_utils
 from flask import Flask, render_template
 from flask_mail import Message
@@ -114,24 +114,36 @@ def process_channel_task(channel_id, task=None):
             if "Scanning" in msg:
                  pct = 10 
             elif "Downloading" in msg:
-                 # msg format: "Downloading transcripts: {completed}/{total} videos processed"
                  try:
                      parts = msg.split(':')[1].strip().split(' videos')[0].split('/')
                      current = int(parts[0])
                      total = int(parts[1])
-                     # Scale 10% -> 75%
                      pct = 10 + int((current / total) * 65)
                  except:
                      pct = 30 
             update_task_progress(task_id, 'processing', pct, msg)
 
-        # This now correctly unpacks the list of failed long-form videos
-        transcripts, thumbnail, subs, skipped_videos = get_transcripts_from_channel(
-            youtube_api, 
-            channel_url, 
-            target_video_count=300,
-            progress_callback=progress_callback
-        )
+        # --- Determine whether the user submitted a single video or a full channel ---
+        from utils.youtube_utils import is_youtube_video_url as _is_video_url
+        _is_single_video = _is_video_url(channel_url)
+
+        if _is_single_video:
+            # Single video URL: just fetch that one video's transcript
+            print(f"--- [TASK] Detected single video URL — processing only this video: {channel_url} ---")
+            update_task_progress(task_id, 'processing', 20, 'Fetching transcript for the video...')
+            transcripts = get_transcripts_from_urls(youtube_api, [channel_url])
+            thumbnail = ''
+            subs = 0
+            skipped_videos = []
+        else:
+            # Channel URL: fetch the 10 latest long-form videos only
+            print(f"--- [TASK] Detected channel URL — fetching up to 10 latest videos from: {channel_url} ---")
+            transcripts, thumbnail, subs, skipped_videos = get_transcripts_from_channel(
+                youtube_api,
+                channel_url,
+                target_video_count=10,
+                progress_callback=progress_callback
+            )
         
         if not transcripts:
             # Check if we found long-form videos but couldn't get transcripts (rate limiting or no captions)
@@ -143,7 +155,23 @@ def process_channel_task(channel_id, task=None):
         update_task_progress(task_id, 'processing', 75, 'Building AI knowledge base...')
         create_and_store_embeddings(transcripts, None, user_id_who_submitted, channel_id)
         
-        text_sample = " ".join([t['transcript'] for t in transcripts[:5]])[:10000]
+        # --- Stratified text sample for soul/style extraction ---
+        # The old approach (transcripts[:5][:10000]) could profile just one video.
+        # This approach samples the OPENING of up to 30 videos across the full set,
+        # then shuffles so the LLM sees the creator's voice across different topics.
+        # Opening chunks are the most personality-dense (intros, catchphrases, energy).
+        _sample_pool = list(transcripts)
+        import random as _random
+        if len(_sample_pool) > 30:
+            _sample_pool = _random.sample(_sample_pool, 30)
+        _random.shuffle(_sample_pool)
+        _text_parts = [
+            f"=== {t.get('title', 'Video')} ===\n{t['transcript'][:1500]}"
+            for t in _sample_pool
+        ]
+        text_sample = "\n".join(_text_parts)[:80000]
+        logger.info(f"[SOUL_EXTRACTION] Sampling {len(_sample_pool)} videos → {len(text_sample):,} chars for soul/style extraction")
+
         update_task_progress(task_id, 'processing', 85, 'Analyzing personality and speaking style...')
         topics = extract_topics_from_text(text_sample)
         speaking_style = extract_speaking_style(text_sample)
@@ -740,6 +768,9 @@ def post_answer_processing_task(user_id, channel_name, question, answer, sources
             sources=sources,
             integration_source=integration_source
         )
+        # Write-through: keep in-process cache in sync so the next message
+        # in this conversation reads from cache, not DB.
+        append_service_history(user_id, channel_name, question, answer)
     except Exception as e:
         logger.error(f"Error in post-answer processing for user {user_id}: {e}", exc_info=True)
 
