@@ -626,6 +626,38 @@
     }
 }
 
+/* Free Credits Card – hover-reveal tips */
+.fc-hover-tips {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: rgba(16, 185, 129, 0.06);
+    border: 1px dashed rgba(16, 185, 129, 0.4);
+    border-radius: 8px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    list-style: disc;
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: opacity 0.3s ease, max-height 0.4s ease;
+    pointer-events: none;
+}
+
+.fc-hover-tips ul {
+    padding-left: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    list-style: disc;
+    margin: 0;
+}
+
+[data-plan-type="free-credits"]:hover .fc-hover-tips {
+    opacity: 1;
+    max-height: 200px;
+    pointer-events: auto;
+}
+
 /* Theme Toggle */
 .theme-switch {
     position: relative;
@@ -870,7 +902,7 @@ html[data-theme='dark'] .usage-bar-container {
 .pricing-card.premium {
     border: 3px solid transparent;
     background: linear-gradient(var(--surface-light), var(--surface-light)) padding-box,
-                linear-gradient(135deg, #F59E0B 0%, #EA580C 50%, #8b5cf6 100%) border-box;
+        linear-gradient(135deg, #F59E0B 0%, #EA580C 50%, #8b5cf6 100%) border-box;
     box-shadow: 0 15px 35px -5px rgba(245, 158, 11, 0.15), 0 10px 15px -5px rgba(245, 158, 11, 0.1);
     transform: scale(1.02);
     z-index: 2;
@@ -899,16 +931,14 @@ html[data-theme='dark'] .usage-bar-container {
 }
 
 .pricing-card.premium .price {
-    background: linear-gradient(135deg, #EA580C, #8b5cf6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    font-size: 3rem !important; /* Make the price distinctly larger */
+    color: #EA580C;
+    font-size: 3rem !important;
     margin-bottom: 1rem;
 }
 
 .pricing-card.premium h4 {
     display: inline-block;
-    background: linear-gradient(135deg, #111827 0%, #EA580C 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #EA580C 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     font-size: 1.8rem;
@@ -935,7 +965,7 @@ html[data-theme='dark'] .usage-bar-container {
     color: #EA580C;
     border: 1px solid #fed7aa;
     font-weight: 700;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 html[data-theme='dark'] .pricing-card.premium .btn-pricing-disabled {

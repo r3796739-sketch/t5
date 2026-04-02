@@ -539,6 +539,11 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        if (window.location.hash === '#marketplace') {
+            const mpTabBtn = document.querySelectorAll('.earnings-tab')[1];
+            if (mpTabBtn) switchTab('marketplace', mpTabBtn);
+        }
+
         const modal = document.getElementById('payoutModal');
         if (!modal) return;
 
@@ -604,10 +609,11 @@
                 const amount = amountVal.toFixed(2);
                 const statusName = (payout.status || 'unknown').charAt(0).toUpperCase() + (payout.status || 'unknown').slice(1);
                 const idDisplay = (payout.id || '').substring(0, 8);
+                const amountStyle = (payout.status === 'paid' || payout.status === 'completed' || payout.status === 'success') ? "font-weight: 700; color: #10B981;" : "font-weight: 600;";
                 return `
                     <tr>
                         <td>${date}</td>
-                        <td style="font-weight: 600;">₹${amount}</td>
+                        <td style="${amountStyle}">₹${amount}</td>
                         <td><span class="status-badge status-${payout.status}">${statusName}</span></td>
                         <td style="font-family: monospace; color: var(--text-secondary);">${idDisplay}...</td>
                     </tr>
@@ -628,12 +634,13 @@
                 const limit = tr.query_limit_monthly || 0;
                 const price = ((tr.creator_price_monthly || 0) / 100).toFixed(2);
                 const date = (tr.created_at || '').split('T')[0];
+                const priceStyle = (tr.status === 'active') ? 'font-weight: 700; color: #10B981;' : '';
                 return `
                     <tr>
                         <td style="font-weight: 600;">${name}</td>
                         <td><span class="status-badge status-${tr.status}">${statusName}</span></td>
                         <td>${limit}</td>
-                        <td>₹${price}</td>
+                        <td style="${priceStyle}">₹${price}</td>
                         <td>${date}</td>
                     </tr>
                 `;

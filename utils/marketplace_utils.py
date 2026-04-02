@@ -73,15 +73,12 @@ def move_chatbot_to_buyer(transfer_id: str, buyer_id: str, subscription_id: str)
         creator_id = transfer['creator_id']
         
         if chatbot_id:
-            # 1. Update the chatbot owner in the channels table
-            supabase.table('channels').update({'creator_id': buyer_id}).eq('id', chatbot_id).execute()
-            
-            # 2. Update the user_channels link (remove creator, add buyer)
-            # We delete any existing link to this channel for safety, then link to buyer
-            supabase.table('user_channels').delete().eq('channel_id', chatbot_id).execute()
+            # Keep creator_id unchanged — creator retains full ownership.
+            # Just add the buyer as an additional user_channels link so they
+            # also see the chatbot on their dashboard.
             db_utils.link_user_to_channel(buyer_id, chatbot_id)
             
-            # 4. Invalidate cache for BOTH users so their dashboards update
+            # Invalidate cache for BOTH users so their dashboards update
             cache_key_buyer = f"user_visible_channels:{buyer_id}:community:none"
             cache_key_creator = f"user_visible_channels:{creator_id}:community:none"
             try:
@@ -90,14 +87,14 @@ def move_chatbot_to_buyer(transfer_id: str, buyer_id: str, subscription_id: str)
                     redis_client.delete(cache_key_buyer)
                     redis_client.delete(cache_key_creator)
             except Exception as e:
-                 log.warning(f"Could not invalidate Redis cache: {e}")
-             
-            log.info(f"Successfully moved chatbot {chatbot_id} to buyer {buyer_id}.")
+                log.warning(f"Could not invalidate Redis cache: {e}")
+
+            log.info(f"Buyer {buyer_id} granted access to chatbot {chatbot_id}; creator {creator_id} retains ownership.")
         elif google_review_id:
-            # Update the google review business owner
-            supabase.table('google_review_settings').update({'user_id': buyer_id}).eq('id', google_review_id).execute()
-            # Also invalidate cache if needed
-            log.info(f"Successfully moved google review {google_review_id} to buyer {buyer_id}.")
+            # Keep user_id unchanged — creator retains ownership of the Google Review business.
+            # The buyer's access is tracked via chatbot_transfers.buyer_id.
+            # The Google Reviews dashboard will also show businesses the user has an active buyer transfer for.
+            log.info(f"Buyer {buyer_id} granted marketplace access to google review {google_review_id}; creator {creator_id} retains ownership.")
             
         # 3. Mark the transfer as active and record the subscription and buyer
         supabase.table('chatbot_transfers').update({
