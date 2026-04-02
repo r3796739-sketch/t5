@@ -46,7 +46,7 @@
     .gr-wrap {
         width: 100%;
         max-width: 960px;
-        margin: 0 auto;
+        margin: -5% auto;
         padding: 1rem 0.75rem 3rem;
         overflow-x: hidden;
     }
@@ -104,6 +104,7 @@
     @media (min-width: 480px) {
         .gr-hero-text h1 {
             font-size: 1.35rem;
+            margin-left: 5%;
         }
     }
 
@@ -2133,16 +2134,46 @@
 {% block content %}
 <div class="gr-wrap">
 
-    <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+    <!-- ── Unified Header Row: Title (left) + Plan Card (right) ── -->
+    <div
+        style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.5rem; margin-top: 50px;">
+        <!-- Left: Title & description -->
+        <div style="flex: 1; min-width: 220px;">
+            <h1
+                style="font-size: 1.35rem; font-weight: 800; color: var(--accent-primary, #ff9a56);  margin: 0.1rem; margin-right:5%; display: flex; align-items: center; gap: 0.4rem;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polygon
+                        points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+                Google Reviews Router
+            </h1>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 0.9rem; line-height: 1.5;">
+                Intercept negative feedback privately and guide satisfied customers to leave 5-star Google reviews —
+                powered by AI.
+            </p>
+            {% if settings_list|length < max_businesses %} <button class="btn btn-accent" onclick="showNewForm()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                <span class="btn-lbl">Add Business</span>
+                </button>
+                {% endif %}
+        </div>
+
+        <!-- Right: Plan / credits card -->
+        {% set plan_name = user_status.get('plan_name', 'Free') if user_status else 'Free' %}
+        {% set usage = user_status.get('usage', {}) if user_status else {} %}
+        {% set limits = user_status.get('limits', {}) if user_status else {} %}
+        {% set qUsed = usage.get('queries_this_month', 0)|int %}
+        {% set qMax = limits.get('max_queries_per_month', 20)|int %}
+        {% set is_creator = 'creator' in (plan_name|lower) %}
+        {% set qPct = (qUsed / qMax * 100)|round|int if qMax > 0 else 0 %}
         <div class="plan-quota-bar"
-            style="background: var(--surface-light); border: 1px solid var(--neutral-200); border-radius: 12px; padding: 0.65rem 1rem; min-width: 240px; display: flex; flex-direction: column; gap: 0.5rem; text-align: left;">
+            style="background: var(--surface-light); border: 1px solid var(--neutral-200); border-radius: 12px; padding: 0.65rem 1rem; min-width: 220px; max-width: 260px; display: flex; flex-direction: column; gap: 0.5rem; text-align: left; flex-shrink: 0;">
             <div style="display: flex; align-items: center; justify-content: space-between;">
-                {% set plan_name = user_status.get('plan_name', 'Free') if user_status else 'Free' %}
-                {% set usage = user_status.get('usage', {}) if user_status else {} %}
-                {% set limits = user_status.get('limits', {}) if user_status else {} %}
-                {% set qUsed = usage.get('queries_this_month', 0)|int %}
-                {% set qMax = limits.get('max_queries_per_month', 20)|int %}
-                {% set is_creator = 'creator' in (plan_name|lower) %}
                 <span
                     style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 3px 10px; border-radius: 999px; {{ 'background: rgba(139, 92, 246, 0.12); color: #8B5CF6;' if is_creator else 'background: rgba(var(--accent-primary-rgb, 249, 115, 22), 0.12); color: var(--accent-primary);' }}">{{
                     plan_name }}</span>
@@ -2152,15 +2183,13 @@
                 </span>
             </div>
             <div
-                style="width: 100%; height: 6px; background: var(--neutral-200); border-radius: 999px; overflow: hidden; margin-top: 2px;">
-                {% set qPct = (qUsed / qMax * 100)|round|int if qMax > 0 else 0 %}
+                style="width: 100%; height: 6px; background: var(--neutral-200); border-radius: 999px; overflow: hidden;">
                 <div
                     style="height: 100%; border-radius: 999px; background: var(--accent-primary); width: {{ qPct if qPct <= 100 else 100 }}%;">
                 </div>
             </div>
-            <!-- Upgrade Button -->
             <button onclick="showPricingModal()"
-                style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:7px 14px;margin-top:2px;border:none;border-radius:8px;background:linear-gradient(135deg,#FF6B35 0%,#F7C59F 50%,#FF6B8A 100%);background-size:200% 200%;animation:grUpgradeShimmer 3s ease infinite;color:#fff;font-size:0.78rem;font-weight:700;letter-spacing:0.3px;cursor:pointer;box-shadow:0 2px 10px rgba(255,107,53,0.35);transition:transform 0.18s ease,box-shadow 0.18s ease;"
+                style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:7px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,#FF6B35 0%,#F7C59F 50%,#FF6B8A 100%);background-size:200% 200%;animation:grUpgradeShimmer 3s ease infinite;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;box-shadow:0 2px 10px rgba(255,107,53,0.35);transition:transform 0.18s ease,box-shadow 0.18s ease;"
                 onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 16px rgba(255,107,53,0.5)'"
                 onmouseout="this.style.transform='';this.style.boxShadow='0 2px 10px rgba(255,107,53,0.35)'">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -2190,40 +2219,11 @@
     {% if qPct is defined and qPct >= 100 %}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            if (typeof showPricingModal === 'function') {
-                showPricingModal();
-            }
+            if (typeof showPricingModal === 'function') { showPricingModal(); }
         });
     </script>
     {% endif %}
 
-    <!-- ── Hero ───────────────────────────────────────────── -->
-    <div class="gr-hero">
-        <div class="gr-hero-text">
-            <h1>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <polygon
-                        points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-                Google Reviews Router
-            </h1>
-            <p>Intercept negative feedback privately and guide satisfied customers to leave 5-star Google reviews —
-                powered by AI.</p>
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end;">
-            {% if settings_list|length < max_businesses %} <button class="btn btn-accent" onclick="showNewForm()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-                <span class="btn-lbl">Add Business</span>
-                </button>
-                {% endif %}
-        </div>
-    </div>
 
     <!-- ── Flash messages ─────────────────────────────────── -->
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -2276,9 +2276,13 @@
                 </div>
             </div>
             <div class="card-actions">
-                <a href="{{ url_for('marketplace_transfer_google_review', settings_id=s_id) }}" class="btn btn-ghost btn-sm" title="Sell in Marketplace">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                <a href="{{ url_for('marketplace_transfer_google_review', settings_id=s_id) }}"
+                    class="btn btn-ghost btn-sm" title="Sell in Marketplace">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path
+                            d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z">
+                        </path>
                     </svg>
                     <span class="btn-lbl">Sell</span>
                 </a>
@@ -2656,7 +2660,8 @@
         </div>
 
         {% set business_map = {} %}
-        {% for s in settings_list %}{% if business_map.update({s.get('id'): s.get('business_name','Unknown')}) %}{% endif %}{% endfor %}
+        {% for s in settings_list %}{% if business_map.update({s.get('id'): s.get('business_name','Unknown')}) %}{%
+        endif %}{% endfor %}
 
         {% if captured_feedbacks|length > 0 %}
         <div class="fb-table-wrap">
@@ -2674,13 +2679,17 @@
                     {% for fb in captured_feedbacks %}
                     <tr>
                         <td style="white-space:nowrap;color:var(--text-muted);">{{ fb.created_at[:10] }}</td>
-                        <td style="white-space:nowrap;font-weight:600;font-size:0.82rem;">{{ business_map.get(fb.settings_id,'—') }}</td>
+                        <td style="white-space:nowrap;font-weight:600;font-size:0.82rem;">{{
+                            business_map.get(fb.settings_id,'—') }}</td>
                         <td>
                             <div style="font-weight:600;">{{ fb.customer_name or 'Anonymous' }}</div>
-                            {% if fb.customer_email %}<div style="font-size:0.75rem;color:var(--text-muted);">{{ fb.customer_email }}</div>{% endif %}
+                            {% if fb.customer_email %}<div style="font-size:0.75rem;color:var(--text-muted);">{{
+                                fb.customer_email }}</div>{% endif %}
                         </td>
                         <td>
-                            <span class="rating-badge {% if fb.rating <= 2 %}rating-bad{% else %}rating-ok{% endif %}">{{ fb.rating }}&#9733;</span>
+                            <span
+                                class="rating-badge {% if fb.rating <= 2 %}rating-bad{% else %}rating-ok{% endif %}">{{
+                                fb.rating }}&#9733;</span>
                         </td>
                         <td style="color:var(--text-secondary);max-width:280px;">{{ fb.feedback_text }}</td>
                     </tr>
@@ -2724,13 +2733,17 @@
                     {% for fb in public_reviews %}
                     <tr>
                         <td style="white-space:nowrap;color:var(--text-muted);">{{ fb.created_at[:10] }}</td>
-                        <td style="white-space:nowrap;font-weight:600;font-size:0.82rem;">{{ business_map.get(fb.settings_id,'—') }}</td>
+                        <td style="white-space:nowrap;font-weight:600;font-size:0.82rem;">{{
+                            business_map.get(fb.settings_id,'—') }}</td>
                         <td>
                             <div style="font-weight:600;">{{ fb.customer_name or 'Anonymous' }}</div>
-                            {% if fb.customer_email %}<div style="font-size:0.75rem;color:var(--text-muted);">{{ fb.customer_email }}</div>{% endif %}
+                            {% if fb.customer_email %}<div style="font-size:0.75rem;color:var(--text-muted);">{{
+                                fb.customer_email }}</div>{% endif %}
                         </td>
                         <td>
-                            <span class="rating-badge {% if fb.rating <= 2 %}rating-bad{% else %}rating-ok{% endif %}">{{ fb.rating }}&#9733;</span>
+                            <span
+                                class="rating-badge {% if fb.rating <= 2 %}rating-bad{% else %}rating-ok{% endif %}">{{
+                                fb.rating }}&#9733;</span>
                         </td>
                         <td style="color:var(--text-secondary);max-width:280px;">{{ fb.feedback_text }}</td>
                     </tr>

@@ -985,6 +985,7 @@
 
                         // --- Theme Toggle Logic ---
                         const themeToggle = document.getElementById('profile-theme-toggle');
+                        const themeSwitch = document.querySelector('.theme-switch');
                         const updateThemeUI = (theme) => {
                             if (theme === 'dark') {
                                 document.documentElement.setAttribute('data-theme', 'dark');
@@ -996,6 +997,19 @@
                         };
                         const currentTheme = localStorage.getItem('theme') || 'light';
                         updateThemeUI(currentTheme);
+                        
+                        // Add click handler to slider to toggle checkbox
+                        if (themeSwitch) {
+                            themeSwitch.addEventListener('click', (e) => {
+                                if (themeToggle) {
+                                    themeToggle.checked = !themeToggle.checked;
+                                    const newTheme = themeToggle.checked ? 'dark' : 'light';
+                                    localStorage.setItem('theme', newTheme);
+                                    updateThemeUI(newTheme);
+                                }
+                            });
+                        }
+                        
                         if (themeToggle) {
                             themeToggle.addEventListener('change', () => {
                                 const newTheme = themeToggle.checked ? 'dark' : 'light';

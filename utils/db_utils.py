@@ -779,3 +779,372 @@ def update_payout_status(payout_id: str, status: str):
     except Exception as e:
 
         log.error(f"Error updating payout status for payout {payout_id}: {e}")
+
+def get_platform_cashflow_stats():
+    """
+    Gathers comprehensive cashflow statistics across the entire platform
+    for the admin dashboard, supporting both USD and INR.
+    """
+    supabase = get_supabase_admin_client()
+    exchange_rate = 83.5 # Fixed conversion rate for representation
+    
+    stats_usd = {
+        'total_affiliate_generated': 0.0,
+        'marketplace_gross': 0.0,
+        'marketplace_platform_fees': 0.0,
+        'pending_payouts': 0.0,
+        'total_paid_out': 0.0,
+        'subscription_mrr': 0.0,
+        'platform_net_profit': 0.0
+    }
+    
+    stats_inr = {
+        'total_affiliate_generated': 0.0,
+        'marketplace_gross': 0.0,
+        'marketplace_platform_fees': 0.0,
+        'pending_payouts': 0.0,
+        'total_paid_out': 0.0,
+        'subscription_mrr': 0.0,
+        'platform_net_profit': 0.0
+    }
+    
+    try:
+        # 1. Total Affiliate Earnings Generated (Stored in USD)
+        ce_res = supabase.table('creator_earnings').select('amount_usd').execute()
+        if ce_res.data:
+            usd_amount = sum(item.get('amount_usd', 0) for item in ce_res.data)
+            stats_usd['total_affiliate_generated'] = usd_amount
+            stats_inr['total_affiliate_generated'] = usd_amount * exchange_rate
+
+        # 2. Marketplace Earnings (Stored in Paise - INR)
+        me_res = supabase.table('creator_marketplace_earnings').select('gross_amount, platform_fee, creator_amount').execute()
+        if me_res.data:
+            inr_gross = sum(item.get('gross_amount', 0) for item in me_res.data) / 100.0
+            inr_fees = sum(item.get('platform_fee', 0) for item in me_res.data) / 100.0
+            
+            stats_inr['marketplace_gross'] = inr_gross
+            stats_inr['marketplace_platform_fees'] = inr_fees
+            stats_usd['marketplace_gross'] = inr_gross / exchange_rate
+            stats_usd['marketplace_platform_fees'] = inr_fees / exchange_rate
+
+        # 3. Payouts (Stored in USD)
+        payouts_res = supabase.table('creator_payouts').select('amount_usd, status').execute()
+        if payouts_res.data:
+            pending_usd = sum(item.get('amount_usd', 0) for item in payouts_res.data if item.get('status') in ['pending', 'processing'])
+            paid_usd = sum(item.get('amount_usd', 0) for item in payouts_res.data if item.get('status') == 'paid')
+            
+            stats_usd['pending_payouts'] = pending_usd
+            stats_usd['total_paid_out'] = paid_usd
+            stats_inr['pending_payouts'] = pending_usd * exchange_rate
+            stats_inr['total_paid_out'] = paid_usd * exchange_rate
+
+        # 4. Direct Subscription Net MRR (Aligned directly with the application's actual Profile Access Grants)
+        from .subscription_utils import PLANS
+        mrr_usd = 0.0
+        gross_usd = 0.0
+        commission_usd = 0.0
+        
+        # Scour all user profiles for active platform allocations
+        profiles_res = supabase.table('profiles').select('id, direct_subscription_plan, personal_plan_id, referred_by_channel_id').execute()
+        if profiles_res.data:
+            for p in profiles_res.data:
+                # Resolve the active effective plan exactly as `get_user_status` does
+                active_plan_id = p.get('personal_plan_id') or p.get('direct_subscription_plan')
+                
+                # Check for active paying plans mapped into our architecture
+                if active_plan_id and active_plan_id != 'free':
+                    plan = PLANS.get(active_plan_id)
+                    if plan:
+                        base_price = plan.get('price_usd', 0)
+                        gross_usd += base_price
+                        
+                        # Process platform referrals securely
+                        if p.get('referred_by_channel_id'):
+                            commission_rate = plan.get('commission_rate', 0)
+                            comm_amt = base_price * commission_rate
+                            base_price -= comm_amt
+                            commission_usd += comm_amt
+                            
+                        mrr_usd += base_price
+            
+            stats_usd['subscription_mrr'] = mrr_usd
+            stats_inr['subscription_mrr'] = mrr_usd * exchange_rate
+            
+            stats_usd['subscription_gross'] = gross_usd
+            stats_inr['subscription_gross'] = gross_usd * exchange_rate
+            
+            stats_usd['subscription_commission'] = commission_usd
+            stats_inr['subscription_commission'] = commission_usd * exchange_rate
+
+        # 5. Total Platform Profit Estimation
+        stats_usd['platform_net_profit'] = stats_usd['subscription_mrr'] + stats_usd['marketplace_platform_fees'] - stats_usd['total_affiliate_generated'] - stats_usd['total_paid_out']
+        stats_inr['platform_net_profit'] = stats_inr['subscription_mrr'] + stats_inr['marketplace_platform_fees'] - stats_inr['total_affiliate_generated'] - stats_inr['total_paid_out']
+
+        # Format everything to 2 decimal places
+        for key in stats_usd:
+            stats_usd[key] = round(stats_usd[key], 2)
+            stats_inr[key] = round(stats_inr[key], 2)
+            
+        return {'usd': stats_usd, 'inr': stats_inr}
+    except Exception as e:
+        log.error(f"Error getting platform cashflow stats: {e}")
+        return {'usd': stats_usd, 'inr': stats_inr}
+
+
+def get_admin_activity_feed(limit=20):
+    """
+    Fetches recent platform activity events for the admin dashboard.
+    Pulls from profiles (signups), channels (chatbot creations), and
+    chatbot_transfers (marketplace transfers).
+    """
+    supabase = get_supabase_admin_client()
+    events = []
+
+    try:
+        # 1. Recent Signups
+        signups_res = supabase.table('profiles').select(
+            'email, full_name, created_at, whop_user_id'
+        ).order('created_at', desc=True).limit(limit).execute()
+        if signups_res.data:
+            for u in signups_res.data:
+                user_type = 'Whop' if u.get('whop_user_id') else 'Direct'
+                events.append({
+                    'type': 'signup',
+                    'icon': '👤',
+                    'title': f"New {user_type} user signed up",
+                    'description': u.get('email', 'Unknown'),
+                    'timestamp': u.get('created_at', '')
+                })
+
+        # 2. Recent Chatbot Creations
+        chatbots_res = supabase.table('channels').select(
+            'channel_name, created_at, creator_id, creator:creator_id(full_name, email)'
+        ).order('created_at', desc=True).limit(limit).execute()
+        if chatbots_res.data:
+            for ch in chatbots_res.data:
+                creator_info = ch.get('creator', {}) or {}
+                creator_name = creator_info.get('full_name') or creator_info.get('email') or 'Unknown'
+                events.append({
+                    'type': 'chatbot',
+                    'icon': '🤖',
+                    'title': f"Chatbot created: '{ch.get('channel_name', 'Unnamed')}'",
+                    'description': f"by {creator_name}",
+                    'timestamp': ch.get('created_at', '')
+                })
+
+        # 3. Recent Marketplace Transfers (Actual Transactions)
+        try:
+            # Get real transactions from creator_marketplace_earnings with buyer info
+            earnings_res = supabase.table('creator_marketplace_earnings').select(
+                'id, transfer_id, payment_date, gross_amount, creator_amount, transfer:transfer_id(buyer:buyer_id(email), creator:creator_id(full_name, email))'
+            ).order('payment_date', desc=True).limit(limit).execute()
+            if earnings_res.data:
+                for e in earnings_res.data:
+                    transfer_info = (e.get('transfer') or {}) if isinstance(e.get('transfer'), dict) else {}
+                    buyer_info = (transfer_info.get('buyer') or {}) if isinstance(transfer_info.get('buyer'), dict) else {}
+                    creator_info = (transfer_info.get('creator') or {}) if isinstance(transfer_info.get('creator'), dict) else {}
+                    
+                    buyer_email = buyer_info.get('email', 'Unknown')
+                    creator_name = creator_info.get('full_name') or creator_info.get('email') or 'Unknown'
+                    
+                    # Amounts are in paise, convert to INR
+                    buyer_paid = (e.get('gross_amount') or 0) / 100.0
+                    creator_earned = (e.get('creator_amount') or 0) / 100.0
+
+                    events.append({
+                        'type': 'transfer',
+                        'icon': '💰',
+                        'title': f"Marketplace purchase: {creator_name}'s chatbot",
+                        'description': f"{buyer_email} paid ₹{buyer_paid:.2f} (creator earned ₹{creator_earned:.2f})",
+                        'timestamp': e.get('payment_date', '')
+                    })
+        except Exception as te:
+            log.warning(f"Could not fetch transfers for activity feed: {te}")
+
+        # Sort all events by timestamp descending and return top N
+        events.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        return events[:limit]
+
+    except Exception as e:
+        log.error(f"Error getting admin activity feed: {e}")
+        return []
+
+
+def get_admin_trend_data(days_back=30):
+    """
+    Fetches admin trend data for the past N days for Chart.js:
+    - Revenue Over Time (daily subscription + marketplace)
+    - User Growth (Whop vs Direct new signups per day)
+    - Credit Consumption (total daily queries across platform)
+    """
+    from datetime import timedelta, timezone as tz
+    supabase = get_supabase_admin_client()
+
+    today = datetime.now(tz.utc).date()
+    start_date = today - timedelta(days=days_back)
+    start_iso = datetime.combine(start_date, datetime.min.time()).isoformat()
+
+    # Pre-fill all dates
+    exchange_rate = 83.5  # USD to INR conversion rate
+    date_labels = []
+    date_keys = {}
+    for i in range(days_back + 1):
+        d = start_date + timedelta(days=i)
+        key = d.isoformat()  # 'YYYY-MM-DD'
+        label = d.strftime('%b %d')  # 'Apr 01'
+        date_labels.append(label)
+        date_keys[key] = {
+            'revenue_subscription_usd': 0.0,
+            'revenue_subscription_inr': 0.0,
+            'revenue_platform_sub_inr': 0.0, # Added for true subscriptions
+            'revenue_platform_sub_usd': 0.0, # Added for true subscriptions
+            'revenue_marketplace_inr': 0.0,
+            'revenue_marketplace_usd': 0.0,
+            'users_referral': 0,
+            'users_direct': 0,
+            'users_paid': 0,
+            'users_free': 0,
+            'marketplace_buyers': set(),
+            'marketplace_sellers': set(),
+            'credits_used': 0
+        }
+
+    try:
+        # --- 1. Revenue: Affiliate/Subscription earnings by day (in USD) ---
+        earnings_res = supabase.table('creator_earnings').select(
+            'amount_usd, created_at'
+        ).gte('created_at', start_iso).execute()
+        if earnings_res.data:
+            for e in earnings_res.data:
+                day_key = (e.get('created_at') or '')[:10]
+                if day_key in date_keys:
+                    usd_amt = e.get('amount_usd', 0)
+                    date_keys[day_key]['revenue_subscription_usd'] += usd_amt
+                    date_keys[day_key]['revenue_subscription_inr'] += usd_amt * exchange_rate
+
+        # --- 2. Revenue: Marketplace platform fees by day (platform keeps as commission) ---
+        try:
+            mkt_res = supabase.table('creator_marketplace_earnings').select(
+                'platform_fee, payment_date'
+            ).gte('payment_date', start_iso).execute()
+            if mkt_res.data:
+                for m in mkt_res.data:
+                    day_key = (m.get('payment_date') or '')[:10]
+                    if day_key in date_keys:
+                        inr_amt = m.get('platform_fee', 0) / 100.0  # Convert paise to INR
+                        date_keys[day_key]['revenue_marketplace_inr'] += inr_amt
+                        date_keys[day_key]['revenue_marketplace_usd'] += inr_amt / exchange_rate
+        except Exception:
+            pass
+
+        # --- 3. User Growth: New signups per day (Referral, Direct, Paid, Free) ---
+        from .subscription_utils import PLANS
+        profiles_res = supabase.table('profiles').select(
+            'created_at, referred_by_channel_id, direct_subscription_plan, whop_user_id'
+        ).gte('created_at', start_iso).execute()
+        if profiles_res.data:
+            for p in profiles_res.data:
+                day_key = (p.get('created_at') or '')[:10]
+                if day_key in date_keys:
+                    # Referral vs Direct
+                    if p.get('referred_by_channel_id'):
+                        date_keys[day_key]['users_referral'] += 1
+                    else:
+                        date_keys[day_key]['users_direct'] += 1
+                    
+                    # Paid vs Free
+                    plan = p.get('direct_subscription_plan')
+                    is_whop = bool(p.get('whop_user_id'))
+                    if plan and plan.lower() != 'free' or is_whop:
+                        date_keys[day_key]['users_paid'] += 1
+                        
+                        # Add Subscription exact price to the day's revenue
+                        if plan and plan != 'free':
+                            plan_config = PLANS.get(plan)
+                            if plan_config:
+                                price_this_sub_usd = plan_config.get('price_usd', 0)
+                                date_keys[day_key]['revenue_platform_sub_usd'] += price_this_sub_usd
+                                date_keys[day_key]['revenue_platform_sub_inr'] += price_this_sub_usd * exchange_rate
+                    else:
+                        date_keys[day_key]['users_free'] += 1
+
+        # --- 4. Credit Consumption & Marketplace Users ---
+        try:
+            # Get channels created per day as a proxy for platform activity/credit usage
+            channels_res = supabase.table('channels').select(
+                'created_at'
+            ).gte('created_at', start_iso).execute()
+            if channels_res.data:
+                for ch in channels_res.data:
+                    day_key = (ch.get('created_at') or '')[:10]
+                    if day_key in date_keys:
+                        # Each chatbot creation ~ average 15-25 credits for processing
+                        date_keys[day_key]['credits_used'] += 20
+
+            # Also count transfers as credit activity and track buyers/sellers
+            try:
+                transfers_res = supabase.table('chatbot_transfers').select(
+                    'created_at, buyer_system_id, buyer_email, seller_id'
+                ).gte('created_at', start_iso).execute()
+                if transfers_res.data:
+                    for t in transfers_res.data:
+                        day_key = (t.get('created_at') or '')[:10]
+                        if day_key in date_keys:
+                            date_keys[day_key]['credits_used'] += 5
+                            buyer_id = t.get('buyer_system_id') or t.get('buyer_email')
+                            seller_id = t.get('seller_id')
+                            if buyer_id:
+                                date_keys[day_key]['marketplace_buyers'].add(buyer_id)
+                            if seller_id:
+                                date_keys[day_key]['marketplace_sellers'].add(seller_id)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        # Build the output arrays
+        ordered_keys = sorted(date_keys.keys())
+        revenue_subscription_usd = [round(date_keys[k]['revenue_subscription_usd'], 2) for k in ordered_keys]
+        revenue_subscription_inr = [round(date_keys[k]['revenue_subscription_inr'], 2) for k in ordered_keys]
+        revenue_platform_sub_usd = [round(date_keys[k]['revenue_platform_sub_usd'], 2) for k in ordered_keys]
+        revenue_platform_sub_inr = [round(date_keys[k]['revenue_platform_sub_inr'], 2) for k in ordered_keys]
+        revenue_marketplace_usd = [round(date_keys[k]['revenue_marketplace_usd'], 2) for k in ordered_keys]
+        revenue_marketplace_inr = [round(date_keys[k]['revenue_marketplace_inr'], 2) for k in ordered_keys]
+        users_referral = [date_keys[k]['users_referral'] for k in ordered_keys]
+        users_direct = [date_keys[k]['users_direct'] for k in ordered_keys]
+        users_paid = [date_keys[k]['users_paid'] for k in ordered_keys]
+        users_free = [date_keys[k]['users_free'] for k in ordered_keys]
+        marketplace_buyers = [len(date_keys[k]['marketplace_buyers']) for k in ordered_keys]
+        marketplace_sellers = [len(date_keys[k]['marketplace_sellers']) for k in ordered_keys]
+        credits_used = [date_keys[k]['credits_used'] for k in ordered_keys]
+
+        return {
+            'labels': date_labels,
+            'revenue': {
+                'subscription_usd': revenue_subscription_usd,
+                'subscription_inr': revenue_subscription_inr,
+                'platform_sub_usd': revenue_platform_sub_usd,
+                'platform_sub_inr': revenue_platform_sub_inr,
+                'marketplace_usd': revenue_marketplace_usd,
+                'marketplace_inr': revenue_marketplace_inr
+            },
+            'users': {
+                'referral': users_referral,
+                'direct': users_direct,
+                'paid': users_paid,
+                'free': users_free,
+                'buyers': marketplace_buyers,
+                'sellers': marketplace_sellers
+            },
+            'credits': credits_used
+        }
+
+    except Exception as e:
+        log.error(f"Error getting admin trend data: {e}")
+        return {
+            'labels': date_labels,
+            'revenue': {'subscription_usd': [], 'subscription_inr': [], 'marketplace_usd': [], 'marketplace_inr': []},
+            'users': {'referral': [], 'direct': [], 'paid': [], 'free': [], 'buyers': [], 'sellers': []},
+            'credits': []
+        }
+

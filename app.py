@@ -3253,6 +3253,13 @@ def admin_dashboard():
     payouts_res = payout_query.execute()
     payouts = payouts_res.data if payouts_res.data else []
     # --- END OF MODIFICATION ---
+    
+    # Get cashflow stats
+    cashflow_stats = db_utils.get_platform_cashflow_stats()
+    
+    # Get activity feed and trend data
+    activity_feed = db_utils.get_admin_activity_feed(limit=15)
+    trend_data = db_utils.get_admin_trend_data(days_back=30)
 
     saved_channels = get_user_channels() 
     return render_template('admin.html', 
@@ -3262,7 +3269,32 @@ def admin_dashboard():
                            COMMUNITY_PLANS=COMMUNITY_PLANS, 
                            saved_channels=saved_channels,
                            payouts=payouts,
+                           cashflow_stats=cashflow_stats,
+                           activity_feed=activity_feed,
+                           trend_data=trend_data,
                            search_query=search_query) # Pass payouts to the template
+
+@app.route('/api/admin/activity_feed')
+@admin_required
+def api_admin_activity_feed():
+    """Returns the latest activity feed events as JSON for AJAX polling."""
+    try:
+        feed = db_utils.get_admin_activity_feed(limit=15)
+        return jsonify({'status': 'success', 'events': feed})
+    except Exception as e:
+        logger.error(f"Error fetching activity feed: {e}")
+        return jsonify({'status': 'error', 'events': []}), 500
+
+@app.route('/api/admin/trend_data')
+@admin_required
+def api_admin_trend_data():
+    """Returns trend chart data as JSON for AJAX polling."""
+    try:
+        data = db_utils.get_admin_trend_data(days_back=30)
+        return jsonify({'status': 'success', 'data': data})
+    except Exception as e:
+        logger.error(f"Error fetching trend data: {e}")
+        return jsonify({'status': 'error', 'data': {}}), 500
 
 @app.route('/api/admin/complete_payout/<payout_id>', methods=['POST'])
 @admin_required
