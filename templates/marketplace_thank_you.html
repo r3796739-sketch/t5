@@ -4,8 +4,14 @@
 
 {% block page_styles %}
 <style>
+    /* Hide sidebar and override layout */
+    #sidebar, .hamburger { display: none !important; }
+    .main-content { margin-left: 0 !important; width: 100% !important; max-width: 100% !important; }
+    .app-layout { display: block !important; padding: 0 !important; }
+    .card { padding: 0 !important; margin: 0 !important; box-shadow: none !important; background: transparent !important; border: none !important; }
+    
     .thank-you-wrapper {
-        min-height: 80vh;
+        min-height: 100vh;
         display: flex;
         align-items: center;
         justify-content: center;

@@ -180,8 +180,15 @@ def run_flow(
                     if next_node:
                         variables['last_choice'] = row['title']
                         return _emit_node(next_node, nodes, edges, variables)
-        # Re-emit the list
-        return _resolve_cascade(_emit_node(current_node, nodes, edges, variables))
+        # Free text at list node -> let AI answer and re-emit list
+        res = _resolve_cascade(_emit_node(current_node, nodes, edges, variables))
+        return {
+            'handled': False,
+            'post_ai_actions': res.get('actions', []),
+            'next_node_id': current_node_id,
+            'variables': variables,
+            'end': False,
+        }
 
     # ── Media / passthrough nodes (no buttons) — auto-advance ────────────
     if ntype in ('image_node', 'video_node', 'audio_node', 'document_node', 'location_node', 'variable_node'):
@@ -213,12 +220,12 @@ def run_flow(
                     return _resolve_cascade(_emit_node(next_node, nodes, edges, variables))
         return _resolve_cascade(_emit_node(current_node, nodes, edges, variables))
 
-    # ── Free text at a message/start node → nudge ─────────────────────────
+    # ── Free text at a message/start node → let AI answer and re-prompt ──
     btns = _node_reply_buttons(current_node)
     if btns:
         return {
-            'handled': True,
-            'actions': [{'type': 'text', 'text': 'Please choose one of the options below 👇'}],
+            'handled': False,
+            'post_ai_actions': _list_node_buttons_as_actions(current_node, variables),
             'next_node_id': current_node_id,
             'variables': variables,
             'end': False,

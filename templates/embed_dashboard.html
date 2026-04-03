@@ -563,7 +563,7 @@
     </div>
 </div>
 
-<script src="{{ url_for('static', filename='widget/yoppychat.js') }}"></script>
+<script src="{{ url_for('static', filename='widget/yoppychat.js', v=1775245547) }}"></script>
 <script>
     function updateColorFromText(val) {
         if (/^#[0-9A-F]{6}$/i.test(val)) {
@@ -592,7 +592,7 @@
 
         // Update Snippet
         const baseUrl = window.location.origin;
-        const snippet = `<script src="${baseUrl}/static/widget/yoppychat.js"><\/script>
+        const snippet = `<script src="${baseUrl}/static/widget/yoppychat.js?v=2"><\/script>
 <script>
   YoppyChat.init({
     channel: "${channel}",

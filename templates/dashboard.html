@@ -1229,7 +1229,7 @@
 
                 // ---- Growth Stats Panel ----
                 document.getElementById('gs-referrals').textContent = ts.referrals || 0;
-                document.getElementById('gs-paid').textContent = ts.paid_referrals || 0;
+                document.getElementById('gs-paid').textContent = (ts.paid_referrals || 0) + (es.marketplace_active_count || 0);
                 document.getElementById('gs-adds').textContent = ts.current_adds || 0;
 
                 // Total conversations = sum across all chatbot extras

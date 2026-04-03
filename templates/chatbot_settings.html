@@ -553,12 +553,23 @@
                         </span>
                     </div>
                     <p class="cs-int-desc">Let your Facebook Page visitors chat with your AI persona directly in Messenger.</p>
+
                     {% if chatbot.messenger_enabled %}
-                        <button class="cs-int-action" style="background:none;border:none;cursor:pointer;color:var(--danger, #ef4444);padding:0;" onclick="disconnectMessenger({{ chatbot.id }})">Disconnect</button>
+                        <div style="margin-top:10px;">
+                            <p style="font-size:0.85rem; color:var(--text-muted,#64748b); margin-bottom:10px;">
+                                {% if chatbot.messenger_page_id %}
+                                    Listening to Page ID: <strong style="color:var(--text,#111);">{{ chatbot.messenger_page_id }}</strong>
+                                {% else %}
+                                    <strong style="color:var(--text,#111);">Page Connected</strong>
+                                {% endif %}
+                            </p>
+                            <button class="cs-int-action" style="background:none;border:none;cursor:pointer;color:var(--danger,#ef4444);padding:0;text-align:left;font-size:0.85rem;" onclick="disconnectMessenger({{ chatbot.id }})">Disconnect Page</button>
+                        </div>
                     {% else %}
                         <a href="{{ url_for('messenger.connect_messenger', channel_id=chatbot.id) }}" class="cs-int-action" id="action-messenger">Connect Messenger →</a>
                     {% endif %}
                 </div>
+
 
                 <!-- WhatsApp -->
                 <div class="cs-int-card" id="int-whatsapp">
@@ -1638,6 +1649,37 @@
                 setTimeout(() => window.location.reload(), 1200);
             } else {
                 showToast(data.message || 'Failed to disconnect.', 'error');
+            }
+        })
+        .catch(() => showToast('An unexpected error occurred.', 'error'));
+    }
+
+    // ===== MESSENGER TOKEN UPDATE =====
+    function updateMessengerToken(channelId) {
+        const pageIdInput = document.getElementById('messenger-pageid-input-' + channelId);
+        const tokenInput = document.getElementById('messenger-token-input-' + channelId);
+        const token = tokenInput ? tokenInput.value.trim() : '';
+        const pageId = pageIdInput ? pageIdInput.value.trim() : '';
+        if (!token) {
+            showToast('Please paste a valid Page Access Token first.', 'error');
+            return;
+        }
+        const payload = { page_access_token: token };
+        if (pageId) payload.page_id = pageId;
+        fetch(`/messenger/update_token/${channelId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast('Messenger connected! You should now receive replies.', 'success');
+                if (tokenInput) tokenInput.value = '';
+                if (pageIdInput) pageIdInput.value = '';
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showToast(data.message || 'Failed to save — check your inputs.', 'error');
             }
         })
         .catch(() => showToast('An unexpected error occurred.', 'error'));
