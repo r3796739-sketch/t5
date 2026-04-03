@@ -170,7 +170,7 @@
             .yoppychat-header {
                 background: linear-gradient(135deg, ${config.color} 0%, ${adjustColor(config.color, -20)} 100%);
                 color: white;
-                padding: 24px 24px;
+                padding: 10px 10px;
                 display: flex;
                 align-items: center;
                 gap: 16px;
