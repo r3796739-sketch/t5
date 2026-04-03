@@ -211,11 +211,16 @@ def list_comments(channel_id):
             videos = _fetch_recent_videos(access_token, max_videos=5)
             comments = []
             for video in videos:
-                vid_comments = _fetch_comments_for_video(access_token, video['id'], max_results=5)
-                for c in vid_comments:
-                    c['video_title'] = video.get('title', '')
-                    c['video_id'] = video['id']
-                comments.extend(vid_comments)
+                try:
+                    vid_comments = _fetch_comments_for_video(access_token, video['id'], max_results=5)
+                    for c in vid_comments:
+                        c['video_title'] = video.get('title', '')
+                        c['video_id'] = video['id']
+                    comments.extend(vid_comments)
+                except ValueError as ve:
+                    # Video probably has comments disabled, skip it
+                    logger.warning(f"Skipping video {video['id']}: {ve}")
+                    continue
                 if len(comments) >= max_results:
                     break
 

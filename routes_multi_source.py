@@ -71,12 +71,11 @@ def create_multi_source_chatbot():
         community_id_for_chatbot = active_community_id if user_status.get('is_active_community_owner') else None
         
         # Use first YouTube URL for initial channel record (backward compatibility)
+        # NOTE: We intentionally do NOT convert single-video URLs to channel URLs here.
+        # The background task will detect whether it's a video or channel URL and act accordingly.
         initial_youtube_url = None
         if has_youtube:
-            initial_youtube_url = youtube_urls[0].strip()
-            if is_youtube_video_url(initial_youtube_url):
-                initial_youtube_url = get_channel_url_from_video_url(initial_youtube_url)
-            initial_youtube_url = clean_youtube_url(initial_youtube_url)
+            initial_youtube_url = clean_youtube_url(youtube_urls[0].strip())
         
         # Auto-detect bot type based on sources
         # YouTube-only = YouTuber bot, WhatsApp/Website = Business bot, Mixed = General
@@ -125,10 +124,6 @@ def create_multi_source_chatbot():
                 youtube_url = youtube_url.strip()
                 if not youtube_url:
                     continue
-                
-                # Handle video URLs
-                if is_youtube_video_url(youtube_url):
-                    youtube_url = get_channel_url_from_video_url(youtube_url)
                 
                 youtube_url = clean_youtube_url(youtube_url)
                 

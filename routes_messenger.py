@@ -16,7 +16,7 @@ import threading
 
 from utils.supabase_client import get_supabase_admin_client
 from utils.qa_utils import answer_question_stream
-from utils.history_utils import save_chat_history
+from utils.history_utils import save_chat_history, append_service_history
 
 logger = logging.getLogger(__name__)
 
@@ -225,6 +225,8 @@ def _handle_messenger_message(app_obj, sender_psid, recipient_page_id, message_t
                         sources=[],
                         integration_source='messenger'
                     )
+                    # Write-through: keep cache in sync for next message in this conversation
+                    append_service_history(user_id, channel.get('channel_name', 'Unknown'), message_text, response_text)
                 except Exception as e:
                     logger.error(f"Error saving chat history for messenger: {e}")
             

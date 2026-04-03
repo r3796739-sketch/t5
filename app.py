@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import json
 import logging
+import re
 from functools import wraps
 from cachetools import TTLCache
 
@@ -1434,6 +1435,34 @@ def get_chat_history_api(channel_name):
     history = get_chat_history(user_id, channel_name, access_token)
     return jsonify({'history': history})
 
+@app.route('/api/notifications/unread')
+@login_required
+def get_unread_notifications():
+    user_id = session['user']['id']
+    supabase = get_supabase_admin_client()
+    try:
+        res = supabase.table('notifications').select('*').eq('user_id', user_id).eq('is_read', False).order('created_at', desc=True).execute()
+        return jsonify({'status': 'ok', 'notifications': res.data or []})
+    except Exception as e:
+        logger.error(f"Error fetching notifications for {user_id}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/notifications/mark_read', methods=['POST'])
+@login_required
+def mark_notifications_read():
+    user_id = session['user']['id']
+    notification_ids = request.json.get('notification_ids', [])
+    if not notification_ids:
+        return jsonify({'status': 'ok'})
+    
+    supabase = get_supabase_admin_client()
+    try:
+        supabase.table('notifications').update({'is_read': True}).in_('id', notification_ids).eq('user_id', user_id).execute()
+        return jsonify({'status': 'ok'})
+    except Exception as e:
+        logger.error(f"Error marking notifications as read for {user_id}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 @app.route('/stream_answer', methods=['POST'])
 @login_required
 @limit_enforcer('query')
@@ -1729,10 +1758,14 @@ def chatbot_settings(chatbot_id):
         
         chatbot = chatbot_resp.data
         
-        # Verify ownership
+        # Verify ownership — allow if: (1) user is the creator, or (2) user is linked via user_channels
         owner_id = chatbot.get('creator_id') or chatbot.get('user_id')
         if str(owner_id) != str(user_id):
-            return redirect(url_for('dashboard'))
+            # Fallback: check if user has a user_channels link (e.g. original seller after transfer)
+            supabase_admin = get_supabase_admin_client()
+            link_check = supabase_admin.table('user_channels').select('user_id').eq('user_id', user_id).eq('channel_id', chatbot_id).maybe_single().execute()
+            if not (link_check and link_check.data):
+                return redirect(url_for('dashboard'))
         
         # --- Integrations and Data Sources are now loaded asynchronously via API ---
         
@@ -1854,7 +1887,10 @@ def update_chatbot_settings(chatbot_id):
         
         owner_id = chatbot_resp.data.get('creator_id') or chatbot_resp.data.get('user_id')
         if str(owner_id) != str(user_id):
-            return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
+            # Fallback: check user_channels link (e.g. original seller after marketplace transfer)
+            link_check = supabase.table('user_channels').select('user_id').eq('user_id', user_id).eq('channel_id', chatbot_id).maybe_single().execute()
+            if not (link_check and link_check.data):
+                return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
         
         # Get update data
         data = request.get_json()
@@ -2580,7 +2616,11 @@ def dashboard_metrics():
             total_stats['current_adds'] += channel_stats.get('current_adds', 0)
 
         # --- 3. Monthly Revenue Chart Data ---
-        monthly_revenue = db_utils.get_monthly_revenue_history(user_id, months_back=6)
+        try:
+            months_back = int(request.args.get('months', 6))
+        except ValueError:
+            months_back = 6
+        monthly_revenue = db_utils.get_monthly_revenue_history(user_id, months_back=months_back)
 
         # --- 4. Earnings Snapshot (affiliate + marketplace) ---
         try:
@@ -2899,17 +2939,19 @@ def generate_widget_answer(channel_id, question):
     supabase_admin = get_supabase_admin_client()
     channel_res = supabase_admin.table('channels').select('*').eq('id', channel_id).limit(1).execute()
     if not channel_res.data:
-        return "Sorry, this chatbot is no longer available."
+        return {'answer': "Sorry, this chatbot is no longer available.", 'sources': [], 'actions': []}
     
     channel_data = channel_res.data[0]
     prompt_q = question
     
     response_text = ""
+    sources = []
+    
     for chunk in answer_question_stream(
         question_for_prompt=prompt_q,
         question_for_search=question,
         channel_data=channel_data,
-        user_id=channel_data.get('user_id'),
+        user_id=channel_data.get('creator_id'),
         is_manager=False,
         integration_source='embed'
     ):
@@ -2918,26 +2960,67 @@ def generate_widget_answer(channel_id, question):
             if data_str == "[DONE]":
                 break
             try:
-                parsed_data = _json.loads(data_str)
+                parsed_data = json.loads(data_str)
                 if parsed_data.get('answer'):
                     response_text += parsed_data['answer']
-            except _json.JSONDecodeError:
+                if parsed_data.get('sources'):
+                    sources = parsed_data['sources']
+            except json.JSONDecodeError:
                 continue
                 
+    # Extract flow trigger marker if present
+    actions = []
+    trigger_match = re.search(r'\[TRIGGER_FLOW:\s*"(.*?)"\]', response_text)
+    if trigger_match:
+        trigger_flow_marker = trigger_match.group(1)
+        response_text = re.sub(r'\[TRIGGER_FLOW:\s*".*?"\]', '', response_text).strip()
+        try:
+            target_flow = None
+            flow_res_by_name = supabase_admin.table('channel_flows').select('id, flow_data').eq('channel_id', channel_data['id']).ilike('name', trigger_flow_marker).limit(1).execute()
+            if flow_res_by_name.data:
+                target_flow = {'flow_id': flow_res_by_name.data[0]['id'], **flow_res_by_name.data[0]['flow_data']}
+            
+            if target_flow:
+                from utils.flow_runner import run_flow
+                trigger_res = run_flow(
+                    supabase=supabase_admin,
+                    flow=target_flow,
+                    conversation={'flow_node_id': None, 'flow_variables': {}},
+                    message_text='',
+                    is_button_reply=False,
+                    sender_name='Website User'
+                )
+                if trigger_res.get('handled') and trigger_res.get('actions'):
+                    actions.extend(trigger_res.get('actions'))
+                    conversation_state = {
+                        'flow_id': target_flow['flow_id'],
+                        'flow_node_id': trigger_res.get('next_node_id'),
+                        'flow_variables': trigger_res.get('variables', {})
+                    }
+                    if trigger_res.get('end'):
+                        conversation_state = {'flow_id': None, 'flow_node_id': None, 'flow_variables': {}}
+                    response_text = ""
+            else:
+                # Fallback if flow missing, provide a generic button
+                actions.append({'type': 'buttons', 'buttons': [{'id': trigger_flow_marker, 'title': trigger_flow_marker}]})
+        except Exception as flow_err:
+            logging.warning(f"Widget flow trigger error {flow_err}")
+
     # Extract lead capture marker if present
     lead_match = re.search(r'\[LEAD_COMPLETE:\s*(\{.*?\})\]', response_text, re.DOTALL)
     if lead_match:
         try:
-            lead_complete_marker = _json.loads(lead_match.group(1))
+            lead_complete_marker = json.loads(lead_match.group(1))
             response_text = re.sub(r'\[LEAD_COMPLETE:\s*\{.*?\}\]', '', response_text, flags=re.DOTALL).strip()
             
             # Submit lead if captured
             if channel_data.get('lead_capture_enabled'):
+                from utils.lead_capture_utils import process_lead_submission
                 process_lead_submission(channel_id, lead_complete_marker)
-        except _json.JSONDecodeError:
+        except (json.JSONDecodeError, ImportError):
             pass
 
-    return response_text or "Sorry, I couldn't generate an answer."
+    return {'answer': response_text, 'sources': sources, 'actions': actions, 'conversation_state': conversation_state}
 
 @app.route('/api/widget/ask', methods=['POST'])
 def widget_ask_question():
@@ -2947,6 +3030,7 @@ def widget_ask_question():
         channel_name = data.get('channel')
         question = data.get('question', '').strip()
         referrer = data.get('referrer', 'unknown')
+        conversation_state = data.get('conversation_state', {})
         
         if not channel_name or not question:
             return jsonify({'success': False, 'error': 'Missing channel or question'})
@@ -2965,9 +3049,139 @@ def widget_ask_question():
         channel_data = channel_res.data[0]
         channel_id = channel_data['id']
         
+        # Check if we are currently inside a flow
+        flow_id = conversation_state.get('flow_id')
+        flow_node_id = conversation_state.get('flow_node_id')
+        
+        if flow_id and flow_node_id:
+            try:
+                target_flow_res = supabase_admin.table('channel_flows').select('id, flow_data').eq('id', flow_id).limit(1).execute()
+                if target_flow_res.data:
+                    target_flow = {'flow_id': target_flow_res.data[0]['id'], **target_flow_res.data[0]['flow_data']}
+                    from utils.flow_runner import run_flow, _match_button, _match_list_row
+                    
+                    # Load nodes to check the current node's buttons
+                    nodes_dict = {n['id']: n for n in target_flow.get('nodes', [])}
+                    current_node = nodes_dict.get(flow_node_id)
+                    
+                    # Check if the user's text exactly matches a button/row label
+                    is_button_match = False
+                    if current_node:
+                        matched_btn = _match_button(current_node, question)
+                        matched_row = _match_list_row(current_node, question) if current_node.get('type') == 'list_node' else None
+                        is_button_match = bool(matched_btn or matched_row)
+                    
+                    if is_button_match:
+                        # User clicked/typed an exact button — advance flow normally
+                        trigger_res = run_flow(
+                            supabase=supabase_admin,
+                            flow=target_flow,
+                            conversation={'flow_node_id': flow_node_id, 'flow_variables': conversation_state.get('flow_variables', {})},
+                            message_text=question,
+                            is_button_reply=True,
+                            sender_name='Website User'
+                        )
+                        
+                        if trigger_res.get('handled'):
+                            actions = trigger_res.get('actions', [])
+                            new_state = {
+                                'flow_id': flow_id,
+                                'flow_node_id': trigger_res.get('next_node_id'),
+                                'flow_variables': trigger_res.get('variables', {})
+                            }
+                            if trigger_res.get('end'):
+                                new_state = {'flow_id': None, 'flow_node_id': None, 'flow_variables': {}}
+                                
+                            try:
+                                supabase_admin.table('widget_analytics').upsert({
+                                    'channel_id': channel_id,
+                                    'domain': referrer,
+                                    'question_count': 1,
+                                    'chat_count': 1,
+                                    'unique_visitors': 1,
+                                    'last_activity': datetime.now(timezone.utc).isoformat()
+                                }, on_conflict='channel_id,domain').execute()
+                            except Exception as track_err:
+                                logging.warning(f"Widget tracking error: {track_err}")
+                                
+                            return jsonify({
+                                'success': True,
+                                'answer': '',
+                                'sources': [],
+                                'actions': actions,
+                                'conversation_state': new_state
+                            })
+                    else:
+                        # User asked a free-text question not covered by the flow buttons.
+                        # Let the AI answer, then re-present the current node's buttons
+                        # so the user can continue through the flow.
+                        ai_result = generate_widget_answer(channel_id, question)
+                        ai_answer = ai_result.get('answer', '')
+                        ai_sources = ai_result.get('sources', [])
+                        
+                        # Collect the current node's buttons to re-append
+                        post_flow_actions = []
+                        if current_node:
+                            ntype = current_node.get('type', '')
+                            data = current_node.get('data', {})
+                            edges = target_flow.get('edges', [])
+                            
+                            if ntype == 'list_node':
+                                rows = []
+                                for r in (data.get('rows') or []):
+                                    rows.append({'id': r['id'], 'title': r.get('title', '')[:24]})
+                                if rows:
+                                    post_flow_actions.append({
+                                        'type': 'list',
+                                        'body': data.get('message', 'Please choose:'),
+                                        'button_label': data.get('buttonLabel', 'See Options'),
+                                        'section_title': data.get('sectionTitle', 'Options'),
+                                        'rows': rows
+                                    })
+                            else:
+                                reply_btns = [
+                                    {'id': b['id'], 'title': b.get('label', '')}
+                                    for b in data.get('buttons', [])
+                                    if b.get('label', '').strip() and b.get('type', 'reply') == 'reply'
+                                ]
+                                if reply_btns:
+                                    post_flow_actions.append({
+                                        'type': 'buttons',
+                                        'body': data.get('message', 'Please choose one of the options below 👇'),
+                                        'buttons': reply_btns
+                                    })
+                        
+                        # State stays at the current node so user can still click buttons
+                        try:
+                            supabase_admin.table('widget_analytics').upsert({
+                                'channel_id': channel_id,
+                                'domain': referrer,
+                                'question_count': 1,
+                                'chat_count': 1,
+                                'unique_visitors': 1,
+                                'last_activity': datetime.now(timezone.utc).isoformat()
+                            }, on_conflict='channel_id,domain').execute()
+                        except Exception as track_err:
+                            logging.warning(f"Widget tracking error: {track_err}")
+                        
+                        return jsonify({
+                            'success': True,
+                            'answer': ai_answer,
+                            'sources': ai_sources,
+                            'actions': post_flow_actions,   # re-show current node buttons after AI response
+                            'conversation_state': conversation_state  # state unchanged — still at same flow node
+                        })
+            except Exception as flow_err:
+                logging.warning(f"Widget active flow error {flow_err}", exc_info=True)
+
+
+        # Provide conversation state to generate_widget_answer if we ever pass it down
         # Generate answer using existing AI function
-        # Note: You may need to adapt this to your existing ask_question logic
-        answer = generate_widget_answer(channel_id, question)
+        result = generate_widget_answer(channel_id, question)
+        answer = result['answer']
+        sources = result['sources']
+        actions = result.get('actions', [])
+        new_state = result.get('conversation_state', conversation_state) 
         
         # Track the question for analytics
         try:
@@ -2984,7 +3198,10 @@ def widget_ask_question():
         
         return jsonify({
             'success': True,
-            'answer': answer
+            'answer': answer,
+            'sources': sources,
+            'actions': actions,
+            'conversation_state': new_state
         })
         
     except Exception as e:
@@ -3033,24 +3250,6 @@ def widget_track_event():
         logging.warning(f"Widget track error: {e}")
         return jsonify({'success': False})
 
-def generate_widget_answer(channel_id, question):
-    """
-    Generate an answer for the widget.
-    This is a simplified version - you should integrate with your existing AI logic.
-    """
-    try:
-        # Import your existing AI functions here
-        # This is a placeholder - replace with your actual implementation
-        from ask_video import ask_question_for_widget
-        
-        answer = ask_question_for_widget(channel_id, question)
-        return answer
-    except ImportError:
-        # Fallback if the function doesn't exist yet
-        return "I'm sorry, I couldn't process your question at this time. Please try again later."
-    except Exception as e:
-        logging.error(f"Widget answer generation error: {e}")
-        return "Something went wrong. Please try again."
 
 @app.route('/about')
 def about():
@@ -3494,9 +3693,12 @@ def request_payout():
         return jsonify({'status': 'error', 'message': 'Invalid amount specified.'}), 400
 
     # --- START OF THE FIX ---
+    # User inputs INR via UI, but Affiliate DB expects USD 
+    amount_usd = amount_float / 83.0
+    
     # We now pass the creator's CURRENT bank details to the database function
     current_payout_details = profile.get('payout_details')
-    payout, message = db_utils.create_payout_request(creator_id, amount_float, current_payout_details)
+    payout, message = db_utils.create_payout_request(creator_id, amount_usd, current_payout_details)
     # --- END OF THE FIX ---
 
     if payout:
@@ -4033,6 +4235,15 @@ def razorpay_webhook():
                 # Record the earning event for the creator
                 inv_amount = invoice_data.get('amount', 0)  # Amount is in paise
                 marketplace_utils.record_creator_marketplace_earning(subscription_id, inv_amount)
+                
+                # Create a notification for the seller
+                seller_id = transfer.get('creator_id')
+                if seller_id:
+                    db_utils.create_notification(
+                        user_id=seller_id,
+                        message="🎉 You have received a new marketplace purchase!",
+                        type='sale'
+                    )
             else:
                 logging.error(f"Webhook Error: Could not find user for customer_id {customer_id} or plan_id from webhook.")
         except Exception as e:
@@ -4318,10 +4529,16 @@ def earnings_data_api():
         # Marketplace Earnings Data
         marketplace_data = marketplace_utils.get_creator_marketplace_balance(creator_id)
         
-        # Calculate Totals
-        total_withdrawable = affiliate_data['withdrawable_balance'] + marketplace_data['withdrawable_balance']
-        total_pending = affiliate_data['pending_payouts'] + marketplace_data['pending_payouts']
-        total_earned_all_time = affiliate_data['total_earned'] + marketplace_data['total_earned']
+        # Calculate Totals (Affiliate is in USD, Marketplace is in INR)
+        exchange_rate = 83.0
+        
+        aff_withdrawable_inr = affiliate_data['withdrawable_balance'] * exchange_rate
+        aff_pending_inr = affiliate_data['pending_payouts'] * exchange_rate
+        aff_earned_inr = affiliate_data['total_earned'] * exchange_rate
+
+        total_withdrawable = aff_withdrawable_inr + marketplace_data['withdrawable_balance']
+        total_pending = aff_pending_inr + marketplace_data['pending_payouts']
+        total_earned_all_time = aff_earned_inr + marketplace_data['total_earned']
         
         combined_totals = {
             'withdrawable_balance': total_withdrawable,
@@ -4332,12 +4549,28 @@ def earnings_data_api():
         profile = db_utils.get_profile(creator_id)
         payout_details = profile.get('payout_details') if profile else None
         
-        # Fetch active transfers
+        # Fetch active transfers, including channel_id for settings links
         supabase = get_supabase_admin_client()
         transfers_res = supabase.table('chatbot_transfers').select(
-            '*, channels!chatbot_transfers_chatbot_id_fkey(channel_name)'
+            '*, channels!chatbot_transfers_chatbot_id_fkey(id, channel_name)'
         ).eq('creator_id', creator_id).order('created_at', desc=True).execute()
-        transfers = transfers_res.data or []
+        transfers_raw = transfers_res.data or []
+
+        # Enrich each transfer with the buyer's profile (email/name)
+        for t in transfers_raw:
+            buyer_id = t.get('buyer_id')
+            if buyer_id:
+                try:
+                    buyer_profile = db_utils.get_profile(buyer_id)
+                    t['buyer_email'] = buyer_profile.get('email') or buyer_profile.get('full_name') or 'Unknown Buyer'
+                    t['buyer_name'] = buyer_profile.get('full_name') or ''
+                except Exception:
+                    t['buyer_email'] = 'Unknown Buyer'
+                    t['buyer_name'] = ''
+            else:
+                t['buyer_email'] = ''
+                t['buyer_name'] = ''
+        transfers = transfers_raw
 
         return jsonify({
             'status': 'success',
@@ -4374,8 +4607,7 @@ def save_payout_details():
             'name': data['name'],
             'account_number': data['account_number'],
             'ifsc': data['ifsc']
-        },
-        'razorpay_fund_account_id': None # Also invalidate any existing fund account
+        }
     }
     
     # Call the database update function once with all the data

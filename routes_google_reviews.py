@@ -415,7 +415,9 @@ def generate_review():
         return jsonify({'status': 'error', 'message': err_msg}), 403
 
     # Deduct from seller if marketplace allocation is active, otherwise buyer
-    if seller_id_to_charge:
+    if seller_id_to_charge == 'skip_charge':
+        pass
+    elif seller_id_to_charge:
         record_bot_query_usage(seller_id_to_charge)
     else:
         record_bot_query_usage(user_id)
