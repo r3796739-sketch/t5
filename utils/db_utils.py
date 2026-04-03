@@ -149,6 +149,20 @@ def increment_personal_query_usage(user_id: str):
     except Exception as e:
         log.error(f"Error incrementing personal query usage for user {user_id}: {e}")
 
+def create_notification(user_id: str, message: str, type: str = 'info'):
+    """Inserts a new notification for a specific user."""
+    try:
+        supabase.table('notifications').insert({
+            'user_id': user_id,
+            'message': message,
+            'type': type,
+            'is_read': False
+        }).execute()
+        return True
+    except Exception as e:
+        log.error(f"Error creating notification for user {user_id}: {e}")
+        return False
+
 def increment_channels_processed(user_id: str):
     """
     Increments the channels_processed counter for a specific user.
@@ -352,16 +366,12 @@ def check_bot_query_allowed(user_id: str, channel_data: dict = None, active_comm
             
             if transfer:
                 if transfer['queries_used_this_month'] < transfer['query_limit_monthly']:
-                    # Allocation is valid. Check if seller has actual global credits.
-                    seller_status = get_user_status(transfer['creator_id'])
-                    if seller_status and seller_status.get('has_personal_plan'):
-                        s_max = seller_status['limits'].get('max_queries_per_month', 0)
-                        s_used = seller_status['usage'].get('queries_this_month', 0)
-                        if s_max == float('inf') or s_used < s_max:
-                            # Phase 1: Seller has credits! Increment transfer counter and return seller's ID
-                            supabase.rpc('increment_marketplace_query', {'p_transfer_id': transfer['id']}).execute()
-                            return True, None, active_community_id, transfer['creator_id']
-                # Phase 2: If we reach here, allocation exhausted OR seller out of credits. Fallback to buyer!
+                    # Phase 1: Credits are ALREADY deducted from the seller's total pool upfront.
+                    # As long as the transfer has capacity, allow it.
+                    supabase.rpc('increment_marketplace_query', {'p_transfer_id': transfer['id']}).execute()
+                    # Return True indicating success, and 'skip_charge' as 4th arg so no global usage is incremented for anyone
+                    return True, None, active_community_id, 'skip_charge'
+                # Phase 2: If we reach here, allocation exhausted. Fallback to buyer!
         except Exception as e:
             log.warning(f"Could not check marketplace limits: {e}")
 

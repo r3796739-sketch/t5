@@ -707,7 +707,9 @@ def answer_question_stream(
         
         # Deduct from seller if marketplace allocation is active and seller has credits,
         # otherwise deduct from buyer's personal pool.
-        if seller_id_to_charge:
+        if seller_id_to_charge == 'skip_charge':
+            pass
+        elif seller_id_to_charge:
             db_utils.record_bot_query_usage(seller_id_to_charge, resolved_community_id)
         else:
             db_utils.record_bot_query_usage(user_id, resolved_community_id)

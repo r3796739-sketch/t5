@@ -44,16 +44,41 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def get_active_flow(supabase, channel_id: int) -> Optional[dict]:
-    """Return the active flow for a channel, or None."""
+    """Return the active flow for a channel, or None.
+    
+    Flow metadata (is_active) comes from Supabase.
+    Flow data (nodes, edges) is read from the local filesystem to support large flows.
+    """
     try:
         res = (supabase.table('channel_flows')
-               .select('id, flow_data')
+               .select('id, is_active')
                .eq('channel_id', channel_id)
                .eq('is_active', True)
                .limit(1)
                .execute())
-        if res.data:
-            return {'flow_id': res.data[0]['id'], **res.data[0]['flow_data']}
+        if not res.data:
+            return None
+        
+        flow_id = res.data[0]['id']
+        
+        # Load flow_data from local filesystem (bypasses Supabase size limits)
+        from utils.local_flow_store import load_flow_local
+        local_data = load_flow_local(channel_id)
+        
+        if local_data:
+            return {'flow_id': flow_id, **local_data}
+        
+        # Fallback: try to read from Supabase (legacy flows saved before local storage)
+        legacy_res = (supabase.table('channel_flows')
+                      .select('id, flow_data')
+                      .eq('id', flow_id)
+                      .limit(1)
+                      .execute())
+        if legacy_res.data and legacy_res.data[0].get('flow_data'):
+            fd = legacy_res.data[0]['flow_data']
+            if fd.get('nodes'):  # has actual data
+                return {'flow_id': flow_id, **fd}
+        
         return None
     except Exception as e:
         logger.warning(f"[FlowRunner] Could not fetch active flow: {e}")

@@ -52,16 +52,75 @@ def get_transfer_by_code(transfer_code: str):
         log.error(f"Error fetching transfer by code {transfer_code}: {e}")
         return None
 
+def _transfer_ownership(supabase, db_utils_mod, creator_id: str, buyer_id: str,
+                        item_type: str, item_id) -> None:
+    """
+    Generic helper that transfers marketplace item ownership from seller to buyer.
+    Works for ALL product types:
+      - 'chatbot'        → updates channels.creator_id, removes seller from user_channels
+      - 'google_review'  → updates google_review_settings.user_id
+      - Any future type  → extend the if/elif chain below
+
+    After transfer:
+    - Item disappears from seller's sidebar and dashboard
+    - Buyer becomes the new owner with full edit access
+    - Seller can still access the item via the Earnings > Marketplace "Edit Settings" link
+    """
+    if item_type == 'chatbot':
+        # Transfer creator_id on the channels record to buyer
+        supabase.table('channels').update({
+            'creator_id': buyer_id
+        }).eq('id', item_id).execute()
+
+        # Give buyer a user_channels link (for quota/usage tracking)
+        db_utils_mod.link_user_to_channel(buyer_id, item_id)
+
+        # Remove seller from user_channels → sold chatbot disappears from their sidebar
+        try:
+            supabase.table('user_channels').delete() \
+                .eq('user_id', creator_id).eq('channel_id', item_id).execute()
+            log.info(f"[Transfer] Removed seller {creator_id} from user_channels for chatbot {item_id}.")
+        except Exception as e:
+            log.warning(f"[Transfer] Could not remove seller from user_channels: {e}")
+
+        # Invalidate in-memory creator channel cache
+        db_utils_mod._creator_channels_cache.pop(f"creator_channels:{creator_id}", None)
+        db_utils_mod._creator_channels_cache.pop(f"creator_channels:{buyer_id}", None)
+
+        log.info(f"[Transfer] Chatbot {item_id}: creator_id → {buyer_id} (was {creator_id}).")
+
+    elif item_type == 'google_review':
+        # Transfer user_id on google_review_settings to buyer
+        supabase.table('google_review_settings').update({
+            'user_id': buyer_id
+        }).eq('id', item_id).execute()
+
+        log.info(f"[Transfer] Google Review {item_id}: user_id → {buyer_id} (was {creator_id}).")
+
+    else:
+        # Placeholder for future item types
+        log.warning(f"[Transfer] Unknown item_type '{item_type}' — no ownership transfer performed for item {item_id}.")
+
+    # --- Invalidate Redis sidebar/channel caches for both parties ---
+    try:
+        from .subscription_utils import redis_client
+        if redis_client:
+            redis_client.delete(f"user_visible_channels:{buyer_id}:community:none")
+            redis_client.delete(f"user_visible_channels:{creator_id}:community:none")
+    except Exception as e:
+        log.warning(f"[Transfer] Could not invalidate Redis cache: {e}")
+
+
 def move_chatbot_to_buyer(transfer_id: str, buyer_id: str, subscription_id: str) -> bool:
     """
-    Executes the transfer: assigns the chatbot or google review business to the buyer, 
-    removes it from the creator's dashboard, and updates the transfer record to active.
+    Executes a marketplace transfer: determines the item type, calls the generic
+    _transfer_ownership helper, marks the transfer as active, and notifies the seller.
+    Applies consistently to ALL product types (chatbots, Google Reviews, future items).
     """
     from . import db_utils
     supabase = get_supabase_admin_client()
     
     try:
-        # First, fetch the transfer to make sure it's valid and get the chatbot_id
         transfer_res = supabase.table('chatbot_transfers').select('*').eq('id', transfer_id).single().execute()
         if not transfer_res.data:
             log.error(f"Transfer {transfer_id} not found.")
@@ -71,43 +130,40 @@ def move_chatbot_to_buyer(transfer_id: str, buyer_id: str, subscription_id: str)
         chatbot_id = transfer.get('chatbot_id')
         google_review_id = transfer.get('google_review_id')
         creator_id = transfer['creator_id']
-        
-        if chatbot_id:
-            # Keep creator_id unchanged — creator retains full ownership.
-            # Just add the buyer as an additional user_channels link so they
-            # also see the chatbot on their dashboard.
-            db_utils.link_user_to_channel(buyer_id, chatbot_id)
-            
-            # Invalidate cache for BOTH users so their dashboards update
-            cache_key_buyer = f"user_visible_channels:{buyer_id}:community:none"
-            cache_key_creator = f"user_visible_channels:{creator_id}:community:none"
-            try:
-                from .subscription_utils import redis_client
-                if redis_client:
-                    redis_client.delete(cache_key_buyer)
-                    redis_client.delete(cache_key_creator)
-            except Exception as e:
-                log.warning(f"Could not invalidate Redis cache: {e}")
 
-            log.info(f"Buyer {buyer_id} granted access to chatbot {chatbot_id}; creator {creator_id} retains ownership.")
+        # --- Determine item type and delegate to generic helper ---
+        if chatbot_id:
+            _transfer_ownership(supabase, db_utils, creator_id, buyer_id, 'chatbot', chatbot_id)
         elif google_review_id:
-            # Keep user_id unchanged — creator retains ownership of the Google Review business.
-            # The buyer's access is tracked via chatbot_transfers.buyer_id.
-            # The Google Reviews dashboard will also show businesses the user has an active buyer transfer for.
-            log.info(f"Buyer {buyer_id} granted marketplace access to google review {google_review_id}; creator {creator_id} retains ownership.")
-            
-        # 3. Mark the transfer as active and record the subscription and buyer
+            _transfer_ownership(supabase, db_utils, creator_id, buyer_id, 'google_review', google_review_id)
+        else:
+            log.warning(f"Transfer {transfer_id} has no chatbot_id or google_review_id — skipping ownership transfer.")
+
+        # --- Mark transfer as active ---
         supabase.table('chatbot_transfers').update({
             'status': 'active',
             'buyer_id': buyer_id,
             'razorpay_subscription_id': subscription_id
         }).eq('id', transfer_id).execute()
+
+        # --- Notify the seller ---
+        try:
+            price_inr = transfer['creator_price_monthly'] / 100
+            seller_msg = (
+                f"Your item has been purchased! Payment of ₹{price_inr:.2f} received. "
+                f"The buyer now manages the item. You can still edit settings via Earnings → Marketplace."
+            )
+            db_utils.create_notification(creator_id, seller_msg, type='sale')
+            log.info(f"Seller {creator_id} notified of sale (transfer {transfer_id}).")
+        except Exception as notify_err:
+            log.warning(f"Failed to create seller notification: {notify_err}")
         
         return True
 
     except Exception as e:
-        log.error(f"Error executing chatbot move for transfer {transfer_id}: {e}")
+        log.error(f"Error executing marketplace transfer {transfer_id}: {e}")
         return False
+
 
 def record_creator_marketplace_earning(subscription_id: str, gross_amount_paise: int):
     """
