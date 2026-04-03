@@ -612,6 +612,14 @@ def _ensure_valid_token(channel: dict, supabase) -> str | None:
     new_token = refresh_data.get("access_token")
     if not new_token:
         logger.error(f"Token refresh failed: {refresh_data}")
+        if refresh_data.get("error") == "invalid_grant":
+            # Token revoked or expired. Clear it so the user sees they need to reconnect
+            supabase.table('channels').update({
+                'yt_comments_access_token': None,
+                'yt_comments_refresh_token': None,
+                'yt_comments_enabled': False,
+                'yt_comments_auto_reply': False,
+            }).eq('id', channel['id']).execute()
         return None
 
     supabase.table('channels').update({

@@ -747,7 +747,7 @@ def get_user_by_razorpay_customer_id(customer_id: str):
     Finds a user by their Razorpay customer ID.
     """
     try:
-        response = supabase.table('profiles').select('id').eq('razorpay_customer_id', customer_id).single().execute()
+        response = supabase.table('profiles').select('id').eq('razorpay_customer_id', customer_id).maybe_single().execute()
         return response.data['id'] if response.data else None
     except Exception as e:
         log.error(f"Error getting user by Razorpay customer ID: {e}")
