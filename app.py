@@ -4206,30 +4206,12 @@ def razorpay_webhook():
             plan_id = subscription_details.get('plan_id')
             user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
             
-            if user_id and plan_id:
-                logging.info(f"UPDATING PLAN for user {user_id} to plan {plan_id}.")
-                
-                profile = db_utils.get_profile(user_id)
-                if profile:
-                    db_utils.create_or_update_profile({
-                        'id': user_id, 
-                        'email': profile.get('email'),
-                        'direct_subscription_plan': plan_id
-                    })
-                    if redis_client:
-                        cache_key = f"user_status:{user_id}:community:none"
-                        redis_client.delete(cache_key)
-                        logging.info(f"Cache invalidated for user {user_id}")
-
-                db_utils.update_razorpay_subscription(user_id, subscription_details)
-                db_utils.record_creator_earning(referred_user_id=user_id, plan_id=plan_id)
-                
-            # Marketplace transfer payment event
+            # Check if this is a marketplace transfer payment
             supabase_admin = get_supabase_admin_client()
             transfer_res = supabase_admin.table('chatbot_transfers').select('*').eq('razorpay_subscription_id', subscription_id).maybe_single().execute()
+            
             if transfer_res and transfer_res.data:
                 transfer = transfer_res.data
-                user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
                 
                 if transfer['status'] in ('pending', 'subscription_pending') and user_id:
                     # First payment: Move the chatbot
@@ -4248,7 +4230,26 @@ def razorpay_webhook():
                         type='sale'
                     )
             else:
-                logging.error(f"Webhook Error: Could not find user for customer_id {customer_id} or plan_id from webhook.")
+                # Platform Subscription Payment
+                if user_id and plan_id:
+                    logging.info(f"UPDATING PLAN for user {user_id} to plan {plan_id}.")
+                    
+                    profile = db_utils.get_profile(user_id)
+                    if profile:
+                        db_utils.create_or_update_profile({
+                            'id': user_id, 
+                            'email': profile.get('email'),
+                            'direct_subscription_plan': plan_id
+                        })
+                        if redis_client:
+                            cache_key = f"user_status:{user_id}:community:none"
+                            redis_client.delete(cache_key)
+                            logging.info(f"Cache invalidated for user {user_id}")
+
+                    db_utils.update_razorpay_subscription(user_id, subscription_details)
+                    db_utils.record_creator_earning(referred_user_id=user_id, plan_id=plan_id)
+                else:
+                    logging.error(f"Webhook Error: Could not find user for customer_id {customer_id} or plan_id from webhook.")
         except Exception as e:
             logging.error(f"Error processing 'invoice.paid' webhook: {e}")
             return jsonify({'status': 'error', 'message': 'Internal processing error'}), 500
@@ -4272,32 +4273,33 @@ def razorpay_webhook():
             if transfer_res and transfer_res.data:
                 supabase_admin.table('chatbot_transfers').update({'status': 'cancelled'}).eq('id', transfer_res.data['id']).execute()
                 logging.info(f"Marketplace transfer {transfer_res.data['id']} cancelled for subscription {subscription_id}.")
-
-            if user_id:
-                logging.info(f"Subscription ended (event={event['event']}) for user {user_id}. Downgrading to free plan.")
-                profile = db_utils.get_profile(user_id)
-                if profile:
-                    db_utils.create_or_update_profile({
-                        'id': user_id,
-                        'email': profile.get('email'),
-                        'direct_subscription_plan': None,  # Clear the plan → free tier
-                        'personal_plan_id': None
-                    })
-                    # FIX Issue #2: Reset query counter so the user isn't locked out on the free plan
-                    try:
-                        supabase_admin.table('usage_stats').update({
-                            'queries_this_month': 0
-                        }).eq('user_id', user_id).execute()
-                        logging.info(f"Reset queries_this_month to 0 for user {user_id} after subscription end.")
-                    except Exception as reset_err:
-                        logging.error(f"Failed to reset query counter for user {user_id}: {reset_err}")
-                    if redis_client:
-                        # Invalidate the user status cache so they see the change immediately
-                        cache_key = f"user_status:{user_id}:community:none"
-                        redis_client.delete(cache_key)
-                        logging.info(f"Cache invalidated for user {user_id} after subscription end.")
             else:
-                logging.error(f"Webhook '{event['event']}': Could not find user for customer_id {customer_id}.")
+                # Platform Subscription Cancellation
+                if user_id:
+                    logging.info(f"Subscription ended (event={event['event']}) for user {user_id}. Downgrading to free plan.")
+                    profile = db_utils.get_profile(user_id)
+                    if profile:
+                        db_utils.create_or_update_profile({
+                            'id': user_id,
+                            'email': profile.get('email'),
+                            'direct_subscription_plan': None,  # Clear the plan → free tier
+                            'personal_plan_id': None
+                        })
+                        # FIX Issue #2: Reset query counter so the user isn't locked out on the free plan
+                        try:
+                            supabase_admin.table('usage_stats').update({
+                                'queries_this_month': 0
+                            }).eq('user_id', user_id).execute()
+                            logging.info(f"Reset queries_this_month to 0 for user {user_id} after subscription end.")
+                        except Exception as reset_err:
+                            logging.error(f"Failed to reset query counter for user {user_id}: {reset_err}")
+                        if redis_client:
+                            # Invalidate the user status cache so they see the change immediately
+                            cache_key = f"user_status:{user_id}:community:none"
+                            redis_client.delete(cache_key)
+                            logging.info(f"Cache invalidated for user {user_id} after subscription end.")
+                else:
+                    logging.error(f"Webhook '{event['event']}': Could not find user for customer_id {customer_id}.")
         except Exception as e:
             logging.error(f"Error processing '{event['event']}' webhook: {e}")
             return jsonify({'status': 'error', 'message': 'Internal processing error'}), 500

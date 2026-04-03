@@ -446,3 +446,43 @@ def disconnect_messenger(channel_id):
     except Exception as e:
         logger.error(f"Error disconnecting messenger: {e}")
         return jsonify({'status': 'error', 'message': 'Failed to disconnect Messenger'}), 500
+
+
+@messenger_bp.route('/messenger/update_token/<channel_id>', methods=['POST'])
+@login_required
+def update_messenger_token(channel_id):
+    """
+    Allows the owner to manually paste a Page ID + Page Access Token generated
+    from the Meta Developer Portal, bypassing the OAuth flow entirely.
+    """
+    user_id = session['user']['id']
+    supabase = get_supabase_admin_client()
+
+    # Verify ownership
+    check = supabase.table('user_channels').select('*').eq('channel_id', channel_id).eq('user_id', user_id).execute()
+    if not check.data:
+        return jsonify({'status': 'error', 'message': 'Permission denied'}), 403
+
+    data = request.get_json(silent=True) or {}
+    token = (data.get('page_access_token') or '').strip()
+    page_id = (data.get('page_id') or '').strip()
+
+    if not token:
+        return jsonify({'status': 'error', 'message': 'No token provided'}), 400
+
+    update_payload = {
+        'messenger_page_access_token': token,
+        'messenger_enabled': True
+    }
+    # Only update page_id if one was supplied (allows token-only refresh when already connected)
+    if page_id:
+        update_payload['messenger_page_id'] = page_id
+
+    try:
+        supabase.table('channels').update(update_payload).eq('id', channel_id).execute()
+        logger.info(f"[MESSENGER] Manually connected channel {channel_id} (page_id={page_id or 'unchanged'}) by user {user_id}")
+        return jsonify({'status': 'success', 'message': 'Messenger connected successfully'})
+    except Exception as e:
+        logger.error(f"Error updating messenger token: {e}")
+        return jsonify({'status': 'error', 'message': 'Failed to save — check your inputs'}), 500
+
