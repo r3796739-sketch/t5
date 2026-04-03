@@ -511,12 +511,9 @@
                     "image": "https://app.yoppychat.com/static/images/logo/logo.png",
                     "handler": function (response) {
                         console.log('[Checkout] Payment successful:', response);
-                        showNotification("Payment successful! The item is now in your account.", 'success');
-                        {% if item_type == 'chatbot' %}
-                        window.location.href = "{{ url_for('channel', channel_id=item.id) }}";
-                        {% else %}
-                        window.location.href = "{{ url_for('google_reviews.google_reviews_dashboard') }}";
-                        {% endif %}
+                        showNotification("Payment successful! Redirecting to confirmation page...", 'success');
+                        // Redirect to thank you page instead of directly to the item
+                        window.location.href = "/marketplace/thank-you/{{ transfer.transfer_code }}";
                     },
                     "modal": {
                         "ondismiss": function () {

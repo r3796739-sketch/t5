@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block title %}Purchase Successful - Thank You!{% endblock %}
+
+{% block page_styles %}
+<style>
+    .thank-you-wrapper {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .thank-you-container {
+        max-width: 600px;
+        width: 100%;
+        background: var(--surface-light, #ffffff);
+        border-radius: 24px;
+        padding: 3rem 2rem;
+        text-align: center;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .thank-you-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #10B981, #34D399, #6EE7B7);
+    }
+
+    .success-icon {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, #10B981, #34D399);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 2rem;
+        box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+        animation: bounceIn 0.6s ease-out;
+    }
+
+    .success-icon svg {
+        width: 40px;
+        height: 40px;
+        color: white;
+    }
+
+    .thank-you-title {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: var(--text-primary, #111827);
+        margin-bottom: 1rem;
+        background: linear-gradient(135deg, var(--text-primary, #111827), var(--accent-primary, #ff9a56));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .thank-you-subtitle {
+        font-size: 1.2rem;
+        color: var(--text-secondary, #4b5563);
+        margin-bottom: 2.5rem;
+        line-height: 1.6;
+    }
+
+    .item-details {
+        background: var(--surface-medium, #f9fafb);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2.5rem;
+        border: 1px solid var(--border-color, #e5e7eb);
+    }
+
+    .item-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--accent-primary, #ff9a56), #fb7185);
+        padding: 3px;
+        margin: 0 auto 1rem;
+        box-shadow: 0 4px 12px rgba(255, 107, 53, 0.2);
+    }
+
+    .item-avatar img {
+        width: 100%;
+        height: 100%;
+        border-radius: 9px;
+        object-fit: cover;
+        background: white;
+    }
+
+    .item-name {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary, #111827);
+        margin-bottom: 0.5rem;
+    }
+
+    .item-type {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        background: rgba(147, 51, 234, 0.1);
+        color: #9333ea;
+        font-weight: 600;
+        font-size: 0.85rem;
+        border-radius: 9999px;
+        margin-bottom: 1rem;
+    }
+
+    .item-specs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .spec-item {
+        text-align: center;
+    }
+
+    .spec-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: var(--accent-primary, #ff9a56);
+        display: block;
+    }
+
+    .spec-label {
+        font-size: 0.9rem;
+        color: var(--text-muted, #9ca3af);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .next-steps {
+        background: linear-gradient(135deg, var(--accent-primary, #ff9a56), var(--accent-secondary, #ff6b35));
+        color: white;
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .next-steps h3 {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: white;
+    }
+
+    .next-steps ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .next-steps li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    .next-steps li::before {
+        content: '✓';
+        font-weight: bold;
+        color: #10B981;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-top: 2px;
+        font-size: 0.8rem;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 1rem 2rem;
+        background: linear-gradient(135deg, var(--accent-primary, #ff9a56), var(--accent-secondary, #ff6b35));
+        color: white;
+        font-size: 1rem;
+        font-weight: 700;
+        border-radius: 12px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        box-shadow: 0 4px 12px rgba(255, 107, 53, 0.25);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(255, 107, 53, 0.35);
+    }
+
+    .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 1rem 2rem;
+        background: var(--surface-medium, #f9fafb);
+        color: var(--text-primary, #111827);
+        font-size: 1rem;
+        font-weight: 700;
+        border-radius: 12px;
+        border: 1px solid var(--border-color, #e5e7eb);
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+
+    .btn-secondary:hover {
+        background: #f3f4f6;
+        transform: translateY(-1px);
+    }
+
+    @media (max-width: 640px) {
+        .thank-you-container {
+            padding: 2rem 1.5rem;
+        }
+
+        .thank-you-title {
+            font-size: 2rem;
+        }
+
+        .item-specs {
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+
+        .btn-primary,
+        .btn-secondary {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+
+    @keyframes bounceIn {
+        0% {
+            transform: scale(0.3);
+            opacity: 0;
+        }
+        50% {
+            transform: scale(1.05);
+        }
+        70% {
+            transform: scale(0.9);
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="thank-you-wrapper">
+    <div class="thank-you-container">
+        <div class="success-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+        </div>
+
+        <h1 class="thank-you-title">Purchase Successful!</h1>
+        <p class="thank-you-subtitle">Thank you for your purchase. Your new AI tool is now ready to use.</p>
+
+        <div class="item-details">
+            <div class="item-avatar">
+                <img src="{{ item.channel_thumbnail or item.logo_url or url_for('static', filename='images/default-avatar.png') }}"
+                     alt="{{ item.channel_name or item.business_name or 'Item' }}"
+                     onerror="this.src='{{ url_for('static', filename='images/default-avatar.png') }}'">
+            </div>
+
+            <h2 class="item-name">{{ item.channel_name or item.creator_name or item.business_name }}</h2>
+            <div class="item-type">
+                {% if item_type == 'chatbot' %}Premium {{ item.bot_type|capitalize }} Agent{% else %}Google Review Business{% endif %}
+            </div>
+
+            <div class="item-specs">
+                <div class="spec-item">
+                    <span class="spec-value">{{ transfer.query_limit_monthly }}</span>
+                    <span class="spec-label">Monthly Credits</span>
+                </div>
+                <div class="spec-item">
+                    <span class="spec-value">₹{{ "%.0f"|format(creator_price_inr) }}</span>
+                    <span class="spec-label">Monthly Price</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="next-steps">
+            <h3>What's Next?</h3>
+            <ul>
+                <li>Your AI tool is now available in your dashboard</li>
+                <li>You can start using it immediately with your monthly credits</li>
+                <li>Access it anytime from your account dashboard</li>
+                <li>You can cancel or modify your subscription anytime</li>
+            </ul>
+        </div>
+
+        <div class="action-buttons">
+            {% if item_type == 'chatbot' %}
+            <a href="{{ url_for('channel', channel_id=item.id) }}" class="btn-primary">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                </svg>
+                Start Using Your Agent
+            </a>
+            {% else %}
+            <a href="{{ url_for('google_reviews.google_reviews_dashboard') }}" class="btn-primary">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                </svg>
+                Access Your Review Tool
+            </a>
+            {% endif %}
+            <a href="{{ url_for('dashboard') }}" class="btn-secondary">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+                Go to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

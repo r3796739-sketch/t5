@@ -556,48 +556,18 @@
                      * ===================================================================
                      */
 
-                    function showNotification(message, type = 'info', playSound = false) {
+                    function showNotification(message, type = 'info') {
                         const container = document.getElementById('notification-container');
                         if (!container) return;
                         const notification = document.createElement('div');
                         notification.className = `notification ${type}`;
                         notification.innerHTML = `<span class="notification-message">${message}</span>`;
                         container.appendChild(notification);
-                        
-                        if (playSound) {
-                            const audio = new Audio('/static/payment_received.mpeg');
-                            audio.play().catch(e => console.log('Audio play blocked:', e));
-                        }
-
                         setTimeout(() => notification.classList.add('show'), 100);
                         setTimeout(() => {
                             notification.classList.remove('show');
                             setTimeout(() => { if (container.contains(notification)) container.removeChild(notification); }, 500);
                         }, 5000);
-                    }
-
-                    // --- Notification Polling ---
-                    async function pollNotifications() {
-                        if (!IS_USER_LOGGED_IN) return;
-                        try {
-                            const res = await fetch('/api/notifications/unread');
-                            const data = await res.json();
-                            if (data.status === 'ok' && data.notifications.length > 0) {
-                                const ids = [];
-                                data.notifications.forEach(n => {
-                                    showNotification(n.message, n.type || 'info', n.type === 'sale');
-                                    ids.push(n.id);
-                                });
-                                // Mark as read immediately
-                                fetch('/api/notifications/mark_read', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ notification_ids: ids })
-                                });
-                            }
-                        } catch (err) {
-                            console.error('Notification poll error:', err);
-                        }
                     }
 
                     // --- Auth Mode: 'signin' | 'signup' | 'forgot' ---
@@ -1077,12 +1047,6 @@
                                     profileMenu.classList.remove('show');
                                 }
                             });
-                        }
-
-                        // Start notification polling
-                        if (IS_USER_LOGGED_IN) {
-                            pollNotifications();
-                            setInterval(pollNotifications, 30000); // Every 30 seconds
                         }
                     });
                 </script>

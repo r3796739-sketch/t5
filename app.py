@@ -4825,6 +4825,36 @@ def marketplace_accept(transfer_code):
         SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
     )
 
+@app.route('/marketplace/thank-you/<transfer_code>')
+@login_required
+def marketplace_thank_you(transfer_code):
+    """
+    Thank you page after successful marketplace purchase.
+    Shows details of the purchased item.
+    """
+    user_id = session['user']['id']
+    supabase_admin = get_supabase_admin_client()
+
+    # Get the transfer details
+    transfer = marketplace_utils.get_transfer_by_code(transfer_code)
+
+    if not transfer or transfer.get('buyer_id') != user_id or transfer.get('status') != 'active':
+        return render_template('error.html', error_message="This purchase confirmation is not available."), 404
+
+    chatbot = transfer.get('channels')
+    google_review_settings = transfer.get('google_review_settings')
+
+    item = chatbot if chatbot else google_review_settings
+    item_type = 'chatbot' if chatbot else 'google_review'
+
+    return render_template(
+        'marketplace_thank_you.html',
+        transfer=transfer,
+        item=item,
+        item_type=item_type,
+        creator_price_inr=transfer['creator_price_monthly'] / 100.0
+    )
+
 @app.route('/api/marketplace/subscribe', methods=['POST'])
 @login_required
 def create_marketplace_subscription():
