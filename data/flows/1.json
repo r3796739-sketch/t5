@@ -1,0 +1,74 @@
+{
+  "nodes": [
+    {
+      "id": "n1",
+      "type": "message",
+      "x": -238,
+      "y": -126,
+      "data": {
+        "message": "Hello welcome to the show ",
+        "buttons": [
+          {
+            "id": "b1775203869700290",
+            "label": "Continue",
+            "type": "reply",
+            "url": "",
+            "phone": ""
+          }
+        ],
+        "imageUrl": ""
+      }
+    },
+    {
+      "id": "n2",
+      "type": "list_node",
+      "x": 111,
+      "y": -147,
+      "data": {
+        "message": "Please thoose an option ",
+        "buttons": [],
+        "imageUrl": "",
+        "buttonLabel": "See Options",
+        "sectionTitle": "Options",
+        "rows": [
+          {
+            "id": "b1775203928975628",
+            "title": "Option 1",
+            "description": ""
+          },
+          {
+            "id": "b1775203928975960",
+            "title": "Option 2",
+            "description": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": "n3",
+      "type": "image_node",
+      "x": 489,
+      "y": -122,
+      "data": {
+        "message": "",
+        "buttons": [],
+        "imageUrl": "",
+        "mediaUrl": "",
+        "caption": ""
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source_node": "n1",
+      "button_id": "b1775203869700290",
+      "target_node": "n2"
+    },
+    {
+      "source_node": "n2",
+      "button_id": "b1775203928975628",
+      "target_node": "n3"
+    }
+  ],
+  "ai_instructions": "trigger this flow when user use the word \"Nikhil\""
+}
