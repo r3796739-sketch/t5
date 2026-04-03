@@ -4883,7 +4883,9 @@ def create_marketplace_subscription():
                 if not customer_id:
                     customer = razorpay_client.customer.create({'email': user_email})
                     customer_id = customer['id']
-                    db_utils.create_or_update_profile({'id': user_id, 'email': user_email, 'razorpay_customer_id': customer_id})
+                
+                # Unindented: Always save the customer ID back to the user's profile
+                db_utils.create_or_update_profile({'id': user_id, 'email': user_email, 'razorpay_customer_id': customer_id})
                 logging.info(f"[Marketplace Subscribe] Created/Found customer {customer_id} for user {user_id}")
             except Exception as e:
                 logging.error(f"[Marketplace Subscribe] Razorpay customer error for user {user_id}: {e}", exc_info=True)
