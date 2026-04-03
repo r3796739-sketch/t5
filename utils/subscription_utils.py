@@ -59,7 +59,7 @@ PLANS = {
     os.environ.get('RAZORPAY_PLAN_ID_PERSONAL_INR', 'personal_inr'): { 
         'name': 'Personal', 
         'max_channels': float('inf'), 
-        'max_queries_per_month': 310, 
+        'max_queries_per_month': 369, 
         'price_usd': 3.60,
         'commission_rate': 0.40 
     },
