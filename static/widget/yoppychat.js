@@ -26,7 +26,7 @@
     } catch (e) {
         detectedBaseUrl = window.location.origin;
     }
-    
+
     const BASE_URL = window.YOPPYCHAT_BASE_URL || detectedBaseUrl || 'https://yoppychat.com';
 
     // Widget state
@@ -363,6 +363,7 @@
                 height: 48px;
                 border-radius: 14px;
                 background: ${config.color};
+                color: ${getIconColor(config.color)};
                 border: none;
                 cursor: pointer;
                 display: flex;
@@ -370,6 +371,14 @@
                 justify-content: center;
                 transition: all 0.2s ease;
                 flex-shrink: 0;
+            }
+
+            .yoppychat-send-btn .yoppychat-send-icon {
+                font-size: 22px;
+                color: ${getIconColor(config.color)};
+                user-select: none;
+                line-height: 1;
+                font-weight: 700;
             }
 
             .yoppychat-send-btn:hover {
@@ -384,12 +393,6 @@
             .yoppychat-send-btn:disabled {
                 opacity: 0.5;
                 cursor: not-allowed;
-            }
-
-            .yoppychat-send-btn svg {
-                width: 22px;
-                height: 22px;
-                fill: white;
             }
 
             .yoppychat-footer {
@@ -459,9 +462,7 @@
                         <input type="text" id="yoppychat-input" placeholder="${config.placeholder}" maxlength="500">
                     </div>
                     <button id="yoppychat-send" class="yoppychat-send-btn" aria-label="Send message">
-                        <svg viewBox="0 0 24 24">
-                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
-                        </svg>
+                        <span class="yoppychat-send-icon">➤</span>
                     </button>
                 </div>
                 <div class="yoppychat-footer">
@@ -496,7 +497,7 @@
                 trackEvent('widget_opened');
             } else {
                 popup.classList.remove('open');
-                setTimeout(() => { if(!isOpen) popup.style.display = 'none' }, 400);
+                setTimeout(() => { if (!isOpen) popup.style.display = 'none' }, 400);
             }
         });
 
@@ -512,7 +513,7 @@
 
     function fetchChannelInfo() {
         if (!config.channel) return;
-        
+
         fetch(`${BASE_URL}/api/widget/channel/${encodeURIComponent(config.channel)}`)
             .then(res => res.json())
             .then(data => {
@@ -595,7 +596,7 @@
         messageWrapper.style.flexDirection = 'column';
         messageWrapper.style.alignItems = sender === 'user' ? 'flex-end' : 'flex-start';
         messageWrapper.style.gap = '8px';
-        
+
         let flowMatch;
         let flows = [];
         const flowRegex = /\[TRIGGER_FLOW:\s*"([^"]+)"\]/g;
@@ -604,7 +605,7 @@
                 flows.push(flowMatch[1]);
             }
         }
-        
+
         let display_text = text ? text.replace(/\[TRIGGER_FLOW:\s*"([^"]+)"\]/g, '').trim() : '';
 
         if (display_text) {
@@ -613,18 +614,18 @@
             message.innerHTML = display_text.replace(/\n/g, '<br>');
             messageWrapper.appendChild(message);
         }
-        
+
         // Add flow fallback buttons if backend didn't send actions
         if (flows.length > 0 && (!actions || actions.length === 0)) {
             actions = actions || [];
-             flows.forEach(f => {
+            flows.forEach(f => {
                 actions.push({
-                   type: 'buttons',
-                   buttons: [{id: f, title: f}]
+                    type: 'buttons',
+                    buttons: [{ id: f, title: f }]
                 });
-             });
+            });
         }
-        
+
         // Add sources if available
         if (sources && sources.length > 0) {
             const sourcesDiv = document.createElement('div');
@@ -676,7 +677,7 @@
                     btnsContainer.style.flexWrap = 'wrap';
                     btnsContainer.style.gap = '8px';
                     btnsContainer.style.marginTop = '4px';
-                    
+
                     const btnItems = action.buttons || action.rows || [];
                     btnItems.forEach(btnInfo => {
                         const btn = document.createElement('button');
@@ -690,7 +691,7 @@
                         btn.style.fontSize = '14px';
                         btn.style.fontWeight = '600';
                         btn.style.transition = 'all 0.2s';
-                        
+
                         btn.onmouseover = () => {
                             btn.style.background = config.color;
                             btn.style.color = 'white';
@@ -699,7 +700,7 @@
                             btn.style.background = 'white';
                             btn.style.color = config.color;
                         };
-                        
+
                         btn.onclick = () => {
                             const input = document.getElementById('yoppychat-input');
                             input.value = btn.textContent;
@@ -722,7 +723,7 @@
                     btnsContainer.style.flexWrap = 'wrap';
                     btnsContainer.style.gap = '8px';
                     btnsContainer.style.marginTop = '4px';
-                    
+
                     action.cta_buttons.forEach(btnInfo => {
                         const btn = document.createElement('a');
                         btn.textContent = btnInfo.text;
@@ -743,15 +744,15 @@
                 }
             });
         }
-        
+
         messagesContainer.appendChild(messageWrapper);
-        
+
         // Animate message entry
         messageWrapper.animate([
             { opacity: 0, transform: 'translateY(10px)' },
             { opacity: 1, transform: 'translateY(0)' }
         ], { duration: 300, easing: 'ease-out' });
-        
+
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
@@ -768,6 +769,29 @@
                 })
             }).catch(() => { });
         } catch (e) { }
+    }
+
+    // Helper: Decide icon color based on button background
+    function getIconColor(hex) {
+        try {
+            if (!hex || typeof hex !== 'string' || hex[0] !== '#' || (hex.length !== 7 && hex.length !== 4)) {
+                return '#ffffff';
+            }
+            let r, g, b;
+            if (hex.length === 4) {
+                r = parseInt(hex[1] + hex[1], 16);
+                g = parseInt(hex[2] + hex[2], 16);
+                b = parseInt(hex[3] + hex[3], 16);
+            } else {
+                r = parseInt(hex.slice(1, 3), 16);
+                g = parseInt(hex.slice(3, 5), 16);
+                b = parseInt(hex.slice(5, 7), 16);
+            }
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            return luminance > 0.75 ? '#1f2937' : '#ffffff';
+        } catch (e) {
+            return '#ffffff';
+        }
     }
 
     // Helper: Adjust color brightness
@@ -825,7 +849,7 @@
             }
         },
 
-        destroy: function() {
+        destroy: function () {
             const container = document.getElementById('yoppychat-widget-container');
             if (container) container.remove();
             isInitialized = false;
