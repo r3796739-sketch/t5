@@ -2946,6 +2946,8 @@ def generate_widget_answer(channel_id, question):
     
     response_text = ""
     sources = []
+    actions = []
+    conversation_state = {'flow_id': None, 'flow_node_id': None, 'flow_variables': {}}
     
     for chunk in answer_question_stream(
         question_for_prompt=prompt_q,
