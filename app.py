@@ -3057,7 +3057,8 @@ def widget_ask_question():
         
         if flow_id and flow_node_id:
             try:
-                target_flow_res = supabase_admin.table('channel_flows').select('id, flow_data').eq('id', flow_id).limit(1).execute()
+                # Ensure the active flow belongs to this channel (avoid cross-channel flow bleed)
+                target_flow_res = supabase_admin.table('channel_flows').select('id, flow_data').eq('id', flow_id).eq('channel_id', channel_id).limit(1).execute()
                 if target_flow_res.data:
                     target_flow = {'flow_id': target_flow_res.data[0]['id'], **target_flow_res.data[0]['flow_data']}
                     from utils.flow_runner import run_flow, _match_button, _match_list_row
