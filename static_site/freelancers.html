@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="canonical" href="https://yoppychat.com/freelancers.html" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="YoppyChat for Freelancers & Agencies. Sell AI chatbot services, Google Reviews automation, YouTube tools, and earn recurring revenue.">
+  <title>YoppyChat for Freelancers | Build a ₹10 Lakh/mo AI Agency</title>
+  <link rel="icon" type="image/png" href="images/logo/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#ff9a56', secondary: '#ff8c42', purple: '#9333ea',
+            'purple-light': '#a855f7', success: '#4caf50',
+            'text-primary': '#2a1f16', 'text-secondary': '#5a4a32',
+            'text-muted': '#7d6847', cream: '#fdf8f3',
+          },
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+        }
+      }
+    }
+  </script>
+  <style>
+    :root { --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1); }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', sans-serif; background: #fdf8f3; color: #2a1f16; }
+
+    .gradient-text { background: linear-gradient(135deg, #ff9a56 0%, #ff8c42 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .gradient-text-purple { background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .gradient-text-success { background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
+    .animate-float { animation: float 6s ease-in-out infinite; }
+    .animate-float-delayed { animation: float 6s ease-in-out infinite; animation-delay: 3s; }
+
+    @keyframes gradient-shift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+    .animated-gradient { background: linear-gradient(-45deg, #ff9a56, #ff8c42, #f97316, #fb923c); background-size: 400% 400%; animation: gradient-shift 8s ease infinite; }
+
+    @keyframes blob { 0%,100%{transform:translate(0,0) scale(1)} 25%{transform:translate(20px,-30px) scale(1.1)} 50%{transform:translate(-20px,20px) scale(0.9)} 75%{transform:translate(30px,30px) scale(1.05)} }
+    .blob { animation: blob 10s ease-in-out infinite; }
+    .blob-delayed { animation: blob 10s ease-in-out infinite; animation-delay: 5s; }
+
+    .reveal { opacity: 0; transform: translateY(40px); transition: opacity 0.8s var(--ease-out-expo), transform 0.8s var(--ease-out-expo); }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    @keyframes fade-in-up { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    .stagger-children > * { opacity: 0; transform: translateY(20px); }
+    .stagger-children.visible > *:nth-child(1) { animation: fade-in-up 0.5s var(--ease-out-expo) 0.1s forwards; }
+    .stagger-children.visible > *:nth-child(2) { animation: fade-in-up 0.5s var(--ease-out-expo) 0.2s forwards; }
+    .stagger-children.visible > *:nth-child(3) { animation: fade-in-up 0.5s var(--ease-out-expo) 0.3s forwards; }
+    .stagger-children.visible > *:nth-child(4) { animation: fade-in-up 0.5s var(--ease-out-expo) 0.4s forwards; }
+    .stagger-children.visible > *:nth-child(5) { animation: fade-in-up 0.5s var(--ease-out-expo) 0.5s forwards; }
+    .stagger-children.visible > *:nth-child(6) { animation: fade-in-up 0.5s var(--ease-out-expo) 0.6s forwards; }
+
+    .text-display { font-size: clamp(1.875rem, 5vw, 4.5rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; }
+    .text-headline { font-size: clamp(1.5rem, 3.5vw, 3rem); font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; }
+    .text-body { font-size: clamp(0.875rem, 1.1vw, 1.1rem); line-height: 1.7; }
+
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #f8f1e8; }
+    ::-webkit-scrollbar-thumb { background: #c4a882; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #ff9a56; }
+    ::selection { background: rgba(255,154,86,0.3); }
+
+    /* Dark mode */
+    html.dark body { background: #0f172a; color: #e2e8f0; }
+    html.dark ::-webkit-scrollbar-track { background: #1e293b; }
+    html.dark ::-webkit-scrollbar-thumb { background: #475569; }
+    html.dark ::-webkit-scrollbar-thumb:hover { background: #ff9a56; }
+
+    .dark-mode-toggle { width:40px;height:40px;border-radius:50%;border:2px solid rgba(0,0,0,0.1);background:rgba(255,255,255,0.8);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#2a1f16;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform 0.3s,background 0.3s,box-shadow 0.3s;box-shadow:0 2px 8px rgba(0,0,0,0.1);flex-shrink:0; }
+    .dark-mode-toggle:hover { transform:scale(1.1) rotate(15deg);box-shadow:0 4px 16px rgba(0,0,0,0.15); }
+    html.dark .dark-mode-toggle { background:rgba(30,41,59,0.8);border-color:rgba(255,255,255,0.15);color:#fbbf24;box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+
+    html.dark .logo-light { display: none !important; }
+    html.dark .logo-dark { display: block !important; }
+    .logo-dark { display: none; }
+
+    html.dark .bg-white, html.dark [class*="bg-white"] { background-color: #1e293b !important; }
+    html.dark .bg-white\/50, html.dark [class*="bg-white/50"] { background-color: rgba(30,41,59,0.5) !important; }
+    html.dark [class*="bg-neutral-50"], html.dark .bg-neutral-50 { background-color: #1e293b !important; }
+    html.dark [class*="bg-neutral-100"], html.dark .bg-neutral-100 { background-color: #334155 !important; }
+    html.dark .bg-cream, html.dark [class*="bg-cream"] { background-color: #0f172a !important; }
+    html.dark [class*="border-neutral-200"], html.dark .border-neutral-200 { border-color: #334155 !important; }
+    html.dark .text-text-primary, html.dark [class*="text-text-primary"] { color: #e2e8f0 !important; }
+    html.dark .text-text-secondary, html.dark [class*="text-text-secondary"] { color: #94a3b8 !important; }
+    html.dark .text-text-muted, html.dark [class*="text-text-muted"] { color: #64748b !important; }
+    html.dark [class*="from-neutral-50"] { --tw-gradient-from: #1e293b !important; }
+    body,.bg-white,.bg-cream,header,footer,nav,section,main { transition:background-color 0.3s,color 0.3s,border-color 0.3s; }
+  </style>
+</head>
+
+<body class="min-h-screen overflow-x-hidden">
+  <div class="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+    <div class="blob absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full opacity-30" style="background:radial-gradient(circle,rgba(255,154,86,0.3) 0%,transparent 70%);"></div>
+    <div class="blob-delayed absolute top-1/3 -left-40 w-[500px] h-[500px] rounded-full opacity-20" style="background:radial-gradient(circle,rgba(147,51,234,0.25) 0%,transparent 70%);"></div>
+    <div class="blob absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full opacity-25" style="background:radial-gradient(circle,rgba(255,140,66,0.25) 0%,transparent 70%);"></div>
+    <div class="absolute inset-0 opacity-[0.015]" style="background-image:linear-gradient(#c4a882 1px,transparent 1px),linear-gradient(90deg,#c4a882 1px,transparent 1px);background-size:60px 60px;"></div>
+  </div>
+
+  <header class="fixed top-0 left-0 right-0 z-50 py-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-neutral-200 dark:border-slate-800 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav class="flex items-center justify-between h-12 lg:h-14">
+        <a href="/"><img src="images/logo/primiry__logo.png" alt="YoppyChat" class="h-10 lg:h-12 w-auto logo-light"><img src="images/logo/primiry_logo_dark.png" alt="YoppyChat" class="h-10 lg:h-12 w-auto logo-dark hidden"></a>
+        <div class="hidden lg:flex items-center gap-8">
+          <a href="#the-numbers" class="relative text-text-secondary hover:text-text-primary font-medium transition-colors duration-300 py-2 group">Revenue Math<span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-secondary transition-all duration-300 group-hover:w-full"></span></a>
+          <a href="#features" class="relative text-text-secondary hover:text-text-primary font-medium transition-colors duration-300 py-2 group">Every Feature<span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-secondary transition-all duration-300 group-hover:w-full"></span></a>
+          <a href="#how-it-works" class="relative text-text-secondary hover:text-text-primary font-medium transition-colors duration-300 py-2 group">How It Works<span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-secondary transition-all duration-300 group-hover:w-full"></span></a>
+        </div>
+        <div class="flex items-center gap-3">
+          <button id="darkModeToggle" class="dark-mode-toggle" onclick="toggleDarkMode()" title="Toggle Dark Mode">🌙</button>
+          <a href="https://app.yoppychat.com/dashboard" class="px-6 py-2.5 rounded-full bg-gradient-to-r from-primary to-secondary text-white font-semibold shadow-lg hover:shadow-xl hover:shadow-primary/30 transform hover:-translate-y-0.5 transition-all duration-300">Get Started</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main class="relative z-10 pt-32">
+    <!-- Hero -->
+    <section class="relative min-h-screen flex items-center justify-center pt-20 pb-16 overflow-hidden">
+      <!-- Floating particles & concentric rings (same as index.html) -->
+      <div class="absolute inset-0 pointer-events-none">
+        <div class="absolute top-1/4 left-[10%] w-4 h-4 rounded-full bg-primary/40 animate-float"></div>
+        <div class="absolute top-1/3 right-[15%] w-3 h-3 rounded-full bg-purple/40 animate-float-delayed"></div>
+        <div class="absolute bottom-1/3 left-[20%] w-2 h-2 rounded-full bg-secondary/50 animate-float" style="animation-delay:1.5s;"></div>
+        <div class="absolute top-2/3 right-[10%] w-5 h-5 rounded-full bg-primary/30 animate-float-delayed" style="animation-delay:2s;"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full border border-primary/10"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full border border-primary/15"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full border border-primary/20"></div>
+      </div>
+
+      <div class="relative z-10 max-w-5xl mx-auto px-4 text-center">
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-success/10 border border-success/20 mb-8">
+          <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span class="text-sm font-bold text-success">Setup Once. Earn Every Month. Forever.</span>
+        </div>
+        <h1 class="text-display text-text-primary mb-6">
+          Turn AI Tools Into <br>
+          <span class="relative inline-block">
+            <span class="gradient-text-success">Massive Recurring Revenue</span>
+            <span class="absolute -bottom-1 sm:-bottom-2 left-0 w-full h-1 bg-gradient-to-r from-success to-primary rounded-full"></span>
+          </span>
+        </h1>
+        <p class="text-base sm:text-lg md:text-xl lg:text-2xl text-text-secondary max-w-3xl mx-auto mb-4 font-medium">Build AI Chatbots, Google Reviews Engines, and YouTube Automation systems for clients once — then sit back and collect ₹500–₹10,000 every single month on autopilot.</p>
+        <p class="text-body text-text-muted max-w-2xl mx-auto mb-10"><strong class="text-text-primary">No coding. No server management. No payment gateway setup.</strong> You focus on finding clients — we handle all the technology underneath.</p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+          <a href="https://app.yoppychat.com/dashboard" class="group relative w-full sm:w-auto px-8 py-4 rounded-full bg-gradient-to-r from-success to-primary text-white font-bold text-lg shadow-xl shadow-success/30 overflow-hidden hover:-translate-y-1 transition-all duration-300">
+            <span class="relative z-10 flex items-center justify-center gap-2">Start Earning Today <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></span>
+          </a>
+          <a href="#the-numbers" class="w-full sm:w-auto px-8 py-4 rounded-full bg-white text-text-primary font-bold text-lg border-2 border-neutral-300 hover:border-primary hover:text-primary hover:-translate-y-1 transition-all duration-300 shadow-lg">See the Math</a>
+        </div>
+        <!-- Audience badges -->
+        <div class="flex flex-wrap items-center justify-center gap-3">
+          <div class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-neutral-200 shadow-sm hover:shadow-md hover:border-primary/30 hover:bg-primary/5 transition-all duration-300 cursor-default group">
+            <svg class="w-4 h-4 text-primary group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span class="text-sm font-medium text-text-secondary group-hover:text-text-primary">Freelancers</span>
+          </div>
+          <div class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-neutral-200 shadow-sm hover:shadow-md hover:border-primary/30 hover:bg-primary/5 transition-all duration-300 cursor-default group">
+            <svg class="w-4 h-4 text-primary group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            <span class="text-sm font-medium text-text-secondary group-hover:text-text-primary">Agency Owners</span>
+          </div>
+          <div class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-neutral-200 shadow-sm hover:shadow-md hover:border-primary/30 hover:bg-primary/5 transition-all duration-300 cursor-default group">
+            <svg class="w-4 h-4 text-primary group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span class="text-sm font-medium text-text-secondary group-hover:text-text-primary">Digital Marketers</span>
+          </div>
+          <div class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-neutral-200 shadow-sm hover:shadow-md hover:border-primary/30 hover:bg-primary/5 transition-all duration-300 cursor-default group">
+            <svg class="w-4 h-4 text-primary group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            <span class="text-sm font-medium text-text-secondary group-hover:text-text-primary">Content Creators</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom fade gradient (exact same as index.html) -->
+      <div class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-cream to-transparent pointer-events-none"></div>
+    </section>
+
+    <!-- Revenue Math -->
+    <section id="the-numbers" class="py-24 bg-white dark:bg-slate-900 border-y border-neutral-200 dark:border-slate-800">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-success/10 border border-success/20 mb-4">
+            <span class="text-sm font-extrabold text-success uppercase tracking-wide">0% Platform Commission — You Keep Everything</span>
+          </div>
+          <h2 class="text-headline text-text-primary mb-4">How Much Will You Make?</h2>
+          <p class="text-xl text-text-secondary max-w-2xl mx-auto">Setup once for your client. They pay automatically every month. You never have to chase an invoice again.</p>
+        </div>
+
+        <div class="grid lg:grid-cols-3 gap-8">
+          <div class="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-neutral-200 dark:border-slate-700 shadow-lg hover:-translate-y-2 transition-all">
+            <h3 class="font-bold text-lg text-primary uppercase tracking-wide mb-2">The AI Chatbot Setup</h3>
+            <div class="flex items-baseline gap-2 mb-1"><span class="text-5xl font-extrabold text-text-primary">₹500</span><span class="text-xl text-text-secondary">–₹3k/mo</span></div>
+            <p class="text-text-muted mb-6 text-sm">Charge small local businesses (restaurants, salons, clinics) for a smart AI rep on WhatsApp or their website.</p>
+            <div class="space-y-2 mb-6">
+              <div class="flex justify-between text-sm font-medium bg-primary/5 rounded-lg px-3 py-2"><span class="text-text-secondary">20 small shops</span><span class="text-primary font-bold">₹10,000–₹40,000/mo</span></div>
+              <div class="flex justify-between text-sm font-medium bg-primary/5 rounded-lg px-3 py-2"><span class="text-text-secondary">50 local businesses</span><span class="text-primary font-bold">₹25,000–₹1,50,000/mo</span></div>
+            </div>
+          </div>
+
+          <div class="bg-white dark:bg-slate-800 p-8 rounded-3xl border-2 border-purple/30 shadow-xl scale-105 hover:-translate-y-2 transition-all relative">
+            <div class="absolute top-0 right-0 bg-purple text-white px-4 py-1 rounded-bl-xl rounded-tr-xl font-bold text-sm">Most Popular</div>
+            <h3 class="font-bold text-lg text-purple uppercase tracking-wide mb-2">Google Reviews Engine</h3>
+            <div class="flex items-baseline gap-2 mb-1"><span class="text-5xl font-extrabold text-text-primary">₹2k</span><span class="text-xl text-text-secondary">–₹5k/mo</span></div>
+            <p class="text-text-muted mb-6 text-sm">Automate 5-star Google Reviews & intercept negatives. Every business owner will pay for this forever.</p>
+            <div class="space-y-2 mb-6">
+              <div class="flex justify-between text-sm font-medium bg-purple/5 rounded-lg px-3 py-2"><span class="text-text-secondary">20 businesses</span><span class="text-purple font-bold">₹40,000–₹1,00,000/mo</span></div>
+              <div class="flex justify-between text-sm font-medium bg-purple/5 rounded-lg px-3 py-2"><span class="text-text-secondary">50 businesses</span><span class="text-purple font-bold">₹1,00,000–₹2,50,000/mo</span></div>
+            </div>
+          </div>
+
+          <div class="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-neutral-200 dark:border-slate-700 shadow-lg hover:-translate-y-2 transition-all">
+            <h3 class="font-bold text-lg text-secondary uppercase tracking-wide mb-2">The Creator Package</h3>
+            <div class="flex items-baseline gap-2 mb-1"><span class="text-5xl font-extrabold text-text-primary">₹5k</span><span class="text-xl text-text-secondary">–₹10k/mo</span></div>
+            <p class="text-text-muted mb-6 text-sm">Sell complete YouTube Comment Automation + AI Community chatbots to content creators with audiences.</p>
+            <div class="space-y-2 mb-6">
+              <div class="flex justify-between text-sm font-medium bg-secondary/5 rounded-lg px-3 py-2"><span class="text-text-secondary">10 creators</span><span class="text-secondary font-bold">₹50,000–₹1,00,000/mo</span></div>
+              <div class="flex justify-between text-sm font-medium bg-secondary/5 rounded-lg px-3 py-2"><span class="text-text-secondary">20 creators</span><span class="text-secondary font-bold">₹1,00,000–₹2,00,000/mo</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-16 py-8 px-8 rounded-3xl bg-gradient-to-r from-success/10 to-primary/10 border border-success/20 text-center">
+          <p class="text-2xl font-bold text-text-primary">50 clients at just ₹3,000/mo average = <span class="gradient-text-success text-3xl font-extrabold">₹1,50,000 EVERY MONTH</span></p>
+          <p class="text-lg text-text-secondary mt-2">Setup took a few hours. Now it runs automatically. Zero coding. Zero invoicing. Zero chasing.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works: One-Click Onboarding -->
+    <section id="how-it-works" class="py-24">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid lg:grid-cols-2 gap-16 items-center">
+          <!-- Mockup -->
+          <div class="relative">
+            <div class="absolute inset-0 bg-gradient-to-tr from-primary/20 to-purple/20 blur-3xl -z-10 rounded-[3rem]"></div>
+            <div class="bg-white dark:bg-slate-800 rounded-3xl border border-neutral-200 dark:border-slate-700 shadow-2xl overflow-hidden">
+              <div class="bg-neutral-100 dark:bg-slate-900 px-6 py-4 border-b border-neutral-200 dark:border-slate-700 flex justify-between items-center">
+                <div class="flex gap-2"><div class="w-3 h-3 rounded-full bg-red-400"></div><div class="w-3 h-3 rounded-full bg-yellow-400"></div><div class="w-3 h-3 rounded-full bg-green-400"></div></div>
+                <div class="text-xs text-text-muted font-medium bg-white dark:bg-slate-800 px-3 py-1 rounded-full shadow-sm">yoppychat.com/transfer/buy</div>
+                <div></div>
+              </div>
+              <div class="p-8">
+                <div class="text-center mb-6">
+                  <h3 class="text-2xl font-bold text-text-primary">Purchase & Accept Transfer</h3>
+                  <p class="text-text-secondary mt-1">You are purchasing a managed AI chatbot.</p>
+                </div>
+                <div class="bg-neutral-50 dark:bg-slate-900 border border-neutral-200 dark:border-slate-700 rounded-2xl p-6 mb-6 text-center">
+                  <div class="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary mx-auto mb-4 flex items-center justify-center text-2xl">🤖</div>
+                  <h4 class="text-xl font-bold text-text-primary">"Sharma Dental Clinic - AI Rep"</h4>
+                  <p class="text-sm font-medium text-text-muted mt-2">Created by Your Agency</p>
+                </div>
+                <div class="flex justify-between items-end border-b border-neutral-200 dark:border-slate-700 pb-6 mb-6">
+                  <div>
+                    <p class="text-sm text-text-muted font-medium mb-1">Billed Monthly</p>
+                    <p class="text-3xl font-extrabold text-text-primary">₹2,500 <span class="text-lg font-medium text-text-secondary">/mo</span></p>
+                  </div>
+                  <p class="text-xs text-text-muted text-right">Auto-renews. Cancel anytime.</p>
+                </div>
+                <button class="w-full bg-gradient-to-r from-success to-emerald-600 text-white font-bold py-4 rounded-xl shadow-lg flex justify-center items-center gap-2">
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                  Pay Securely via Razorpay
+                </button>
+              </div>
+            </div>
+          </div>
+          <!-- Steps -->
+          <div>
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-success/10 border border-success/20 mb-6">
+              <span class="text-sm font-extrabold text-success uppercase">Never Chase An Invoice Again</span>
+            </div>
+            <h2 class="text-headline text-text-primary mb-6">Just Send The Link. <span class="gradient-text">We Handle The Rest.</span></h2>
+            <p class="text-lg text-text-secondary mb-8">No payment gateway setup. No manual follow-ups. No technical nonsense. Just a link your client clicks once.</p>
+            <div class="space-y-6">
+              <div class="flex items-start gap-4">
+                <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold flex-shrink-0 mt-1">1</div>
+                <div><h4 class="font-bold text-text-primary text-lg">Configure & Price</h4><p class="text-text-secondary mt-1">Set up the chatbot for your client using our visual tools. Click "Sell" and set your monthly price (e.g. ₹2,500/mo).</p></div>
+              </div>
+              <div class="flex items-start gap-4">
+                <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold flex-shrink-0 mt-1">2</div>
+                <div><h4 class="font-bold text-text-primary text-lg">Client Pays Automatically</h4><p class="text-text-secondary mt-1">Send the magic link via WhatsApp or email. Client pays via UPI/Card on our secure Razorpay checkout page.</p></div>
+              </div>
+              <div class="flex items-start gap-4">
+                <div class="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center text-success font-bold flex-shrink-0 mt-1">3</div>
+                <div><h4 class="font-bold text-text-primary text-lg">Monthly Revenue, Forever</h4><p class="text-text-secondary mt-1">The system transfers the chatbot to their dashboard and bills them automatically every month — money goes straight to your account.</p></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Grid -->
+    <section id="features" class="py-24 bg-white dark:bg-slate-900 border-y border-neutral-200 dark:border-slate-800">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+          <h2 class="text-headline text-text-primary mb-4">Every Feature That <span class="gradient-text">Makes You Money</span></h2>
+          <p class="text-xl text-text-secondary max-w-2xl mx-auto">9 revenue-generating tools in one platform. No integrations. No third-party fees.</p>
+        </div>
+
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Feature 1 -->
+          <div class="p-6 rounded-2xl bg-neutral-50 dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 hover:-translate-y-1 transition-all">
+            <div class="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center text-2xl mb-4">⭐</div>
+            <h3 class="font-bold text-lg text-text-primary mb-2">Google Reviews Automation</h3>
+            <p class="text-text-secondary text-sm">Automatically prompt satisfied customers for 5-star Google reviews. Route negative feedback to the owner's phone privately so it never goes public.</p>
+          </div>
+          <!-- Feature 2 -->
+          <div class="p-6 rounded-2xl bg-neutral-50 dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 hover:-translate-y-1 transition-all">
+            <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center text-2xl mb-4">▶️</div>
+            <h3 class="font-bold text-lg text-text-primary mb-2">YouTube Comment Automation</h3>
+            <p class="text-text-secondary text-sm">Pitch YouTubers to automate their comment section. The AI filters spam, answers fan questions, and drops affiliate links to monetize idle viewers.</p>
+          </div>
+          <!-- Feature 3 -->
+          <div class="p-6 rounded-2xl bg-neutral-50 dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 hover:-translate-y-1 transition-all">
+            <div class="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-2xl mb-4">📋</div>
+            <h3 class="font-bold text-lg text-text-primary mb-2">Lead Capture — Built-In</h3>
+            <p class="text-text-secondary text-sm">The chatbot automatically collects Name, Email, and Phone from before it starts answering. Every conversation is a lead magnet for your client.</p>
+          </div>
+          <!-- Feature 4 -->
+          <div class="p-6 rounded-2xl bg-neutral-50 dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 hover:-translate-y-1 transition-all">
+            <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center text-2xl mb-4">🎯</div>
+            <h3 class="font-bold text-lg text-text-primary mb-2">Promotion Triggers</h3>
+            <p class="text-text-secondary text-sm">Tell the bot: "If someone asks about pricing, drop the Calendly link." AI detects purchase intent and converts the conversation into a booked appointment or sale.</p>
+          </div>
+          <!-- Feature 5 -->
+          <div class="p-6 rounded-2xl bg-neutral-50 dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 hover:-translate-y-1 transition-all">
+            <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center text-2xl mb-4">🔀</div>
+            <h3 class="font-bold text-lg text-text-primary mb-2">Visual Flow Builder</h3>
+            <p class="text-text-secondary text-sm">Design entire AI-driven conversation flows visually using a drag-and-drop node canvas. Build menu-driven WhatsApp flows like a pro — zero code.</p>
+          </div>
+          <!-- Feature 6 -->
+          <div class="p-6 rounded-2xl bg-neutral-50 dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 hover:-translate-y-1 transition-all">
+            <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center text-2xl mb-4">🌐</div>
+            <h3 class="font-bold text-lg text-text-primary mb-2">Public Shareable Chat Page</h3>
+            <p class="text-text-secondary text-sm">Every chatbot gets a hosted public URL you can hand to clients. Works as a standalone mini web app — no website needed. Share on Google Maps, Instagram Bio, anywhere.</p>
+          </div>
+          <!-- Feature 7 -->
+          <div class="p-6 rounded-2xl bg-neutral-50 dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 hover:-translate-y-1 transition-all">
+            <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center text-2xl mb-4">🧠</div>
+            <h3 class="font-bold text-lg text-text-primary mb-2">Creator Soul / Brand Persona</h3>
+            <p class="text-text-secondary text-sm">AI auto-detects a brand or creator's tone, vocabulary, opinions, and values from their content — the bot talks exactly like them, not like a generic robot.</p>
+          </div>
+          <!-- Feature 8 -->
+          <div class="p-6 rounded-2xl bg-neutral-50 dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 hover:-translate-y-1 transition-all">
+            <div class="w-12 h-12 bg-teal-100 dark:bg-teal-900/30 rounded-xl flex items-center justify-center text-2xl mb-4">📲</div>
+            <h3 class="font-bold text-lg text-text-primary mb-2">5-Platform Deployment</h3>
+            <p class="text-text-secondary text-sm">One chatbot, five channels. Deploy the same AI on WhatsApp, Discord, Telegram, Facebook Messenger, and a Website Embed widget simultaneously.</p>
+          </div>
+          <!-- Feature 9 -->
+          <div class="p-6 rounded-2xl bg-neutral-50 dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 hover:-translate-y-1 transition-all">
+            <div class="w-12 h-12 bg-pink-100 dark:bg-pink-900/30 rounded-xl flex items-center justify-center text-2xl mb-4">💸</div>
+            <h3 class="font-bold text-lg text-text-primary mb-2">Affiliate Commission System</h3>
+            <p class="text-text-secondary text-sm">Generate a referral link for every client you bring in. When they subscribe or refer someone else they become an affiliate themselves — your passive income layer on top of income.</p>
+          </div>
+        </div>
+
+        <!-- Speed-to-Lead Box -->
+        <div class="mt-12 grid md:grid-cols-2 gap-8 items-center p-8 rounded-3xl bg-purple/5 dark:bg-slate-800 border border-purple/20">
+          <div>
+            <h3 class="text-2xl font-bold text-text-primary mb-3">Speed-to-Lead <span class="gradient-text-purple">Systems</span></h3>
+            <p class="text-text-secondary mb-4">When a lead form is filled, the AI responds and qualifies the prospect within seconds — automatically. The average business takes <strong>47 hours</strong>. Yours will respond in under 5 seconds.</p>
+            <p class="text-text-secondary">Responding within 5 minutes makes your client <strong>10x more likely to close</strong>. This is the #1 reason businesses will pay you month after month.</p>
+          </div>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3 bg-white dark:bg-slate-700 px-4 py-3 rounded-xl border border-neutral-200 dark:border-slate-600">
+              <svg class="w-5 h-5 text-success flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <p class="text-text-secondary font-medium text-sm">Lead submits inquiry via WhatsApp / Website</p>
+            </div>
+            <div class="flex items-center gap-3 bg-white dark:bg-slate-700 px-4 py-3 rounded-xl border border-neutral-200 dark:border-slate-600">
+              <svg class="w-5 h-5 text-success flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <p class="text-text-secondary font-medium text-sm">AI qualifies: budget, service, location — instantly</p>
+            </div>
+            <div class="flex items-center gap-3 bg-white dark:bg-slate-700 px-4 py-3 rounded-xl border border-neutral-200 dark:border-slate-600">
+              <svg class="w-5 h-5 text-success flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <p class="text-text-secondary font-medium text-sm">Captures name + email + phone for follow-up</p>
+            </div>
+            <div class="flex items-center gap-3 bg-white dark:bg-slate-700 px-4 py-3 rounded-xl border border-neutral-200 dark:border-slate-600">
+              <svg class="w-5 h-5 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+              <p class="text-text-secondary font-medium text-sm">Personalized reply sent in under 5 seconds</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="py-24 bg-success/5 dark:bg-slate-900/50 text-center">
+      <div class="max-w-4xl mx-auto px-4">
+        <h2 class="text-headline text-text-primary mb-6">Stop Charging Per Hour. Start Building Recurring Income.</h2>
+        <p class="text-xl text-text-secondary mb-10">Every client you set up is a stream that flows into your account every month — whether you're working or sleeping.</p>
+        <a href="https://app.yoppychat.com/dashboard" class="inline-block px-10 py-5 rounded-full bg-gradient-to-r from-success to-primary text-white font-bold text-xl shadow-2xl hover:scale-105 hover:shadow-success/40 transition-all">Build Your ₹1 Lakh/mo Business</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bg-white dark:bg-slate-900 border-t border-neutral-200 dark:border-slate-800 py-12 text-center text-text-muted">
+    <p>&copy; 2026 YoppyChat. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // Dark mode toggle (same as index.html)
+    function toggleDarkMode() {
+      const html = document.documentElement;
+      const isDark = html.classList.toggle('dark');
+      localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
+      const btn = document.getElementById('darkModeToggle');
+      if (btn) btn.textContent = isDark ? '☀️' : '🌙';
+    }
+
+    // Apply saved preference on load
+    (function() {
+      const saved = localStorage.getItem('darkMode');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (saved === 'enabled' || (!saved && prefersDark)) {
+        document.documentElement.classList.add('dark');
+        const btn = document.getElementById('darkModeToggle');
+        if (btn) btn.textContent = '☀️';
+      }
+    })();
+
+    // Reveal on scroll
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal, .stagger-children').forEach(el => observer.observe(el));
+  </script>
+</body>
+</html>

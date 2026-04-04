@@ -39,10 +39,56 @@
         welcomeMessage: 'Hi! Ask me anything about this creator.',
         placeholder: 'Type your question...',
         avatar: '',
-        name: 'AI Assistant'
+        name: 'AI Assistant',
+        hideBranding: false,
+        brandingText: ''
     };
 
     let conversationState = {};
+
+    // ── localStorage helpers ──────────────────────────────────────────
+    function getStorageKey() {
+        return 'yoppychat_history_' + (config.channel || 'default');
+    }
+
+    function saveHistory() {
+        try {
+            const payload = {
+                state: conversationState,
+                messages: savedMessages,
+                ts: Date.now()
+            };
+            localStorage.setItem(getStorageKey(), JSON.stringify(payload));
+        } catch (e) { /* storage full or private mode */ }
+    }
+
+    function loadHistory() {
+        try {
+            const raw = localStorage.getItem(getStorageKey());
+            if (!raw) return null;
+            const payload = JSON.parse(raw);
+            // Expire after 30 days
+            if (Date.now() - payload.ts > 30 * 24 * 60 * 60 * 1000) {
+                localStorage.removeItem(getStorageKey());
+                return null;
+            }
+            return payload;
+        } catch (e) { return null; }
+    }
+
+    function clearHistory() {
+        savedMessages = [];
+        conversationState = {};
+        localStorage.removeItem(getStorageKey());
+        const container = document.getElementById('yoppychat-messages');
+        if (container) {
+            container.innerHTML = `<div class="yoppychat-message bot">${config.welcomeMessage}</div>`;
+        }
+    }
+
+    // In-memory mirror of messages for saving
+    let savedMessages = [];
+    // ─────────────────────────────────────────────────────────────────
 
     // Create widget elements
     function createWidget() {
@@ -450,6 +496,9 @@
                         <h3 id="yoppychat-channel-name">${config.name}</h3>
                         <p>Online</p>
                     </div>
+                    <button id="yoppychat-clear-btn" title="Clear chat history" style="background:rgba(255,255,255,0.18);border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.32)'" onmouseout="this.style.background='rgba(255,255,255,0.18)'">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    </button>
                 </div>
                 <div class="yoppychat-messages" id="yoppychat-messages">
                     <div class="yoppychat-message bot">${config.welcomeMessage}</div>
@@ -465,8 +514,8 @@
                         <span class="yoppychat-send-icon">➤</span>
                     </button>
                 </div>
-                <div class="yoppychat-footer">
-                    <a href="${BASE_URL}" target="_blank" rel="nofollow noopener noreferrer">Powered by <span>YoppyChat</span></a>
+                <div class="yoppychat-footer" id="yoppychat-footer" style="display: ${config.hideBranding ? 'none' : 'block'}">
+                    <a href="${BASE_URL}" target="_blank" rel="nofollow noopener noreferrer">${config.brandingText ? config.brandingText : 'Powered by <span>YoppyChat</span>'}</a>
                 </div>
             </div>
         `;
@@ -478,6 +527,9 @@
 
         // Fetch channel info
         fetchChannelInfo();
+
+        // Restore saved conversation
+        restoreHistory();
     }
 
     function setupEventListeners() {
@@ -509,6 +561,16 @@
                 sendMessage();
             }
         });
+
+        // Clear history button
+        const clearBtn = document.getElementById('yoppychat-clear-btn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                if (confirm('Clear your chat history with this assistant?')) {
+                    clearHistory();
+                }
+            });
+        }
     }
 
     function fetchChannelInfo() {
@@ -534,6 +596,27 @@
             });
     }
 
+    function restoreHistory() {
+        const saved = loadHistory();
+        if (!saved || !saved.messages || saved.messages.length === 0) return;
+
+        // Restore conversation state
+        conversationState = saved.state || {};
+        savedMessages = saved.messages;
+
+        // Clear default welcome bubble, replace with saved messages
+        const container = document.getElementById('yoppychat-messages');
+        if (!container) return;
+        container.innerHTML = '';
+
+        saved.messages.forEach(msg => {
+            addMessageToUI(msg.text, msg.sender, msg.sources || [], msg.actions || []);
+        });
+
+        // Scroll to bottom
+        container.scrollTop = container.scrollHeight;
+    }
+
     function sendMessage() {
         const input = document.getElementById('yoppychat-input');
         const sendBtn = document.getElementById('yoppychat-send');
@@ -545,6 +628,7 @@
 
         // Add user message
         addMessage(question, 'user');
+        savedMessages.push({ text: question, sender: 'user', sources: [], actions: [] });
         input.value = '';
         sendBtn.disabled = true;
 
@@ -576,6 +660,9 @@
                         conversationState = data.conversation_state;
                     }
                     addMessage(data.answer || '', 'bot', data.sources, data.actions);
+                    // Save bot reply to history
+                    savedMessages.push({ text: data.answer || '', sender: 'bot', sources: data.sources || [], actions: data.actions || [] });
+                    saveHistory();
                     trackEvent('question_asked');
                 } else {
                     addMessage('Sorry, I couldn\'t process your question at this time. Please try again.', 'bot');
@@ -589,7 +676,13 @@
             });
     }
 
+    // Adds a message to the UI AND saves to in-memory log
     function addMessage(text, sender, sources = [], actions = []) {
+        addMessageToUI(text, sender, sources, actions);
+    }
+
+    // Pure UI render (used for both live and restored messages)
+    function addMessageToUI(text, sender, sources = [], actions = []) {
         const messagesContainer = document.getElementById('yoppychat-messages');
         const messageWrapper = document.createElement('div');
         messageWrapper.style.display = 'flex';
