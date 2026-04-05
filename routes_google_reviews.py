@@ -260,17 +260,27 @@ def google_reviews_dashboard():
     # Also load Google Review businesses the user has bought via the marketplace
     # (they are the active buyer in chatbot_transfers with a google_review_id)
     buyer_transfers_res = supabase.table('chatbot_transfers').select(
-        'google_review_id'
+        'google_review_id, queries_used_this_month, query_limit_monthly'
     ).eq('buyer_id', user_id).eq('status', 'active').not_.is_('google_review_id', 'null').execute()
     
     if buyer_transfers_res.data:
         bought_gr_ids = [t['google_review_id'] for t in buyer_transfers_res.data]
-        # Exclude any already owned (in case of edge cases)
+        transfer_map = {t['google_review_id']: t for t in buyer_transfers_res.data}
+        
+        # Attach transfer context to already owned businesses
+        for s in settings_list:
+            if s['id'] in transfer_map:
+                s['marketplace_transfer'] = transfer_map[s['id']]
+        
+        # Exclude any already owned (in case of edge cases where item isn't in settings_list yet)
         owned_ids = {s['id'] for s in settings_list}
         ids_to_fetch = [gid for gid in bought_gr_ids if gid not in owned_ids]
         if ids_to_fetch:
             bought_settings_res = supabase.table('google_review_settings').select('*').in_('id', ids_to_fetch).execute()
             if bought_settings_res.data:
+                for s in bought_settings_res.data:
+                    if s['id'] in transfer_map:
+                        s['marketplace_transfer'] = transfer_map[s['id']]
                 settings_list = settings_list + bought_settings_res.data
 
     feedback_res = supabase.table('google_reviews_feedback').select('*').eq('user_id', user_id).order('created_at', desc=True).execute()
@@ -293,9 +303,17 @@ def google_reviews_dashboard():
     captured_feedbacks = [fb for fb in feedbacks if (fb.get('rating') or 0) < 4]
     public_reviews = [fb for fb in feedbacks if (fb.get('rating') or 0) >= 4]
 
+    # Determine which business to show (from ?sid query param)
+    selected_sid = request.args.get('sid', type=int)
+    if selected_sid:
+        selected_settings = next((s for s in settings_list if s.get('id') == selected_sid), None)
+    else:
+        selected_settings = settings_list[0] if settings_list else None
+
     return render_template(
         'google_reviews_dashboard.html',
         settings_list=settings_list,
+        selected_settings=selected_settings,
         feedbacks=feedbacks,
         captured_feedbacks=captured_feedbacks,
         public_reviews=public_reviews,

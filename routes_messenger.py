@@ -159,7 +159,8 @@ def _handle_messenger_message(app_obj, sender_psid, recipient_page_id, message_t
                 
             channel = channel_res.data[0]
             page_access_token = channel.get('messenger_page_access_token')
-            user_id = str(channel.get('user_id'))
+            user_id = channel.get('creator_id') or channel.get('user_id')
+            user_id = str(user_id) if user_id else None
             channel_id = channel.get('id')
             logger.warning(f"[MESSENGER BG] Found channel '{channel.get('channel_name')}' (id={channel_id}). Has token: {bool(page_access_token)}")
             
