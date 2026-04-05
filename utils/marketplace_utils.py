@@ -95,6 +95,12 @@ def _transfer_ownership(supabase, db_utils_mod, creator_id: str, buyer_id: str,
             'user_id': buyer_id
         }).eq('id', item_id).execute()
 
+        # Delete feedback history associated with this business so the buyer starts fresh and seller's test data is cleared
+        try:
+            supabase.table('google_reviews_feedback').delete().eq('settings_id', item_id).execute()
+        except Exception as e:
+            log.warning(f"[Transfer] Could not delete feedback history: {e}")
+
         log.info(f"[Transfer] Google Review {item_id}: user_id → {buyer_id} (was {creator_id}).")
 
     else:

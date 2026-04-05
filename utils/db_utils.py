@@ -604,7 +604,10 @@ def get_creator_balance_and_history(creator_id: str):
 
         # 2. Get all payouts and categorize them by status.
         history_res = supabase.table('creator_payouts').select('*').eq('creator_id', creator_id).order('requested_at', desc=True).execute()
-        history = history_res.data or []
+        all_history = history_res.data or []
+        
+        # Filter for affiliate payouts only
+        history = [p for p in all_history if not (p.get('payout_destination_details') and p['payout_destination_details'].get('payout_type') == 'marketplace')]
         
         pending_payouts = sum(p['amount_usd'] for p in history if p['status'] in ['pending', 'processing'])
         total_paid = sum(p['amount_usd'] for p in history if p['status'] == 'paid')
@@ -785,9 +788,25 @@ def update_payout_status(payout_id: str, status: str):
     Updates the status of a payout request.
     """
     try:
-        supabase.table('creator_payouts').update({'status': status}).eq('id', payout_id).execute()
+        res = supabase.table('creator_payouts').update({'status': status}).eq('id', payout_id).execute()
+        
+        if status == 'paid' and res.data:
+            payout = res.data[0]
+            creator_id = payout.get('creator_id')
+            amount = payout.get('amount_usd', 0)
+            
+            dest_details = payout.get('payout_destination_details') or {}
+            is_marketplace = dest_details.get('payout_type') == 'marketplace'
+            
+            if is_marketplace:
+                formatted_amount = f"₹{amount:.2f}"
+            else:
+                formatted_amount = f"${amount:.2f}"
+                
+            msg = f"💰 Your payout of {formatted_amount} has been successfully processed and paid! The funds should reflect in your account shortly."
+            create_notification(creator_id, msg, type='payment')
+            
     except Exception as e:
-
         log.error(f"Error updating payout status for payout {payout_id}: {e}")
 
 def get_platform_cashflow_stats():
@@ -837,12 +856,22 @@ def get_platform_cashflow_stats():
             stats_usd['marketplace_gross'] = inr_gross / exchange_rate
             stats_usd['marketplace_platform_fees'] = inr_fees / exchange_rate
 
-        # 3. Payouts (Stored in USD)
-        payouts_res = supabase.table('creator_payouts').select('amount_usd, status').execute()
+        # 3. Payouts
+        payouts_res = supabase.table('creator_payouts').select('amount_usd, status, payout_destination_details').execute()
         if payouts_res.data:
-            pending_usd = sum(item.get('amount_usd', 0) for item in payouts_res.data if item.get('status') in ['pending', 'processing'])
-            paid_usd = sum(item.get('amount_usd', 0) for item in payouts_res.data if item.get('status') == 'paid')
+            pending_usd = 0.0
+            paid_usd = 0.0
             
+            for p in payouts_res.data:
+                is_marketplace = p.get('payout_destination_details') and p['payout_destination_details'].get('payout_type') == 'marketplace'
+                amount = p.get('amount_usd', 0)
+                amount_in_usd = (amount / exchange_rate) if is_marketplace else amount
+                
+                if p.get('status') in ['pending', 'processing']:
+                    pending_usd += amount_in_usd
+                elif p.get('status') == 'paid':
+                    paid_usd += amount_in_usd
+
             stats_usd['pending_payouts'] = pending_usd
             stats_usd['total_paid_out'] = paid_usd
             stats_inr['pending_payouts'] = pending_usd * exchange_rate

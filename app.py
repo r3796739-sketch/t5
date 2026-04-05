@@ -3441,19 +3441,20 @@ def admin_dashboard():
     communities_res = supabase_admin.table('communities').select('*, owner:owner_user_id(full_name, email)').execute()
     communities = communities_res.data if communities_res.data else []
 
-    non_whop_users_res = supabase_admin.table('profiles').select('*, usage:usage_stats!inner(*)').is_('whop_user_id', None).execute()
+    non_whop_users_res = supabase_admin.table('profiles').select('*, usage:usage_stats(*)').is_('whop_user_id', None).execute()
     non_whop_users = non_whop_users_res.data if non_whop_users_res.data else []
 
-    # Base query for payouts
-    payout_query = supabase_admin.table('creator_payouts').select('*, creator:creator_id(email, full_name, payout_details)').order('requested_at', desc=True)
+    # Base query for payouts (fetch all, then filter in Python if searching)
+    payouts_res = supabase_admin.table('creator_payouts').select('*, creator:creator_id(email, full_name, payout_details)').order('requested_at', desc=True).execute()
+    payouts_all = payouts_res.data if payouts_res.data else []
 
-    # If there's a search query, filter the results
+    # If there's a search query, filter by creator email in Python (safe, avoids PostgREST join-filter issues)
     if search_query:
-        # This will search for the query in the creator's email OR in the payout ID
-        payout_query = payout_query.or_(f"creator.email.ilike.%{search_query}%,id.ilike.%{search_query}%")
-
-    payouts_res = payout_query.execute()
-    payouts = payouts_res.data if payouts_res.data else []
+        sq_lower = search_query.lower()
+        payouts = [p for p in payouts_all if sq_lower in (p.get('creator') or {}).get('email', '').lower()
+                   or sq_lower in str(p.get('id', ''))]
+    else:
+        payouts = payouts_all
     # --- END OF MODIFICATION ---
     
     # Get cashflow stats
@@ -4224,9 +4225,29 @@ def razorpay_webhook():
                 # Create a notification for the seller
                 seller_id = transfer.get('creator_id')
                 if seller_id:
+                    is_new_purchase = transfer.get('status') in ('pending', 'subscription_pending')
+                    purchase_type_label = "New Purchase" if is_new_purchase else "Recurring Payment"
+                    
+                    buyer_name = "Someone"
+                    if user_id:
+                        buyer_profile = db_utils.get_profile(user_id)
+                        if buyer_profile:
+                            buyer_name = buyer_profile.get('full_name') or buyer_profile.get('email') or "Someone"
+                            
+                    item_name = "Marketplace Item"
+                    if transfer.get('chatbot_id'):
+                        channel_data = db_utils.get_channel_by_id(transfer['chatbot_id'])
+                        if channel_data:
+                            item_name = f"'{channel_data.get('channel_name')}' chatbot"
+                    elif transfer.get('google_review_id'):
+                        item_name = "Google Reviews Addon"
+                        
+                    display_amount = inv_amount / 100.0
+                    message_text = f"🎉 [{purchase_type_label}] {buyer_name} paid ₹{display_amount:.2f} for {item_name}."
+
                     db_utils.create_notification(
                         user_id=seller_id,
-                        message="🎉 You have received a new marketplace purchase!",
+                        message=message_text,
                         type='sale'
                     )
             else:
@@ -4524,58 +4545,76 @@ def earnings_page():
 def earnings_data_api():
     """
     Returns earnings statistics, payout details, and transfer history asynchronously.
+    Supports ?status=active|pending|cancelled and ?page=N for pagination (15 rows/page).
     """
     try:
         creator_id = session['user']['id']
-        
-        # Affiliate Earnings Data
+
+        # --- Query Params ---
+        status_filter = request.args.get('status', 'active').lower()
+        page = max(1, int(request.args.get('page', 1)))
+        limit = 15
+        offset = (page - 1) * limit
+
+        # Affiliate Earnings Data (always full, never paginated)
         affiliate_data = db_utils.get_creator_balance_and_history(creator_id)
-        
+
         # Marketplace Earnings Data
         marketplace_data = marketplace_utils.get_creator_marketplace_balance(creator_id)
-        
-        # Calculate Totals (Affiliate is in USD, Marketplace is in INR)
+
+        # Calculate Combined Totals (Affiliate is in USD, Marketplace is in INR)
         exchange_rate = 83.0
-        
         aff_withdrawable_inr = affiliate_data['withdrawable_balance'] * exchange_rate
         aff_pending_inr = affiliate_data['pending_payouts'] * exchange_rate
         aff_earned_inr = affiliate_data['total_earned'] * exchange_rate
 
-        total_withdrawable = aff_withdrawable_inr + marketplace_data['withdrawable_balance']
-        total_pending = aff_pending_inr + marketplace_data['pending_payouts']
-        total_earned_all_time = aff_earned_inr + marketplace_data['total_earned']
-        
         combined_totals = {
-            'withdrawable_balance': total_withdrawable,
-            'pending_payouts': total_pending,
-            'total_earned': total_earned_all_time
+            'withdrawable_balance': round(aff_withdrawable_inr + marketplace_data['withdrawable_balance'], 2),
+            'pending_payouts': round(aff_pending_inr + marketplace_data['pending_payouts'], 2),
+            'total_earned': round(aff_earned_inr + marketplace_data['total_earned'], 2)
         }
-        
+
         profile = db_utils.get_profile(creator_id)
         payout_details = profile.get('payout_details') if profile else None
-        
-        # Fetch active transfers, including channel_id for settings links
-        supabase = get_supabase_admin_client()
-        transfers_res = supabase.table('chatbot_transfers').select(
-            '*, channels!chatbot_transfers_chatbot_id_fkey(id, channel_name)'
-        ).eq('creator_id', creator_id).order('created_at', desc=True).execute()
-        transfers_raw = transfers_res.data or []
 
-        # Enrich each transfer with the buyer's profile (email/name)
-        for t in transfers_raw:
-            buyer_id = t.get('buyer_id')
-            if buyer_id:
-                try:
-                    buyer_profile = db_utils.get_profile(buyer_id)
-                    t['buyer_email'] = buyer_profile.get('email') or buyer_profile.get('full_name') or 'Unknown Buyer'
-                    t['buyer_name'] = buyer_profile.get('full_name') or ''
-                except Exception:
-                    t['buyer_email'] = 'Unknown Buyer'
-                    t['buyer_name'] = ''
-            else:
-                t['buyer_email'] = ''
-                t['buyer_name'] = ''
-        transfers = transfers_raw
+        # --- Fetch transfers with status filter + pagination ---
+        supabase = get_supabase_admin_client()
+        query = supabase.table('chatbot_transfers').select('*', count='exact').eq('creator_id', creator_id)
+
+        if status_filter == 'active':
+            query = query.eq('status', 'active')
+        elif status_filter == 'pending':
+            query = query.in_('status', ['pending', 'subscription_pending'])
+        elif status_filter == 'cancelled':
+            query = query.eq('status', 'cancelled')
+        # status_filter == 'all' → no extra filter
+        else:
+            query = query.eq('status', 'active')  # safe default
+
+        transfers_res = query.order('created_at', desc=True).range(offset, offset + limit - 1).execute()
+        transfers_raw = transfers_res.data or []
+        total_records = transfers_res.count if hasattr(transfers_res, 'count') and transfers_res.count is not None else 0
+
+        # --- Bulk-enrich transfers (avoid N+1 queries) ---
+        if transfers_raw:
+            chatbot_ids = list({t['chatbot_id'] for t in transfers_raw if t.get('chatbot_id')})
+            buyer_ids   = list({t['buyer_id']   for t in transfers_raw if t.get('buyer_id')})
+
+            channels_map = {}
+            if chatbot_ids:
+                ch_res = supabase.table('channels').select('id, channel_name').in_('id', chatbot_ids).execute()
+                channels_map = {ch['id']: ch for ch in (ch_res.data or [])}
+
+            buyers_map = {}
+            if buyer_ids:
+                b_res = supabase.table('profiles').select('id, email, full_name').in_('id', buyer_ids).execute()
+                buyers_map = {b['id']: b for b in (b_res.data or [])}
+
+            for t in transfers_raw:
+                t['channels'] = channels_map.get(t.get('chatbot_id'))
+                bp = buyers_map.get(t.get('buyer_id'), {})
+                t['buyer_email'] = bp.get('email') or bp.get('full_name') or ''
+                t['buyer_name']  = bp.get('full_name') or ''
 
         return jsonify({
             'status': 'success',
@@ -4583,7 +4622,13 @@ def earnings_data_api():
             'affiliate_data': affiliate_data,
             'marketplace_data': marketplace_data,
             'payout_details': payout_details,
-            'transfers': transfers
+            'transfers': transfers_raw,
+            'pagination': {
+                'page': page,
+                'limit': limit,
+                'total_records': total_records,
+                'total_pages': max(1, (total_records + limit - 1) // limit) if total_records else 1
+            }
         })
     except Exception as e:
         logger.error(f"Error fetching earnings data: {e}", exc_info=True)
@@ -4736,6 +4781,7 @@ def create_marketplace_transfer():
 
     query_limit = int(data.get('query_limit_monthly', 100))
     creator_price_monthly = int(float(data.get('creator_price_monthly', 0))) * 100 # convert to paise
+    credit_payer = data.get('credit_payer', 'creator')
 
     if creator_price_monthly < 100:  # minimum ₹1
         return jsonify({'status': 'error', 'message': 'Price must be at least ₹1.'}), 400
@@ -4747,21 +4793,28 @@ def create_marketplace_transfer():
     if creator_price_monthly > max_price_paise:
         return jsonify({'status': 'error', 'message': f'Price is too high for the amount of credits. Maximum allowed price for {query_limit} credits is ₹{query_limit * 10}.'}), 400
 
-    # Capacity Check: Ensure seller isn't overselling credits beyond their global limits
-    from utils.subscription_utils import get_user_status
-    seller_status = get_user_status(user_id)
-    if not seller_status or not seller_status.get('has_personal_plan'):
-        return jsonify({'status': 'error', 'message': 'You must have an active paid subscription to sell on the marketplace.'}), 403
-        
-    s_max = seller_status['limits'].get('max_queries_per_month', 0)
-    if s_max != float('inf'):
-        supabase_admin = get_supabase_admin_client()
-        active_transfers_res = supabase_admin.table('chatbot_transfers').select('query_limit_monthly').eq('creator_id', user_id).eq('status', 'active').execute()
-        total_allocated = sum(t.get('query_limit_monthly', 0) for t in active_transfers_res.data) if active_transfers_res.data else 0
-        
-        if total_allocated + query_limit > s_max:
-            available = max(0, s_max - total_allocated)
-            return jsonify({'status': 'error', 'message': f'You cannot allocate {query_limit} credits. You only have {int(available)} credits left. Upgrade your plan to sell more.'}), 400
+    platform_fee_paise = 0
+
+    if credit_payer == 'buyer':
+        # App Store Model: Buyer pays platform directly for their AI credits
+        # 0.8 INR = 80 paise per credit
+        platform_fee_paise = int(query_limit * 80)
+    else:
+        # Agency Model: Capacity Check to ensure seller isn't overselling their own credits
+        from utils.subscription_utils import get_user_status
+        seller_status = get_user_status(user_id)
+        if not seller_status or not seller_status.get('has_personal_plan'):
+            return jsonify({'status': 'error', 'message': 'You must have an active paid subscription to sell using your own credits.'}), 403
+            
+        s_max = seller_status['limits'].get('max_queries_per_month', 0)
+        if s_max != float('inf'):
+            supabase_admin = get_supabase_admin_client()
+            active_transfers_res = supabase_admin.table('chatbot_transfers').select('query_limit_monthly').eq('creator_id', user_id).eq('status', 'active').execute()
+            total_allocated = sum(t.get('query_limit_monthly', 0) for t in active_transfers_res.data) if active_transfers_res.data else 0
+            
+            if total_allocated + query_limit > s_max:
+                available = max(0, s_max - total_allocated)
+                return jsonify({'status': 'error', 'message': f'You cannot allocate {query_limit} credits. You only have {int(available)} credits left. Upgrade your plan, or choose "Client pays for credits".'}), 400
 
     # Validate ownership
     supabase_admin = get_supabase_admin_client()
@@ -4773,9 +4826,6 @@ def create_marketplace_transfer():
         gr_res = supabase_admin.table('google_review_settings').select('id').eq('id', item_id).eq('user_id', user_id).single().execute()
         if not gr_res.data:
             return jsonify({'status': 'error', 'message': 'Business not found or permission denied.'}), 403
-
-    # Platform fee is 0 — seller keeps 100% of price. Credits come from seller's own plan.
-    platform_fee_paise = 0
 
     transfer_code = marketplace_utils.create_transfer_record(
         creator_id=user_id,
@@ -4849,12 +4899,16 @@ def marketplace_thank_you(transfer_code):
     item = chatbot if chatbot else google_review_settings
     item_type = 'chatbot' if chatbot else 'google_review'
 
+    total_price_inr = (transfer.get('creator_price_monthly', 0) + transfer.get('platform_fee_monthly', 0)) / 100.0
+    platform_fee_inr = transfer.get('platform_fee_monthly', 0) / 100.0
+
     return render_template(
         'marketplace_thank_you.html',
         transfer=transfer,
         item=item,
         item_type=item_type,
-        creator_price_inr=transfer['creator_price_monthly'] / 100.0
+        total_price_inr=total_price_inr,
+        platform_fee_inr=platform_fee_inr
     )
 
 @app.route('/api/marketplace/subscribe', methods=['POST'])
@@ -4929,8 +4983,9 @@ def create_marketplace_subscription():
                 
         # Quantity is the total paise divided by 100 for the ₹1 base plan.
         # So if price is ₹5000, paise=500000. For ₹1 plans (100 paise), quantity=5000
-        quantity = transfer['creator_price_monthly'] // 100
-        logging.info(f"[Marketplace Subscribe] Creating subscription with quantity={quantity}, price={transfer['creator_price_monthly']}")
+        total_price_paise = transfer['creator_price_monthly'] + transfer.get('platform_fee_monthly', 0)
+        quantity = total_price_paise // 100
+        logging.info(f"[Marketplace Subscribe] Creating subscription with quantity={quantity}, total_price={total_price_paise}")
         
         try:
             total_count = int(os.environ.get('RAZORPAY_SUBSCRIPTION_TOTAL_COUNT', 12))
