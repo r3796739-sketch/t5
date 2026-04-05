@@ -74,7 +74,7 @@
 
     @media (min-width: 1100px) {
         .embed-layout {
-            grid-template-columns: 1.2fr 0.8fr;
+            grid-template-columns: 1fr 1.2fr;
         }
     }
 
@@ -253,7 +253,9 @@
         box-shadow: 0 30px 60px rgba(0, 0, 0, 0.12);
         display: flex;
         flex-direction: column;
-        height: 700px;
+        height: 780px;
+        max-width: 600px;
+        margin: 0 auto;
     }
 
     .mockup-header {
@@ -473,6 +475,28 @@
                         <input type="text" id="widget-welcome" value="Hi! Ask me anything about this creator."
                             placeholder="Optional welcome message" oninput="updateWidget()">
                     </div>
+
+                    <!-- Branding Control -->
+                    <div style="border-top: 1px solid var(--embed-border); padding-top: 1.5rem; margin-top: 0.5rem;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+                            <div>
+                                <div style="font-weight:700; font-size:0.95rem; color:var(--embed-text); display:flex; align-items:center; gap:0.5rem;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--embed-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                                    Remove "Powered by YoppyChat"
+                                </div>
+                                <div style="font-size:0.82rem; color:var(--embed-text-muted); margin-top:3px;">Creator plan feature. White-label your chatbot widget.</div>
+                            </div>
+                            <label style="position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0;">
+                                <input type="checkbox" id="widget-hide-branding" onchange="updateWidget()" style="opacity:0; width:0; height:0; position:absolute;">
+                                <span id="branding-toggle-bg" style="position:absolute; cursor:pointer; inset:0; background:#e2e8f0; border-radius:24px; transition:0.3s;"></span>
+                                <span id="branding-toggle-thumb" style="position:absolute; top:2px; left:2px; width:20px; height:20px; background:white; border-radius:50%; transition:0.3s; box-shadow:0 1px 3px rgba(0,0,0,0.2); pointer-events:none;"></span>
+                            </label>
+                        </div>
+                        <div id="custom-branding-group" style="display:none;">
+                            <label style="font-size:0.88rem; font-weight:600; color:var(--embed-text); display:block; margin-bottom:0.5rem;">Custom branding text <span style="color:var(--embed-text-muted); font-weight:400;">(optional — leave blank to hide completely)</span></label>
+                            <input type="text" id="widget-branding-text" placeholder="e.g. Powered by My Agency" oninput="updateWidget()" style="width:100%; padding:0.75rem 1rem; border:2px solid var(--embed-border); border-radius:12px; font-size:0.9rem; color:var(--embed-text); background:var(--embed-surface); outline:none; font-family:inherit;">
+                        </div>
+                    </div>
                 </div>
 
                 <div class="card-section">
@@ -592,16 +616,34 @@
 
         // Update Snippet
         const baseUrl = window.location.origin;
+        const hideBranding = document.getElementById('widget-hide-branding').checked;
+        const brandingText = document.getElementById('widget-branding-text').value.trim();
         const snippet = `<script src="${baseUrl}/static/widget/yoppychat.js?v=2"><\/script>
 <script>
   YoppyChat.init({
     channel: "${channel}",
     color: "${color}",
     position: "${position}",
-    welcomeMessage: "${welcome}"
+    welcomeMessage: "${welcome}"${hideBranding ? `,
+    hideBranding: true` : ''}${brandingText ? `,
+    brandingText: "${brandingText}"` : ''}
   });
 <\/script>`;
         document.getElementById('snippet-output').textContent = snippet;
+
+        // Update branding toggle visual + show/hide custom text input
+        const bg = document.getElementById('branding-toggle-bg');
+        const thumb = document.getElementById('branding-toggle-thumb');
+        const customGroup = document.getElementById('custom-branding-group');
+        if (bg) {
+            bg.style.background = hideBranding ? 'var(--embed-primary)' : '#e2e8f0';
+        }
+        if (thumb) {
+            thumb.style.transform = hideBranding ? 'translateX(20px)' : 'translateX(0)';
+        }
+        if (customGroup) {
+            customGroup.style.display = hideBranding ? 'block' : 'none';
+        }
 
         // Give a tiny delay for script initialization
         if (!window.YoppyChat) return;
@@ -613,7 +655,9 @@
             position: position,
             welcomeMessage: welcome,
             avatar: avatar,
-            name: name
+            name: name,
+            hideBranding: hideBranding,
+            brandingText: brandingText
         };
 
         if (document.getElementById('yoppychat-widget-container')) {

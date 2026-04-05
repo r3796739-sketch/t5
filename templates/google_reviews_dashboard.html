@@ -51,11 +51,12 @@
         overflow-x: hidden;
     }
 
-    /* @media (max-width: 768px) {
+    /* ── Mobile: push .gr-wrap down to clear hamburger & bell ── */
+    @media (max-width: 479px) {
         .gr-wrap {
             margin-top: 50px;
         }
-    } */
+    }
 
     @media (min-width: 480px) {
         .gr-wrap {
@@ -87,7 +88,6 @@
         .gr-hero {
             padding: 1.25rem;
             border-radius: 14px;
-            margin-top: 50px;
         }
     }
 
@@ -2169,7 +2169,24 @@
         {% set limits = user_status.get('limits', {}) if user_status else {} %}
         {% set qUsed = usage.get('queries_this_month', 0)|int %}
         {% set qMax = limits.get('max_queries_per_month', 20)|int %}
-        {% set is_creator = 'creator' in (plan_name|lower) %}
+        
+        {% set ns = namespace(mp_used=0, mp_max=0) %}
+        {% for s in settings_list %}
+            {% if s.get('marketplace_transfer') %}
+                {% set ns.mp_used = ns.mp_used + s.get('marketplace_transfer', {}).get('queries_used_this_month', 0)|int %}
+                {% set ns.mp_max = ns.mp_max + s.get('marketplace_transfer', {}).get('query_limit_monthly', 0)|int %}
+            {% endif %}
+        {% endfor %}
+        
+        {% if ns.mp_max > 0 %}
+            {% set qUsed = qUsed + ns.mp_used %}
+            {% set qMax = qMax + ns.mp_max %}
+            {% if plan_name == 'Free' %}
+                {% set plan_name = 'Purchased Plan' %}
+            {% endif %}
+        {% endif %}
+
+        {% set is_creator = 'creator' in (plan_name|lower) or (ns.mp_max > 0) %}
         {% set qPct = (qUsed / qMax * 100)|round|int if qMax > 0 else 0 %}
         <div class="plan-quota-bar"
             style="background: var(--surface-light); border: 1px solid var(--neutral-200); border-radius: 12px; padding: 0.65rem 1rem; min-width: 220px; max-width: 260px; display: flex; flex-direction: column; gap: 0.5rem; text-align: left; flex-shrink: 0;">
@@ -2250,8 +2267,8 @@
     {% endwith %}
 
     <!-- ── Business cards ─────────────────────────────────── -->
-    {% if settings_list|length > 0 %}
-    {% for settings in settings_list %}
+    {% if selected_settings %}
+    {% set settings = selected_settings %}
     {% set s_id = settings.get('id') %}
     {% set safe_name = settings.get('business_name','business') | replace(" ","-") | lower %}
     {% set link_url = url_for('google_reviews.public_review_page', business_name=safe_name, settings_id=s_id,
@@ -2297,9 +2314,7 @@
                 <form id="deleteForm-{{ s_id }}"
                     action="{{ url_for('google_reviews.delete_business', settings_id=s_id) }}" method="POST"
                     style="margin:0;">
-                    <button type="button" class="btn btn-danger btn-sm" data-settings-id="{{ s_id }}"
-                        onclick="confirmDeleteBusiness(this.dataset.settingsId, '{{ settings.get(" business_name","") |
-                        replace("'","&#39;") }}')">
+                    <button type="button" class="btn btn-danger btn-sm" data-settings-id="{{ s_id }}" data-business-name="{{ settings.get('business_name', '') }}" onclick="confirmDeleteBusiness(this.dataset.settingsId, this.dataset.businessName)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
                             stroke-linejoin="round">
                             <polyline points="3 6 5 6 21 6" />
@@ -2312,6 +2327,33 @@
         </div>
 
         <div class="card-body">
+
+            <!-- Marketplace Credits Quota -->
+            {% if settings.get('marketplace_transfer') %}
+            {% set tf = settings['marketplace_transfer'] %}
+            {% set tfUsed = tf.get('queries_used_this_month', 0)|int %}
+            {% set tfMax = tf.get('query_limit_monthly', 20)|int %}
+            {% set tfPct = (tfUsed / tfMax * 100)|round|int if tfMax > 0 else 0 %}
+            <div style="background: var(--surface-light); border: 1px solid var(--neutral-200); border-radius: 12px; padding: 0.85rem 1.25rem; margin-bottom: 1.25rem; display: flex; flex-direction: column; gap: 0.6rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 3px 10px; border-radius: 999px; background: rgba(var(--accent-primary-rgb, 249, 115, 22), 0.12); color: var(--accent-primary);">Marketplace</span>
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">
+                        <strong style="color: var(--text-primary);">{{ "{:,}".format(tfUsed) }}</strong> / {{ "{:,}".format(tfMax) }} credits
+                    </span>
+                </div>
+                <div style="width: 100%; height: 6px; background: var(--neutral-200); border-radius: 999px; overflow: hidden;">
+                    <div style="height: 100%; border-radius: 999px; background: var(--accent-primary); width: {{ tfPct if tfPct <= 100 else 100 }}%;"></div>
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+                    <button onclick="showPricingModal()" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:7px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,#FF6B35 0%,#F7C59F 50%,#FF6B8A 100%);background-size:200% 200%;animation:grUpgradeShimmer 3s ease infinite;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;box-shadow:0 2px 10px rgba(255,107,53,0.35);transition:transform 0.18s ease,box-shadow 0.18s ease;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 16px rgba(255,107,53,0.5)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 10px rgba(255,107,53,0.35)'">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                        </svg>
+                        ✨ Upgrade Plan
+                    </button>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Stats -->
             {% if stats and s_id in stats %}
@@ -2541,8 +2583,7 @@
         </div>
     </div>
 
-    {% endfor %}
-    {% else %}
+    {% elif settings_list|length == 0 %}
 
     <!-- Empty state -->
     <div class="empty-state">
@@ -2562,6 +2603,17 @@
         </button>
     </div>
 
+    {% else %}
+    <!-- No business selected -- prompt user to pick from sidebar -->
+    <div class="empty-state">
+        <svg class="es-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" />
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+        </svg>
+        <h3>Select a business</h3>
+        <p>Choose a business from the sidebar to view its dashboard.</p>
+    </div>
     {% endif %}
 
     <!-- ── New Business Form ───────────────────────────────── -->
@@ -2996,6 +3048,7 @@
     </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
     function showEditMode(id) {
         document.getElementById('viewMode-' + id).style.display = 'none';
@@ -3093,8 +3146,9 @@
     function renderQrPreview() {
         const carousel = document.getElementById('qrPosterCarousel');
         const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=0&data=${encodeURIComponent(_qrCurrentUrl)}`;
+        const fbLogo = '{{ url_for("static", filename="images/logo/favicon.png") }}';
         const logoHtml = _qrCurrentLogoUrl
-            ? `<img src="${_qrCurrentLogoUrl}" alt="Logo" style="width:64px;height:64px;object-fit:contain;border-radius:12px;background:#fff;padding:4px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">`
+            ? `<img src="${_qrCurrentLogoUrl}" alt="Logo" style="width:64px;height:64px;object-fit:contain;border-radius:12px;background:#fff;padding:4px;box-shadow:0 2px 10px rgba(0,0,0,0.1);" onerror="this.src='${fbLogo}'">`
             : '';
 
         /* ── GOOGLE ── */
@@ -3172,7 +3226,7 @@
 
         /* ── YOPPYCHAT LIGHT ── */
         const ylpLogoInner = _qrCurrentLogoUrl
-            ? `<img src="${_qrCurrentLogoUrl}" alt="Logo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:2px solid #fff;">`
+            ? `<img src="${_qrCurrentLogoUrl}" alt="Logo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:2px solid #fff;" onerror="this.src='${fbLogo}'">`
             : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
         const yoppyLightSlide = `
@@ -3290,7 +3344,7 @@
     function openQrModal(id, bizName, url, logoUrl) {
         _qrCurrentUrl = url;
         _qrCurrentBizName = bizName;
-        _qrCurrentLogoUrl = logoUrl;
+        _qrCurrentLogoUrl = logoUrl || '{{ url_for("static", filename="images/logo/favicon.png") }}';
 
         document.getElementById('qrBizName').textContent = bizName;
 
@@ -3321,715 +3375,115 @@
         btn.innerHTML = '<svg style="width:14px;height:14px;animation:spin 0.8s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.1-5.7"/></svg> Preparing…';
 
         const safeName = (_qrCurrentBizName || 'review').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        const encodedUrl = encodeURIComponent(_qrCurrentUrl);
-        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=0&data=${encodedUrl}`;
-
-        // ───────────────────────────────────────────────────────
-        // Helper: trigger a file download from a data-URL or blob URL
-        // ───────────────────────────────────────────────────────
-        const triggerDownload = (href, filename) => {
-            const a = document.createElement('a');
-            a.href = href; a.download = filename;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        };
 
         try {
-            // Load the QR image (and logo if it exists) via canvas so we can reuse it for both outputs
-            const promises = [
-                new Promise((resolve, reject) => {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.onload = () => resolve(img);
-                    img.onerror = reject;
-                    img.src = qrApiUrl;
-                })
-            ];
+            // Find the currently active poster slide
+            const carousel = document.getElementById('qrPosterCarousel');
+            const slides = carousel.querySelectorAll('.qr-poster-slide');
+            let activeIndex = 0;
+            document.querySelectorAll('.qr-carousel-dot').forEach((dot, i) => {
+                if (dot.classList.contains('active')) activeIndex = i;
+            });
+            const activeSlide = slides[activeIndex];
+            const posterEl = activeSlide.querySelector('.poster-preview-shell');
 
-            if (_qrCurrentLogoUrl) {
-                const fullLogoUrl = _qrCurrentLogoUrl.startsWith('/') ? window.location.origin + _qrCurrentLogoUrl : _qrCurrentLogoUrl;
-                promises.push(new Promise((resolve) => {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.onload = () => resolve(img);
-                    img.onerror = () => resolve(null); // Fallback to null if broken
-                    img.src = fullLogoUrl;
-                }));
-            }
+            // Temporarily remove zoom/transform for full-res capture
+            const origZoom = posterEl.style.zoom;
+            const origTransform = posterEl.style.transform;
+            const origMaxWidth = posterEl.style.maxWidth;
+            posterEl.style.zoom = '1';
+            posterEl.style.transform = 'none';
+            posterEl.style.maxWidth = 'none';
 
-            const results = await Promise.all(promises);
-            const qrImg = results[0];
-            const logoImgObj = results.length > 1 ? results[1] : null;
+            // Wait for QR images to load
+            const imgs = posterEl.querySelectorAll('img');
+            await Promise.all(Array.from(imgs).map(img => {
+                if (img.complete) return Promise.resolve();
+                return new Promise(r => { img.onload = r; img.onerror = r; });
+            }));
 
-            // —————————————————————————
-            // FILE 1: Plain QR code (600×600 with white background)
-            // —————————————————————————
-            const c1 = document.createElement('canvas');
-            c1.width = 640; c1.height = 640;
-            const k1 = c1.getContext('2d');
-            k1.fillStyle = '#ffffff';
-            k1.fillRect(0, 0, 640, 640);
-            k1.drawImage(qrImg, 20, 20, 600, 600);
+            const canvas = await html2canvas(posterEl, {
+                scale: 3,
+                useCORS: true,
+                allowTaint: false,
+                backgroundColor: null,
+                logging: false,
+            });
 
-            // —————————————————————————
-            // —————————————————————————
-            // FILE 2: Styled preview poster
-            // —————————————————————————
-            const isYoppy = _qrCurrentStyle === 'yoppychat';
-            const isYoppyLight = _qrCurrentStyle === 'yoppychat-light';
-            const isMinimal = _qrCurrentStyle === 'minimal';
-            const isGoogle = _qrCurrentStyle === 'google';
+            // Restore original styles
+            posterEl.style.zoom = origZoom;
+            posterEl.style.transform = origTransform;
+            posterEl.style.maxWidth = origMaxWidth;
 
-            const W = 760;
-            let H = 960;
-            if (isYoppy) H = 1180;
-            else if (isMinimal) H = 1160;
-            else if (isGoogle || isYoppyLight) H = 1120;
-
-            const c2 = document.createElement('canvas');
-            c2.width = W; c2.height = H;
-            const k2 = c2.getContext('2d');
-
-            k2.fillStyle = isYoppy ? '#0f0f18' : isYoppyLight ? '#fdf8f3' : '#ffffff';
-            k2.fillRect(0, 0, W, H);
-
-            if (isYoppy) {
-                const grd = k2.createLinearGradient(0, 0, W, H);
-                grd.addColorStop(0, '#0f0f18');
-                grd.addColorStop(1, '#1a1a28');
-                k2.fillStyle = grd;
-                k2.fillRect(0, 0, W, H);
-            }
-
-            // Top accent bar
-            if (isYoppyLight) {
-                const barGrd = k2.createLinearGradient(0, 0, W, 0);
-                barGrd.addColorStop(0, '#ff9a56'); barGrd.addColorStop(1, '#f97316');
-                k2.fillStyle = barGrd;
-                k2.fillRect(0, 0, W, 22);
-            }
-
-            // Top accent bar
-            if (isGoogle) {
-                const topC = ['#EA4335', '#FBBC05', '#34A853', '#4285F4'];
-                topC.forEach((c, i) => { k2.fillStyle = c; k2.fillRect(i * W / 4, 0, W / 4, 12); });
-                const botC = ['#4285F4', '#34A853', '#FBBC05', '#EA4335'];
-                botC.forEach((c, i) => { k2.fillStyle = c; k2.fillRect(i * W / 4, H - 12, W / 4, 12); });
-            } else if (isMinimal) {
-                k2.strokeStyle = '#ebebeb';
-                k2.lineWidth = 10;
-                k2.strokeRect(5, 5, W - 10, H - 10);
-            } else if (isYoppyLight) {
-                // bottom bar
-                k2.fillStyle = '#f0e6d6';
-                k2.fillRect(0, H - 16, W, 16);
-            }
-
-            // Business logo & Header text
-            let gy = 0;
-
-            if (isGoogle) {
-                // Drop shadow logo
-                if (logoImgObj) {
-                    k2.save();
-                    k2.shadowColor = 'rgba(0,0,0,0.1)'; k2.shadowBlur = 10; k2.shadowOffsetY = 2;
-                    k2.fillStyle = '#fff';
-                    k2.beginPath(); k2.roundRect(W / 2 - 70, 70, 140, 140, 24); k2.fill();
-                    k2.shadowBlur = 0; k2.shadowOffsetY = 0;
-                    k2.beginPath(); k2.roundRect(W / 2 - 70, 70, 140, 140, 24); k2.clip();
-                    k2.drawImage(logoImgObj, W / 2 - 70, 70, 140, 140);
-                    k2.restore();
-                    gy = 250;
-                } else { gy = 120; }
-
-                k2.textAlign = 'center';
-                k2.fillStyle = '#9aa0a6';
-                k2.font = 'bold 22px Arial, Helvetica, sans-serif';
-                k2.letterSpacing = '5px';
-                k2.fillText('RATE US ON', W / 2, gy);
-
-                k2.textAlign = 'left';
-                k2.letterSpacing = '0px';
-                const gLetters = [['G', '#4285F4'], ['o', '#EA4335'], ['o', '#FBBC05'], ['g', '#4285F4'], ['l', '#34A853'], ['e', '#EA4335']];
-                k2.font = 'bold 85px Arial, Helvetica, sans-serif';
-                const totalGW = gLetters.reduce((s, [c]) => s + k2.measureText(c).width, 0);
-                let gx = (W - totalGW) / 2;
-                for (const [ch, col] of gLetters) {
-                    k2.fillStyle = col;
-                    k2.fillText(ch, gx, gy + 75);
-                    gx += k2.measureText(ch).width;
-                }
-
-                k2.textAlign = 'center';
-                k2.fillStyle = '#FBBC05';
-                k2.font = '45px Arial';
-                k2.fillText('★★★★★', W / 2, gy + 130);
-
-                gy += 140; // Sets up QR starting point
-
-            } else if (isYoppy) {
-                // Badge logo
-                if (logoImgObj) {
-                    k2.save();
-                    k2.shadowColor = 'rgba(0,0,0,0.4)'; k2.shadowBlur = 16; k2.shadowOffsetY = 2;
-                    k2.strokeStyle = 'rgba(255,255,255,0.1)'; k2.lineWidth = 2; k2.fillStyle = '#fff';
-                    k2.beginPath(); k2.roundRect(W / 2 - 60, 60, 120, 120, 20); k2.fill(); k2.stroke();
-                    k2.shadowBlur = 0; k2.shadowOffsetY = 0; k2.beginPath(); k2.roundRect(W / 2 - 60, 60, 120, 120, 20); k2.clip();
-                    k2.drawImage(logoImgObj, W / 2 - 60, 60, 120, 120);
-                    k2.restore();
-                    gy = 200;
-                } else { gy = 70; }
-
-                k2.fillStyle = 'rgba(255,255,255,0.05)';
-                k2.strokeStyle = 'rgba(255,255,255,0.08)';
-                k2.lineWidth = 2;
-                k2.beginPath(); k2.roundRect(W / 2 - 160, gy + 10, 320, 44, 22); k2.fill(); k2.stroke();
-                k2.fillStyle = '#ff9a56'; k2.textAlign = 'center'; k2.font = 'bold 18px Arial, Helvetica, sans-serif'; k2.letterSpacing = '2px';
-                k2.fillText('SHARE YOUR EXPERIENCE', W / 2 + 10, gy + 38);
-
-                // chat icon
-                k2.strokeStyle = '#ff9a56'; k2.lineWidth = 2; k2.beginPath(); k2.roundRect(W / 2 - 138, gy + 22, 18, 14, 4); k2.stroke();
-
-                k2.fillStyle = '#fff';
-                k2.font = '900 48px Arial, Helvetica, sans-serif';
-                k2.letterSpacing = '0px';
-                k2.fillText('How was your', W / 2, gy + 110);
-                k2.fillStyle = '#ff9a56';
-                k2.fillText('experience with us?', W / 2, gy + 165);
-
-                k2.font = '40px Arial';
-                k2.fillText('★★★★★', W / 2, gy + 225);
-
-                gy += 270;
-
-            } else if (isYoppyLight) {
-                if (logoImgObj) {
-                    k2.save();
-                    k2.shadowColor = 'rgba(255, 154, 86, 0.4)'; k2.shadowBlur = 20; k2.shadowOffsetY = 4;
-                    k2.beginPath(); k2.arc(W / 2, 100, 70, 0, Math.PI * 2); k2.fillStyle = '#fff'; k2.fill();
-                    k2.shadowBlur = 0; k2.shadowOffsetY = 0;
-                    k2.beginPath(); k2.arc(W / 2, 100, 66, 0, Math.PI * 2); k2.clip();
-                    k2.drawImage(logoImgObj, W / 2 - 66, 34, 132, 132);
-                    k2.restore();
-                } else {
-                    k2.save();
-                    k2.beginPath(); k2.arc(W / 2, 100, 70, 0, Math.PI * 2); k2.fillStyle = '#ff9a56'; k2.fill();
-                    k2.fillStyle = '#fff'; k2.textAlign = 'center'; k2.textBaseline = 'middle';
-                    k2.font = 'bold 50px Arial'; k2.fillText('+', W / 2, 105); k2.restore();
-                }
-                const baseGy = (logoImgObj ? 220 : 200);
-                k2.fillStyle = '#2a1f16'; k2.textAlign = 'center'; k2.font = '900 46px Arial, Helvetica, sans-serif'; k2.letterSpacing = '-1px';
-                k2.fillText(_qrCurrentBizName || 'suzu travels', W / 2, baseGy);
-
-                k2.fillStyle = '#ff9a56'; k2.font = '800 20px Arial, Helvetica, sans-serif'; k2.letterSpacing = '5px';
-                k2.fillText('REVIEW STATION', W / 2, baseGy + 34);
-
-                // Divider line
-                k2.strokeStyle = '#e6d5c1'; k2.lineWidth = 1.5;
-                k2.beginPath(); k2.moveTo(W / 2 - 240, baseGy + 60); k2.lineTo(W / 2 + 240, baseGy + 60); k2.stroke();
-
-                // Loved your visit?
-                k2.fillStyle = '#2a1f16'; k2.font = '900 36px Arial, Helvetica, sans-serif'; k2.letterSpacing = '-1px';
-                k2.fillText('Loved your visit?', W / 2, baseGy + 115);
-                k2.fillText('Tell the world!', W / 2, baseGy + 155);
-
-                // Stars
-                k2.fillStyle = '#ff9a56';
-                k2.font = '34px Arial';
-                k2.fillText('★★★★★', W / 2, baseGy + 210);
-
-                gy = baseGy + 240;
-            } else if (isMinimal) {
-                // Top accent bar black
-                k2.fillStyle = '#111';
-                k2.fillRect(0, 0, W, 10);
-
-                // Border around entire canvas
-                k2.strokeStyle = '#111';
-                k2.lineWidth = 4;
-                k2.beginPath(); k2.roundRect(2, 2, W - 4, H - 4, 24); k2.stroke();
-
-                let baseGy = 80;
-                if (logoImgObj) {
-                    k2.save();
-                    k2.shadowColor = 'rgba(0,0,0,0.1)'; k2.shadowBlur = 15; k2.shadowOffsetY = 4;
-                    k2.fillStyle = '#fff';
-                    k2.beginPath(); k2.roundRect(W / 2 - 60, baseGy, 120, 120, 18); k2.fill();
-                    k2.shadowBlur = 0; k2.shadowOffsetY = 0;
-                    k2.strokeStyle = '#f0f0f0'; k2.lineWidth = 1;
-                    k2.stroke();
-                    k2.beginPath(); k2.roundRect(W / 2 - 60, baseGy, 120, 120, 18); k2.clip();
-                    k2.drawImage(logoImgObj, W / 2 - 50, baseGy + 10, 100, 100);
-                    k2.restore();
-                    baseGy += 180;
-                } else { baseGy += 70; }
-
-                k2.fillStyle = '#9aa0a6'; k2.textAlign = 'center'; k2.font = '800 20px Arial, Helvetica, sans-serif'; k2.letterSpacing = '4px';
-                k2.fillText("WE'D LOVE YOUR FEEDBACK", W / 2, baseGy);
-
-                baseGy += 60;
-                k2.fillStyle = '#111'; k2.font = '900 52px Arial, Helvetica, sans-serif'; k2.letterSpacing = '-1px';
-                k2.fillText('Leave Us', W / 2, baseGy);
-                k2.fillText('a Review', W / 2, baseGy + 55);
-
-                baseGy += 95;
-                // Rule
-                k2.fillStyle = '#111';
-                k2.fillRect(W / 2 - 40, baseGy, 80, 4);
-
-                baseGy += 60;
-                // 5 unfilled black stars
-                k2.fillStyle = '#111'; k2.font = '46px Arial';
-                k2.fillText('☆☆☆☆☆', W / 2, baseGy);
-
-                gy = baseGy + 30;
-            }
-
-            // QR image area
-            const qrYAdd = isGoogle ? 30 : 20;
-            const qrSize = (isGoogle || isYoppy || isMinimal) ? 420 : 400;
-            const qrX = (W - qrSize) / 2;
-            const qrY = gy + qrYAdd;
-
-            k2.fillStyle = isYoppy ? 'rgba(255,255,255,0.05)' : isYoppyLight ? '#f4ece0' : '#ffffff';
-            const qrRadius = isYoppy ? 32 : isYoppyLight ? 24 : isMinimal ? 16 : 12;
-
-            k2.save();
-            if (isGoogle) {
-                k2.shadowColor = "rgba(0,0,0,0.1)"; k2.shadowBlur = 15; k2.shadowOffsetY = 4;
-            } else if (isYoppyLight) {
-                k2.shadowColor = "rgba(0,0,0,0.06)"; k2.shadowBlur = 12; k2.shadowOffsetY = 4;
-            } else if (isMinimal) {
-                k2.shadowColor = "rgba(0,0,0,0.03)"; k2.shadowBlur = 12; k2.shadowOffsetY = 4;
-            }
-            k2.beginPath(); k2.roundRect(qrX - 24, qrY - 24, qrSize + 48, qrSize + 48, qrRadius); k2.fill();
-            k2.restore();
-
-            if (isYoppy) {
-                k2.strokeStyle = 'rgba(255,255,255,0.1)'; k2.lineWidth = 2;
-                k2.beginPath(); k2.roundRect(qrX - 24, qrY - 24, qrSize + 48, qrSize + 48, qrRadius); k2.stroke();
-            } else if (isYoppyLight) {
-                k2.fillStyle = '#fff';
-                k2.beginPath(); k2.roundRect(qrX - 12, qrY - 12, qrSize + 24, qrSize + 24, 16); k2.fill();
-
-                k2.strokeStyle = '#e6d5c1'; k2.lineWidth = 1.5;
-                k2.beginPath(); k2.roundRect(qrX - 24, qrY - 24, qrSize + 48, qrSize + 48, qrRadius); k2.stroke();
-            } else if (isMinimal) {
-                k2.strokeStyle = '#eaeaea'; k2.lineWidth = 2;
-                k2.beginPath(); k2.roundRect(qrX - 24, qrY - 24, qrSize + 48, qrSize + 48, qrRadius); k2.stroke();
-            }
-            k2.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
-
-            // Red corner brackets around QR (Google only)
-            if (isGoogle) {
-                const bLen = 22, bThick = 4;
-                k2.lineWidth = bThick; k2.lineCap = 'butt';
-                const px = qrX - 24, py = qrY - 24, ps = qrSize + 48;
-
-                k2.strokeStyle = '#EA4335'; k2.beginPath(); k2.moveTo(px + bLen, py); k2.lineTo(px, py); k2.lineTo(px, py + bLen); k2.stroke();
-                k2.strokeStyle = '#4285F4'; k2.beginPath(); k2.moveTo(px + ps - bLen, py); k2.lineTo(px + ps, py); k2.lineTo(px + ps, py + bLen); k2.stroke();
-                k2.strokeStyle = '#34A853'; k2.beginPath(); k2.moveTo(px, py + ps - bLen); k2.lineTo(px, py + ps); k2.lineTo(px + bLen, py + ps); k2.stroke();
-                k2.strokeStyle = '#FBBC05'; k2.beginPath(); k2.moveTo(px + ps, py + ps - bLen); k2.lineTo(px + ps, py + ps); k2.lineTo(px + ps - bLen, py + ps); k2.stroke();
-            } else if (isMinimal) {
-                // Remove legacy border stroke 
-            }
-
-            // SCAN ME button
-            const btnY = qrY + qrSize + (isYoppyLight ? 40 : 45);
-            const btnW = (isGoogle || isYoppy || isYoppyLight || isMinimal) ? W - 140 : 340, btnH = 76, btnX = (W - btnW) / 2;
-            const btnR = isYoppy ? 38 : isYoppyLight ? 16 : isMinimal ? 12 : (isGoogle ? 14 : 12);
-            k2.fillStyle = isGoogle ? '#EA4335' : isYoppy ? '#ff9a56' : isYoppyLight ? '#ff9a56' : '#fff';
-
-            k2.save();
-            if (isYoppy || isYoppyLight) { k2.shadowColor = 'rgba(255, 154, 86, 0.4)'; k2.shadowBlur = 30; }
-            k2.beginPath(); k2.roundRect(btnX, btnY, btnW, btnH, btnR); k2.fill();
-            if (isMinimal) {
-                k2.strokeStyle = '#111'; k2.lineWidth = 3; k2.stroke();
-            }
-            k2.restore();
-
-            k2.fillStyle = isMinimal ? '#111' : '#ffffff';
-            k2.font = isMinimal ? '800 30px Arial, Helvetica, sans-serif' : '900 32px Arial, Helvetica, sans-serif';
-            k2.textAlign = 'center';
-            k2.letterSpacing = '3px';
-            if (isGoogle) k2.fillText('SCAN TO LEAVE A REVIEW', W / 2, btnY + 48);
-            else if (isYoppy) k2.fillText('SCAN & LEAVE A REVIEW', W / 2, btnY + 48);
-            else if (isYoppyLight) k2.fillText('SCAN & REVIEW US', W / 2, btnY + 48);
-            else k2.fillText('SCAN TO REVIEW', W / 2, btnY + 48);
-
-            // Caption below button
-            k2.fillStyle = isYoppy ? 'rgba(255,255,255,0.6)' : isYoppyLight ? '#7d6847' : isMinimal ? '#999' : '#777';
-            k2.font = isMinimal ? '24px Arial, Helvetica, sans-serif' : '22px Arial, Helvetica, sans-serif';
-            k2.textAlign = 'center';
-            k2.letterSpacing = '0px';
-
-            if (isMinimal) {
-                k2.fillText('Open your camera & point at the code above', W / 2, btnY + 115);
-                k2.fillStyle = '#111'; k2.fillRect(0, H - 10, W, 10);
-            } else if (isYoppy) {
-                k2.fillText('Takes less than a minute', W / 2, btnY + 105);
-                k2.font = 'bold 18px Arial, Helvetica, sans-serif'; k2.letterSpacing = '2px';
-                k2.fillText('POWERED BY YOPPYCHAT', W / 2, btnY + 155);
-            } else if (isYoppyLight) {
-                k2.fillText('Point your camera at the code above', W / 2, btnY + 110);
-                k2.fillText('and share your experience', W / 2, btnY + 145);
-            } else {
-                k2.fillText('Your feedback helps us improve.', W / 2, btnY + 110);
-                k2.fillText('Thank you for your time!', W / 2, btnY + 140);
-            }
+            const dataUrl = canvas.toDataURL('image/png');
 
             if (isPdf) {
-                // PDF download: combine both canvases into a single PDF using print-to-PDF via hidden iframe
-                // We'll use a data URL approach with jsPDF-like manual PDF generation
-                // Simpler: open a printable page sized to the poster that the user saves as PDF
-                const posterDataUrl = c2.toDataURL('image/png');
-                const qrDataUrl = c1.toDataURL('image/png');
                 const pdfWin = window.open('', '_blank', 'width=900,height=800');
-                if (!pdfWin) { triggerDownload(posterDataUrl, `${safeName}_${_qrCurrentStyle}_poster.png`); } else {
-                    pdfWin.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${safeName} Review Poster</title><style>
-                        *{box-sizing:border-box;margin:0;padding:0;}
-                        body{background:#f0f0f0;font-family:Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:2rem;padding:2rem;}
-                        .page{background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;}
-                        img{display:block;max-width:100%;}
-                        .label{font-size:0.75rem;color:#888;text-align:center;margin-top:0.5rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;}
-                        .hint{font-size:0.82rem;color:#555;text-align:center;padding:1rem;background:#fffbe6;border:1px solid #f0c040;border-radius:8px;max-width:560px;}
-                        @media print{body{background:#fff;padding:0;gap:0;}@page{margin:0.5cm;size:A4;}
-                        .hint{display:none;}.page{box-shadow:none;page-break-after:always;}}
-                    </style></head><body>
-                    <div class="hint">📥 To save as PDF: Press <strong>Ctrl+P</strong> (or Cmd+P on Mac) → Choose <strong>"Save as PDF"</strong> as the destination → Click Save.</div>
-                    <div><div class="page"><img src="${qrDataUrl}" style="width:400px;height:400px;" alt="QR Code"></div><div class="label">QR Code</div></div>
-                    <div><div class="page"><img src="${posterDataUrl}" style="width:380px;" alt="Poster"></div><div class="label">${_qrCurrentStyle.replace(/-/g, ' ')} Poster</div></div>
-                    <script>setTimeout(()=>{window.print();},800);<\/script></body></html>`);
+                if (!pdfWin) {
+                    const a = document.createElement('a'); a.href = dataUrl; a.download = `${safeName}_${_qrCurrentStyle}_poster.png`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                } else {
+                    pdfWin.document.write(`<!DOCTYPE html><html><head><title>${safeName} Review Poster</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#f0f0f0;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:2rem;gap:1.5rem;font-family:Arial,sans-serif;}.hint{font-size:0.82rem;color:#555;text-align:center;padding:1rem;background:#fffbe6;border:1px solid #f0c040;border-radius:8px;max-width:560px;}.page{background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;}img{display:block;max-width:100%;}@media print{body{background:#fff;padding:0;}.hint{display:none;}.page{box-shadow:none;}@page{margin:0.5cm;size:A4;}}</style></head><body><div class="hint">📥 Press <strong>Ctrl+P</strong> (Cmd+P on Mac) → <strong>"Save as PDF"</strong> → Save.</div><div><div class="page"><img src="${dataUrl}" style="width:380px;" alt="Poster"></div></div><script>setTimeout(()=>{window.print();},800);<\/script></body></html>`);
                     pdfWin.document.close();
                 }
             } else {
-                triggerDownload(c2.toDataURL('image/png'), `${safeName}_${_qrCurrentStyle}_poster.png`);
+                const a = document.createElement('a'); a.href = dataUrl; a.download = `${safeName}_${_qrCurrentStyle}_poster.png`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
             }
 
         } catch (err) {
             console.error('Download failed:', err);
-            // Fallback: open both URLs in new tabs
-            window.open(qrApiUrl, '_blank');
         }
 
         btn.disabled = false;
         btn.innerHTML = origHTML;
     }
 
-    /* function printQr() {
-        const encodedUrl = encodeURIComponent(_qrCurrentUrl);
-        const imgSrc     = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=0&data=${encodedUrl}`;
-        const bizName    = _qrCurrentBizName;
-        const reviewUrl  = _qrCurrentUrl;
-        const logoHtml   = _qrCurrentLogoUrl ? `<img src="${_qrCurrentLogoUrl}" style="width:84px;height:84px;object-fit:contain;margin-bottom:-0.3rem;border-radius:8px;" alt="Logo">` : '';
 
-        const printWin = window.open('', '_blank', 'width=540,height=760');
-        printWin.document.write(`
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Google Review QR — ${bizName}</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        @import url('https://fonts.googleapis.com/css2?family=Product+Sans:wght@400;700&display=swap');
-        body {
-            font-family: 'Product Sans', 'Google Sans', Arial, sans-serif;
-            background: #e8e8e8;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 1.5rem;
-        }
-        .poster {
-            width: 380px;
-            background: #ffffff;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 8px 40px rgba(0,0,0,0.22);
-        }
-        let styleCSS = '';
-        let innerHTMLOut = '';
 
-        const logoElement = _qrCurrentLogoUrl ? `<img src="${_qrCurrentLogoUrl}" style="width:84px;height:84px;object-fit:contain;border-radius:8px;background:#fff;padding:6px;margin:0 auto;" alt="Logo">` : '';
+    async function printQr() {
+        // Use html2canvas to capture the actual preview, pixel-for-pixel
+        const carousel = document.getElementById('qrPosterCarousel');
+        const slides = carousel.querySelectorAll('.qr-poster-slide');
+        let activeIndex = 0;
+        document.querySelectorAll('.qr-carousel-dot').forEach((dot, i) => {
+            if (dot.classList.contains('active')) activeIndex = i;
+        });
+        const activeSlide = slides[activeIndex];
+        const posterEl = activeSlide.querySelector('.poster-preview-shell');
 
-        if (_qrCurrentStyle === 'google') {
-            styleCSS = `
-                .poster { box-shadow: 0 8px 40px rgba(0,0,0,0.22); }
-                .ct { position: absolute; width: 90px; height: 90px; overflow: hidden; z-index: 2; pointer-events: none; }
-                .ct::before { content:''; position:absolute; width:0; height:0; }
-                .ct-tl { top:0; left:0; } .ct-tl::before { border-top:90px solid #EA4335; border-right:90px solid transparent; }
-                .ct-tr { top:0; right:0; } .ct-tr::before { border-top:90px solid #4285F4; border-left:90px solid transparent; }
-                .ct-bl { bottom:0; left:0; } .ct-bl::before { border-bottom:90px solid #34A853; border-right:90px solid transparent; }
-                .ct-br { bottom:0; right:0; } .ct-br::before { border-bottom:90px solid #FBBC05; border-left:90px solid transparent; }
-                .g-b { color: #4285F4; } .g-r { color: #EA4335; } .g-y { color: #FBBC05; } .g-g { color: #34A853; }
-                .wordmark { font-size: 2.4rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
-                .biz-name { font-size: 1rem; font-weight: 700; color: #202124; text-align: center; }
-                .qr-wrap { position: relative; padding: 10px; background: #fff; }
-                .qr-wrap::before, .qr-wrap::after, .qr-wrap .b::before, .qr-wrap .b::after { content: ''; position: absolute; width: 22px; height: 22px; border-color: #EA4335; border-style: solid; }
-                .qr-wrap::before  { top:0; left:0; border-width:4px 0 0 4px; } .qr-wrap::after { top:0; right:0; border-width:4px 4px 0 0; }
-                .qr-wrap .b::before { bottom:0; left:0; border-width:0 0 4px 4px; } .qr-wrap .b::after { bottom:0; right:0; border-width:0 4px 4px 0; }
-                .scan-me { background: #EA4335; color: #fff; font-size: 1.45rem; font-weight: 900; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.5rem 2.5rem; border-radius: 6px; }
-                .caption { font-size: 0.88rem; color: #444; text-align: center; line-height: 1.6; }
-            `;
-            innerHTMLOut = `
-                <div class="ct ct-tl"></div><div class="ct ct-tr"></div>
-                <div class="ct ct-bl"></div><div class="ct ct-br"></div>
-                ${logoElement}
-                <div class="wordmark"><span class="g-b">G</span><span class="g-r">o</span><span class="g-y">o</span><span class="g-b">g</span><span class="g-g">l</span><span class="g-r">e</span></div>
-                <div class="biz-name">${bizName}</div>
-                <div class="qr-wrap"><span class="b"></span><img src="${imgSrc}" alt="QR Code" style="width:240px;height:240px;" /></div>
-                <div class="scan-me">SCAN ME</div>
-                <div class="caption">Please take a moment to give<br>us a Google review!</div>
-            `;
-        } else if (_qrCurrentStyle === 'yoppychat') {
-            styleCSS = `
-                .poster { background: linear-gradient(135deg, #1e1e24 0%, #2a2a35 100%); color: #fff; border-radius: 12px; }
-                .wordmark { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
-                .biz-name { font-size: 1rem; font-weight: 700; color: #fff; text-align: center; }
-                .qr-wrap { padding: 8px; background: #fff; border-radius: 12px; }
-                .scan-me { background: #ff9a56; color: #fff; font-size: 1.45rem; font-weight: 900; letter-spacing: 0.15em; padding: 0.5rem 2.5rem; border-radius: 999px; outline: 3px solid #1e1e24; }
-                .caption { font-size: 0.88rem; color: rgba(255,255,255,0.8); text-align: center; line-height: 1.6; }
-            `;
-            innerHTMLOut = `
-                ${logoElement}
-                <div class="wordmark">YoppyChat</div>
-                <div class="biz-name">${bizName}</div>
-                <div class="qr-wrap"><img src="${imgSrc}" alt="QR Code" style="width:240px;height:240px;border-radius:4px;" /></div>
-                <div class="scan-me">SCAN ME</div>
-                <div class="caption">Scan to share your<br>experience with us</div>
-            `;
-        } else if (_qrCurrentStyle === 'minimal') {
-            styleCSS = `
-                .poster { background: #fff; border: 1px solid #ddd; box-shadow: none; }
-                .wordmark { font-size: 1.6rem; font-weight: 500; letter-spacing: 0.15em; line-height: 1; text-transform: uppercase; color: #111; }
-                .biz-name { font-size: 1rem; font-weight: 700; color: #111; text-align: center; }
-                .qr-wrap { padding: 4px; border: 4px solid #f0f0f0; }
-                .scan-me { background: #111; color: #fff; font-size: 1.25rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.5rem 2.5rem; border-radius: 4px; }
-                .caption { font-size: 0.88rem; color: #666; text-align: center; line-height: 1.6; font-style: italic; }
-            `;
-            innerHTMLOut = `
-                ${logoElement}
-                <div class="wordmark">FEEDBACK</div>
-                <div class="biz-name">${bizName}</div>
-                <div class="qr-wrap"><img src="${imgSrc}" alt="QR Code" style="width:240px;height:240px;" /></div>
-                <div class="scan-me">SCAN ME</div>
-                <div class="caption">Your feedback helps us grow.</div>
-            `;
-        }
+        const origZoom = posterEl.style.zoom;
+        const origTransform = posterEl.style.transform;
+        const origMaxWidth = posterEl.style.maxWidth;
+        posterEl.style.zoom = '1';
+        posterEl.style.transform = 'none';
+        posterEl.style.maxWidth = 'none';
 
-        const printWin = window.open('', '_blank', 'width=540,height=760');
-        printWin.document.write(`
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>${_qrCurrentStyle.toUpperCase()} Review QR — ${bizName}</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        @import url('https://fonts.googleapis.com/css2?family=Product+Sans:wght@400;700&display=swap');
-        body { font-family: 'Product Sans', 'Google Sans', Arial, sans-serif; background: #e8e8e8; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1.5rem; }
-        .poster { width: 380px; position: relative; overflow: hidden; background: #fff; }
-        .inner { padding: 2rem 2rem 1.75rem; display: flex; flex-direction: column; align-items: center; gap: 1.1rem; position: relative; z-index: 1; }
-        .url-note { font-size: 0.55rem; color: #b0b0b0; text-align: center; word-break: break-all; padding-bottom: 0.25rem; }
-        @media print { body { background: none; padding: 0; } @page { margin: 0; size: 380px 580px; } .poster { box-shadow: none; border: none; border-radius: 0; } }
-        ${styleCSS}
-    </style>
-</head>
-<body>
-<div class="poster">
-    <div class="inner">
-        ${innerHTMLOut}
-        <div class="url-note">${reviewUrl}</div>
-    </div>
-</div>
-<script>window.onload=()=>{ setTimeout(()=>{ window.print(); }, 700); }<\/script>
-</body>
-</html>`);
-        printWin.document.close();
-    }
+        const imgs = posterEl.querySelectorAll('img');
+        await Promise.all(Array.from(imgs).map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise(r => { img.onload = r; img.onerror = r; });
+        }));
 
-    /* ── NFC Card Modal ────────────────────────────────────── */
-    function printQr() {
-        const encodedUrl = encodeURIComponent(_qrCurrentUrl);
-        const imgSrc = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=0&data=${encodedUrl}`;
+        const canvas = await html2canvas(posterEl, {
+            scale: 3,
+            useCORS: true,
+            allowTaint: false,
+            backgroundColor: null,
+            logging: false,
+        });
+
+        posterEl.style.zoom = origZoom;
+        posterEl.style.transform = origTransform;
+        posterEl.style.maxWidth = origMaxWidth;
+
+        const dataUrl = canvas.toDataURL('image/png');
         const bizName = _qrCurrentBizName;
-        const reviewUrl = _qrCurrentUrl;
-
-        let styleCSS = '';
-        let innerHTMLOut = '';
-
-        const logoElement = _qrCurrentLogoUrl
-            ? `<img src="${_qrCurrentLogoUrl}" style="width:84px;height:84px;object-fit:contain;border-radius:8px;background:#fff;padding:6px;margin:0 auto;" alt="Logo">`
-            : '';
-
-        if (_qrCurrentStyle === 'google') {
-            styleCSS = `
-                .poster { box-shadow: 0 8px 40px rgba(0,0,0,0.22); }
-                .topbar { display:flex; height:6px; width:100%; position:absolute; top:0; left:0; }
-                .topbar span { flex:1; } .topbar .c1{background:#EA4335;} .topbar .c2{background:#FBBC05;} .topbar .c3{background:#34A853;} .topbar .c4{background:#4285F4;}
-                .bottombar { display:flex; height:6px; width:100%; position:absolute; bottom:0; left:0; }
-                .bottombar span { flex:1; } .bottombar .c1{background:#4285F4;} .bottombar .c2{background:#34A853;} .bottombar .c3{background:#FBBC05;} .bottombar .c4{background:#EA4335;}
-                .eyebrow { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #9aa0a6; margin-top: 10px; }
-                .g-b { color: #4285F4; } .g-r { color: #EA4335; } .g-y { color: #FBBC05; } .g-g { color: #34A853; }
-                .wordmark { font-size: 2.2rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1; margin-top: 4px; }
-                .stars svg { width: 20px; height: 20px; fill: #FBBC05; margin: 0 1px; }
-                .qr-wrap { position: relative; padding: 10px; background: #fff; border: 1.5px solid #f0f0f0; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-top: 15px; }
-                .qr-wrap::before, .qr-wrap::after, .qr-wrap .b::before, .qr-wrap .b::after { content: ''; position: absolute; width: 14px; height: 14px; border-style: solid; border-color: #EA4335; }
-                .qr-wrap::before  { top:-1px; left:-1px; border-width:3px 0 0 3px; border-radius:3px 0 0 0; } 
-                .qr-wrap::after { top:-1px; right:-1px; border-width:3px 3px 0 0; border-radius:0 3px 0 0; border-color: #4285F4; }
-                .qr-wrap .b::before { bottom:-1px; left:-1px; border-width:0 0 3px 3px; border-radius:0 0 0 3px; border-color: #34A853; } 
-                .qr-wrap .b::after { bottom:-1px; right:-1px; border-width:0 3px 3px 0; border-radius:0 0 3px 0; border-color: #FBBC05; }
-                .scan-me { background: #EA4335; color: #fff; font-size: 1rem; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.75rem; border-radius: 8px; width: 100%; text-align: center; margin-top: 20px; }
-                .caption { font-size: 0.7rem; color: #777; text-align: center; line-height: 1.6; margin-top: 5px; }
-            `;
-            innerHTMLOut = `
-                <div class="topbar"><span class="c1"></span><span class="c2"></span><span class="c3"></span><span class="c4"></span></div>
-                ${logoElement}
-                <div class="eyebrow">Rate us on</div>
-                <div class="wordmark"><span class="g-b">G</span><span class="g-r">o</span><span class="g-y">o</span><span class="g-b">g</span><span class="g-g">l</span><span class="g-r">e</span></div>
-                <div class="stars"><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" stroke-width="1.5" stroke-linejoin="round"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" stroke-width="1.5" stroke-linejoin="round"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" stroke-width="1.5" stroke-linejoin="round"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" stroke-width="1.5" stroke-linejoin="round"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" stroke-width="1.5" stroke-linejoin="round"/></svg></div>
-                <div class="qr-wrap"><span class="b"></span><img src="${imgSrc}" style="width:230px;height:230px;display:block;" /></div>
-                <div class="scan-me">SCAN TO LEAVE A REVIEW</div>
-                <div class="caption">Your feedback helps us improve.<br>Thank you for your time!</div>
-                <div class="bottombar"><span class="c1"></span><span class="c2"></span><span class="c3"></span><span class="c4"></span></div>
-            `;
-        } else if (_qrCurrentStyle === 'yoppychat') {
-            styleCSS = `
-                .poster { background: linear-gradient(135deg, #0d0d14 0%, #151522 100%); color: #fff; }
-                .yp-logo { width: 70px; height: 70px; object-fit: contain; border-radius: 14px; background: #fff; padding: 6px; box-shadow: 0 2px 16px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); margin: 0 auto; }
-                .yp-badge { margin-top: 15px; display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; background: rgba(255,255,255,0.05); color: #ff9a56; border: 1px solid rgba(255,255,255,0.08); border-radius: 99px; }
-                .yp-badge svg { width: 14px; height: 14px; }
-                .yp-badge-text { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
-                .yp-heading { font-size: 1.6rem; font-weight: 900; line-height: 1.25; margin-top: 15px; text-align: center; }
-                .yp-heading span { color: #ff9a56; }
-                .stars svg { width: 22px; height: 22px; fill: #ff9a56; margin: 0 2px; }
-                .stars { margin-top: 10px; display: flex; justify-content: center; }
-                .qr-wrap { padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; display: inline-block; margin-top: 15px; width:100%; box-sizing:border-box;}
-                .scan-me { background: #ff9a56; color: #fff; font-size: 1.2rem; font-weight: 900; letter-spacing: 0.05em; padding: 0.8rem 2rem; border-radius: 99px; outline: none; border: none; box-shadow: 0 4px 20px rgba(255,154,86,0.4); margin-top: 15px; width: 100%; text-transform: uppercase; text-align:center; }
-                .caption { font-size: 0.8rem; color: rgba(255,255,255,0.6); text-align: center; margin-top: 15px; }
-                .yp-footer { margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; opacity: 0.6; }
-                .yp-footer svg { width: 14px; height: 14px; color: #fff; }
-                .yp-footer-text { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; color: #fff; }
-            `;
-            const ypLogoHTML = _qrCurrentLogoUrl ? `<img src="${_qrCurrentLogoUrl}" class="yp-logo" alt="Logo">` : '';
-            innerHTMLOut = `
-                ${ypLogoHTML}
-                <div class="yp-badge">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                    <span class="yp-badge-text">Share your experience</span>
-                </div>
-                <div class="yp-heading">How was your<br><span>experience with us?</span></div>
-                <div class="stars"><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg></div>
-                <div class="qr-wrap"><img src="${imgSrc}" style="width:230px;height:230px;border-radius:12px;display:block;margin:0 auto;" /></div>
-                <div class="scan-me">SCAN &amp; LEAVE A REVIEW</div>
-                <div class="caption">Takes less than a minute</div>
-                <div class="yp-footer">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                    <span class="yp-footer-text">POWERED BY YOPPYCHAT</span>
-                </div>
-            `;
-        } else if (_qrCurrentStyle === 'minimal') {
-            styleCSS = `
-                .poster { background: #fff; border-radius: 16px; border: 2px solid #111; overflow: hidden; position: relative; }
-                .mp-accent-bar { height: 6px; background: #111; width: 100%; position: absolute; top: 0; left: 0; }
-                .mp-bottom-bar { height: 6px; background: #111; width: 100%; position: absolute; bottom: 0; left: 0; }
-                .mp-logo { width: 70px; height: 70px; object-fit: contain; border-radius: 12px; background: #fff; padding: 4px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); margin: 20px auto 10px; border: 1px solid #f0f0f0; display: block; }
-                .mp-kicker { font-size: 0.75rem; font-weight: 700; color: #9aa0a6; text-transform: uppercase; letter-spacing: 0.15em; text-align: center; margin-top: 15px; }
-                .mp-heading { font-size: 1.8rem; font-weight: 900; color: #111; text-align: center; line-height: 1.25; margin-top: 10px; }
-                .mp-rule { width: 40px; height: 3px; background: #111; margin: 15px auto; }
-                .stars svg { width: 22px; height: 22px; fill: none; stroke: #111; stroke-width: 1.5; margin: 0 2px; }
-                .stars { display: flex; justify-content: center; margin-bottom: 20px; }
-                .qr-wrap { padding: 12px; border-radius: 16px; border: 1px solid #eaeaea; margin: 0 auto; display: inline-block; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.03); width:100%; box-sizing:border-box;}
-                .scan-me { background: #fff; color: #111; font-size: 1.1rem; font-weight: 800; letter-spacing: 0.1em; padding: 0.8rem 2rem; border-radius: 8px; outline: none; border: 2px solid #111; margin-top: 20px; text-transform: uppercase; width: 100%; display: block; text-align: center; box-sizing: border-box; }
-                .caption { font-size: 0.8rem; color: #888; text-align: center; margin-top: 15px; margin-bottom: 15px; }
-            `;
-            const mpLogoHTML = _qrCurrentLogoUrl ? `<img src="${_qrCurrentLogoUrl}" class="mp-logo" alt="Logo">` : '';
-            innerHTMLOut = `
-                <div class="mp-accent-bar"></div>
-                ${mpLogoHTML}
-                <div class="mp-kicker">We'd love your feedback</div>
-                <div class="mp-heading">Leave Us<br>a Review</div>
-                <div class="mp-rule"></div>
-                <div class="stars"><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg></div>
-                <div style="text-align:center;">
-                    <div class="qr-wrap"><img src="${imgSrc}" alt="QR Code" style="width:230px;height:230px;display:block;margin:0 auto;" /></div>
-                </div>
-                <div class="scan-me">SCAN TO REVIEW</div>
-                <div class="caption">Open your camera &amp; point at the code above</div>
-                <div class="mp-bottom-bar"></div>
-            `;
-        } else if (_qrCurrentStyle === 'yoppychat-light') {
-            styleCSS = `
-                .poster { background: #fdf8f3; border: 1px solid #e6d5c1; border-radius: 12px; }
-                .topbar { height: 10px; background: linear-gradient(90deg, #ff9a56 0%, #ff8c42 50%, #f97316 100%); width: 100%; position: absolute; top: 0; left: 0; }
-                .brand-wrap { text-align: center; margin-top: 5px; }
-                .wordmark { font-size: 1.8rem; font-weight: 800; color: #2a1f16; letter-spacing: -0.02em; line-height: 1.2; }
-                .brand-sub { font-size: 0.8rem; font-weight: 700; color: #ff9a56; letter-spacing: 0.14em; text-transform: uppercase; margin-top: 4px; }
-                .divider { margin: 15px auto; width: 85%; height: 1px; background: #e6d5c1; }
-                .heading { font-size: 1.4rem; font-weight: 900; color: #2a1f16; text-align: center; line-height: 1.35; margin-bottom: 5px; }
-                .stars svg { width: 22px; height: 22px; fill: #ff9a56; margin: 0 1px; }
-                .stars { display: flex; justify-content: center; margin-bottom: 20px; }
-                .qr-wrap { padding: 12px; background: #f4ece0; border-radius: 18px; border: 1.5px solid #e6d5c1; box-shadow: 0 4px 12px rgba(0,0,0,0.06); margin: 0 auto; display: inline-block; }
-                .qr-inner { background: #fff; padding: 10px; border-radius: 12px; }
-                .scan-me { background: linear-gradient(135deg, #ff9a56 0%, #ff8c42 100%); color: #fff; font-size: 1.25rem; font-weight: 900; letter-spacing: 0.1em; padding: 0.8rem 2rem; border-radius: 12px; outline: none; margin-top: 20px; text-transform: uppercase; border: none; box-shadow: 0 4px 20px rgba(255,154,86,0.4); width: 100%; display: block; text-align: center; box-sizing: border-box; }
-                .caption { font-size: 0.85rem; color: #7d6847; text-align: center; line-height: 1.6; padding-top: 15px; }
-                .logo-ring { width: 90px; height: 90px; margin: 0 auto 5px; display: flex; align-items: center; justify-content: center; position: relative; }
-                .logo-ring img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; border: 3px solid #fff; position: relative; z-index: 2; box-shadow: 0 4px 14px rgba(255, 154, 86, 0.4); }
-                .logo-ring svg { width: 45px; height: 45px; color: #fff; position: relative; z-index: 2; }
-                .logo-ring-bg { position: absolute; width: 100%; height: 100%; background: linear-gradient(135deg, #ff9a56, #ff8c42); border-radius: 50%; z-index: 1; box-shadow: 0 4px 14px rgba(255, 154, 86, 0.4); }
-            `;
-            const ylpLogoEl = _qrCurrentLogoUrl ? `<img src="${_qrCurrentLogoUrl}" alt="Logo">` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
-            innerHTMLOut = `
-                <div class="topbar"></div>
-                <div class="logo-ring"><div class="logo-ring-bg"></div>${ylpLogoEl}</div>
-                <div class="brand-wrap">
-                    <div class="wordmark">${bizName || 'YoppyChat'}</div>
-                    <div class="brand-sub">REVIEW STATION</div>
-                </div>
-                <div class="divider"></div>
-                <div class="heading">Loved your visit?<br>Tell the world!</div>
-                <div class="stars"><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg><svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg></div>
-                <div style="text-align:center;">
-                    <div class="qr-wrap"><div class="qr-inner"><img src="${imgSrc}" alt="QR Code" style="width:230px;height:230px;display:block;" /></div></div>
-                </div>
-                <div class="scan-me">SCAN &amp; REVIEW US</div>
-                <div class="caption">Point your camera at the code above<br>and share your experience</div>
-            `;
-        }
 
         const printWin = window.open('', '_blank', 'width=540,height=760');
         if (!printWin) return;
-
-        printWin.document.write(`
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>${_qrCurrentStyle.toUpperCase()} Review QR - ${bizName}</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        @import url('https://fonts.googleapis.com/css2?family=Product+Sans:wght@400;700&display=swap');
-        body { font-family: 'Product Sans', 'Google Sans', Arial, sans-serif; background: #e8e8e8; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1.5rem; }
-        .poster { width: 380px; position: relative; overflow: hidden; background: #fff; }
-        .inner { padding: 2rem 2rem 1.75rem; display: flex; flex-direction: column; align-items: center; gap: 1.1rem; position: relative; z-index: 1; }
-        .url-note { font-size: 0.55rem; color: #b0b0b0; text-align: center; word-break: break-all; padding-bottom: 0.25rem; }
-        @media print { body { background: none; padding: 0; } @page { margin: 0; size: 380px 580px; } .poster { box-shadow: none; border: none; border-radius: 0; } }
-        ${styleCSS}
-    </style>
-</head>
-<body>
-<div class="poster">
-    <div class="inner">
-        ${innerHTMLOut}
-        <div class="url-note">${reviewUrl}</div>
-    </div>
-</div>
-<script>window.onload=()=>{ setTimeout(()=>{ window.print(); }, 700); }<\/script>
-</body>
-</html>`);
+        printWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${_qrCurrentStyle.toUpperCase()} Review QR - ${bizName}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;background:#e8e8e8;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem;}img{display:block;max-width:380px;width:100%;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.22);}@media print{body{background:none;padding:0;}@page{margin:0;size:380px auto;}img{box-shadow:none;border-radius:0;}}</style></head><body><img src="${dataUrl}" alt="Review Poster"><script>window.onload=()=>{setTimeout(()=>{window.print();},700);};<\/script></body></html>`);
         printWin.document.close();
     }
+
 
     let _nfcCurrentUrl = '';
     let _nfcCurrentBizName = '';

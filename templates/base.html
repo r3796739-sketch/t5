@@ -86,17 +86,22 @@
                     {% endif %}
 
                     {% if is_google_reviews and settings_list|default([])|length > 0 %}
-                    <div class="gr-business-list">
                         {% for business in settings_list %}
-                        {% set avg = stats[business.id]['avg'] if stats and business.id in stats else 0.0 %}
-                        <a class="gr-business-card"
-                            href="{{ url_for('google_reviews.google_reviews_dashboard') }}#viewMode-{{ business.id }}"
-                            title="{{ business.business_name }}">
-                            <div class="gr-business-title">{{ business.business_name or 'Untitled business' }}</div>
-                            <div class="gr-business-score">{{ "%.1f"|format(avg) }} <span>★</span></div>
-                        </a>
+                        {% set is_active = selected_settings and selected_settings.id == business.id %}
+                        <div class="channel-item-wrapper {% if is_active %}active{% endif %}">
+                            <a class="channel-link"
+                                href="{{ url_for('google_reviews.google_reviews_dashboard', sid=business.id) }}"
+                                title="{{ business.business_name }}">
+                                <div class="channel-avatar" style="display:flex;align-items:center;justify-content:center;background:var(--surface-medium);border:1px solid var(--neutral-200);border-radius:50%;width:36px;height:36px;flex-shrink:0;margin-right:12px;">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;">
+                                        <rect x="2" y="7" width="20" height="14" rx="2"/>
+                                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                                    </svg>
+                                </div>
+                                <span class="channel-name">{{ business.business_name or 'Untitled' }}</span>
+                            </a>
+                        </div>
                         {% endfor %}
-                    </div>
                     {% endif %}
                 </div>
             </div>
@@ -291,7 +296,52 @@
 
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <main class="main-content {% if request.endpoint in ['ask', 'public_chat_page'] %}has-mobile-nav{% endif %}">
+    <main class="main-content {% if request.endpoint in ['ask', 'public_chat_page'] %}has-mobile-nav{% endif %}" style="position:relative;">
+        {% if user %}
+        <!-- Notification Bell – top-right of main content -->
+        <style>
+            #notif-bell-wrapper {
+                position: absolute;
+                top: 16px;
+                right: 24px;
+                z-index: 200;
+            }
+            #notif-panel {
+                width: 340px;
+            }
+            /* Mobile: move bell below the hamburger & narrow dropdown */
+            @media (max-width: 767px) {
+                #notif-bell-wrapper {
+                    top: 56px;
+                    right: 12px;
+                }
+                #notif-panel {
+                    width: min(340px, 92vw);
+                    right: 0;
+                }
+            }
+        </style>
+        <div id="notif-bell-wrapper">
+            <button id="notif-bell-btn" onclick="toggleNotifPanel()" title="Notifications"
+                style="background:var(--surface-light);border:1px solid var(--neutral-200);cursor:pointer;padding:8px 10px;color:var(--text-secondary);display:flex;align-items:center;justify-content:center;border-radius:var(--radius-full);box-shadow:var(--shadow-md);transition:all 0.2s;position:relative;gap:6px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                <span id="notif-badge" style="display:none;background:#ef4444;color:#fff;font-size:0.7rem;font-weight:700;border-radius:var(--radius-full);padding:0 6px;line-height:18px;">0</span>
+            </button>
+
+            <!-- Notification Dropdown Panel -->
+            <div id="notif-panel" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--surface-light);border:1px solid var(--neutral-200);border-radius:var(--radius-lg);box-shadow:var(--shadow-xl);z-index:3000;overflow:hidden;">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--neutral-200);">
+                    <span style="font-weight:700;font-size:0.9rem;color:var(--text-primary);">🔔 Notifications</span>
+                    <button onclick="markAllNotifsRead()" style="background:none;border:none;cursor:pointer;font-size:0.75rem;color:var(--accent-primary);font-weight:600;">Mark all read</button>
+                </div>
+                <div id="notif-list" style="max-height:380px;overflow-y:auto;"></div>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="card">
             {% block content %}{% endblock %}
         </div>
@@ -1112,6 +1162,154 @@
                 <!-- PERFORMANCE: Supabase deferred, Razorpay/PayPal/marked lazy-loaded -->
                 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
                 {% block marked_script %}{% endblock %}
+
+                {% if user %}
+                <script>
+                (function() {
+                    var _seenNotifIds = new Set();
+                    var _notifPanelOpen = false;
+
+                    window.toggleNotifPanel = function() {
+                        var panel = document.getElementById('notif-panel');
+                        _notifPanelOpen = !_notifPanelOpen;
+                        panel.style.display = _notifPanelOpen ? 'block' : 'none';
+                        if (_notifPanelOpen) {
+                            setTimeout(function() {
+                                document.addEventListener('click', _closeNotifOnOutside);
+                            }, 0);
+                        }
+                    };
+
+                    function _closeNotifOnOutside(e) {
+                        var wrapper = document.getElementById('notif-bell-wrapper');
+                        if (wrapper && !wrapper.contains(e.target)) {
+                            document.getElementById('notif-panel').style.display = 'none';
+                            _notifPanelOpen = false;
+                            document.removeEventListener('click', _closeNotifOnOutside);
+                        }
+                    }
+
+                    window.markAllNotifsRead = function() {
+                        var ids = Array.from(_seenNotifIds);
+                        if (!ids.length) return;
+                        fetch('/api/notifications/mark_read', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({notification_ids: ids})
+                        }).then(function() {
+                            localStorage.removeItem('yc_seen_notif_ids');
+                            _seenNotifIds.clear();
+                            _updateBadge(0);
+                            var list = document.getElementById('notif-list');
+                            if (list) list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:0.85rem;">No new notifications</div>';
+                        });
+                    };
+
+                    function _updateBadge(count) {
+                        var badge = document.getElementById('notif-badge');
+                        if (!badge) return;
+                        if (count > 0) {
+                            badge.textContent = count > 9 ? '9+' : String(count);
+                            badge.style.display = 'inline-block';
+                        } else {
+                            badge.style.display = 'none';
+                        }
+                    }
+
+                    function _renderNotifs(notifs) {
+                        var list = document.getElementById('notif-list');
+                        if (!list) return;
+                        if (!notifs || notifs.length === 0) {
+                            list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:0.85rem;">You have no new notifications.</div>';
+                            return;
+                        }
+                        list.innerHTML = notifs.map(function(n) {
+                            var typeIcon = n.type === 'sale' ? '💰' : '🔔';
+                            var date = (n.created_at || '').replace('T', ' ').substring(0, 16);
+                            if (date.includes(' ')) {
+                                var parts = date.split(' ');
+                                var timeParts = parts[1].split(':');
+                                if (timeParts.length === 2) {
+                                    var hr = parseInt(timeParts[0], 10);
+                                    var min = timeParts[1];
+                                    var ampm = hr >= 12 ? 'PM' : 'AM';
+                                    hr = hr % 12;
+                                    hr = hr ? hr : 12;
+                                    var hrStr = hr < 10 ? '0' + hr : hr;
+                                    date = parts[0] + ' ' + hrStr + ':' + min + ' ' + ampm;
+                                }
+                            }
+                            return '<div style="padding:12px 16px;border-bottom:1px solid var(--neutral-100);display:flex;gap:10px;align-items:flex-start;">'
+                                + '<span style="font-size:1.2rem;flex-shrink:0;margin-top:2px;">' + typeIcon + '</span>'
+                                + '<div style="flex:1;">'
+                                + '<div style="font-size:0.83rem;color:var(--text-primary);font-weight:500;line-height:1.4;">' + n.message + '</div>'
+                                + '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px;">' + date + '</div>'
+                                + '</div></div>';
+                        }).join('');
+                    }
+
+                    function _playSound() {
+                        try {
+                            var audio = new Audio('/static/payment_received.mpeg');
+                            audio.volume = 0.6;
+                            audio.play();
+                        } catch(e) {}
+                    }
+
+                    var LS_KEY = 'yc_seen_notif_ids';
+
+                    function _loadSeenIds() {
+                        try {
+                            var raw = localStorage.getItem(LS_KEY);
+                            if (raw) JSON.parse(raw).forEach(function(id) { _seenNotifIds.add(id); });
+                        } catch(e) {}
+                    }
+
+                    function _saveSeenIds() {
+                        try {
+                            var arr = Array.from(_seenNotifIds);
+                            if (arr.length > 300) arr = arr.slice(arr.length - 300);
+                            localStorage.setItem(LS_KEY, JSON.stringify(arr));
+                        } catch(e) {}
+                    }
+
+                    function _pollNotifications() {
+                        fetch('/api/notifications/unread')
+                            .then(function(r) { return r.json(); })
+                            .then(function(data) {
+                                if (data.status !== 'ok') return;
+                                var notifs = data.notifications || [];
+
+                                var newSaleCount = 0;
+                                notifs.forEach(function(n) {
+                                    if (!_seenNotifIds.has(n.id)) {
+                                        _seenNotifIds.add(n.id);
+                                        if (n.type === 'sale') newSaleCount++;
+                                    }
+                                });
+                                _saveSeenIds();
+
+                                if (newSaleCount > 0) {
+                                    _playSound();
+                                    if (typeof showNotification === 'function') {
+                                        showNotification('🎉 ' + newSaleCount + ' new sale' + (newSaleCount > 1 ? 's' : '') + '! Check your Earnings page.', 'success');
+                                    }
+                                }
+
+                                _updateBadge(notifs.length);
+                                _renderNotifs(notifs);
+                            })
+                            .catch(function() { /* silent */ });
+                    }
+
+                    document.addEventListener('DOMContentLoaded', function() {
+                        _loadSeenIds();
+                        _pollNotifications();
+                        setInterval(_pollNotifications, 30000);
+                    });
+                })();
+                </script>
+                {% endif %}
 
                 <script>
                     // Pass server-side data to JavaScript as global constants

@@ -8,7 +8,7 @@
     {% set desc_text = 'Subscribe to ' ~ (obj_name or 'this amazing tool') ~ ' and get ' ~ transfer.query_limit_monthly ~ ' monthly credits.' %}
     {% set image_url = item.logo_url if item_type != 'chatbot' else item.channel_thumbnail %}
     {% if not image_url %}
-        {% set image_url = url_for('static', filename='images/default-avatar.png', _external=True) %}
+        {% set image_url = url_for('static', filename='images/logo/favicon.png', _external=True) %}
     {% endif %}
 
     <meta name="description" content="{{ desc_text }}">
@@ -293,9 +293,9 @@
         <!-- Left Side: Bot Info -->
         <div class="bot-info-side">
             <div class="bot-avatar-container">
-                <img src="{{ item.channel_thumbnail or item.logo_url or url_for('static', filename='images/default-avatar.png') }}"
+                <img src="{{ item.channel_thumbnail or item.logo_url or url_for('static', filename='images/logo/favicon.png') }}"
                     alt="{{ item.channel_name or item.business_name or 'Item' }}" class="bot-avatar"
-                    onerror="this.src='{{ url_for('static', filename='images/default-avatar.png') }}'">
+                    onerror="this.src='{{ url_for('static', filename='images/logo/favicon.png') }}'">
             </div>
 
             <h1 class="bot-title">{{ item.channel_name or item.creator_name or item.business_name }}</h1>

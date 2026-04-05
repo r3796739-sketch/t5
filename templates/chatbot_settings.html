@@ -548,6 +548,7 @@
                             </svg>
                         </div>
                         <span class="cs-int-name">Facebook Messenger</span>
+                        <span class="cs-int-badge" style="background:rgba(245,158,11,.15);color:#f59e0b;border-color:rgba(245,158,11,.3);margin-right:6px;">Coming ⏳</span>
                         <span class="cs-int-badge {% if chatbot.messenger_enabled %}connected{% else %}inactive{% endif %}" id="badge-messenger">
                             {% if chatbot.messenger_enabled %}Connected{% else %}Not Connected{% endif %}
                         </span>
@@ -568,6 +569,23 @@
                     {% else %}
                         <a href="{{ url_for('messenger.connect_messenger', channel_id=chatbot.id) }}" class="cs-int-action" id="action-messenger">Connect Messenger →</a>
                     {% endif %}
+                </div>
+
+                <!-- Instagram Direct -->
+                <div class="cs-int-card" id="int-instagram">
+                    <div class="cs-int-header">
+                        <div class="cs-int-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#E1306C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="28" height="28">
+                                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                            </svg>
+                        </div>
+                        <span class="cs-int-name">Instagram Direct</span>
+                        <span class="cs-int-badge" style="background:rgba(245,158,11,.15);color:#f59e0b;border-color:rgba(245,158,11,.3);">Coming ⏳</span>
+                    </div>
+                    <p class="cs-int-desc">Automate replies and lead capture directly in your Instagram DMs.</p>
+                    <a href="javascript:void(0)" class="cs-int-action" style="opacity:0.6; cursor:not-allowed;">Coming Soon</a>
                 </div>
 
 

@@ -528,17 +528,28 @@
                 <tr style="border-bottom: 1px solid #f1f5f9;">
                     <td style="padding: 15px;">
                         <span style="font-weight: 600; color: #1e293b; display: block;" title="{{ payout.creator.email }}">{{ payout.creator.full_name or payout.creator.email }}</span>
-                        <span style="font-size: 0.8rem; color: #94a3b8; font-family: monospace;" title="{{ payout.id }}">ID: {{ payout.id[:8] }}...</span>
+                        <span style="font-size: 0.8rem; color: #94a3b8; font-family: monospace;" title="{{ payout.id }}">ID: {{ (payout.id|string)[:8] }}...</span>
                     </td>
-                    <td style="padding: 15px; font-weight: 700; color: #0f172a; font-size: 1.1rem;">${{ "%.2f"|format(payout.amount_usd) }}</td>
-                    <td style="padding: 15px; font-size: 0.9rem; color: #64748b;">{{ payout.requested_at.split('T')[0] }}</td>
-                    <td style="padding: 15px; font-size: 0.85rem; color: #64748b; font-family: monospace; line-height: 1.5;">
-                        {% if payout.payout_destination_details %}
-                        <div><strong>N:</strong> {{ payout.payout_destination_details.name }}</div>
-                        <div><strong>A:</strong> ****{{ payout.payout_destination_details.account_number[-4:] }}</div>
-                        <div><strong>I:</strong> {{ payout.payout_destination_details.ifsc }}</div>
+                    <td style="padding: 15px; font-weight: 700; color: #0f172a; font-size: 1.1rem;">
+                        {% if payout.payout_destination_details and payout.payout_destination_details.payout_type == 'marketplace' %}
+                        ₹{{ "%.2f"|format(payout.amount_usd) }}
                         {% else %}
-                        <span style="font-style: italic; font-family: 'Inter', sans-serif;">No Details</span>
+                        ${{ "%.2f"|format(payout.amount_usd) }}
+                        {% endif %}
+                    </td>
+                    <td style="padding: 15px; font-size: 0.9rem; color: #64748b;">{{ payout.requested_at.split('T')[0] }}</td>
+                    <td style="padding: 15px; font-size: 0.85rem; color: #64748b; line-height: 1.8;">
+                        {% if payout.payout_destination_details %}
+                        <div><strong style="color:#475569;">Name:</strong> {{ payout.payout_destination_details.name }}</div>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <strong style="color:#475569;">Acct:</strong>
+                            <span id="acct-{{ payout.id }}" style="font-family:monospace; font-weight:700; color:#0f172a; letter-spacing:0.5px;">{{ payout.payout_destination_details.account_number }}</span>
+                            <button onclick="copyText('acct-{{ payout.id }}', this)" title="Copy account number" style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:4px; padding:1px 6px; font-size:0.75rem; cursor:pointer; color:#475569;">Copy</button>
+                        </div>
+                        <div><strong style="color:#475569;">IFSC:</strong> <span style="font-family:monospace; font-weight:700; color:#0f172a;">{{ payout.payout_destination_details.ifsc }}</span></div>
+                        {% if payout.creator %}<div style="margin-top:4px; font-size:0.8rem; color:#94a3b8;">📧 {{ payout.creator.email }}</div>{% endif %}
+                        {% else %}
+                        <span style="font-style: italic; font-family: 'Inter', sans-serif; color:#cbd5e1;">No Details Provided</span>
                         {% endif %}
                     </td>
                     <td style="padding: 15px;">
@@ -676,6 +687,28 @@
         if (event.target == modal) {
             modal.style.display = "none";
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // COPY HELPER (for bank account numbers in payout table)
+    // ═══════════════════════════════════════════════════════════════════
+    function copyText(elementId, btn) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        navigator.clipboard.writeText(el.textContent.trim()).then(() => {
+            const orig = btn.textContent;
+            btn.textContent = '✓';
+            btn.style.color = '#15803d';
+            setTimeout(() => { btn.textContent = orig; btn.style.color = '#475569'; }, 1500);
+        }).catch(() => {
+            // Fallback for older browsers
+            const range = document.createRange();
+            range.selectNode(el);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+            document.execCommand('copy');
+            window.getSelection().removeAllRanges();
+        });
     }
 
     // ═══════════════════════════════════════════════════════════════════
