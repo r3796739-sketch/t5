@@ -27,7 +27,7 @@
         detectedBaseUrl = window.location.origin;
     }
 
-    const BASE_URL = window.YOPPYCHAT_BASE_URL || detectedBaseUrl || 'https://yoppychat.com';
+    let BASE_URL = window.YOPPYCHAT_BASE_URL || detectedBaseUrl || 'https://yoppychat.com';
 
     // Widget state
     let isOpen = false;
@@ -920,6 +920,9 @@
             }
 
             config = { ...config, ...options };
+            if (options.baseUrl) {
+                BASE_URL = options.baseUrl;
+            }
 
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', createWidget);
