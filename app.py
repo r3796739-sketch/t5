@@ -105,6 +105,9 @@ PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET')
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000
 
 Compress(app)
+from flask_cors import CORS
+CORS(app, resources={r"/api/widget/*": {"origins": "*"}})
+
 app.secret_key = os.environ.get('SECRET_KEY')
 if not app.secret_key:
     raise RuntimeError("SECRET_KEY environment variable is required. Set it before starting the app.")
