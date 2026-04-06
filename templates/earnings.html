@@ -473,17 +473,17 @@
     <div class="stats-grid">
         <div class="stat-card green">
             <div class="stat-title">Total Withdrawable Balance</div>
-            <div class="stat-value" id="val-withdraw-total">₹--</div>
+            <div class="stat-value" id="val-withdraw-total"><span class="skeleton" style="width:120px;height:0.9em;display:block;margin-top:8px"></span></div>
             <div class="stat-desc">Earnings ready to be paid out across both channels.</div>
         </div>
         <div class="stat-card orange">
             <div class="stat-title">Total Pending Payouts</div>
-            <div class="stat-value" id="val-pending-total">₹--</div>
+            <div class="stat-value" id="val-pending-total"><span class="skeleton" style="width:100px;height:0.9em;display:block;margin-top:8px"></span></div>
             <div class="stat-desc">Requested payouts currently processing.</div>
         </div>
         <div class="stat-card blue">
             <div class="stat-title">Total Earned All-Time</div>
-            <div class="stat-value" id="val-earned-total">₹--</div>
+            <div class="stat-value" id="val-earned-total"><span class="skeleton" style="width:140px;height:0.9em;display:block;margin-top:8px"></span></div>
             <div class="stat-desc">Total lifetime revenue from all sources.</div>
         </div>
     </div>
@@ -501,7 +501,7 @@
             <div class="action-info">
                 <h2>Ready to withdraw your Affiliate Earnings?</h2>
                 <p>You can request a payout to your bank account from your available affiliate balance: <span
-                        id="val-affiliate-withdraw-text" style="font-weight: bold;">₹--</span></p>
+                        id="val-affiliate-withdraw-text" style="font-weight: bold;"><span class="skeleton" style="width:60px"></span></span></p>
             </div>
             <button class="btn-withdraw requestPayoutBtn" id="btn-affiliate-payout" data-type="affiliate"
                 data-max-amount="0" disabled>
@@ -522,9 +522,8 @@
                     </tr>
                 </thead>
                 <tbody id="affiliate-payouts-table">
-                    <tr>
-                        <td colspan="4" class="empty-row">Loading payout history...</td>
-                    </tr>
+                    <tr><td><div class="skeleton" style="width:80%"></div></td><td><div class="skeleton" style="width:60%"></div></td><td><div class="skeleton" style="width:40%"></div></td><td><div class="skeleton" style="width:90%"></div></td></tr>
+                    <tr><td><div class="skeleton" style="width:75%"></div></td><td><div class="skeleton" style="width:55%"></div></td><td><div class="skeleton" style="width:45%"></div></td><td><div class="skeleton" style="width:85%"></div></td></tr>
                 </tbody>
             </table>
         </div>
@@ -537,7 +536,7 @@
             <div class="action-info">
                 <h2>Ready to withdraw your Marketplace Earnings?</h2>
                 <p>You can request a payout to your bank account from your available marketplace balance: <span
-                        id="val-marketplace-withdraw-text" style="font-weight: bold;">₹--</span> (Min. ₹100).</p>
+                        id="val-marketplace-withdraw-text" style="font-weight: bold;"><span class="skeleton" style="width:60px"></span></span> (Min. ₹100).</p>
             </div>
             <button class="btn-withdraw requestPayoutBtn" id="btn-marketplace-payout" data-type="marketplace"
                 data-max-amount="0" disabled>
@@ -568,9 +567,8 @@
                     </tr>
                 </thead>
                 <tbody id="marketplace-transfers-table">
-                    <tr>
-                        <td colspan="6" class="empty-row">Loading your marketplace chatbots...</td>
-                    </tr>
+                    <tr><td><div class="skeleton" style="width:80%"></div></td><td><div class="skeleton" style="width:60%"></div></td><td><div class="skeleton" style="width:40%"></div></td><td><div class="skeleton" style="width:90%"></div></td><td><div class="skeleton" style="width:70%"></div></td><td><div class="skeleton" style="width:50%"></div></td></tr>
+                    <tr><td><div class="skeleton" style="width:75%"></div></td><td><div class="skeleton" style="width:55%"></div></td><td><div class="skeleton" style="width:45%"></div></td><td><div class="skeleton" style="width:85%"></div></td><td><div class="skeleton" style="width:65%"></div></td><td><div class="skeleton" style="width:55%"></div></td></tr>
                 </tbody>
             </table>
             <!-- Pagination -->
@@ -594,9 +592,8 @@
                     </tr>
                 </thead>
                 <tbody id="marketplace-payouts-table">
-                    <tr>
-                        <td colspan="4" class="empty-row">Loading payout history...</td>
-                    </tr>
+                    <tr><td><div class="skeleton" style="width:80%"></div></td><td><div class="skeleton" style="width:60%"></div></td><td><div class="skeleton" style="width:40%"></div></td><td><div class="skeleton" style="width:90%"></div></td></tr>
+                    <tr><td><div class="skeleton" style="width:75%"></div></td><td><div class="skeleton" style="width:55%"></div></td><td><div class="skeleton" style="width:45%"></div></td><td><div class="skeleton" style="width:85%"></div></td></tr>
                 </tbody>
             </table>
         </div>
@@ -693,7 +690,8 @@
     function fetchTransfers() {
         const tbody = document.getElementById('marketplace-transfers-table');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-row">Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td><div class="skeleton" style="width:80%"></div></td><td><div class="skeleton" style="width:60%"></div></td><td><div class="skeleton" style="width:40%"></div></td><td><div class="skeleton" style="width:90%"></div></td><td><div class="skeleton" style="width:70%"></div></td><td><div class="skeleton" style="width:50%"></div></td></tr>' +
+                          '<tr><td><div class="skeleton" style="width:75%"></div></td><td><div class="skeleton" style="width:55%"></div></td><td><div class="skeleton" style="width:45%"></div></td><td><div class="skeleton" style="width:85%"></div></td><td><div class="skeleton" style="width:65%"></div></td><td><div class="skeleton" style="width:55%"></div></td></tr>';
         document.getElementById('transfers-pagination').style.display = 'none';
 
         fetch(`/api/earnings/data?status=${_transfersStatus}&page=${_transfersPage}`)

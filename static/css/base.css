@@ -978,3 +978,25 @@ html[data-theme='dark'] .pricing-card.premium .btn-pricing-disabled {
     background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
     border-color: rgba(245, 158, 11, 0.3);
 }
+/* === Skeleton Screen Styles === */
+@keyframes shimmer {
+    0% { background-position: -468px 0; }
+    100% { background-position: 468px 0; }
+}
+.skeleton {
+    background: #f6f7f8;
+    background-image: linear-gradient(to right, #f6f7f8 0%, #edeef1 20%, #f6f7f8 40%, #f6f7f8 100%);
+    background-repeat: no-repeat;
+    background-size: 800px 100%;
+    display: inline-block;
+    position: relative;
+    animation: shimmer 1.5s infinite linear;
+    border-radius: 4px;
+}
+.skeleton-text { height: 0.8em; width: 100%; margin-bottom: 0.5rem; }
+.skeleton-avatar { border-radius: 50%; width: 48px; height: 48px; }
+.skeleton-rect { height: 200px; width: 100%; }
+html[data-theme='dark'] .skeleton {
+    background: #1e293b;
+    background-image: linear-gradient(to right, #1e293b 0%, #334155 20%, #1e293b 40%, #1e293b 100%);
+}

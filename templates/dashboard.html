@@ -756,28 +756,6 @@
             grid-template-columns: 1fr;
         }
     }
-
-    /* Skeleton loader */
-    .skel {
-        display: inline-block;
-        background: linear-gradient(90deg, var(--neutral-200) 25%, var(--surface-medium) 50%, var(--neutral-200) 75%);
-        background-size: 200% 100%;
-        animation: skel-anim 1.5s infinite;
-        border-radius: 4px;
-        min-width: 40px;
-        height: 1em;
-        vertical-align: middle;
-    }
-
-    @keyframes skel-anim {
-        from {
-            background-position: 200% 0;
-        }
-
-        to {
-            background-position: -200% 0;
-        }
-    }
 </style>
 {% endblock %}
 
@@ -802,10 +780,10 @@
         <div class="plan-quota-bar" id="quotaBarWrap">
             <div class="plan-quota-top">
                 <span class="plan-badge" id="planBadge">
-                    <span class="skel" style="width:50px"></span>
+                    <span class="skeleton" style="width:50px"></span>
                 </span>
                 <span class="quota-nums" id="quotaNums">
-                    <span class="skel" style="width:70px;height:0.8em"></span>
+                    <span class="skeleton" style="width:70px;height:0.8em"></span>
                 </span>
             </div>
             <div class="quota-track">
@@ -835,7 +813,7 @@
                     </svg>
                 </div>
             </div>
-            <div class="eo-value" id="val-total-earned"><span class="skel" style="width:70px;height:1.5em"></span></div>
+            <div class="eo-value" id="val-total-earned"><span class="skeleton" style="width:70px;height:1.5em"></span></div>
             <div class="eo-sub">Total all-time earnings</div>
         </div>
 
@@ -850,7 +828,7 @@
                     </svg>
                 </div>
             </div>
-            <div class="eo-value" id="val-withdrawable"><span class="skel" style="width:70px;height:1.5em"></span></div>
+            <div class="eo-value" id="val-withdrawable"><span class="skeleton" style="width:70px;height:1.5em"></span></div>
             <div class="eo-sub">Ready to withdraw now <a href="/earnings"
                     style="color:var(--accent-primary);text-decoration:none;font-weight:600">→</a></div>
         </div>
@@ -869,7 +847,7 @@
                     </svg>
                 </div>
             </div>
-            <div class="eo-value" id="val-total-mrr"><span class="skel" style="width:70px;height:1.5em"></span>
+            <div class="eo-value" id="val-total-mrr"><span class="skeleton" style="width:70px;height:1.5em"></span>
             </div>
             <div class="eo-sub" id="val-mrr-sub">from <span id="val-paid-referrals">--</span> referrals & <span
                     id="val-mp-sales">--</span> mp sales
@@ -887,7 +865,7 @@
                     </svg>
                 </div>
             </div>
-            <div class="eo-value" id="val-plan-name" style="font-size:1.3rem;"><span class="skel"
+            <div class="eo-value" id="val-plan-name" style="font-size:1.3rem;"><span class="skeleton"
                     style="width:70px;height:1.2em"></span></div>
             <div class="eo-sub" id="val-adds-sub"><span id="val-adds">--</span> users added your chatbots</div>
         </div>
@@ -950,7 +928,7 @@
                         </div>
                         <span class="growth-stat-label">Total Referrals</span>
                     </div>
-                    <span class="growth-stat-val" id="gs-referrals"><span class="skel" style="width:28px"></span></span>
+                    <span class="growth-stat-val" id="gs-referrals"><span class="skeleton" style="width:28px"></span></span>
                 </div>
                 <div class="growth-stat-row">
                     <div class="growth-stat-left">
@@ -963,7 +941,7 @@
                         </div>
                         <span class="growth-stat-label">Paying Subscribers</span>
                     </div>
-                    <span class="growth-stat-val" id="gs-paid"><span class="skel" style="width:28px"></span></span>
+                    <span class="growth-stat-val" id="gs-paid"><span class="skeleton" style="width:28px"></span></span>
                 </div>
                 <div class="growth-stat-row">
                     <div class="growth-stat-left">
@@ -976,7 +954,7 @@
                         </div>
                         <span class="growth-stat-label">Active Chatbot Users</span>
                     </div>
-                    <span class="growth-stat-val" id="gs-adds"><span class="skel" style="width:28px"></span></span>
+                    <span class="growth-stat-val" id="gs-adds"><span class="skeleton" style="width:28px"></span></span>
                 </div>
                 <div class="growth-stat-row">
                     <div class="growth-stat-left">
@@ -988,7 +966,7 @@
                         </div>
                         <span class="growth-stat-label">Total Conversations</span>
                     </div>
-                    <span class="growth-stat-val" id="gs-convos"><span class="skel" style="width:28px"></span></span>
+                    <span class="growth-stat-val" id="gs-convos"><span class="skeleton" style="width:28px"></span></span>
                 </div>
             </div>
         </div>
@@ -1102,32 +1080,32 @@
         <!-- Stats Strip -->
         <div class="chatbot-stats-strip" data-channel-id="{{ channel.id }}">
             <div class="cstat">
-                <div class="cstat-val" id="cstat-conv-{{ channel.id }}"><span class="skel"
+                <div class="cstat-val" id="cstat-conv-{{ channel.id }}"><span class="skeleton"
                         style="width:24px;height:0.9em"></span></div>
                 <div class="cstat-lbl">Conversations</div>
             </div>
             <div class="cstat">
-                <div class="cstat-val" id="cstat-sources-{{ channel.id }}"><span class="skel"
+                <div class="cstat-val" id="cstat-sources-{{ channel.id }}"><span class="skeleton"
                         style="width:24px;height:0.9em"></span></div>
                 <div class="cstat-lbl">Data Sources</div>
             </div>
             <div class="cstat">
-                <div class="cstat-val" id="cstat-ref-{{ channel.id }}"><span class="skel"
+                <div class="cstat-val" id="cstat-ref-{{ channel.id }}"><span class="skeleton"
                         style="width:24px;height:0.9em"></span></div>
                 <div class="cstat-lbl">Referrals</div>
             </div>
             <div class="cstat">
-                <div class="cstat-val" id="cstat-paid-{{ channel.id }}"><span class="skel"
+                <div class="cstat-val" id="cstat-paid-{{ channel.id }}"><span class="skeleton"
                         style="width:24px;height:0.9em"></span></div>
                 <div class="cstat-lbl">Subscribed</div>
             </div>
             <div class="cstat">
-                <div class="cstat-val" id="cstat-mrr-{{ channel.id }}"><span class="skel"
+                <div class="cstat-val" id="cstat-mrr-{{ channel.id }}"><span class="skeleton"
                         style="width:40px;height:0.9em"></span></div>
                 <div class="cstat-lbl">Aff. MRR</div>
             </div>
             <div class="cstat">
-                <div class="cstat-val" id="cstat-add-{{ channel.id }}"><span class="skel"
+                <div class="cstat-val" id="cstat-add-{{ channel.id }}"><span class="skeleton"
                         style="width:24px;height:0.9em"></span></div>
                 <div class="cstat-lbl">Adds</div>
             </div>
@@ -1209,8 +1187,9 @@
                     nums.innerHTML = `<strong>${qUsed.toLocaleString()}</strong> credits used • Unlimited`;
                     fill.style.width = '40%';
                 } else {
+                    const remaining = Math.max(0, qMax - qUsed);
                     const pct = qMax > 0 ? Math.min(100, Math.round((qUsed / qMax) * 100)) : 0;
-                    nums.innerHTML = `<strong>${qUsed.toLocaleString()}</strong> / ${qMax.toLocaleString()} queries`;
+                    nums.innerHTML = `<strong>${remaining.toLocaleString()}</strong> credits remaining`;
                     fill.style.width = pct + '%';
                     fill.className = 'quota-fill' + (pct >= 90 ? ' critical' : pct >= 70 ? ' warning' : '');
                 }

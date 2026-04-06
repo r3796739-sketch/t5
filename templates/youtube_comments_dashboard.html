@@ -1032,7 +1032,7 @@
         </svg>
       </div>
       <div>
-        <div class="ytc-stat-val" id="stat-loaded">—</div>
+        <div class="ytc-stat-val skeleton" id="stat-loaded" style="width: 40px; height: 26px; border-radius: 4px;"></div>
         <div class="ytc-stat-label">Comments Loaded</div>
       </div>
     </div>
@@ -1071,7 +1071,7 @@
         </svg>
       </div>
       <div>
-        <div class="ytc-stat-val" id="stat-rules">—</div>
+        <div class="ytc-stat-val skeleton" id="stat-rules" style="width: 30px; height: 26px; border-radius: 4px;"></div>
         <div class="ytc-stat-label">Active Rules</div>
       </div>
     </div>
@@ -1306,7 +1306,10 @@
       const data = await res.json();
       if (data.status !== 'success') { showToast('❌ ' + (data.message || 'Failed'), 'error'); renderEmpty('commentList', 'Could not load comments.'); return; }
       allComments = data.comments || [];
-      document.getElementById('stat-loaded').textContent = allComments.length;
+      const statLoaded = document.getElementById('stat-loaded');
+      statLoaded.textContent = allComments.length;
+      statLoaded.classList.remove('skeleton');
+      statLoaded.style.width = 'auto';
       renderComments(allComments);
     } catch (e) { showToast('❌ Network error', 'error'); renderEmpty('commentList', 'Network error.'); }
     finally {
@@ -1516,7 +1519,10 @@
       const data = await res.json();
       if (data.status !== 'success') { el.innerHTML = '<div class="ytc-empty"><p>Failed to load rules.</p></div>'; return; }
       const rules = data.rules || [];
-      document.getElementById('stat-rules').textContent = rules.filter(r => r.is_active).length;
+      const statRules = document.getElementById('stat-rules');
+      statRules.textContent = rules.filter(r => r.is_active).length;
+      statRules.classList.remove('skeleton');
+      statRules.style.width = 'auto';
       if (!rules.length) { el.innerHTML = '<div class="ytc-empty"><div class="ytc-empty-icon">📝</div><p>No rules yet. Create one above.</p></div>'; return; }
       el.innerHTML = '';
       rules.forEach(r => el.appendChild(buildRuleCard(r)));

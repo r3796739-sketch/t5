@@ -3104,23 +3104,35 @@
         const activeBtn = document.getElementById((isRel ? 'randomBtn-' : 'refreshBtn-') + id);
         const otherBtn = document.getElementById((isRel ? 'refreshBtn-' : 'randomBtn-') + id);
         const status = document.getElementById('refreshStatus-' + id);
-        const orig = activeBtn.innerHTML;
+        const box = document.getElementById('contextBox-' + id);
+        
+        const origBoxContent = box.innerHTML;
+        const origBtn = activeBtn.innerHTML;
+        
         activeBtn.innerHTML = '<svg style="width:14px;height:14px;animation:spin 0.8s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.1-5.7"/></svg>';
         activeBtn.disabled = otherBtn.disabled = true;
         status.style.display = 'none';
+        
+        // Show skeleton in box
+        box.innerHTML = '<div class="skeleton skeleton-text" style="width:90%"></div><div class="skeleton skeleton-text" style="width:85%"></div><div class="skeleton skeleton-text" style="width:95%"></div><div class="skeleton skeleton-text" style="width:70%"></div>';
+        
         try {
             const res = await fetch('/dashboard/google-reviews/refresh-context', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ settings_id: id, sort_mode }) });
             const data = await res.json();
-            const box = document.getElementById('contextBox-' + id);
             if (data.status === 'success') {
                 status.style.color = '#10b981'; status.textContent = 'Context updated successfully.';
-                box.classList.remove('empty'); box.innerHTML = data.context.split(' | ').join('<br>— ');
+                box.classList.remove('empty'); 
+                box.innerHTML = data.context.split(' | ').join('<br>— ');
             } else {
                 status.style.color = '#f59e0b'; status.textContent = data.message;
+                box.innerHTML = origBoxContent;
             }
-        } catch { status.style.color = '#ef4444'; status.textContent = 'Network error — please try again.'; }
+        } catch { 
+            status.style.color = '#ef4444'; status.textContent = 'Network error — please try again.'; 
+            box.innerHTML = origBoxContent;
+        }
         status.style.display = 'block';
-        activeBtn.innerHTML = orig; activeBtn.disabled = otherBtn.disabled = false;
+        activeBtn.innerHTML = origBtn; activeBtn.disabled = otherBtn.disabled = false;
     }
 
     {% if needs_login %}
