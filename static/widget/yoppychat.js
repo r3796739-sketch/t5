@@ -289,9 +289,9 @@
                 padding: 12px 16px;
                 border-radius: 20px;
                 line-height: 1.6;
-                font-size: 15px;
+                font-size: 14px;
                 word-wrap: break-word;
-                font-weight: 400;
+                font-weight: 500;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.03);
             }
 
@@ -704,7 +704,22 @@
         if (display_text) {
             const message = document.createElement('div');
             message.className = `yoppychat-message ${sender}`;
-            message.innerHTML = display_text.replace(/\n/g, '<br>');
+
+            let finalHtml = display_text;
+            if (sender === 'bot') {
+                // 1. Links: [title](url)
+                finalHtml = finalHtml.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
+                    '<a href="$2" target="_blank" style="text-decoration: underline; font-weight: 600; color: inherit;">$1</a>');
+                // 2. Bullets: * or - at start of line
+                finalHtml = finalHtml.replace(/^\s*[\*\-]\s+(.*)$/gm,
+                    '<span style="display:block; margin-left:12px; margin-bottom:4px;">• $1</span>');
+                // 3. Bold
+                finalHtml = finalHtml.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                // 4. Italics
+                finalHtml = finalHtml.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+            }
+
+            message.innerHTML = finalHtml.replace(/\n/g, '<br>');
             messageWrapper.appendChild(message);
         }
 
