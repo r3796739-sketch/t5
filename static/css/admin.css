@@ -296,15 +296,7 @@
     font-size: 0.8rem;
 }
 
-.status-badge.status-pending {
-    background-color: #e3f2fd;
-    color: #1565c0;
-}
-
-.status-badge.status-paid {
-    background-color: #e8f5e9;
-    color: #2e7d32;
-}
+/* Status badge colors — canonical definition (see also .status-badge.status-processing below) */
 .section-header {
     display: flex;
     justify-content: space-between;
@@ -371,7 +363,7 @@ tbody tr:last-child td {
     line-height: 1.5;
 }
 .payout-details-cell .text-muted {
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-style: italic;
 }
 
@@ -394,4 +386,326 @@ tbody tr:last-child td {
 .status-badge.status-processing {
     background-color: #e3f2fd;
     color: #1565c0;
+}
+
+/* Cashflow Dashboard Styles */
+.cashflow-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-2xl);
+}
+.cashflow-card {
+    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-xl);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.cashflow-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+.cashflow-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(to right, var(--accent-primary, #6366f1), var(--accent-purple, #a855f7));
+    opacity: 0.9;
+}
+.cashflow-card.profit::before {
+    background: linear-gradient(to right, #10b981, #059669);
+}
+.cashflow-card.warning::before {
+    background: linear-gradient(to right, #f59e0b, #d97706);
+}
+.cashflow-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: var(--spacing-sm);
+    letter-spacing: 0.05em;
+}
+.cashflow-amount {
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: #0f172a;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.cashflow-amount.positive { 
+    color: #059669; 
+}
+.cashflow-amount.pending { 
+    color: #b45309; 
+}
+.currency-symbol {
+    font-size: 1.25rem;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* ANALYTICS & ACTIVITY SECTION                                   */
+/* ═══════════════════════════════════════════════════════════════ */
+
+.analytics-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: var(--spacing-xl);
+    align-items: start;
+}
+
+@media (max-width: 1024px) {
+    .analytics-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* --- Chart Cards --- */
+.charts-column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.chart-card {
+    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: var(--radius-xl, 16px);
+    padding: var(--spacing-xl);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.chart-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.08);
+}
+
+.chart-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-lg);
+}
+
+.chart-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 4px 0;
+}
+
+.chart-subtitle {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin: 0;
+    font-weight: 500;
+}
+
+.chart-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.chart-badge.revenue-badge {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15));
+    color: #6366f1;
+}
+.chart-badge.users-badge {
+    background: linear-gradient(135deg, rgba(244, 114, 182, 0.15), rgba(236, 72, 153, 0.15));
+    color: #ec4899;
+}
+.chart-badge.credits-badge {
+    background: linear-gradient(135deg, rgba(251, 146, 60, 0.15), rgba(245, 158, 11, 0.15));
+    color: #f59e0b;
+}
+
+.chart-container {
+    position: relative;
+    height: 260px;
+    width: 100%;
+}
+
+/* --- Activity Feed --- */
+.feed-column {
+    position: sticky;
+    top: var(--spacing-xl, 24px);
+}
+
+.feed-card {
+    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: var(--radius-xl, 16px);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+.feed-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-lg) var(--spacing-xl);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+.feed-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+.live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #10b981;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: pulse-live 2s infinite;
+}
+
+@keyframes pulse-live {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.3); }
+}
+
+.feed-list {
+    max-height: 780px;
+    overflow-y: auto;
+    padding: var(--spacing-sm) 0;
+}
+
+.feed-list::-webkit-scrollbar {
+    width: 4px;
+}
+.feed-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+.feed-list::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 10px;
+}
+
+.feed-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px var(--spacing-xl);
+    transition: background 0.2s;
+    border-left: 3px solid transparent;
+}
+
+.feed-item:hover {
+    background: rgba(241, 245, 249, 0.8);
+}
+
+.feed-item.feed-type-signup {
+    border-left-color: #3b82f6;
+}
+.feed-item.feed-type-chatbot {
+    border-left-color: #8b5cf6;
+}
+.feed-item.feed-type-transfer {
+    border-left-color: #10b981;
+}
+
+.feed-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    background: rgba(241, 245, 249, 0.8);
+}
+
+.feed-type-signup .feed-icon { background: rgba(59, 130, 246, 0.1); }
+.feed-type-chatbot .feed-icon { background: rgba(139, 92, 246, 0.1); }
+.feed-type-transfer .feed-icon { background: rgba(16, 185, 129, 0.1); }
+
+.feed-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.feed-event-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.feed-event-desc {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.feed-event-time {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    margin-top: 4px;
+    font-weight: 500;
+}
+
+.feed-empty {
+    text-align: center;
+    padding: var(--spacing-2xl);
+    color: #94a3b8;
+}
+.feed-empty span {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: var(--spacing-sm);
+}
+.feed-empty p {
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* Animate feed items on load */
+.feed-item {
+    animation: feedSlideIn 0.3s ease-out;
+}
+
+@keyframes feedSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }

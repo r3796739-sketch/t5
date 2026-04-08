@@ -310,14 +310,36 @@ h4,
     transition: all 0.2s ease-in-out;
 }
 
-.channel-item-wrapper:hover .delete-btn {
+.channel-action-btn {
+    background: transparent;
+    box-shadow: none;
+    color: #474747;
+    opacity: 0;
+    transform: scale(0.9);
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease-in-out;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.channel-item-wrapper:hover .delete-btn,
+.channel-item-wrapper:hover .channel-action-btn {
     opacity: 1;
     transform: scale(1);
 }
 
 /* On touch/mobile devices, always show delete btn subtly */
 @media (hover: none) {
-    .delete-btn {
+
+    .delete-btn,
+    .channel-action-btn {
         opacity: 0.45;
         transform: scale(1);
         color: var(--text-muted);
@@ -327,6 +349,83 @@ h4,
 .delete-btn:hover {
     background-color: var(--accent-error);
     color: var(--text-white);
+}
+
+.channel-action-btn:hover {
+    background-color: var(--accent-primary);
+    color: var(--text-white);
+}
+
+/* Google Reviews business cards — match chatbot channel-item-wrapper style */
+.gr-business-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 0.5rem;
+    padding: 0.25rem 0;
+}
+
+.gr-business-card {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-md);
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+}
+
+.gr-business-card:hover {
+    background: var(--surface-medium);
+}
+
+.gr-business-card.active {
+    background: var(--surface-medium);
+}
+
+.gr-business-card.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 20%;
+    height: 60%;
+    width: 3px;
+    background-color: var(--accent-primary);
+    border-radius: 0 4px 4px 0;
+}
+
+.gr-business-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-grow: 1;
+    min-width: 0;
+    color: var(--text-primary);
+}
+
+.gr-business-score {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #0f766e;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    background: rgba(16, 185, 129, 0.1);
+    padding: 0.18rem 0.4rem;
+    border-radius: 999px;
+    flex-shrink: 0;
+    margin-left: 0.5rem;
+}
+
+.gr-business-score span {
+    color: #f59e0b;
+    font-weight: 800;
 }
 
 /* --- Mobile & Responsive --- */
@@ -471,7 +570,8 @@ h4,
 
     .main-content {
         margin-left: 0;
-        padding: 70px 0 0 0;
+        padding: 0 0 0;
+        margin-top: -5%;
     }
 
     .main-content.has-mobile-nav {
@@ -2052,7 +2152,9 @@ body {
 }
 
 @media (max-width: 768px) {
-    .channel-item-wrapper .delete-btn {
+
+    .channel-item-wrapper .delete-btn,
+    .channel-item-wrapper .channel-action-btn {
         opacity: 1 !important;
         transform: scale(1) !important;
         width: 36px;
@@ -2061,6 +2163,11 @@ body {
 
     .channel-item-wrapper .delete-btn:hover {
         background-color: var(--accent-error);
+        color: var(--text-white);
+    }
+
+    .channel-item-wrapper .channel-action-btn:hover {
+        background-color: var(--accent-primary);
         color: var(--text-white);
     }
 
