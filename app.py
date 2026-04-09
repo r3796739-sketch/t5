@@ -12,7 +12,7 @@ _user_channels_cache = TTLCache(maxsize=500, ttl=60)
 _integration_status_cache = TTLCache(maxsize=500, ttl=30)
 
 from utils.youtube_utils import is_youtube_video_url, is_youtube_channel_url, clean_youtube_url, get_channel_url_from_video_url
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, Response, g
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, Response, g, send_from_directory, make_response
 import secrets
 from datetime import datetime, timezone
 from tasks import huey, process_channel_task, sync_channel_task, process_telegram_update_task, delete_channel_task,update_bot_profile_task,owner_delete_channel_task
@@ -128,6 +128,21 @@ app.register_blueprint(youtube_comments_bp)
 
 from routes_google_reviews import google_reviews_bp
 app.register_blueprint(google_reviews_bp)
+
+# --- PWA Routes for Android Wrapper (Bubblewrap TWA) ---
+@app.route('/manifest.json')
+def serve_manifest():
+    return send_from_directory('static', 'manifest.json')
+
+@app.route('/sw.js')
+def serve_sw():
+    response = make_response(send_from_directory('static', 'sw.js'))
+    response.headers['Service-Worker-Allowed'] = '/'
+    return response
+
+@app.route('/.well-known/assetlinks.json')
+def serve_assetlinks():
+    return send_from_directory('static/.well-known', 'assetlinks.json')
 
 
 # --- File Upload Configuration for Multi-Source Chatbots ---
