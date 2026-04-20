@@ -46,16 +46,17 @@
     .gr-wrap {
         width: 100%;
         max-width: 960px;
-        margin: 0 auto;
+        margin: -5% auto;
         padding: 1rem 0.75rem 3rem;
         overflow-x: hidden;
     }
 
-    /* @media (max-width: 768px) {
+    /* ── Mobile: push .gr-wrap down to clear hamburger & bell ── */
+    @media (max-width: 479px) {
         .gr-wrap {
             margin-top: 50px;
         }
-    } */
+    }
 
     @media (min-width: 480px) {
         .gr-wrap {
@@ -87,7 +88,6 @@
         .gr-hero {
             padding: 1.25rem;
             border-radius: 14px;
-            margin-top: 50px;
         }
     }
 
@@ -104,6 +104,7 @@
     @media (min-width: 480px) {
         .gr-hero-text h1 {
             font-size: 1.35rem;
+            margin-left: 5%;
         }
     }
 
@@ -800,7 +801,7 @@
         display: none;
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.6);
+        background: rgba(0, 0, 0, 0.6);
         backdrop-filter: blur(4px);
         z-index: 9999;
         align-items: center;
@@ -815,17 +816,33 @@
     .qr-modal {
         background: var(--surface-light);
         border: 1px solid var(--neutral-200);
-        border-radius: 16px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        border-radius: 20px;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
         width: 100%;
-        max-width: 380px;
-        overflow: hidden;
+        max-width: 400px;
         animation: qrModalIn 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+        max-height: 95vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    @media (min-width: 640px) {
+        .qr-modal {
+            max-width: 460px;
+        }
     }
 
     @keyframes qrModalIn {
-        from { opacity: 0; transform: scale(0.88) translateY(12px); }
-        to   { opacity: 1; transform: scale(1) translateY(0); }
+        from {
+            opacity: 0;
+            transform: scale(0.88) translateY(12px);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
     }
 
     .qr-modal-head {
@@ -854,129 +871,530 @@
         flex-shrink: 0;
     }
 
-    /* ── QR Code Modal — Google Poster Preview ────────────────── */
+    /* ── QR Code Modal — Poster Preview Container ── */
     .qr-modal-body {
-        padding: 1.25rem;
+        padding: 1rem 1rem 1.25rem;
         text-align: center;
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
     }
 
-    /* Miniature Google review poster preview */
-    .g-poster-preview {
-        width: 100%;
-        max-width: 260px;
-        margin: 0 auto 1.1rem;
-        background: #fff;
-        border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 0 6px 24px rgba(0,0,0,0.18);
-        position: relative;
+    /* ── QR Horizontal Carousel ─────────────────────────────── */
+    .qr-poster-carousel {
+        display: flex;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+        padding: 0.25rem 0 0.25rem;
+        margin: 0 0 0.5rem;
+        gap: 0;
+        scroll-behavior: smooth;
+        cursor: grab;
     }
 
-    /* Corner triangles */
-    .g-poster-preview .corner {
-        position: absolute;
-        width: 54px;
-        height: 54px;
-        overflow: hidden;
-        pointer-events: none;
-        z-index: 2;
-    }
-    .g-poster-preview .corner::before {
-        content: '';
-        position: absolute;
-        width: 0;
-        height: 0;
-    }
-    .g-poster-preview .corner-tl { top: 0; left: 0; }
-    .g-poster-preview .corner-tl::before {
-        border-top: 54px solid #EA4335;
-        border-right: 54px solid transparent;
-    }
-    .g-poster-preview .corner-tr { top: 0; right: 0; }
-    .g-poster-preview .corner-tr::before {
-        border-top: 54px solid #4285F4;
-        border-left: 54px solid transparent;
-    }
-    .g-poster-preview .corner-bl { bottom: 0; left: 0; }
-    .g-poster-preview .corner-bl::before {
-        border-bottom: 54px solid #34A853;
-        border-right: 54px solid transparent;
-    }
-    .g-poster-preview .corner-br { bottom: 0; right: 0; }
-    .g-poster-preview .corner-br::before {
-        border-bottom: 54px solid #FBBC05;
-        border-left: 54px solid transparent;
+    .qr-poster-carousel.is-dragging {
+        cursor: grabbing;
+        scroll-snap-type: none;
     }
 
-    .g-poster-inner {
-        padding: 1rem 1rem 0.75rem;
+    .qr-poster-carousel::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Desktop: use zoom (affects layout flow unlike transform) so buttons are visible */
+    @media (min-width: 640px) {
+        .qr-poster-slide {
+            padding: 0 0.5rem;
+        }
+
+        .poster-preview-shell {
+            zoom: 0.7;
+        }
+
+        .qr-slide-label {
+            font-size: 0.65rem;
+            margin-top: 0.25rem;
+        }
+    }
+
+    .qr-poster-slide {
+        flex: 0 0 100%;
+        scroll-snap-align: center;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 0.6rem;
-        position: relative;
-        z-index: 1;
+        padding: 0 0.5rem;
+        box-sizing: border-box;
+        margin-bottom: -10%;
     }
 
-    /* Google wordmark */
-    .g-wordmark {
-        font-size: 1.35rem;
+    .qr-slide-label {
+        font-size: 0.72rem;
         font-weight: 700;
-        letter-spacing: -0.02em;
-        line-height: 1;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin-top: 0.65rem;
     }
-    .g-wordmark .g-blue  { color: #4285F4; }
-    .g-wordmark .g-red   { color: #EA4335; }
-    .g-wordmark .g-yellow{ color: #FBBC05; }
-    .g-wordmark .g-green { color: #34A853; }
 
-    /* QR bordered box */
-    .g-qr-box {
+    /* Dot indicators */
+    .qr-carousel-dots {
+        display: flex;
+        gap: 0.45rem;
+        justify-content: center;
+        margin-bottom: 0.65rem;
+    }
+
+    .qr-carousel-dot {
+        width: 22px;
+        height: 5px;
+        border-radius: 99px;
+        background: var(--neutral-200, #e5e7eb);
+        transition: background 0.25s, width 0.25s;
+        cursor: pointer;
+    }
+
+    .qr-carousel-dot.active {
+        background: var(--accent-primary, #ff9a56);
+        width: 34px;
+    }
+
+    /* ── Shared poster shell ────────────────────────────────── */
+    .poster-preview-shell {
+        width: 100%;
+        max-width: 300px;
+        border-radius: 18px;
+        overflow: hidden;
         position: relative;
-        display: inline-block;
-        padding: 5px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    /* ── Star row (shared) ──────────────────────────────────── */
+    .p-stars {
+        display: flex;
+        gap: 3px;
+        justify-content: center;
+    }
+
+    .p-stars svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    /* ════════════════════════════════════════════════════
+       STYLE 1 — GOOGLE
+    ════════════════════════════════════════════════════ */
+    .gp {
         background: #fff;
     }
 
-    /* Red corner brackets */
-    .g-qr-box::before, .g-qr-box::after,
-    .g-qr-box .br::before, .g-qr-box .br::after {
+    /* 4-colour top bar */
+    .gp-topbar {
+        display: flex;
+        height: 7px;
+    }
+
+    .gp-topbar span {
+        flex: 1;
+    }
+
+    .gp-topbar .c1 {
+        background: #EA4335;
+    }
+
+    .gp-topbar .c2 {
+        background: #FBBC05;
+    }
+
+    .gp-topbar .c3 {
+        background: #34A853;
+    }
+
+    .gp-topbar .c4 {
+        background: #4285F4;
+    }
+
+    .gp-body {
+        padding: 1.15rem 1.25rem 1.25rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.7rem;
+    }
+
+    .gp-eyebrow {
+        font-size: 0.62rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: #9aa0a6;
+    }
+
+    .gp-wordmark {
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1;
+    }
+
+    .gp-wordmark .gb {
+        color: #4285F4;
+    }
+
+    .gp-wordmark .gr {
+        color: #EA4335;
+    }
+
+    .gp-wordmark .gy {
+        color: #FBBC05;
+    }
+
+    .gp-wordmark .gg {
+        color: #34A853;
+    }
+
+    .gp-stars svg {
+        fill: #FBBC05;
+    }
+
+    .gp-qr-wrap {
+        position: relative;
+        padding: 8px;
+        background: #fff;
+        border: 1.5px solid #f0f0f0;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+    }
+
+    /* Coloured corner brackets */
+    .gp-qr-wrap::before,
+    .gp-qr-wrap::after,
+    .gp-qr-wrap .gp-br::before,
+    .gp-qr-wrap .gp-br::after {
         content: '';
         position: absolute;
-        width: 14px;
-        height: 14px;
-        border-color: #EA4335;
+        width: 16px;
+        height: 16px;
         border-style: solid;
+        border-color: #EA4335;
     }
-    .g-qr-box::before  { top: 0; left: 0;  border-width: 3px 0 0 3px; }
-    .g-qr-box::after   { top: 0; right: 0; border-width: 3px 3px 0 0; }
-    .g-qr-box .br::before { bottom: 0; left: 0;  border-width: 0 0 3px 3px; }
-    .g-qr-box .br::after  { bottom: 0; right: 0; border-width: 0 3px 3px 0; }
 
-    .g-qr-box img {
-        width: 150px;
-        height: 150px;
+    .gp-qr-wrap::before {
+        top: -1px;
+        left: -1px;
+        border-width: 3px 0 0 3px;
+        border-radius: 3px 0 0 0;
+    }
+
+    .gp-qr-wrap::after {
+        top: -1px;
+        right: -1px;
+        border-width: 3px 3px 0 0;
+        border-radius: 0 3px 0 0;
+        border-color: #4285F4;
+    }
+
+    .gp-qr-wrap .gp-br::before {
+        bottom: -1px;
+        left: -1px;
+        border-width: 0 0 3px 3px;
+        border-radius: 0 0 0 3px;
+        border-color: #34A853;
+    }
+
+    .gp-qr-wrap .gp-br::after {
+        bottom: -1px;
+        right: -1px;
+        border-width: 0 3px 3px 0;
+        border-radius: 0 0 3px 0;
+        border-color: #FBBC05;
+    }
+
+    .gp-qr-wrap img {
+        width: 180px;
+        height: 180px;
         display: block;
-    }
-
-    /* SCAN ME banner */
-    .g-scan-me {
-        background: #EA4335;
-        color: #fff;
-        font-size: 0.9rem;
-        font-weight: 900;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        padding: 0.35rem 1.5rem;
         border-radius: 4px;
     }
 
-    .g-caption {
-        font-size: 0.65rem;
-        color: #333;
+    .gp-cta {
+        width: 100%;
+        background: #EA4335;
+        color: #fff;
+        font-size: 0.88rem;
+        font-weight: 800;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
         text-align: center;
-        line-height: 1.5;
-        padding: 0 0.5rem 0.25rem;
+        padding: 0.55rem 1rem;
+        border-radius: 8px;
+        box-sizing: border-box;
+    }
+
+    .gp-caption {
+        font-size: 0.66rem;
+        color: #777;
+        text-align: center;
+        line-height: 1.6;
+        padding: 0 0.5rem;
+    }
+
+    /* 4-colour bottom bar */
+    .gp-bottombar {
+        display: flex;
+        height: 5px;
+    }
+
+    .gp-bottombar span {
+        flex: 1;
+    }
+
+    .gp-bottombar .c1 {
+        background: #4285F4;
+    }
+
+    .gp-bottombar .c2 {
+        background: #34A853;
+    }
+
+    .gp-bottombar .c3 {
+        background: #FBBC05;
+    }
+
+    .gp-bottombar .c4 {
+        background: #EA4335;
+    }
+
+    /* ════════════════════════════════════════════════════
+       STYLE 2 — YOPPYCHAT
+    ════════════════════════════════════════════════════ */
+    .yp {
+        background: #0f0f18;
+        color: #fff;
+    }
+
+    /* ambient glow blob top */
+    .yp-glow {
+        position: absolute;
+        top: -40px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 220px;
+        height: 160px;
+        background: radial-gradient(ellipse, rgba(255, 154, 86, 0.22) 0%, transparent 70%);
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .yp-body {
+        position: relative;
+        z-index: 1;
+        padding: 1.5rem 1.25rem 1.35rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.85rem;
+    }
+
+    .yp-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255, 154, 86, 0.15);
+        border: 1px solid rgba(255, 154, 86, 0.3);
+        border-radius: 999px;
+        padding: 0.25rem 0.75rem;
+    }
+
+    .yp-badge svg {
+        width: 13px;
+        height: 13px;
+        color: #ff9a56;
+    }
+
+    .yp-badge-text {
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #ff9a56;
+    }
+
+    .yp-heading {
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: #fff;
+        text-align: center;
+        line-height: 1.3;
+        letter-spacing: -0.01em;
+    }
+
+    .yp-heading span {
+        color: #ff9a56;
+    }
+
+    .yp-stars svg {
+        fill: #ff9a56;
+    }
+
+    .yp-qr-wrap {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 18px;
+        padding: 12px;
+        backdrop-filter: blur(6px);
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .yp-qr-wrap img {
+        width: 176px;
+        height: 176px;
+        display: block;
+        border-radius: 8px;
+    }
+
+    .yp-cta {
+        width: 100%;
+        background: linear-gradient(135deg, #ff9a56 0%, #ff6b1a 100%);
+        color: #fff;
+        font-size: 0.88rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        text-align: center;
+        padding: 0.6rem 1rem;
+        border-radius: 999px;
+        box-sizing: border-box;
+        box-shadow: 0 4px 18px rgba(255, 107, 26, 0.45);
+    }
+
+    .yp-caption {
+        font-size: 0.64rem;
+        color: rgba(255, 255, 255, 0.4);
+        text-align: center;
+        line-height: 1.6;
+    }
+
+    .yp-footer {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        opacity: 0.35;
+        margin-top: -0.2rem;
+    }
+
+    .yp-footer svg {
+        width: 11px;
+        height: 11px;
+        color: #ff9a56;
+    }
+
+    .yp-footer-text {
+        font-size: 0.57rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: #fff;
+        text-transform: uppercase;
+    }
+
+    /* ════════════════════════════════════════════════════
+       STYLE 3 — MINIMAL / CLEAN
+    ════════════════════════════════════════════════════ */
+    .mp {
+        background: #fff;
+        border: 1px solid #ebebeb;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06) !important;
+    }
+
+    .mp-accent-bar {
+        height: 4px;
+        background: #111;
+        width: 100%;
+    }
+
+    .mp-body {
+        padding: 1.4rem 1.35rem 1.35rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.8rem;
+    }
+
+    .mp-kicker {
+        font-size: 0.58rem;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: #aaa;
+    }
+
+    .mp-heading {
+        font-size: 1.3rem;
+        font-weight: 800;
+        color: #111;
+        text-align: center;
+        letter-spacing: -0.03em;
+        line-height: 1.2;
+    }
+
+    .mp-rule {
+        width: 36px;
+        height: 2px;
+        background: #111;
+        border-radius: 2px;
+    }
+
+    .mp-stars svg {
+        fill: none;
+        stroke: #111;
+        stroke-width: 1.5;
+    }
+
+    .mp-qr-wrap {
+        padding: 10px;
+        background: #fff;
+        border: 1px solid #e8e8e8;
+        border-radius: 10px;
+    }
+
+    .mp-qr-wrap img {
+        width: 174px;
+        height: 174px;
+        display: block;
+    }
+
+    .mp-cta {
+        width: 100%;
+        background: transparent;
+        color: #111;
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        text-align: center;
+        padding: 0.52rem 1rem;
+        border-radius: 7px;
+        box-sizing: border-box;
+        border: 1.5px solid #111;
+    }
+
+    .mp-caption {
+        font-size: 0.63rem;
+        color: #aaa;
+        text-align: center;
+        line-height: 1.6;
+        letter-spacing: 0.01em;
+    }
+
+    .mp-bottom-bar {
+        height: 4px;
+        background: #111;
+        width: 100%;
     }
 
     .qr-hint {
@@ -992,9 +1410,126 @@
         justify-content: center;
     }
 
-    @media (max-width: 360px) {
-        .g-qr-box img { width: 120px; height: 120px; }
-        .g-wordmark { font-size: 1.1rem; }
+    /* ════════════════════════════════════════════════════
+       STYLE 4 — YOPPYCHAT LIGHT (landing page palette)
+    ════════════════════════════════════════════════════ */
+    .ylp {
+        background: #fdf8f3;
+        border: 1px solid #e6d5c1;
+    }
+
+    .ylp-topbar {
+        height: 6px;
+        background: linear-gradient(90deg, #ff9a56 0%, #ff8c42 50%, #f97316 100%);
+    }
+
+    .ylp-body {
+        padding: 1.35rem 1.25rem 1.3rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .ylp-logo-ring {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #ff9a56, #ff8c42);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 14px rgba(255, 154, 86, 0.35);
+    }
+
+    .ylp-logo-ring svg {
+        width: 26px;
+        height: 26px;
+        color: #fff;
+    }
+
+    .ylp-brand {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+    }
+
+    .ylp-brand-name {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #2a1f16;
+        letter-spacing: -0.02em;
+    }
+
+    .ylp-brand-sub {
+        font-size: 0.58rem;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #ff9a56;
+    }
+
+    .ylp-divider {
+        width: 100%;
+        height: 1px;
+        background: #e6d5c1;
+    }
+
+    .ylp-heading {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #2a1f16;
+        text-align: center;
+        line-height: 1.35;
+        letter-spacing: -0.01em;
+    }
+
+    .ylp-stars svg {
+        fill: #ff9a56;
+    }
+
+    .ylp-qr-wrap {
+        background: #f0e6d6;
+        border: 1.5px solid #e6d5c1;
+        border-radius: 14px;
+        padding: 10px;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .ylp-qr-wrap img {
+        width: 176px;
+        height: 176px;
+        display: block;
+        border-radius: 6px;
+    }
+
+    .ylp-cta {
+        width: 100%;
+        background: linear-gradient(135deg, #ff9a56 0%, #ff8c42 100%);
+        color: #fff;
+        font-size: 0.86rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        text-align: center;
+        padding: 0.58rem 1rem;
+        border-radius: 10px;
+        box-sizing: border-box;
+        box-shadow: 0 4px 14px rgba(255, 140, 66, 0.35);
+    }
+
+    .ylp-caption {
+        font-size: 0.63rem;
+        color: #7d6847;
+        text-align: center;
+        line-height: 1.6;
+    }
+
+    .ylp-bottombar {
+        height: 4px;
+        background: #f0e6d6;
+        border-top: 1px solid #e6d5c1;
     }
 
     /* ── Modal button reset (overrides base.html global styles) ───── */
@@ -1049,8 +1584,12 @@
         color: #fff !important;
         border-color: var(--accent-primary, #ff9a56);
     }
+
     .qr-modal .btn-accent:hover,
-    .nfc-modal .btn-accent:hover { opacity: 0.88; transform: translateY(-1px); }
+    .nfc-modal .btn-accent:hover {
+        opacity: 0.88;
+        transform: translateY(-1px);
+    }
 
     /* Ghost */
     .qr-modal .btn-ghost,
@@ -1059,6 +1598,7 @@
         color: var(--text-secondary, #555) !important;
         border: 1px solid var(--neutral-200, #e0e0e0);
     }
+
     .qr-modal .btn-ghost:hover,
     .nfc-modal .btn-ghost:hover {
         background: var(--neutral-200, #e0e0e0);
@@ -1074,6 +1614,7 @@
         width: 30px;
         height: 30px;
     }
+
     .qr-modal .btn-sm svg,
     .nfc-modal .btn-sm svg {
         width: 14px;
@@ -1093,20 +1634,23 @@
         display: none;
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.65);
+        background: rgba(0, 0, 0, 0.65);
         backdrop-filter: blur(5px);
         z-index: 9999;
         align-items: center;
         justify-content: center;
         padding: 1rem;
     }
-    .nfc-overlay.active { display: flex; }
+
+    .nfc-overlay.active {
+        display: flex;
+    }
 
     .nfc-modal {
         background: var(--surface-light);
         border: 1px solid var(--neutral-200);
         border-radius: 18px;
-        box-shadow: 0 24px 70px rgba(0,0,0,0.35);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
         width: 100%;
         max-width: 500px;
         overflow: hidden;
@@ -1152,8 +1696,8 @@
         border-radius: 16px;
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
         box-shadow:
-            0 8px 32px rgba(0,0,0,0.4),
-            inset 0 1px 0 rgba(255,255,255,0.08);
+            0 8px 32px rgba(0, 0, 0, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
         position: relative;
         overflow: hidden;
         padding: 1.2rem 1.4rem;
@@ -1171,7 +1715,7 @@
         width: 220px;
         height: 220px;
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(255,154,86,0.25) 0%, transparent 70%);
+        background: radial-gradient(circle, rgba(255, 154, 86, 0.25) 0%, transparent 70%);
         pointer-events: none;
     }
 
@@ -1183,7 +1727,7 @@
         width: 160px;
         height: 160px;
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%);
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, transparent 70%);
         pointer-events: none;
     }
 
@@ -1198,7 +1742,7 @@
         font-weight: 800;
         letter-spacing: 0.15em;
         text-transform: uppercase;
-        color: rgba(255,255,255,0.5);
+        color: rgba(255, 255, 255, 0.5);
     }
 
     .nfc-symbol {
@@ -1219,7 +1763,7 @@
         color: #fff;
         letter-spacing: -0.01em;
         line-height: 1.2;
-        text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
     }
 
     .nfc-card-cta {
@@ -1238,7 +1782,202 @@
 
     .nfc-card-url {
         font-size: 0.58rem;
-        color: rgba(255,255,255,0.45);
+        color: rgba(255, 255, 255, 0.45);
+        font-family: monospace;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .nfc-stars {
+        display: flex;
+        gap: 1px;
+    }
+
+    .nfc-stars svg {
+        width: 9px;
+        height: 9px;
+        fill: #ff9a56;
+    }
+
+    /* Steps */
+    .nfc-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        margin-bottom: 1.1rem;
+    }
+
+    .nfc-step {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.65rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 10px;
+        background: var(--surface-medium);
+        border: 1px solid var(--neutral-200);
+    }
+
+    .nfc-step-num {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--accent-primary, #ff9a56);
+        color: #fff;
+        font-size: 0.65rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+
+    .nfc-step-text {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        line-height: 1.45;
+    }
+
+    .nfc-step-text strong {
+        color: var(--text-primary);
+        font-weight: 700;
+    }
+
+    .nfc-step-text a {
+        color: var(--accent-primary, #ff9a56);
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .nfc-url-row {
+        display: flex;
+        gap: 0.4rem;
+        margin-bottom: 1.1rem;
+    }
+
+    .nfc-url-input {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .nfc-modal-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .nfc-modal-title svg {
+        width: 16px;
+        height: 16px;
+        color: var(--accent-primary, #ff9a56);
+        flex-shrink: 0;
+    }
+
+    .nfc-modal-body {
+        padding: 1.25rem;
+    }
+
+    /* The card preview */
+    .nfc-card-preview {
+        width: 100%;
+        max-width: 360px;
+        aspect-ratio: 1.586 / 1;
+        margin: 0 auto 1.25rem;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+        box-shadow:
+            0 8px 32px rgba(0, 0, 0, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        position: relative;
+        overflow: hidden;
+        padding: 1.2rem 1.4rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        color: #fff;
+    }
+
+    .nfc-card-preview::before {
+        content: '';
+        position: absolute;
+        top: -60px;
+        right: -60px;
+        width: 220px;
+        height: 220px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 154, 86, 0.25) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    .nfc-card-preview::after {
+        content: '';
+        position: absolute;
+        bottom: -40px;
+        left: -40px;
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    .nfc-card-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+    }
+
+    .nfc-card-brand {
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    .nfc-symbol {
+        width: 32px;
+        height: 32px;
+        opacity: 0.85;
+    }
+
+    .nfc-card-mid {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    .nfc-card-biz {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #fff;
+        letter-spacing: -0.01em;
+        line-height: 1.2;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    }
+
+    .nfc-card-cta {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--accent-primary, #ff9a56);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .nfc-card-bottom {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+    }
+
+    .nfc-card-url {
+        font-size: 0.58rem;
+        color: rgba(255, 255, 255, 0.45);
         font-family: monospace;
         max-width: 200px;
         overflow: hidden;
@@ -1327,7 +2066,10 @@
         text-overflow: ellipsis;
     }
 
-    .nfc-url-input:focus { outline: none; border-color: var(--accent-primary, #ff9a56); }
+    .nfc-url-input:focus {
+        outline: none;
+        border-color: var(--accent-primary, #ff9a56);
+    }
 
     .nfc-actions {
         display: flex;
@@ -1345,8 +2087,13 @@
     }
 
     @media (max-width: 400px) {
-        .nfc-card-biz { font-size: 0.85rem; }
-        .nfc-card-preview { padding: 0.9rem 1rem; }
+        .nfc-card-biz {
+            font-size: 0.85rem;
+        }
+
+        .nfc-card-preview {
+            padding: 0.9rem 1rem;
+        }
     }
 
     /* Logo Upload Drop Zone */
@@ -1355,16 +2102,18 @@
         width: 100%;
         border: 2px dashed var(--border);
         border-radius: 12px;
-        background: rgba(255,255,255,0.02);
+        background: rgba(255, 255, 255, 0.02);
         cursor: pointer;
         transition: all 0.2s ease;
         text-align: center;
         overflow: hidden;
     }
+
     .logo-drop-zone:hover {
         border-color: var(--accent-primary, #ff9a56);
         background: rgba(255, 154, 86, 0.04);
     }
+
     .logo-drop-inner {
         padding: 1.5rem;
         display: flex;
@@ -1372,6 +2121,7 @@
         align-items: center;
         justify-content: center;
     }
+
     .logo-drop-inner img {
         max-width: 100%;
         max-height: 120px;
@@ -1384,29 +2134,113 @@
 {% block content %}
 <div class="gr-wrap">
 
-    <!-- ── Hero ───────────────────────────────────────────── -->
-    <div class="gr-hero">
-        <div class="gr-hero-text">
-            <h1>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
+    <!-- ── Unified Header Row: Title (left) + Plan Card (right) ── -->
+    <div
+        style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.5rem; margin-top: 50px;">
+        <!-- Left: Title & description -->
+        <div style="flex: 1; min-width: 220px;">
+            <h1
+                style="font-size: 1.35rem; font-weight: 800; color: var(--accent-primary, #ff9a56);  margin: 0.1rem; margin-right:5%; display: flex; align-items: center; gap: 0.4rem;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
                     <polygon
                         points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                 </svg>
                 Google Reviews Router
             </h1>
-            <p>Intercept negative feedback privately and guide satisfied customers to leave 5-star Google reviews —
-                powered by AI.</p>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 0.9rem; line-height: 1.5;">
+                Intercept negative feedback privately and guide satisfied customers to leave 5-star Google reviews —
+                powered by AI.
+            </p>
+            {% if settings_list|length < max_businesses %} <button class="btn btn-accent" onclick="showNewForm()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                <span class="btn-lbl">Add Business</span>
+                </button>
+                {% endif %}
         </div>
-        {% if settings_list|length < max_businesses %} <button class="btn btn-accent" onclick="showNewForm()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            <span class="btn-lbl">Add Business</span>
-            </button>
+
+        <!-- Right: Plan / credits card -->
+        {% set plan_name = user_status.get('plan_name', 'Free') if user_status else 'Free' %}
+        {% set usage = user_status.get('usage', {}) if user_status else {} %}
+        {% set limits = user_status.get('limits', {}) if user_status else {} %}
+        {% set qUsed = usage.get('queries_this_month', 0)|int %}
+        {% set qMax = limits.get('max_queries_per_month', 20)|int %}
+        
+        {% set ns = namespace(mp_used=0, mp_max=0) %}
+        {% for s in settings_list %}
+            {% if s.get('marketplace_transfer') %}
+                {% set ns.mp_used = ns.mp_used + s.get('marketplace_transfer', {}).get('queries_used_this_month', 0)|int %}
+                {% set ns.mp_max = ns.mp_max + s.get('marketplace_transfer', {}).get('query_limit_monthly', 0)|int %}
             {% endif %}
+        {% endfor %}
+        
+        {% if ns.mp_max > 0 %}
+            {% set qUsed = qUsed + ns.mp_used %}
+            {% set qMax = qMax + ns.mp_max %}
+            {% if plan_name == 'Free' %}
+                {% set plan_name = 'Purchased Plan' %}
+            {% endif %}
+        {% endif %}
+
+        {% set is_creator = 'creator' in (plan_name|lower) or (ns.mp_max > 0) %}
+        {% set qPct = (qUsed / qMax * 100)|round|int if qMax > 0 else 0 %}
+        <div class="plan-quota-bar"
+            style="background: var(--surface-light); border: 1px solid var(--neutral-200); border-radius: 12px; padding: 0.65rem 1rem; min-width: 220px; max-width: 260px; display: flex; flex-direction: column; gap: 0.5rem; text-align: left; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span
+                    style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 3px 10px; border-radius: 999px; {{ 'background: rgba(139, 92, 246, 0.12); color: #8B5CF6;' if is_creator else 'background: rgba(var(--accent-primary-rgb, 249, 115, 22), 0.12); color: var(--accent-primary);' }}">{{
+                    plan_name }}</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">
+                    <strong style="color: var(--text-primary);">{{ "{:,}".format(qUsed) }}</strong> / {{
+                    "{:,}".format(qMax) }} credits
+                </span>
+            </div>
+            <div
+                style="width: 100%; height: 6px; background: var(--neutral-200); border-radius: 999px; overflow: hidden;">
+                <div
+                    style="height: 100%; border-radius: 999px; background: var(--accent-primary); width: {{ qPct if qPct <= 100 else 100 }}%;">
+                </div>
+            </div>
+            <button onclick="showPricingModal()"
+                style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:7px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,#FF6B35 0%,#F7C59F 50%,#FF6B8A 100%);background-size:200% 200%;animation:grUpgradeShimmer 3s ease infinite;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;box-shadow:0 2px 10px rgba(255,107,53,0.35);transition:transform 0.18s ease,box-shadow 0.18s ease;"
+                onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 16px rgba(255,107,53,0.5)'"
+                onmouseout="this.style.transform='';this.style.boxShadow='0 2px 10px rgba(255,107,53,0.35)'">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+                ✨ Upgrade Plan
+            </button>
+        </div>
     </div>
+    <style>
+        @keyframes grUpgradeShimmer {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+    </style>
+    <!-- Auto-open pricing if credits exhausted -->
+    {% if qPct is defined and qPct >= 100 %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (typeof showPricingModal === 'function') { showPricingModal(); }
+        });
+    </script>
+    {% endif %}
+
 
     <!-- ── Flash messages ─────────────────────────────────── -->
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -1433,8 +2267,8 @@
     {% endwith %}
 
     <!-- ── Business cards ─────────────────────────────────── -->
-    {% if settings_list|length > 0 %}
-    {% for settings in settings_list %}
+    {% if selected_settings %}
+    {% set settings = selected_settings %}
     {% set s_id = settings.get('id') %}
     {% set safe_name = settings.get('business_name','business') | replace(" ","-") | lower %}
     {% set link_url = url_for('google_reviews.public_review_page', business_name=safe_name, settings_id=s_id,
@@ -1459,6 +2293,16 @@
                 </div>
             </div>
             <div class="card-actions">
+                <a href="{{ url_for('marketplace_transfer_google_review', settings_id=s_id) }}"
+                    class="btn btn-ghost btn-sm" title="Sell in Marketplace">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path
+                            d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z">
+                        </path>
+                    </svg>
+                    <span class="btn-lbl">Sell</span>
+                </a>
                 <button class="btn btn-ghost btn-sm" onclick="showEditMode('{{ s_id }}')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
                         stroke-linejoin="round">
@@ -1470,9 +2314,7 @@
                 <form id="deleteForm-{{ s_id }}"
                     action="{{ url_for('google_reviews.delete_business', settings_id=s_id) }}" method="POST"
                     style="margin:0;">
-                    <button type="button" class="btn btn-danger btn-sm" data-settings-id="{{ s_id }}"
-                        onclick="confirmDeleteBusiness(this.dataset.settingsId, '{{ settings.get(" business_name","") |
-                        replace("'","&#39;") }}')">
+                    <button type="button" class="btn btn-danger btn-sm" data-settings-id="{{ s_id }}" data-business-name="{{ settings.get('business_name', '') }}" onclick="confirmDeleteBusiness(this.dataset.settingsId, this.dataset.businessName)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
                             stroke-linejoin="round">
                             <polyline points="3 6 5 6 21 6" />
@@ -1485,6 +2327,33 @@
         </div>
 
         <div class="card-body">
+
+            <!-- Marketplace Credits Quota -->
+            {% if settings.get('marketplace_transfer') %}
+            {% set tf = settings['marketplace_transfer'] %}
+            {% set tfUsed = tf.get('queries_used_this_month', 0)|int %}
+            {% set tfMax = tf.get('query_limit_monthly', 20)|int %}
+            {% set tfPct = (tfUsed / tfMax * 100)|round|int if tfMax > 0 else 0 %}
+            <div style="background: var(--surface-light); border: 1px solid var(--neutral-200); border-radius: 12px; padding: 0.85rem 1.25rem; margin-bottom: 1.25rem; display: flex; flex-direction: column; gap: 0.6rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 3px 10px; border-radius: 999px; background: rgba(var(--accent-primary-rgb, 249, 115, 22), 0.12); color: var(--accent-primary);">Marketplace</span>
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">
+                        <strong style="color: var(--text-primary);">{{ "{:,}".format(tfUsed) }}</strong> / {{ "{:,}".format(tfMax) }} credits
+                    </span>
+                </div>
+                <div style="width: 100%; height: 6px; background: var(--neutral-200); border-radius: 999px; overflow: hidden;">
+                    <div style="height: 100%; border-radius: 999px; background: var(--accent-primary); width: {{ tfPct if tfPct <= 100 else 100 }}%;"></div>
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+                    <button onclick="showPricingModal()" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:7px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,#FF6B35 0%,#F7C59F 50%,#FF6B8A 100%);background-size:200% 200%;animation:grUpgradeShimmer 3s ease infinite;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;box-shadow:0 2px 10px rgba(255,107,53,0.35);transition:transform 0.18s ease,box-shadow 0.18s ease;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 16px rgba(255,107,53,0.5)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 10px rgba(255,107,53,0.35)'">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                        </svg>
+                        ✨ Upgrade Plan
+                    </button>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Stats -->
             {% if stats and s_id in stats %}
@@ -1531,35 +2400,33 @@
                         <span id="copyText-{{ s_id }}">Copy</span>
                     </button>
                     <button type="button" class="btn btn-ghost btn-sm" title="Generate QR Code"
-                        data-settings-id="{{ s_id }}"
-                        data-biz-name="{{ settings.get('business_name','') | e }}"
-                        data-logo-url="{{ settings.get('logo_url','') | e }}"
-                        onclick="openQrModalFromBtn(this)">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="3" y="3" width="7" height="7" rx="1"/>
-                            <rect x="14" y="3" width="7" height="7" rx="1"/>
-                            <rect x="3" y="14" width="7" height="7" rx="1"/>
-                            <rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none"/>
-                            <rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none"/>
-                            <rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none"/>
-                            <path d="M14 14h3v3h-3z" fill="currentColor" stroke="none"/>
-                            <path d="M17 17h3v3h-3z" fill="currentColor" stroke="none"/>
-                            <path d="M14 20h3" stroke-width="2"/>
-                            <path d="M20 14v3" stroke-width="2"/>
+                        data-settings-id="{{ s_id }}" data-biz-name="{{ settings.get('business_name','') | e }}"
+                        data-logo-url="{{ settings.get('logo_url','') | e }}" onclick="openQrModalFromBtn(this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7" rx="1" />
+                            <rect x="14" y="3" width="7" height="7" rx="1" />
+                            <rect x="3" y="14" width="7" height="7" rx="1" />
+                            <rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none" />
+                            <rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none" />
+                            <rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none" />
+                            <path d="M14 14h3v3h-3z" fill="currentColor" stroke="none" />
+                            <path d="M17 17h3v3h-3z" fill="currentColor" stroke="none" />
+                            <path d="M14 20h3" stroke-width="2" />
+                            <path d="M20 14v3" stroke-width="2" />
                         </svg>
                         <span class="btn-lbl">QR Code</span>
                     </button>
-                    <button type="button" class="btn btn-ghost btn-sm" title="NFC Card"
-                        data-settings-id="{{ s_id }}"
-                        data-biz-name="{{ settings.get('business_name','') | e }}"
-                        onclick="openNfcModalFromBtn(this)">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M20 7a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h16z"/>
-                            <path d="M12 11v2" stroke-width="2.5"/>
-                            <path d="M9.5 9.5A3.5 3.5 0 0 0 8.5 12a3.5 3.5 0 0 0 1 2.5" stroke-width="1.5"/>
-                            <path d="M14.5 9.5A3.5 3.5 0 0 1 15.5 12a3.5 3.5 0 0 1-1 2.5" stroke-width="1.5"/>
-                            <path d="M7 7.5A6 6 0 0 0 5.5 12 6 6 0 0 0 7 16.5" stroke-width="1.2"/>
-                            <path d="M17 7.5A6 6 0 0 1 18.5 12 6 6 0 0 1 17 16.5" stroke-width="1.2"/>
+                    <button type="button" class="btn btn-ghost btn-sm" title="NFC Card" data-settings-id="{{ s_id }}"
+                        data-biz-name="{{ settings.get('business_name','') | e }}" onclick="openNfcModalFromBtn(this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M20 7a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h16z" />
+                            <path d="M12 11v2" stroke-width="2.5" />
+                            <path d="M9.5 9.5A3.5 3.5 0 0 0 8.5 12a3.5 3.5 0 0 0 1 2.5" stroke-width="1.5" />
+                            <path d="M14.5 9.5A3.5 3.5 0 0 1 15.5 12a3.5 3.5 0 0 1-1 2.5" stroke-width="1.5" />
+                            <path d="M7 7.5A6 6 0 0 0 5.5 12 6 6 0 0 0 7 16.5" stroke-width="1.2" />
+                            <path d="M17 7.5A6 6 0 0 1 18.5 12 6 6 0 0 1 17 16.5" stroke-width="1.2" />
                         </svg>
                         <span class="btn-lbl">NFC Card</span>
                     </button>
@@ -1679,19 +2546,23 @@
                         <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
                             <img src="{{ settings.logo_url }}" alt="Current Logo"
                                 style="width:48px;height:48px;object-fit:contain;border-radius:8px;border:1px solid var(--neutral-200);background:#fff;padding:4px;">
-                            <span style="font-size:0.78rem;color:var(--text-muted);">Current logo &mdash; upload a new one to replace</span>
+                            <span style="font-size:0.78rem;color:var(--text-muted);">Current logo &mdash; upload a new
+                                one to replace</span>
                         </div>
                         {% endif %}
                         <label class="logo-drop-zone" id="logoDropEdit-{{ s_id }}">
                             <input type="file" name="business_logo" accept="image/*"
-                                onchange="previewLogo(this,'logoPreviewEdit-{{ s_id }}','logoDropEdit-{{ s_id }}')" style="display:none;">
+                                onchange="previewLogo(this,'logoPreviewEdit-{{ s_id }}','logoDropEdit-{{ s_id }}')"
+                                style="display:none;">
                             <div class="logo-drop-inner" id="logoPreviewEdit-{{ s_id }}">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;color:var(--text-muted);">
-                                    <rect x="3" y="3" width="18" height="18" rx="3"/>
-                                    <circle cx="8.5" cy="8.5" r="1.5"/>
-                                    <polyline points="21 15 16 10 5 21"/>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                                    stroke-linejoin="round" style="width:24px;height:24px;color:var(--text-muted);">
+                                    <rect x="3" y="3" width="18" height="18" rx="3" />
+                                    <circle cx="8.5" cy="8.5" r="1.5" />
+                                    <polyline points="21 15 16 10 5 21" />
                                 </svg>
-                                <span style="font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem;">Click or drag image here<br><small>PNG, JPG, SVG, WebP</small></span>
+                                <span style="font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem;">Click or drag
+                                    image here<br><small>PNG, JPG, SVG, WebP</small></span>
                             </div>
                         </label>
                     </div>
@@ -1712,8 +2583,7 @@
         </div>
     </div>
 
-    {% endfor %}
-    {% else %}
+    {% elif settings_list|length == 0 %}
 
     <!-- Empty state -->
     <div class="empty-state">
@@ -1733,6 +2603,17 @@
         </button>
     </div>
 
+    {% else %}
+    <!-- No business selected -- prompt user to pick from sidebar -->
+    <div class="empty-state">
+        <svg class="es-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" />
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+        </svg>
+        <h3>Select a business</h3>
+        <p>Choose a business from the sidebar to view its dashboard.</p>
+    </div>
     {% endif %}
 
     <!-- ── New Business Form ───────────────────────────────── -->
@@ -1794,12 +2675,14 @@
                             <input type="file" name="business_logo" accept="image/*"
                                 onchange="previewLogo(this,'logoPreviewNew','logoDropNew')" style="display:none;">
                             <div class="logo-drop-inner" id="logoPreviewNew">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;color:var(--text-muted);">
-                                    <rect x="3" y="3" width="18" height="18" rx="3"/>
-                                    <circle cx="8.5" cy="8.5" r="1.5"/>
-                                    <polyline points="21 15 16 10 5 21"/>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                                    stroke-linejoin="round" style="width:24px;height:24px;color:var(--text-muted);">
+                                    <rect x="3" y="3" width="18" height="18" rx="3" />
+                                    <circle cx="8.5" cy="8.5" r="1.5" />
+                                    <polyline points="21 15 16 10 5 21" />
                                 </svg>
-                                <span style="font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem;">Click or drag image here<br><small>PNG, JPG, SVG, WebP</small></span>
+                                <span style="font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem;">Click or drag
+                                    image here<br><small>PNG, JPG, SVG, WebP</small></span>
                             </div>
                         </label>
                     </div>
@@ -1828,10 +2711,11 @@
             <span class="fb-note">Not visible on Google</span>
         </div>
 
-        {% if feedbacks|length > 0 %}
         {% set business_map = {} %}
         {% for s in settings_list %}{% if business_map.update({s.get('id'): s.get('business_name','Unknown')}) %}{%
         endif %}{% endfor %}
+
+        {% if captured_feedbacks|length > 0 %}
         <div class="fb-table-wrap">
             <table class="fb-table">
                 <thead>
@@ -1844,7 +2728,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for fb in feedbacks %}
+                    {% for fb in captured_feedbacks %}
                     <tr>
                         <td style="white-space:nowrap;color:var(--text-muted);">{{ fb.created_at[:10] }}</td>
                         <td style="white-space:nowrap;font-weight:600;font-size:0.82rem;">{{
@@ -1871,8 +2755,62 @@
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
-            <strong>No negative feedback yet — fantastic!</strong>
-            Positive ratings are flowing straight to Google.
+            <strong>No captured feedback yet — awesome!</strong>
+            All submitted feedback is either positive or not captured yet.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ── Public Reviews ─────────────────────────────────── -->
+    <div class="fb-section">
+        <div class="fb-head">
+            <h3>Public Reviews</h3>
+            <span class="fb-tag">Public</span>
+            <span class="fb-note">Visible on Google</span>
+        </div>
+
+        {% if public_reviews|length > 0 %}
+        <div class="fb-table-wrap">
+            <table class="fb-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Business</th>
+                        <th>Customer</th>
+                        <th>Rating</th>
+                        <th>Review</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fb in public_reviews %}
+                    <tr>
+                        <td style="white-space:nowrap;color:var(--text-muted);">{{ fb.created_at[:10] }}</td>
+                        <td style="white-space:nowrap;font-weight:600;font-size:0.82rem;">{{
+                            business_map.get(fb.settings_id,'—') }}</td>
+                        <td>
+                            <div style="font-weight:600;">{{ fb.customer_name or 'Anonymous' }}</div>
+                            {% if fb.customer_email %}<div style="font-size:0.75rem;color:var(--text-muted);">{{
+                                fb.customer_email }}</div>{% endif %}
+                        </td>
+                        <td>
+                            <span
+                                class="rating-badge {% if fb.rating <= 2 %}rating-bad{% else %}rating-ok{% endif %}">{{
+                                fb.rating }}&#9733;</span>
+                        </td>
+                        <td style="color:var(--text-secondary);max-width:280px;">{{ fb.feedback_text }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="fb-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <strong>No public reviews yet</strong>
+            Positive ratings will appear here as they are collected.
         </div>
         {% endif %}
     </div>
@@ -1885,17 +2823,18 @@
     <div class="qr-modal">
         <div class="qr-modal-head">
             <div class="qr-modal-title" id="qrModalTitle">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="7" height="7" rx="1"/>
-                    <rect x="14" y="3" width="7" height="7" rx="1"/>
-                    <rect x="3" y="14" width="7" height="7" rx="1"/>
-                    <rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none"/>
-                    <rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none"/>
-                    <rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none"/>
-                    <path d="M14 14h3v3h-3z" fill="currentColor" stroke="none"/>
-                    <path d="M17 17h3v3h-3z" fill="currentColor" stroke="none"/>
-                    <path d="M14 20h3" stroke-width="2"/>
-                    <path d="M20 14v3" stroke-width="2"/>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none" />
+                    <rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none" />
+                    <rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none" />
+                    <path d="M14 14h3v3h-3z" fill="currentColor" stroke="none" />
+                    <path d="M17 17h3v3h-3z" fill="currentColor" stroke="none" />
+                    <path d="M14 20h3" stroke-width="2" />
+                    <path d="M20 14v3" stroke-width="2" />
                 </svg>
                 QR Code
             </div>
@@ -1907,38 +2846,53 @@
             </button>
         </div>
         <div class="qr-modal-body">
-            <!-- Google-branded poster preview -->
-            <div class="g-poster-preview">
-                <div class="corner corner-tl"></div>
-                <div class="corner corner-tr"></div>
-                <div class="corner corner-bl"></div>
-                <div class="corner corner-br"></div>
-                <div class="g-poster-inner">
-                    <img id="qrLogoImage" src="" alt="Logo" style="display:none; width:80px; height:80px; object-fit:contain; margin-bottom:0.5rem; border-radius:8px;">
-                    <div class="g-wordmark">
-                        <span class="g-blue">G</span><span class="g-red">o</span><span class="g-yellow">o</span><span class="g-blue">g</span><span class="g-green">l</span><span class="g-red">e</span>
-                    </div>
-                    <div class="g-qr-box">
-                        <span class="br"></span>
-                        <img id="qrImage" src="" alt="QR Code" />
-                    </div>
-                    <div class="g-scan-me">SCAN ME</div>
-                    <div class="g-caption">Please take a moment to give<br>us a Google review!</div>
+
+            <div style="position: relative;">
+                <button type="button" class="btn btn-ghost" onclick="navigateQr(-1)"
+                    style="position: absolute; top: 45%; left: -0.25rem; transform: translateY(-50%); z-index: 10; width: 36px; height: 36px; padding: 0; border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.15); background: var(--surface-light); border: 1px solid var(--neutral-200); display: flex; align-items: center; justify-content: center;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round" style="width: 18px; height: 18px;">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                </button>
+
+                <div class="qr-poster-carousel" id="qrPosterCarousel">
+                    <!-- Slides injected here by renderQrPreview() -->
                 </div>
+
+                <button type="button" class="btn btn-ghost" onclick="navigateQr(1)"
+                    style="position: absolute; top: 45%; right: -0.25rem; transform: translateY(-50%); z-index: 10; width: 36px; height: 36px; padding: 0; border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.15); background: var(--surface-light); border: 1px solid var(--neutral-200); display: flex; align-items: center; justify-content: center;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round" style="width: 18px; height: 18px;">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </button>
             </div>
-            <p style="font-weight:700;color:var(--text-primary);font-size:0.82rem;margin-bottom:0.2rem;text-align:center;" id="qrBizName"></p>
-            <p style="font-size:0.74rem;color:var(--text-muted);text-align:center;margin-bottom:1rem;">Print &amp; display in-store, or download to share digitally.</p>
-            <div class="qr-actions">
-                <button class="btn btn-accent" id="qrDownloadBtn" onclick="downloadQr()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <div class="qr-carousel-dots" id="qrCarouselDots">
+                <div class="qr-carousel-dot active" data-index="0" onclick="scrollToQrSlide(0)"></div>
+                <div class="qr-carousel-dot" data-index="1" onclick="scrollToQrSlide(1)"></div>
+                <div class="qr-carousel-dot" data-index="2" onclick="scrollToQrSlide(2)"></div>
+                <div class="qr-carousel-dot" data-index="3" onclick="scrollToQrSlide(3)"></div>
+            </div>
+
+            <p style="font-weight:700;color:var(--text-primary);font-size:0.82rem;margin-bottom:0.15rem;text-align:center;"
+                id="qrBizName"></p>
+            <p style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin-bottom:0.85rem;">Print &amp;
+                display in-store, or download to share digitally.</p>
+            <div class="qr-actions" style="display:grid;grid-template-columns:1fr;gap:0.5rem;">
+                <button class="btn btn-accent" id="qrDownloadPngBtn" onclick="downloadQr('png')"
+                    style="justify-content:center;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                         <polyline points="7 10 12 15 17 10" />
                         <line x1="12" y1="15" x2="12" y2="3" />
                     </svg>
-                    Download (2 images)
+                    Download PNG
                 </button>
-                <button class="btn btn-ghost" onclick="printQr()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <button class="btn btn-ghost" onclick="printQr()" style="justify-content:center;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
                         <polyline points="6 9 6 2 18 2 18 9" />
                         <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
                         <rect x="6" y="14" width="12" height="8" />
@@ -1957,20 +2911,21 @@
 
         <div class="nfc-modal-head">
             <div class="nfc-modal-title" id="nfcModalTitle">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
-                    <path d="M8.5 10A3.5 3.5 0 0 0 8.5 14" stroke-width="2"/>
-                    <path d="M15.5 10A3.5 3.5 0 0 1 15.5 14" stroke-width="2"/>
-                    <path d="M6 8A6 6 0 0 0 6 16" stroke-width="1.5"/>
-                    <path d="M18 8A6 6 0 0 1 18 16" stroke-width="1.5"/>
-                    <circle cx="12" cy="12" r="1" fill="currentColor"/>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+                    <path d="M8.5 10A3.5 3.5 0 0 0 8.5 14" stroke-width="2" />
+                    <path d="M15.5 10A3.5 3.5 0 0 1 15.5 14" stroke-width="2" />
+                    <path d="M6 8A6 6 0 0 0 6 16" stroke-width="1.5" />
+                    <path d="M18 8A6 6 0 0 1 18 16" stroke-width="1.5" />
+                    <circle cx="12" cy="12" r="1" fill="currentColor" />
                 </svg>
                 NFC Review Card
             </div>
             <button class="btn btn-ghost btn-sm" onclick="closeNfcModal()" aria-label="Close">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
             </button>
         </div>
@@ -1983,13 +2938,19 @@
                     <div class="nfc-card-brand">Review Card</div>
                     <svg class="nfc-symbol" viewBox="0 0 40 40" fill="none">
                         <!-- NFC wave symbol -->
-                        <circle cx="20" cy="20" r="4" fill="#ff9a56"/>
-                        <path d="M12 20a8 8 0 0 1 8-8" stroke="#ff9a56" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-                        <path d="M12 20a8 8 0 0 0 8 8" stroke="rgba(255,154,86,0.5)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-                        <path d="M28 20a8 8 0 0 1-8 8" stroke="#ff9a56" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-                        <path d="M28 20a8 8 0 0 0-8-8" stroke="rgba(255,154,86,0.5)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-                        <path d="M7 20a13 13 0 0 1 13-13" stroke="rgba(255,154,86,0.35)" stroke-width="1.6" stroke-linecap="round" fill="none"/>
-                        <path d="M33 20a13 13 0 0 1-13 13" stroke="rgba(255,154,86,0.35)" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+                        <circle cx="20" cy="20" r="4" fill="#ff9a56" />
+                        <path d="M12 20a8 8 0 0 1 8-8" stroke="#ff9a56" stroke-width="2.2" stroke-linecap="round"
+                            fill="none" />
+                        <path d="M12 20a8 8 0 0 0 8 8" stroke="rgba(255,154,86,0.5)" stroke-width="2.2"
+                            stroke-linecap="round" fill="none" />
+                        <path d="M28 20a8 8 0 0 1-8 8" stroke="#ff9a56" stroke-width="2.2" stroke-linecap="round"
+                            fill="none" />
+                        <path d="M28 20a8 8 0 0 0-8-8" stroke="rgba(255,154,86,0.5)" stroke-width="2.2"
+                            stroke-linecap="round" fill="none" />
+                        <path d="M7 20a13 13 0 0 1 13-13" stroke="rgba(255,154,86,0.35)" stroke-width="1.6"
+                            stroke-linecap="round" fill="none" />
+                        <path d="M33 20a13 13 0 0 1-13 13" stroke="rgba(255,154,86,0.35)" stroke-width="1.6"
+                            stroke-linecap="round" fill="none" />
                     </svg>
                 </div>
                 <div class="nfc-card-mid">
@@ -1999,23 +2960,41 @@
                 <div class="nfc-card-bottom">
                     <div class="nfc-card-url" id="nfcCardUrl"></div>
                     <div class="nfc-stars">
-                        <svg viewBox="0 0 10 10"><polygon points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8"/></svg>
-                        <svg viewBox="0 0 10 10"><polygon points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8"/></svg>
-                        <svg viewBox="0 0 10 10"><polygon points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8"/></svg>
-                        <svg viewBox="0 0 10 10"><polygon points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8"/></svg>
-                        <svg viewBox="0 0 10 10"><polygon points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8"/></svg>
+                        <svg viewBox="0 0 10 10">
+                            <polygon
+                                points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8" />
+                        </svg>
+                        <svg viewBox="0 0 10 10">
+                            <polygon
+                                points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8" />
+                        </svg>
+                        <svg viewBox="0 0 10 10">
+                            <polygon
+                                points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8" />
+                        </svg>
+                        <svg viewBox="0 0 10 10">
+                            <polygon
+                                points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8" />
+                        </svg>
+                        <svg viewBox="0 0 10 10">
+                            <polygon
+                                points="5,1 6.2,3.8 9.5,4.1 7.1,6.4 7.9,9.5 5,7.7 2.1,9.5 2.9,6.4 0.5,4.1 3.8,3.8" />
+                        </svg>
                     </div>
                 </div>
             </div>
 
             <!-- URL to program -->
-            <p style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.4rem;">Program this URL into your NFC tag</p>
+            <p
+                style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.4rem;">
+                Program this URL into your NFC tag</p>
             <div class="nfc-url-row">
                 <input type="text" class="nfc-url-input" id="nfcUrlInput" readonly />
                 <button class="btn btn-accent btn-sm" id="nfcCopyBtn" onclick="copyNfcUrl()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                     </svg>
                     <span id="nfcCopyText">Copy</span>
                 </button>
@@ -2025,31 +3004,41 @@
             <div class="nfc-steps">
                 <div class="nfc-step">
                     <div class="nfc-step-num">1</div>
-                    <div class="nfc-step-text"><strong>Buy NFC tags</strong> — Get blank NTAG213/215 stickers or cards from <a href="https://www.amazon.com/s?k=nfc+tags+ntag213" target="_blank">Amazon</a> or <a href="https://www.aliexpress.com/w/wholesale-nfc-tag-ntag213.html" target="_blank">AliExpress</a> (~$0.30–$1 each).</div>
+                    <div class="nfc-step-text"><strong>Buy NFC tags</strong> — Get blank NTAG213/215 stickers or cards
+                        from <a href="https://www.amazon.com/s?k=nfc+tags+ntag213" target="_blank">Amazon</a> or <a
+                            href="https://www.aliexpress.com/w/wholesale-nfc-tag-ntag213.html"
+                            target="_blank">AliExpress</a> (~$0.30–$1 each).</div>
                 </div>
                 <div class="nfc-step">
                     <div class="nfc-step-num">2</div>
-                    <div class="nfc-step-text"><strong>Program with a free app</strong> — Use <a href="https://play.google.com/store/apps/details?id=com.wakdev.wdnfc" target="_blank">NFC Tools (Android)</a> or <a href="https://apps.apple.com/app/nfc-tools/id1252962749" target="_blank">NFC Tools (iPhone)</a>. Tap &ldquo;Write&rdquo; → &ldquo;URL/URI&rdquo; → paste the URL above.</div>
+                    <div class="nfc-step-text"><strong>Program with a free app</strong> — Use <a
+                            href="https://play.google.com/store/apps/details?id=com.wakdev.wdnfc" target="_blank">NFC
+                            Tools (Android)</a> or <a href="https://apps.apple.com/app/nfc-tools/id1252962749"
+                            target="_blank">NFC Tools (iPhone)</a>. Tap &ldquo;Write&rdquo; → &ldquo;URL/URI&rdquo; →
+                        paste the URL above.</div>
                 </div>
                 <div class="nfc-step">
                     <div class="nfc-step-num">3</div>
-                    <div class="nfc-step-text"><strong>Place at your counter</strong> — Stick the tag inside a card holder, on a receipt board, or on your counter. Customers tap to leave a review instantly!</div>
+                    <div class="nfc-step-text"><strong>Place at your counter</strong> — Stick the tag inside a card
+                        holder, on a receipt board, or on your counter. Customers tap to leave a review instantly!</div>
                 </div>
             </div>
 
             <div class="nfc-actions">
                 <button class="btn btn-accent" onclick="printNfcCard()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="6 9 6 2 18 2 18 9"/>
-                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                        <rect x="6" y="14" width="12" height="8"/>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <polyline points="6 9 6 2 18 2 18 9" />
+                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                        <rect x="6" y="14" width="12" height="8" />
                     </svg>
                     Print Card Design
                 </button>
                 <button class="btn btn-ghost" onclick="closeNfcModal()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"/>
-                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
                     Close
                 </button>
@@ -2059,6 +3048,7 @@
     </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
     function showEditMode(id) {
         document.getElementById('viewMode-' + id).style.display = 'none';
@@ -2114,23 +3104,35 @@
         const activeBtn = document.getElementById((isRel ? 'randomBtn-' : 'refreshBtn-') + id);
         const otherBtn = document.getElementById((isRel ? 'refreshBtn-' : 'randomBtn-') + id);
         const status = document.getElementById('refreshStatus-' + id);
-        const orig = activeBtn.innerHTML;
+        const box = document.getElementById('contextBox-' + id);
+        
+        const origBoxContent = box.innerHTML;
+        const origBtn = activeBtn.innerHTML;
+        
         activeBtn.innerHTML = '<svg style="width:14px;height:14px;animation:spin 0.8s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.1-5.7"/></svg>';
         activeBtn.disabled = otherBtn.disabled = true;
         status.style.display = 'none';
+        
+        // Show skeleton in box
+        box.innerHTML = '<div class="skeleton skeleton-text" style="width:90%"></div><div class="skeleton skeleton-text" style="width:85%"></div><div class="skeleton skeleton-text" style="width:95%"></div><div class="skeleton skeleton-text" style="width:70%"></div>';
+        
         try {
             const res = await fetch('/dashboard/google-reviews/refresh-context', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ settings_id: id, sort_mode }) });
             const data = await res.json();
-            const box = document.getElementById('contextBox-' + id);
             if (data.status === 'success') {
                 status.style.color = '#10b981'; status.textContent = 'Context updated successfully.';
-                box.classList.remove('empty'); box.innerHTML = data.context.split(' | ').join('<br>— ');
+                box.classList.remove('empty'); 
+                box.innerHTML = data.context.split(' | ').join('<br>— ');
             } else {
                 status.style.color = '#f59e0b'; status.textContent = data.message;
+                box.innerHTML = origBoxContent;
             }
-        } catch { status.style.color = '#ef4444'; status.textContent = 'Network error — please try again.'; }
+        } catch { 
+            status.style.color = '#ef4444'; status.textContent = 'Network error — please try again.'; 
+            box.innerHTML = origBoxContent;
+        }
         status.style.display = 'block';
-        activeBtn.innerHTML = orig; activeBtn.disabled = otherBtn.disabled = false;
+        activeBtn.innerHTML = origBtn; activeBtn.disabled = otherBtn.disabled = false;
     }
 
     {% if needs_login %}
@@ -2144,6 +3146,204 @@
     let _qrCurrentUrl = '';
     let _qrCurrentBizName = '';
     let _qrCurrentLogoUrl = '';
+    let _qrCurrentStyle = 'google';
+
+    const _qrStyles = ['google', 'yoppychat', 'minimal', 'yoppychat-light'];
+
+    const _starsSvg = (fill, stroke) => `
+        <div class="p-stars">
+            ${[0, 1, 2, 3, 4].map(() => `<svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" fill="${fill}" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round"/></svg>`).join('')}
+        </div>`;
+
+    function renderQrPreview() {
+        const carousel = document.getElementById('qrPosterCarousel');
+        const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=0&data=${encodeURIComponent(_qrCurrentUrl)}`;
+        const fbLogo = '{{ url_for("static", filename="images/logo/favicon.png") }}';
+        const logoHtml = _qrCurrentLogoUrl
+            ? `<img src="${_qrCurrentLogoUrl}" alt="Logo" style="width:64px;height:64px;object-fit:contain;border-radius:12px;background:#fff;padding:4px;box-shadow:0 2px 10px rgba(0,0,0,0.1);" onerror="this.src='${fbLogo}'">`
+            : '';
+
+        /* ── GOOGLE ── */
+        const googleSlide = `
+        <div class="qr-poster-slide" data-style="google">
+            <div class="poster-preview-shell gp">
+                <div class="gp-topbar"><span class="c1"></span><span class="c2"></span><span class="c3"></span><span class="c4"></span></div>
+                <div class="gp-body">
+                    ${logoHtml}
+                    <div class="gp-eyebrow">Rate us on</div>
+                    <div class="gp-wordmark">
+                        <span class="gb">G</span><span class="gr">o</span><span class="gy">o</span><span class="gb">g</span><span class="gg">l</span><span class="gr">e</span>
+                    </div>
+                    ${_starsSvg('#FBBC05', '#FBBC05')}
+                    <div class="gp-qr-wrap">
+                        <span class="gp-br"></span>
+                        <img src="${qrSrc}" alt="QR Code">
+                    </div>
+                    <div class="gp-cta">Scan to Leave a Review</div>
+                    <div class="gp-caption">Your feedback helps us improve.<br>Thank you for your time!</div>
+                </div>
+                <div class="gp-bottombar"><span class="c1"></span><span class="c2"></span><span class="c3"></span><span class="c4"></span></div>
+            </div>
+            <div class="qr-slide-label">Google</div>
+        </div>`;
+
+        /* ── YOPPYCHAT ── */
+        const yoppySlide = `
+        <div class="qr-poster-slide" data-style="yoppychat">
+            <div class="poster-preview-shell yp">
+                <div class="yp-glow"></div>
+                <div class="yp-body">
+                    ${logoHtml ? logoHtml.replace('box-shadow:0 2px 10px rgba(0,0,0,0.1)', 'box-shadow:0 2px 16px rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1)') : ''}
+                    <div class="yp-badge">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        <span class="yp-badge-text">Share your experience</span>
+                    </div>
+                    <div class="yp-heading">How was your<br><span>experience with us?</span></div>
+                    ${_starsSvg('#ff9a56', '#ff9a56')}
+                    <div class="yp-qr-wrap">
+                        <img src="${qrSrc}" alt="QR Code">
+                    </div>
+                    <div class="yp-cta">Scan &amp; Leave a Review</div>
+                    <div class="yp-caption">Takes less than a minute</div>
+                    <div class="yp-footer">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        <span class="yp-footer-text">Powered by YoppyChat</span>
+                    </div>
+                </div>
+            </div>
+            <div class="qr-slide-label">YoppyChat</div>
+        </div>`;
+
+        /* ── MINIMAL ── */
+        const minimalSlide = `
+        <div class="qr-poster-slide" data-style="minimal">
+            <div class="poster-preview-shell mp">
+                <div class="mp-accent-bar"></div>
+                <div class="mp-body">
+                    ${logoHtml}
+                    <div class="mp-kicker">We'd love your feedback</div>
+                    <div class="mp-heading">Leave Us<br>a Review</div>
+                    <div class="mp-rule"></div>
+                    ${_starsSvg('none', '#111')}
+                    <div class="mp-qr-wrap">
+                        <img src="${qrSrc}" alt="QR Code">
+                    </div>
+                    <div class="mp-cta">Scan to Review</div>
+                    <div class="mp-caption">Open your camera &amp; point at the code above</div>
+                </div>
+                <div class="mp-bottom-bar"></div>
+            </div>
+            <div class="qr-slide-label">Minimal</div>
+        </div>`;
+
+        /* ── YOPPYCHAT LIGHT ── */
+        const ylpLogoInner = _qrCurrentLogoUrl
+            ? `<img src="${_qrCurrentLogoUrl}" alt="Logo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:2px solid #fff;" onerror="this.src='${fbLogo}'">`
+            : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+
+        const yoppyLightSlide = `
+        <div class="qr-poster-slide" data-style="yoppychat-light">
+            <div class="poster-preview-shell ylp">
+                <div class="ylp-topbar"></div>
+                <div class="ylp-body">
+                    <div class="ylp-logo-ring">
+                        ${ylpLogoInner}
+                    </div>
+                    <div class="ylp-brand">
+                        <div class="ylp-brand-name">${_qrCurrentBizName || 'YoppyChat'}</div>
+                        <div class="ylp-brand-sub">Review Station</div>
+                    </div>
+                    <div class="ylp-divider"></div>
+                    <div class="ylp-heading">Loved your visit?<br>Tell the world!</div>
+                    ${_starsSvg('#ff9a56', '#ff9a56')}
+                    <div class="ylp-qr-wrap">
+                        <img src="${qrSrc}" alt="QR Code">
+                    </div>
+                    <div class="ylp-cta">Scan &amp; Review Us</div>
+                    <div class="ylp-caption">Point your camera at the code above<br>and share your experience</div>
+                </div>
+                <div class="ylp-bottombar"></div>
+            </div>
+            <div class="qr-slide-label">YoppyChat Light</div>
+        </div>`;
+
+        carousel.innerHTML = googleSlide + yoppySlide + minimalSlide + yoppyLightSlide;
+
+        // Set up scroll → active style detection
+        carousel.addEventListener('scroll', _onCarouselScroll, { passive: true });
+        _updateCarouselDots(0);
+        _qrCurrentStyle = 'google';
+
+        // ── Desktop: mouse-drag to scroll carousel ──────────────
+        let _dragStartX = 0, _dragScrollLeft = 0, _isDragging = false;
+        carousel.onmousedown = (e) => {
+            _isDragging = true;
+            _dragStartX = e.pageX - carousel.offsetLeft;
+            _dragScrollLeft = carousel.scrollLeft;
+            carousel.classList.add('is-dragging');
+        };
+        carousel.onmouseleave = carousel.onmouseup = () => {
+            _isDragging = false;
+            carousel.classList.remove('is-dragging');
+        };
+        carousel.onmousemove = (e) => {
+            if (!_isDragging) return;
+            e.preventDefault();
+            const x = e.pageX - carousel.offsetLeft;
+            carousel.scrollLeft = _dragScrollLeft - (x - _dragStartX) * 1.5;
+        };
+        // Mouse wheel → horizontal scroll
+        carousel.onwheel = (e) => {
+            if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                e.preventDefault();
+                carousel.scrollLeft += e.deltaY * 1.2;
+            }
+        };
+    }
+
+    function _onCarouselScroll() {
+        const carousel = document.getElementById('qrPosterCarousel');
+        const slides = carousel.querySelectorAll('.qr-poster-slide');
+        const carouselCenter = carousel.scrollLeft + carousel.offsetWidth / 2;
+        let closestIndex = 0;
+        let closestDist = Infinity;
+        slides.forEach((slide, i) => {
+            const slideCenter = slide.offsetLeft + slide.offsetWidth / 2;
+            const dist = Math.abs(carouselCenter - slideCenter);
+            if (dist < closestDist) { closestDist = dist; closestIndex = i; }
+        });
+        _qrCurrentStyle = _qrStyles[closestIndex];
+        _updateCarouselDots(closestIndex);
+    }
+
+    function _updateCarouselDots(activeIndex) {
+        document.querySelectorAll('.qr-carousel-dot').forEach((dot, i) => {
+            dot.classList.toggle('active', i === activeIndex);
+        });
+    }
+
+    function scrollToQrSlide(index) {
+        const carousel = document.getElementById('qrPosterCarousel');
+        const slide = carousel.querySelectorAll('.qr-poster-slide')[index];
+        if (slide) slide.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+
+    function navigateQr(direction) {
+        const carousel = document.getElementById('qrPosterCarousel');
+        const slides = carousel.querySelectorAll('.qr-poster-slide');
+        if (!slides.length) return;
+
+        let activeIndex = 0;
+        document.querySelectorAll('.qr-carousel-dot').forEach((dot, i) => {
+            if (dot.classList.contains('active')) activeIndex = i;
+        });
+
+        let newIndex = activeIndex + direction;
+        if (newIndex < 0) newIndex = slides.length - 1;
+        if (newIndex >= slides.length) newIndex = 0;
+
+        scrollToQrSlide(newIndex);
+    }
 
     function openQrModalFromBtn(btn) {
         const sid = btn.dataset.settingsId;
@@ -2156,27 +3356,14 @@
     function openQrModal(id, bizName, url, logoUrl) {
         _qrCurrentUrl = url;
         _qrCurrentBizName = bizName;
-        _qrCurrentLogoUrl = logoUrl;
+        _qrCurrentLogoUrl = logoUrl || '{{ url_for("static", filename="images/logo/favicon.png") }}';
 
-        const overlay = document.getElementById('qrOverlay');
-        const img     = document.getElementById('qrImage');
-        const label   = document.getElementById('qrBizName');
-        const logoImg = document.getElementById('qrLogoImage');
+        document.getElementById('qrBizName').textContent = bizName;
 
-        label.textContent = bizName;
+        // Render all 3 poster previews in the carousel
+        renderQrPreview();
 
-        if (logoUrl) {
-            logoImg.src = logoUrl;
-            logoImg.style.display = 'block';
-        } else {
-            logoImg.style.display = 'none';
-        }
-
-        // Use the free QR server API — generates a crisp 400×400 px QR
-        const encodedUrl = encodeURIComponent(url);
-        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=0&data=${encodedUrl}`;
-
-        overlay.classList.add('active');
+        document.getElementById('qrOverlay').classList.add('active');
         document.body.style.overflow = 'hidden';
     }
 
@@ -2190,346 +3377,146 @@
         if (e.key === 'Escape') closeQrModal();
     });
 
-    async function downloadQr() {
-        const btn      = document.getElementById('qrDownloadBtn');
+    async function downloadQr(format) {
+        format = format || 'png';
+        const isPdf = format === 'pdf';
+        const btnId = isPdf ? 'qrDownloadPdfBtn' : 'qrDownloadPngBtn';
+        const btn = document.getElementById(btnId);
         const origHTML = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '<svg style="width:14px;height:14px;animation:spin 0.8s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.1-5.7"/></svg> Preparing…';
 
-        const safeName   = (_qrCurrentBizName || 'review').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        const encodedUrl = encodeURIComponent(_qrCurrentUrl);
-        const qrApiUrl   = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=0&data=${encodedUrl}`;
-
-        // ───────────────────────────────────────────────────────
-        // Helper: trigger a file download from a data-URL or blob URL
-        // ───────────────────────────────────────────────────────
-        const triggerDownload = (href, filename) => {
-            const a = document.createElement('a');
-            a.href = href; a.download = filename;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        };
+        const safeName = (_qrCurrentBizName || 'review').replace(/[^a-z0-9]/gi, '_').toLowerCase();
 
         try {
-            // Load the QR image (and logo if it exists) via canvas so we can reuse it for both outputs
-            const promises = [
-                new Promise((resolve, reject) => {
-                    const img  = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.onload  = () => resolve(img);
-                    img.onerror = reject;
-                    img.src = qrApiUrl;
-                })
-            ];
-            
-            if (_qrCurrentLogoUrl) {
-                const fullLogoUrl = _qrCurrentLogoUrl.startsWith('/') ? window.location.origin + _qrCurrentLogoUrl : _qrCurrentLogoUrl;
-                promises.push(new Promise((resolve) => {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.onload = () => resolve(img);
-                    img.onerror = () => resolve(null); // Fallback to null if broken
-                    img.src = fullLogoUrl;
-                }));
+            // Find the currently active poster slide
+            const carousel = document.getElementById('qrPosterCarousel');
+            const slides = carousel.querySelectorAll('.qr-poster-slide');
+            let activeIndex = 0;
+            document.querySelectorAll('.qr-carousel-dot').forEach((dot, i) => {
+                if (dot.classList.contains('active')) activeIndex = i;
+            });
+            const activeSlide = slides[activeIndex];
+            const posterEl = activeSlide.querySelector('.poster-preview-shell');
+
+            // Temporarily remove zoom/transform for full-res capture
+            const origZoom = posterEl.style.zoom;
+            const origTransform = posterEl.style.transform;
+            const origMaxWidth = posterEl.style.maxWidth;
+            posterEl.style.zoom = '1';
+            posterEl.style.transform = 'none';
+            posterEl.style.maxWidth = 'none';
+
+            // Wait for QR images to load
+            const imgs = posterEl.querySelectorAll('img');
+            await Promise.all(Array.from(imgs).map(img => {
+                if (img.complete) return Promise.resolve();
+                return new Promise(r => { img.onload = r; img.onerror = r; });
+            }));
+
+            const canvas = await html2canvas(posterEl, {
+                scale: 3,
+                useCORS: true,
+                allowTaint: false,
+                backgroundColor: null,
+                logging: false,
+            });
+
+            // Restore original styles
+            posterEl.style.zoom = origZoom;
+            posterEl.style.transform = origTransform;
+            posterEl.style.maxWidth = origMaxWidth;
+
+            const dataUrl = canvas.toDataURL('image/png');
+
+            if (isPdf) {
+                const pdfWin = window.open('', '_blank', 'width=900,height=800');
+                if (!pdfWin) {
+                    const a = document.createElement('a'); a.href = dataUrl; a.download = `${safeName}_${_qrCurrentStyle}_poster.png`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                } else {
+                    pdfWin.document.write(`<!DOCTYPE html><html><head><title>${safeName} Review Poster</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#f0f0f0;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:2rem;gap:1.5rem;font-family:Arial,sans-serif;}.hint{font-size:0.82rem;color:#555;text-align:center;padding:1rem;background:#fffbe6;border:1px solid #f0c040;border-radius:8px;max-width:560px;}.page{background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;}img{display:block;max-width:100%;}@media print{body{background:#fff;padding:0;}.hint{display:none;}.page{box-shadow:none;}@page{margin:0.5cm;size:A4;}}</style></head><body><div class="hint">📥 Press <strong>Ctrl+P</strong> (Cmd+P on Mac) → <strong>"Save as PDF"</strong> → Save.</div><div><div class="page"><img src="${dataUrl}" style="width:380px;" alt="Poster"></div></div><script>setTimeout(()=>{window.print();},800);<\/script></body></html>`);
+                    pdfWin.document.close();
+                }
+            } else {
+                const a = document.createElement('a'); a.href = dataUrl; a.download = `${safeName}_${_qrCurrentStyle}_poster.png`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
             }
-
-            const results = await Promise.all(promises);
-            const qrImg = results[0];
-            const logoImgObj = results.length > 1 ? results[1] : null;
-
-            // —————————————————————————
-            // FILE 1: Plain QR code (600×600 with white background)
-            // —————————————————————————
-            const c1 = document.createElement('canvas');
-            c1.width = 640; c1.height = 640;
-            const k1 = c1.getContext('2d');
-            k1.fillStyle = '#ffffff';
-            k1.fillRect(0, 0, 640, 640);
-            k1.drawImage(qrImg, 20, 20, 600, 600);
-            triggerDownload(c1.toDataURL('image/png'), `${safeName}_qr_code.png`);
-
-            // Small gap so browsers don't block the second download
-            await new Promise(r => setTimeout(r, 600));
-
-            // —————————————————————————
-            // FILE 2: Google-branded review poster (760×960)
-            // —————————————————————————
-            const W = 760, H = 960;
-            const c2 = document.createElement('canvas');
-            c2.width = W; c2.height = H;
-            const k2 = c2.getContext('2d');
-
-            // White background
-            k2.fillStyle = '#ffffff';
-            k2.fillRect(0, 0, W, H);
-
-            // Google corner triangles
-            const T = 180;
-            const tri = (x1,y1, x2,y2, x3,y3, color) => {
-                k2.fillStyle = color;
-                k2.beginPath(); k2.moveTo(x1,y1); k2.lineTo(x2,y2); k2.lineTo(x3,y3); k2.closePath(); k2.fill();
-            };
-            tri(0,0,   T,0,   0,T,   '#EA4335'); // top-left  red
-            tri(W,0,   W-T,0, W,T,   '#4285F4'); // top-right blue
-            tri(0,H,   T,H,   0,H-T, '#34A853'); // bot-left  green
-            tri(W,H,   W-T,H, W,H-T, '#FBBC05'); // bot-right yellow
-
-            // Business logo
-            if (logoImgObj) {
-                // Draw logo above Google wordmark
-                k2.drawImage(logoImgObj, W/2 - 70, 50, 140, 140);
-            }
-
-            // Google wordmark (coloured letters)
-            const gLetters = [
-                ['G','#4285F4'],['o','#EA4335'],['o','#FBBC05'],
-                ['g','#4285F4'],['l','#34A853'],['e','#EA4335']
-            ];
-            const gFont = 'bold 90px Arial, Helvetica, sans-serif';
-            k2.font = gFont;
-            const totalGW = gLetters.reduce((s,[c]) => s + k2.measureText(c).width, 0);
-            let gx = (W - totalGW) / 2, gy = (logoImgObj ? 220 : 175);
-            for (const [ch, col] of gLetters) {
-                k2.fillStyle = col;
-                k2.fillText(ch, gx, gy);
-                gx += k2.measureText(ch).width;
-            }
-
-            // Business name
-            k2.fillStyle = '#202124';
-            k2.textAlign = 'center';
-            k2.font = 'bold 34px Arial, Helvetica, sans-serif';
-            const bizLabel = _qrCurrentBizName || '';
-            k2.fillText(bizLabel, W/2, (logoImgObj ? 275 : 230));
-
-            // QR image area
-            const qrSize = 420, qrX = (W - qrSize) / 2, qrY = (logoImgObj ? 310 : 265);
-            k2.fillStyle = '#ffffff';
-            k2.fillRect(qrX - 20, qrY - 20, qrSize + 40, qrSize + 40);
-            k2.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
-
-            // Red corner brackets around QR
-            const bLen = 44, bThick = 9;
-            k2.strokeStyle = '#EA4335'; k2.lineWidth = bThick; k2.lineCap = 'square';
-            const px = qrX - 20, py = qrY - 20, ps = qrSize + 40;
-            const bracket = (ox, oy, dx, dy) => {
-                k2.beginPath();
-                k2.moveTo(ox + dx*bLen, oy);         // horizontal arm
-                k2.lineTo(ox, oy);                   // corner
-                k2.lineTo(ox, oy + dy*bLen);         // vertical arm
-                k2.stroke();
-            };
-            bracket(px,      py,       1,  1);  // TL
-            bracket(px+ps,   py,      -1,  1);  // TR
-            bracket(px,      py+ps,    1, -1);  // BL
-            bracket(px+ps,   py+ps,   -1, -1);  // BR
-
-            // SCAN ME button
-            const btnY = qrY + qrSize + 55;
-            const btnW = 320, btnH = 68, btnX = (W - btnW) / 2, btnR = 10;
-            k2.fillStyle = '#EA4335';
-            k2.beginPath();
-            k2.moveTo(btnX + btnR, btnY);
-            k2.lineTo(btnX + btnW - btnR, btnY);
-            k2.quadraticCurveTo(btnX + btnW, btnY, btnX + btnW, btnY + btnR);
-            k2.lineTo(btnX + btnW, btnY + btnH - btnR);
-            k2.quadraticCurveTo(btnX + btnW, btnY + btnH, btnX + btnW - btnR, btnY + btnH);
-            k2.lineTo(btnX + btnR, btnY + btnH);
-            k2.quadraticCurveTo(btnX, btnY + btnH, btnX, btnY + btnH - btnR);
-            k2.lineTo(btnX, btnY + btnR);
-            k2.quadraticCurveTo(btnX, btnY, btnX + btnR, btnY);
-            k2.closePath(); k2.fill();
-
-            k2.fillStyle = '#ffffff';
-            k2.font = 'bold 36px Arial, Helvetica, sans-serif';
-            k2.textAlign = 'center';
-            k2.letterSpacing = '4px';
-            k2.fillText('SCAN ME', W/2, btnY + 46);
-
-            // Caption below button
-            k2.fillStyle = '#333333';
-            k2.font = '28px Arial, Helvetica, sans-serif';
-            k2.textAlign = 'center';
-            k2.fillText('Please take a moment to give', W/2, btnY + 115);
-            k2.fillText('us a Google review!', W/2, btnY + 152);
-
-            triggerDownload(c2.toDataURL('image/png'), `${safeName}_google_review_poster.png`);
 
         } catch (err) {
             console.error('Download failed:', err);
-            // Fallback: open both URLs in new tabs
-            window.open(qrApiUrl, '_blank');
         }
 
         btn.disabled = false;
         btn.innerHTML = origHTML;
     }
 
-    function printQr() {
-        const encodedUrl = encodeURIComponent(_qrCurrentUrl);
-        const imgSrc     = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=0&data=${encodedUrl}`;
-        const bizName    = _qrCurrentBizName;
-        const reviewUrl  = _qrCurrentUrl;
-        const logoHtml   = _qrCurrentLogoUrl ? `<img src="${_qrCurrentLogoUrl}" style="width:84px;height:84px;object-fit:contain;margin-bottom:-0.3rem;border-radius:8px;" alt="Logo">` : '';
+
+
+    async function printQr() {
+        // Use html2canvas to capture the actual preview, pixel-for-pixel
+        const carousel = document.getElementById('qrPosterCarousel');
+        const slides = carousel.querySelectorAll('.qr-poster-slide');
+        let activeIndex = 0;
+        document.querySelectorAll('.qr-carousel-dot').forEach((dot, i) => {
+            if (dot.classList.contains('active')) activeIndex = i;
+        });
+        const activeSlide = slides[activeIndex];
+        const posterEl = activeSlide.querySelector('.poster-preview-shell');
+
+        const origZoom = posterEl.style.zoom;
+        const origTransform = posterEl.style.transform;
+        const origMaxWidth = posterEl.style.maxWidth;
+        posterEl.style.zoom = '1';
+        posterEl.style.transform = 'none';
+        posterEl.style.maxWidth = 'none';
+
+        const imgs = posterEl.querySelectorAll('img');
+        await Promise.all(Array.from(imgs).map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise(r => { img.onload = r; img.onerror = r; });
+        }));
+
+        const canvas = await html2canvas(posterEl, {
+            scale: 3,
+            useCORS: true,
+            allowTaint: false,
+            backgroundColor: null,
+            logging: false,
+        });
+
+        posterEl.style.zoom = origZoom;
+        posterEl.style.transform = origTransform;
+        posterEl.style.maxWidth = origMaxWidth;
+
+        const dataUrl = canvas.toDataURL('image/png');
+        const bizName = _qrCurrentBizName;
 
         const printWin = window.open('', '_blank', 'width=540,height=760');
-        printWin.document.write(`
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Google Review QR — ${bizName}</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        @import url('https://fonts.googleapis.com/css2?family=Product+Sans:wght@400;700&display=swap');
-        body {
-            font-family: 'Product Sans', 'Google Sans', Arial, sans-serif;
-            background: #e8e8e8;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 1.5rem;
-        }
-        .poster {
-            width: 380px;
-            background: #ffffff;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 8px 40px rgba(0,0,0,0.22);
-        }
-        /* ─── Corner triangles ─── */
-        .ct { position: absolute; width: 90px; height: 90px; overflow: hidden; z-index: 2; pointer-events: none; }
-        .ct::before { content:''; position:absolute; width:0; height:0; }
-        .ct-tl { top:0; left:0; }
-        .ct-tl::before { border-top:90px solid #EA4335; border-right:90px solid transparent; }
-        .ct-tr { top:0; right:0; }
-        .ct-tr::before { border-top:90px solid #4285F4; border-left:90px solid transparent; }
-        .ct-bl { bottom:0; left:0; }
-        .ct-bl::before { border-bottom:90px solid #34A853; border-right:90px solid transparent; }
-        .ct-br { bottom:0; right:0; }
-        .ct-br::before { border-bottom:90px solid #FBBC05; border-left:90px solid transparent; }
-        /* ─── Inner content ─── */
-        .inner {
-            padding: 2rem 2rem 1.75rem;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1.1rem;
-            position: relative;
-            z-index: 1;
-        }
-        /* Google wordmark */
-        .wordmark {
-            font-size: 2.4rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            line-height: 1;
-        }
-        .g-b { color: #4285F4; }
-        .g-r { color: #EA4335; }
-        .g-y { color: #FBBC05; }
-        .g-g { color: #34A853; }
-        /* Business name */
-        .biz-name {
-            font-size: 1rem;
-            font-weight: 700;
-            color: #202124;
-            text-align: center;
-        }
-        /* QR with red corner brackets */
-        .qr-wrap {
-            position: relative;
-            padding: 10px;
-            background: #fff;
-        }
-        .qr-wrap::before, .qr-wrap::after,
-        .qr-wrap .b::before, .qr-wrap .b::after {
-            content: '';
-            position: absolute;
-            width: 22px;
-            height: 22px;
-            border-color: #EA4335;
-            border-style: solid;
-        }
-        .qr-wrap::before  { top:0;    left:0;  border-width:4px 0 0 4px; }
-        .qr-wrap::after   { top:0;    right:0; border-width:4px 4px 0 0; }
-        .qr-wrap .b::before { bottom:0; left:0;  border-width:0 0 4px 4px; }
-        .qr-wrap .b::after  { bottom:0; right:0; border-width:0 4px 4px 0; }
-        .qr-wrap img { width:240px; height:240px; display:block; }
-        /* SCAN ME */
-        .scan-me {
-            background: #EA4335;
-            color: #fff;
-            font-size: 1.45rem;
-            font-weight: 900;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            padding: 0.5rem 2.5rem;
-            border-radius: 6px;
-        }
-        .caption {
-            font-size: 0.88rem;
-            color: #444;
-            text-align: center;
-            line-height: 1.6;
-        }
-        .url-note {
-            font-size: 0.55rem;
-            color: #b0b0b0;
-            text-align: center;
-            word-break: break-all;
-            padding-bottom: 0.25rem;
-        }
-        @media print {
-            body { background: #fff; padding: 0; }
-            @page { margin: 0; size: 380px 580px; }
-            .poster { box-shadow: none; }
-        }
-    </style>
-</head>
-<body>
-<div class="poster">
-    <div class="ct ct-tl"></div>
-    <div class="ct ct-tr"></div>
-    <div class="ct ct-bl"></div>
-    <div class="ct ct-br"></div>
-    <div class="inner">
-        ${logoHtml}
-        <div class="wordmark"><span class="g-b">G</span><span class="g-r">o</span><span class="g-y">o</span><span class="g-b">g</span><span class="g-g">l</span><span class="g-r">e</span></div>
-        <div class="biz-name">${bizName}</div>
-        <div class="qr-wrap"><span class="b"></span><img src="${imgSrc}" alt="QR Code" /></div>
-        <div class="scan-me">SCAN ME</div>
-        <div class="caption">Please take a moment to give<br>us a Google review!</div>
-        <div class="url-note">${reviewUrl}</div>
-    </div>
-</div>
-<script>window.onload=()=>{ setTimeout(()=>{ window.print(); }, 700); }<\/script>
-</body>
-</html>`);
+        if (!printWin) return;
+        printWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${_qrCurrentStyle.toUpperCase()} Review QR - ${bizName}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;background:#e8e8e8;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem;}img{display:block;max-width:380px;width:100%;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.22);}@media print{body{background:none;padding:0;}@page{margin:0;size:380px auto;}img{box-shadow:none;border-radius:0;}}</style></head><body><img src="${dataUrl}" alt="Review Poster"><script>window.onload=()=>{setTimeout(()=>{window.print();},700);};<\/script></body></html>`);
         printWin.document.close();
     }
 
-    /* ── NFC Card Modal ────────────────────────────────────── */
+
     let _nfcCurrentUrl = '';
     let _nfcCurrentBizName = '';
 
     function openNfcModalFromBtn(btn) {
-        const sid     = btn.dataset.settingsId;
+        const sid = btn.dataset.settingsId;
         const bizName = btn.dataset.bizName;
-        const url     = document.getElementById('reviewLinkInput-' + sid).value;
+        const url = document.getElementById('reviewLinkInput-' + sid).value;
         openNfcModal(sid, bizName, url);
     }
 
     function openNfcModal(id, bizName, url) {
-        _nfcCurrentUrl      = url;
-        _nfcCurrentBizName  = bizName;
+        _nfcCurrentUrl = url;
+        _nfcCurrentBizName = bizName;
 
         document.getElementById('nfcCardBizName').textContent = bizName;
-        document.getElementById('nfcCardUrl').textContent     = url;
-        document.getElementById('nfcUrlInput').value          = url;
+        document.getElementById('nfcCardUrl').textContent = url;
+        document.getElementById('nfcUrlInput').value = url;
 
         // Reset copy button
-        document.getElementById('nfcCopyText').textContent   = 'Copy';
+        document.getElementById('nfcCopyText').textContent = 'Copy';
         document.getElementById('nfcCopyBtn').style.background = '';
 
         document.getElementById('nfcOverlay').classList.add('active');
@@ -2547,9 +3534,9 @@
 
     function copyNfcUrl() {
         const input = document.getElementById('nfcUrlInput');
-        const btn   = document.getElementById('nfcCopyBtn');
-        const txt   = document.getElementById('nfcCopyText');
-        const done  = () => {
+        const btn = document.getElementById('nfcCopyBtn');
+        const txt = document.getElementById('nfcCopyText');
+        const done = () => {
             txt.textContent = 'Copied!'; btn.style.background = '#10b981';
             setTimeout(() => { txt.textContent = 'Copy'; btn.style.background = ''; }, 2000);
         };
@@ -2559,9 +3546,9 @@
     }
 
     function printNfcCard() {
-        const bizName   = _nfcCurrentBizName;
+        const bizName = _nfcCurrentBizName;
         const reviewUrl = _nfcCurrentUrl;
-        const qrUrl     = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=0&data=${encodeURIComponent(reviewUrl)}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=0&data=${encodeURIComponent(reviewUrl)}`;
 
         const printWin = window.open('', '_blank', 'width=800,height=650');
         printWin.document.write(`
@@ -2733,7 +3720,7 @@
         const preview = document.getElementById(previewId);
         if (input.files && input.files[0]) {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = function (e) {
                 preview.innerHTML = `<img src="${e.target.result}" alt="Logo Preview" style="max-height:80px; object-fit:contain; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1);">`;
                 document.getElementById(dropId).style.borderColor = 'var(--accent-primary, #ff9a56)';
             }
@@ -2770,7 +3757,7 @@
             if (e.dataTransfer.files.length) {
                 const input = dropZone.querySelector('input[type="file"]');
                 input.files = e.dataTransfer.files;
-                
+
                 // Dispatch event to trigger preview
                 const event = new Event('change', { bubbles: true });
                 input.dispatchEvent(event);

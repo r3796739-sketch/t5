@@ -4,206 +4,651 @@
 
 {% block page_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+    /* ========================================================================= */
+    /* DARK MODE SUPPORT                                                         */
+    /* ========================================================================= */
+    /* ========================================================================= */
+    /* PREMIUM SAAS DARK THEME (GITHUB/LINEAR STYLE)                             */
+    /* ========================================================================= */
+    [data-theme="dark"] {
+        /* Base Foundation */
+        .express-dashboard-container { 
+            background: #0D1117; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        
+        /* Surfaces & Hierarchy */
+        .express-card, .express-chart-box, .form-card, .admin-card, .table-container { 
+            background: #161B22; 
+            border-color: #2A2F36; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .feed-box, .modal-content { background: #161B22; }
+        .modal-header { border-color: #2A2F36; color: #E6EDF3; }
+        .nav-pills, .time-toggles, .currency-toggle-wrapper { 
+            background: #0D1117; 
+            border-color: #2A2F36; 
+        }
+        
+        /* Interaction & States */
+        .nav-pill { color: #9DA7B3; }
+        .nav-pill.active, .time-toggles button.active, .currency-btn.active { 
+            background: #238636; /* Using a clean green for primary actions common in SaaS */
+            background: #3B82F6; 
+            color: white; 
+            box-shadow: 0 0 10px rgba(59,130,246,0.3);
+        }
+        .nav-pill:hover:not(.active), .time-toggles button:hover:not(.active), .currency-btn:hover:not(.active) { 
+            background: #1C2128; 
+            color: #E6EDF3; 
+        }
+        .date-picker-btn { 
+            background: #161B22; 
+            border-color: #2A2F36; 
+            color: #9DA7B3; 
+        }
+        .feed-item:hover { background: #1C2128; }
+        
+        /* Text Hierarchy */
+        .express-section-title, .box-title, .card-title, h3 { color: #E6EDF3; }
+        .express-card .cashflow-amount { color: #E6EDF3; }
+        .cashflow-title, .brand-logo span, .chart-subtitle { color: #9DA7B3; }
+        table { color: #E6EDF3; }
+        th { background: #0D1117; border-color: #2A2F36; color: #9DA7B3; }
+        tr { border-color: #2A2F36; }
+        input[type="text"], input[type="number"], input[type="search"], select { 
+            background: #0D1117; border-color: #2A2F36; color: #E6EDF3; 
+        }
+        
+        /* --- STATUS CARD REFINEMENTS (Tinted Backgrounds) --- */
+        .express-card.pastel-green { background: rgba(34,197,94,0.12) !important; border-color: #22C55E !important; }
+        .express-card.pastel-green .cashflow-amount { color: #22C55E; }
+        
+        .express-card.pastel-blue { background: rgba(59,130,246,0.12) !important; border-color: #3B82F6 !important; }
+        .express-card.pastel-blue .cashflow-amount { color: #3B82F6; }
+
+        .express-card.pastel-purple { background: rgba(168,85,247,0.12) !important; border-color: #A855F7 !important; }
+        .express-card.pastel-purple .cashflow-amount { color: #A855F7; }
+
+        .express-card.dark-blue { background: rgba(59,130,246,0.12) !important; border-color: #3B82F6 !important; }
+        
+        .express-card.pastel-red { background: rgba(239,68,68,0.12) !important; border-color: #EF4444 !important; }
+        .express-card.pastel-red .cashflow-amount { color: #EF4444; }
+        
+        .express-card.white-card { background: #1F2933 !important; border-color: #2A2F36 !important; }
+        .express-card.white-card .cashflow-amount { color: #94A3B8; }
+
+        .currency-symbol { color: inherit; opacity: 0.6; }
+        .feed-item-title { color: #E6EDF3 !important; }
+        .feed-item-desc { color: #9DA7B3 !important; }
+        .feed-event-time { color: #6B7280 !important; }
+        
+        /* Custom UI Tweaks */
+        .express-card { 
+            border-radius: 12px; 
+            backdrop-filter: blur(8px);
+        }
+        .action-menu { background: #1C2128; border-color: #2A2F36; }
+    }
+    
+    /* ========================================================================= */
+    /* EXPRESS LOGISTICS DASHBOARD THEME OVERRIDES                               */
+    /* ========================================================================= */
+    
+    .express-dashboard-container {
+        background: #f8fafc;
+        border-radius: 24px;
+        padding: 30px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        max-width: 1400px;
+        margin: 0 auto 40px auto;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* Top Navigation Bar */
+    .dashboard-top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .brand-logo {
+        display: flex; align-items: center; gap: 8px; font-size: 1.2rem; color: #0f4a96;
+    }
+    .brand-logo span { color: #64748b; font-weight: normal; }
+
+    .nav-pills {
+        display: flex; background: white; padding: 6px; border-radius: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); gap: 4px;
+    }
+    .nav-pill {
+        padding: 8px 20px; text-decoration: none; color: #64748b; font-weight: 500; font-size: 0.9rem; border-radius: 20px; transition: all 0.2s;
+    }
+    .nav-pill.active { background: #0f4a96; color: white; }
+    .nav-pill:hover:not(.active) { background: #f1f5f9; color: #1e293b; }
+
+    .top-controls { display: flex; align-items: center; gap: 20px; }
+
+    .date-picker-btn {
+        background: white; border: 1px solid #e2e8f0; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; color: #64748b; display: flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    }
+
+    /* Section Headers */
+    .express-section-header {
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; margin-top: 40px;
+    }
+    .express-section-title { font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0; }
+
+    /* Currency Toggle */
+    .currency-toggle-wrapper {
+        display: flex; align-items: center; gap: 4px; background: white; padding: 4px; border-radius: 50px; border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    }
+    .currency-btn { border: none; padding: 6px 16px; border-radius: 30px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 0.85rem; }
+    .currency-btn.active { background: #0f4a96; color: #fff; }
+    .currency-btn:not(.active) { background: transparent; color: #64748b; }
+
+    /* Metrics Grid */
+    .express-metrics-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;
+    }
+    .express-card {
+        border-radius: 16px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; min-height: 120px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); transition: transform 0.2s; border: 1px solid transparent;
+    }
+    .express-card:hover { transform: translateY(-3px); }
+    .card-metric-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+    .express-card .cashflow-title { font-size: 0.85rem; font-weight: 600; color: #64748b; margin: 0;}
+    .express-card .cashflow-amount { font-size: 1.8rem; font-weight: 700; display: flex; align-items: baseline; gap: 4px;}
+    .express-card .currency-symbol { font-size: 1.2rem; font-weight: 600; opacity: 0.8;}
+    
+    .trend-badge { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 12px; display: flex; align-items: center; gap: 4px;}
+    .trend-badge.positive { color: #059669; background: rgba(16, 185, 129, 0.1); }
+    .trend-badge.negative { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+    
+    /* Card Colors */
+    .express-card.dark-blue { background: #0f4a96; color: white; }
+    .express-card.dark-blue .cashflow-title { color: rgba(255,255,255,0.8); }
+    .express-card.dark-blue .trend-badge { color: white; background: rgba(255,255,255,0.2); }
+    .express-card.pastel-blue { background: #e0f2fe; color: #1e293b; border-color: #bae6fd;}
+    .express-card.pastel-green { background: #dcfce7; color: #1e293b; border-color: #bbf7d0;}
+    .express-card.pastel-red { background: #fee2e2; color: #1e293b; border-color: #fecaca;}
+    .express-card.pastel-purple { background: #f3e8ff; color: #1e293b; border-color: #e9d5ff;}
+    .express-card.white-card { background: #ffffff; color: #1e293b; border-color: #e2e8f0;}
+
+    /* Charts Layout */
+    .express-charts-row {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;
+    }
+    @media (max-width: 900px) { .express-charts-row { grid-template-columns: 1fr; } }
+    .express-chart-box {
+        background: white; border-radius: 20px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; display: flex; flex-direction: column;
+    }
+    .box-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .box-title { font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 0; }
+    .time-toggles { display: flex; background: #f8fafc; border-radius: 8px; padding: 4px; border: 1px solid #e2e8f0;}
+    .time-toggles button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .time-toggles button { background: none; border: none; padding: 4px 12px; font-size: 0.8rem; color: #64748b; cursor: pointer; border-radius: 6px; font-weight: 500;}
+    .time-toggles button.active { background: #0f4a96; color: white; }
+    .chart-wrapper { height: 260px; position: relative; width: 100%; flex-grow: 1; }
+    .custom-legend { display: flex; gap: 15px; margin-top: 15px; align-items: center; font-size: 0.8rem; color: #64748b; flex-wrap: wrap;}
+    .legend-item { display: flex; align-items: center; gap: 6px; font-weight: 500;}
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    /* Activity Feed Adjustments */
+    .feed-box { max-height: 300px; overflow-y: auto; padding-right: 10px;}
+    .feed-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f1f5f9; transition: background 0.2s; }
+    .feed-item:hover { background: #f8fafc; border-radius: 8px; padding: 12px 8px; margin: 0 -8px; }
+    
+    [data-theme="dark"] .feed-item-title { color: #e2e8f0 !important; }
+    [data-theme="dark"] .feed-item-desc { color: #94a3b8 !important; }
+    [data-theme="dark"] .feed-event-time { color: #64748b !important; }
+    [data-theme="dark"] .feed-item div[style*="background:#f8fafc"] { background: #1a1f2e !important; }
+
+    /* Tables and forms adapt to the new clean UI */
+    .admin-card { border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
+    .table-container { border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
+    .form-card { border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 2px 10px rgba(0,0,0,0.02); background: white;}
+
+    /* ========================================================================= */
+    /* PULSE ANIMATION (live indicator)                                          */
+    /* ========================================================================= */
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(1.3); }
+    }
+
+    /* ========================================================================= */
+    /* RESPONSIVE — TOP BAR                                                      */
+    /* ========================================================================= */
+    @media (max-width: 768px) {
+        .express-dashboard-container { padding: 16px; border-radius: 12px; }
+        .dashboard-top-bar { flex-wrap: wrap; gap: 12px; }
+        .brand-logo { order: 1; }
+        .top-controls { order: 2; margin-left: auto; }
+        .nav-pills { order: 3; width: 100%; justify-content: center; overflow-x: auto; }
+    }
+    @media (max-width: 480px) {
+        .nav-pills { gap: 2px; }
+        .nav-pill { padding: 7px 12px; font-size: 0.8rem; }
+        .express-metrics-grid { grid-template-columns: 1fr 1fr; }
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="admin-container">
-    <div class="page-header">
-        <h1 class="page-title">Admin Dashboard</h1>
-        <p class="page-subtitle">Manage users, communities, and plans.</p>
+<div class="express-dashboard-container">
+
+    <div class="dashboard-top-bar">
+        <div class="brand-logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f4a96" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+            <strong>EXPRESS</strong> <span>Admin</span>
+        </div>
+        
+        <div class="nav-pills">
+            <a href="#cashflow" class="nav-pill active">Analytics</a>
+            <a href="#plans" class="nav-pill">Plans</a>
+            <a href="#communities" class="nav-pill">Communities</a>
+            <a href="#payouts" class="nav-pill">Payouts</a>
+        </div>
+
+        <div class="top-controls">
+            <button class="date-picker-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                Last 30 Days (Static)
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+        </div>
     </div>
 
-    <div class="admin-section">
-        <h2 class="section-title">Plan Management</h2>
-        <div class="form-card">
-            <h3 class="form-title">Create New Plan</h3>
-            <form id="createPlanForm">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="plan_id">Plan ID</label>
-                        <input type="text" id="plan_id" name="plan_id" placeholder="e.g., pro_tier" required>
+    <div class="express-section-header" id="cashflow">
+        <div>
+            <h2 class="express-section-title">Analytics Overview</h2>
+            <p style="color: #64748b; font-size: 0.9rem; margin-top: 4px;">Platform financial health and payouts.</p>
+        </div>
+        <div class="currency-toggle-wrapper">
+            <button class="currency-btn" id="btn-usd" onclick="toggleCurrency('usd')">USD</button>
+            <button class="currency-btn active" id="btn-inr" onclick="toggleCurrency('inr')">INR</button>
+        </div>
+    </div>
+
+    <div class="express-metrics-grid">
+        <div class="express-card pastel-green">
+            <div class="card-metric-header">
+                <div class="cashflow-title">Platform Net Profit</div>
+            </div>
+            <div class="cashflow-amount" data-usd='{{ "%.2f"|format(cashflow_stats.usd.platform_net_profit) }}' data-inr='{{ "%.2f"|format(cashflow_stats.inr.platform_net_profit) }}'>
+                <span class="currency-symbol">₹</span><span class="amount-val">{{ "%.2f"|format(cashflow_stats.inr.platform_net_profit) }}</span>
+            </div>
+        </div>
+
+        <div class="express-card pastel-blue">
+            <div class="card-metric-header">
+                <div class="cashflow-title">Net Subscription MRR</div>
+            </div>
+            <div class="cashflow-amount" data-usd='{{ "%.2f"|format(cashflow_stats.usd.subscription_mrr) }}' data-inr='{{ "%.2f"|format(cashflow_stats.inr.subscription_mrr) }}'>
+                <span class="currency-symbol">₹</span><span class="amount-val">{{ "%.2f"|format(cashflow_stats.inr.subscription_mrr) }}</span>
+            </div>
+            <div style="font-size: 0.75rem; color: #64748b; margin-top: 8px; font-weight: 500;">
+                <span class="calc-item" data-usd='{{ "%.2f"|format(cashflow_stats.usd.subscription_gross|default(0.0)) }}' data-inr='{{ "%.2f"|format(cashflow_stats.inr.subscription_gross|default(0.0)) }}'>
+                    <span class="currency-symbol">₹</span><span class="amount-val">{{ "%.2f"|format(cashflow_stats.inr.subscription_gross|default(0.0)) }}</span>
+                </span> Gross
+                -
+                <span class="calc-item" data-usd='{{ "%.2f"|format(cashflow_stats.usd.subscription_commission|default(0.0)) }}' data-inr='{{ "%.2f"|format(cashflow_stats.inr.subscription_commission|default(0.0)) }}'>
+                    <span class="currency-symbol">₹</span><span class="amount-val">{{ "%.2f"|format(cashflow_stats.inr.subscription_commission|default(0.0)) }}</span>
+                </span> Comm
+            </div>
+        </div>
+
+        <div class="express-card pastel-green">
+            <div class="card-metric-header">
+                <div class="cashflow-title">Marketplace Gross</div>
+            </div>
+            <div class="cashflow-amount" data-usd='{{ "%.2f"|format(cashflow_stats.usd.marketplace_gross) }}' data-inr='{{ "%.2f"|format(cashflow_stats.inr.marketplace_gross) }}'>
+                <span class="currency-symbol">₹</span><span class="amount-val">{{ "%.2f"|format(cashflow_stats.inr.marketplace_gross) }}</span>
+            </div>
+        </div>
+
+        <div class="express-card pastel-purple">
+            <div class="card-metric-header">
+                <div class="cashflow-title">Affiliate Generated</div>
+            </div>
+            <div class="cashflow-amount" data-usd='{{ "%.2f"|format(cashflow_stats.usd.total_affiliate_generated) }}' data-inr='{{ "%.2f"|format(cashflow_stats.inr.total_affiliate_generated) }}'>
+                <span class="currency-symbol">₹</span><span class="amount-val">{{ "%.2f"|format(cashflow_stats.inr.total_affiliate_generated) }}</span>
+            </div>
+        </div>
+
+        <div class="express-card white-card">
+            <div class="card-metric-header">
+                <div class="cashflow-title">Total Paid Out</div>
+            </div>
+            <div class="cashflow-amount" data-usd='{{ "%.2f"|format(cashflow_stats.usd.total_paid_out) }}' data-inr='{{ "%.2f"|format(cashflow_stats.inr.total_paid_out) }}'>
+                <span class="currency-symbol">₹</span><span class="amount-val">{{ "%.2f"|format(cashflow_stats.inr.total_paid_out) }}</span>
+            </div>
+        </div>
+
+        <div class="express-card pastel-red warning">
+            <div class="card-metric-header">
+                <div class="cashflow-title">Pending Payouts</div>
+                <div class="trend-badge negative">Requires Action</div>
+            </div>
+            <div class="cashflow-amount pending" data-usd='{{ "%.2f"|format(cashflow_stats.usd.pending_payouts) }}' data-inr='{{ "%.2f"|format(cashflow_stats.inr.pending_payouts) }}'>
+                <span class="currency-symbol">₹</span><span class="amount-val">{{ "%.2f"|format(cashflow_stats.inr.pending_payouts) }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="express-charts-row">
+        <div class="express-chart-box">
+            <div class="box-header">
+                <h3 class="box-title">User Growth & Activity</h3>
+                <div class="time-toggles">
+                    <button disabled title="Filtering coming soon">Week</button>
+                    <button disabled title="Filtering coming soon">Month</button>
+                    <button class="active">Year</button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="userGrowthChart"></canvas>
+            </div>
+            <div class="custom-legend">
+                <span class="legend-item"><span class="dot" style="background:#3B82F6"></span> Referred</span>
+                <span class="legend-item"><span class="dot" style="background:#60A5FA"></span> Direct</span>
+                <span class="legend-item"><span class="dot" style="background:#EAB308"></span> Paid</span>
+                <span class="legend-item"><span class="dot" style="background:#9DA7B3"></span> Free</span>
+                <span class="legend-item"><span class="dot" style="background:#22C55E"></span> Buyers</span>
+                <span class="legend-item"><span class="dot" style="background:#A855F7"></span> Sellers</span>
+            </div>
+        </div>
+
+        <div class="express-chart-box">
+            <div class="box-header">
+                <h3 class="box-title">Revenue Dynamics</h3>
+                <div class="time-toggles">
+                    <button disabled title="Filtering coming soon">Week</button>
+                    <button disabled title="Filtering coming soon">Month</button>
+                    <button class="active">Year</button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="revenueChart"></canvas>
+            </div>
+            <div class="custom-legend">
+                <span class="legend-item"><span class="dot" style="background:#3B82F6"></span> Affiliate (₹)</span>
+                <span class="legend-item"><span class="dot" style="background:#22C55E"></span> Subscriptions (₹)</span>
+                <span class="legend-item"><span class="dot" style="background:#EAB308"></span> Marketplace (₹)</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="express-charts-row">
+        <div class="express-chart-box">
+            <div class="box-header">
+                <h3 class="box-title">Credit Consumption</h3>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="creditChart"></canvas>
+            </div>
+            <div class="custom-legend">
+                <span class="legend-item"><span class="dot" style="background:#EAB308"></span> Total Platform Credits</span>
+            </div>
+        </div>
+
+        <div class="express-chart-box">
+            <div class="box-header">
+                <h3 class="box-title">Recent Activity</h3>
+                <div style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:#10b981; font-weight:700; text-transform:uppercase;">
+                    <span style="width:8px; height:8px; background:#10b981; border-radius:50%; display:inline-block; animation: pulse 2s infinite;"></span> Live
+                </div>
+            </div>
+            <div class="feed-box" id="activityFeed">
+                {% for event in activity_feed %}
+                <div class="feed-item feed-type-{{ event.type }}">
+                    <div style="width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:#f8fafc; font-size:1.1rem; flex-shrink:0;">
+                        {{ event.icon }}
                     </div>
-                    <div class="form-group">
-                        <label for="plan_name">Plan Name</label>
-                        <input type="text" id="plan_name" name="plan_name" placeholder="e.g., Pro Tier" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="max_channels">Max Channels / Shared</label>
-                        <input type="number" id="max_channels" name="max_channels" placeholder="e.g., 10" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="max_queries">Max Credits / Month</label>
-                        <input type="number" id="max_queries" name="max_queries" placeholder="e.g., 5000" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="plan_type">Plan Type</label>
-                        <select id="plan_type" name="plan_type" required>
-                            <option value="user">Direct User Plan</option>
-                            <option value="community">Community Plan</option>
-                        </select>
+                    <div style="flex:1; min-width:0;">
+                        <div class="feed-item-title" style="font-size:0.85rem; font-weight:600; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ event.title }}</div>
+                        <div class="feed-item-desc" style="font-size:0.8rem; color:#64748b; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ event.description }}</div>
+                        <div class="feed-event-time" data-ts="{{ event.timestamp }}" style="font-size:0.7rem; color:#94a3b8; margin-top:4px; font-weight:500;">
+                            {{ event.timestamp[:16].replace('T', ' ') if event.timestamp else '' }}
+                        </div>
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary">Create Plan</button>
+                {% else %}
+                <div style="text-align:center; padding:40px; color:#94a3b8;">
+                    <span style="font-size:2rem; display:block; margin-bottom:8px;">📭</span>
+                    <p style="margin:0; font-size:0.9rem;">No recent activity</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="express-section-header" id="platform-settings">
+        <h2 class="express-section-title">Platform Settings</h2>
+    </div>
+    <div class="form-card" style="padding: 25px; margin-bottom: 40px; display: flex; flex-direction: column; gap: 15px;">
+        <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 5px; color: #1e293b;">Transcript Extraction Engine</h3>
+        <p style="color: #64748b; font-size: 0.9rem; margin-top: 0; margin-bottom: 15px;">Choose the method YoppyChat uses to fetch YouTube video transcripts. This affects rate limits and transcription speed.</p>
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer; padding: 15px 20px; border: 2px solid {% if transcript_extraction_method == 'yt-dlp' or not transcript_extraction_method %}#0f4a96{% else %}#e2e8f0{% endif %}; border-radius: 12px; background: {% if transcript_extraction_method == 'yt-dlp' or not transcript_extraction_method %}#f8fafc{% else %}white{% endif %}; flex: 1; transition: 0.2s;" id="label-yt-dlp">
+                <input type="radio" name="transcript_method" value="yt-dlp" {% if transcript_extraction_method == 'yt-dlp' or not transcript_extraction_method %}checked{% endif %} onchange="updateTranscriptMethod(this.value)" style="margin-top: 4px;">
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-weight: 700; color: #1e293b; font-size: 1rem;">Standard / yt-dlp (Default)</span>
+                    <span style="font-size: 0.85rem; color: #64748b; margin-top: 4px; line-height: 1.4;">Uses web scraping & proxies. Avoids AI costs but is slower and susceptible to strict IP blocks.</span>
+                </div>
+            </label>
+            <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer; padding: 15px 20px; border: 2px solid {% if transcript_extraction_method == 'gemini' %}#0f4a96{% else %}#e2e8f0{% endif %}; border-radius: 12px; background: {% if transcript_extraction_method == 'gemini' %}#f8fafc{% else %}white{% endif %}; flex: 1; transition: 0.2s;" id="label-gemini">
+                <input type="radio" name="transcript_method" value="gemini" {% if transcript_extraction_method == 'gemini' %}checked{% endif %} onchange="updateTranscriptMethod(this.value)" style="margin-top: 4px;">
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-weight: 700; color: #1e293b; font-size: 1rem;">Gemini Native Processing</span>
+                    <span style="font-size: 0.85rem; color: #64748b; margin-top: 4px; line-height: 1.4;">Bypasses strict IP rate limits by processing the video natively using the Gemini Flash API.</span>
+                </div>
+            </label>
+        </div>
+    </div>
+
+    <div class="express-section-header" id="plans">
+        <h2 class="express-section-title">Plan Management</h2>
+    </div>
+    <div class="form-card" style="padding: 25px; margin-bottom: 40px;">
+        <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 20px; color: #1e293b;">Create New Plan</h3>
+        <form id="createPlanForm">
+            <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                <div class="form-group">
+                    <label for="plan_id" style="display:block; margin-bottom:8px; font-weight:500; font-size:0.9rem; color:#64748b;">Plan ID</label>
+                    <input type="text" id="plan_id" name="plan_id" placeholder="e.g., pro_tier" required style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; outline:none;">
+                </div>
+                <div class="form-group">
+                    <label for="plan_name" style="display:block; margin-bottom:8px; font-weight:500; font-size:0.9rem; color:#64748b;">Plan Name</label>
+                    <input type="text" id="plan_name" name="plan_name" placeholder="e.g., Pro Tier" required style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; outline:none;">
+                </div>
+                <div class="form-group">
+                    <label for="max_channels" style="display:block; margin-bottom:8px; font-weight:500; font-size:0.9rem; color:#64748b;">Max Channels / Shared</label>
+                    <input type="number" id="max_channels" name="max_channels" placeholder="e.g., 10" required style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; outline:none;">
+                </div>
+                <div class="form-group">
+                    <label for="max_queries" style="display:block; margin-bottom:8px; font-weight:500; font-size:0.9rem; color:#64748b;">Max Credits / Month</label>
+                    <input type="number" id="max_queries" name="max_queries" placeholder="e.g., 5000" required style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; outline:none;">
+                </div>
+                <div class="form-group">
+                    <label for="plan_type" style="display:block; margin-bottom:8px; font-weight:500; font-size:0.9rem; color:#64748b;">Plan Type</label>
+                    <select id="plan_type" name="plan_type" required style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; outline:none;">
+                        <option value="user">Direct User Plan</option>
+                        <option value="community">Community Plan</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" style="background: #0f4a96; color: white; border: none; padding: 10px 24px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: 0.2s;">Create Plan</button>
+        </form>
+    </div>
+
+    <div class="express-section-header" id="communities">
+        <h2 class="express-section-title">Whop Communities</h2>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 40px;">
+        {% for community in communities %}
+        <div class="admin-card" style="background: white; padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <div style="font-weight: 700; font-size: 1.05rem; color: #1e293b;">{{ community.owner.full_name or community.owner.email }}'s Community</div>
+                    <div style="font-size: 0.8rem; color: #94a3b8; font-family: monospace; margin-top: 4px;" title="{{ community.id }}">ID: {{ community.id[:8] }}...</div>
+                </div>
+                <div class="card-actions" style="position: relative;">
+                    <button class="action-menu-btn" onclick="toggleActionMenu(this)" style="background: none; border: none; font-size: 1.5rem; color: #94a3b8; cursor: pointer; line-height: 1;">•••</button>
+                    <div class="action-menu" style="position: absolute; right: 0; top: 100%; background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); z-index: 10; width: 260px; padding: 15px;">
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <label style="font-size: 0.8rem; font-weight: 600; color: #64748b;">Set Plan</label>
+                            <select id="community-plan-{{ community.id }}" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; outline: none;">
+                                {% for plan_id, plan_details in COMMUNITY_PLANS.items() %}
+                                <option value="{{ plan_id }}" {% if community.plan_id==plan_id %}selected{% endif %}>{{ plan_details.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button onclick="setCurrentPlan('{{ community.id }}', 'community', document.getElementById('community-plan-{{ community.id }}').value)" style="width:100%; padding:8px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; font-weight:600; color:#1e293b;">Apply</button>
+                        </div>
+                        <div style="height: 1px; background: #e2e8f0; margin: 15px 0;"></div>
+                        <a href="#" onclick="removePlan('{{ community.id }}', 'community'); return false;" style="display:block; padding:8px; text-decoration:none; color:#64748b; font-weight:500; font-size:0.9rem; text-align:center;">Revert to Default</a>
+                    </div>
+                </div>
+            </div>
+            <div style="border-top: 1px solid #f1f5f9; padding-top: 15px; display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem;"><span style="color:#64748b;">Current Plan</span><span style="font-weight:600; background:#f3e8ff; color:#4338ca; padding:2px 10px; border-radius:12px;">{{ community.plan_id }}</span></div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem;"><span style="color:#64748b;">Credits Used</span><span style="font-weight:600; color:#1e293b;">{{ community.queries_used }} / {{ community.query_limit }}</span></div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem;"><span style="color:#64748b;">Shared Channels</span><span style="font-weight:600; color:#1e293b;">{{ community.shared_channel_limit }}</span></div>
+            </div>
+        </div>
+        {% else %}
+        <p style="color: #64748b;">No Whop communities found.</p>
+        {% endfor %}
+    </div>
+
+    <div class="express-section-header" id="payouts">
+        <h2 class="express-section-title">Creator Payouts</h2>
+        <div class="search-wrapper">
+            <form id="payoutSearchForm">
+                <input type="search" id="payoutSearchInput" name="q" placeholder="Search payouts..." value="{{ search_query or '' }}" style="padding: 8px 16px; border-radius: 20px; border: 1px solid #e2e8f0; outline: none; background: white; min-width: 250px;">
             </form>
         </div>
     </div>
-
-    <div class="admin-section">
-        <h2 class="section-title">Whop Communities</h2>
-        <div class="admin-grid">
-            {% for community in communities %}
-            <div class="admin-card">
-                <div class="card-header">
-                    <div class="card-info">
-                        <div class="card-title">{{ community.owner.full_name or community.owner.email }}'s Community
+    <div class="table-container" style="background: white; overflow: hidden; margin-bottom: 40px;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                <tr>
+                    <th style="padding: 15px; text-align: left; font-size: 0.8rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Creator</th>
+                    <th style="padding: 15px; text-align: left; font-size: 0.8rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Amount</th>
+                    <th style="padding: 15px; text-align: left; font-size: 0.8rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Date</th>
+                    <th style="padding: 15px; text-align: left; font-size: 0.8rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Bank Details</th>
+                    <th style="padding: 15px; text-align: left; font-size: 0.8rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Status</th>
+                    <th style="padding: 15px; text-align: left; font-size: 0.8rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payout in payouts %}
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 15px;">
+                        <span style="font-weight: 600; color: #1e293b; display: block;" title="{{ payout.creator.email }}">{{ payout.creator.full_name or payout.creator.email }}</span>
+                        <span style="font-size: 0.8rem; color: #94a3b8; font-family: monospace;" title="{{ payout.id }}">ID: {{ (payout.id|string)[:8] }}...</span>
+                    </td>
+                    <td style="padding: 15px; font-weight: 700; color: #0f172a; font-size: 1.1rem;">
+                        {% if payout.payout_destination_details and payout.payout_destination_details.payout_type == 'marketplace' %}
+                        ₹{{ "%.2f"|format(payout.amount_usd) }}
+                        {% else %}
+                        ${{ "%.2f"|format(payout.amount_usd) }}
+                        {% endif %}
+                    </td>
+                    <td style="padding: 15px; font-size: 0.9rem; color: #64748b;">{{ payout.requested_at.split('T')[0] }}</td>
+                    <td style="padding: 15px; font-size: 0.85rem; color: #64748b; line-height: 1.8;">
+                        {% if payout.payout_destination_details %}
+                        <div><strong style="color:#475569;">Name:</strong> {{ payout.payout_destination_details.name }}</div>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <strong style="color:#475569;">Acct:</strong>
+                            <span id="acct-{{ payout.id }}" style="font-family:monospace; font-weight:700; color:#0f172a; letter-spacing:0.5px;">{{ payout.payout_destination_details.account_number }}</span>
+                            <button onclick="copyText('acct-{{ payout.id }}', this)" title="Copy account number" style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:4px; padding:1px 6px; font-size:0.75rem; cursor:pointer; color:#475569;">Copy</button>
                         </div>
-                        <div class="card-subtitle" title="{{ community.id }}">ID: {{ community.id[:8] }}...</div>
-                    </div>
-                    <div class="card-actions">
-                        <button class="action-menu-btn" onclick="toggleActionMenu(this)">•••</button>
-                        <div class="action-menu">
-                            <div class="action-group">
-                                <label>Set Plan</label>
-                                <select id="community-plan-{{ community.id }}">
-                                    {% for plan_id, plan_details in COMMUNITY_PLANS.items() %}
-                                    <option value="{{ plan_id }}" {% if community.plan_id==plan_id %}selected{% endif
-                                        %}>
-                                        {{ plan_details.name }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                                <button class="btn-secondary"
-                                    onclick="setCurrentPlan('{{ community.id }}', 'community', document.getElementById('community-plan-{{ community.id }}').value)">Apply</button>
-                            </div>
-                            <div class="action-divider"></div>
-                            <a href="#" onclick="removePlan('{{ community.id }}', 'community')">Revert to Default</a>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="stat-item"><span>Current Plan</span><span class="plan-badge">{{ community.plan_id
-                            }}</span></div>
-                    <div class="stat-item"><span>Credits Used</span><span>{{ community.queries_used }} / {{
-                            community.query_limit }}</span></div>
-                    <div class="stat-item"><span>Shared Channels</span><span>{{ community.shared_channel_limit }}</span>
-                    </div>
-                </div>
-            </div>
-            {% else %}
-            <p>No Whop communities found.</p>
-            {% endfor %}
-        </div>
+                        <div><strong style="color:#475569;">IFSC:</strong> <span style="font-family:monospace; font-weight:700; color:#0f172a;">{{ payout.payout_destination_details.ifsc }}</span></div>
+                        {% if payout.creator %}<div style="margin-top:4px; font-size:0.8rem; color:#94a3b8;">📧 {{ payout.creator.email }}</div>{% endif %}
+                        {% else %}
+                        <span style="font-style: italic; font-family: 'Inter', sans-serif; color:#cbd5e1;">No Details Provided</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 15px;">
+                        {% if payout.status == 'pending' %}
+                        <span style="background: #fef3c7; color: #b45309; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">Pending</span>
+                        {% else %}
+                        <span style="background: #dcfce7; color: #15803d; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">{{ payout.status|title }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 15px;">
+                        {% if payout.status == 'pending' and payout.payout_destination_details %}
+                        <button onclick="markPayoutAsPaid('{{ payout.id }}', this)" style="background: white; border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; color: #1e293b; cursor: pointer;">Mark Paid</button>
+                        {% else %}
+                        <span style="color: #cbd5e1;">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align: center; padding: 30px; color: #94a3b8;">No payouts found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 
-    <div class="admin-section">
-        <div class="section-header">
-            <h2 class="section-title">Creator Payouts</h2>
-            <div class="search-wrapper">
-                <form id="payoutSearchForm">
-                    <input type="search" id="payoutSearchInput" name="q" placeholder="Search by email or payout ID..."
-                        value="{{ search_query or '' }}">
-                </form>
+    <div class="express-section-header" id="users">
+        <h2 class="express-section-title">Direct Users</h2>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+        {% for user in non_whop_users %}
+        <div class="admin-card" style="background: white; padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <div style="font-weight: 700; font-size: 1.05rem; color: #1e293b;">{{ user.full_name or user.email }}</div>
+                    <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;" title="{{ user.id }}">{{ user.email }}</div>
+                </div>
+                <div class="card-actions" style="position: relative;">
+                    <button class="action-menu-btn" onclick="toggleActionMenu(this)" style="background: none; border: none; font-size: 1.5rem; color: #94a3b8; cursor: pointer; line-height: 1;">•••</button>
+                    <div class="action-menu" style="position: absolute; right: 0; top: 100%; background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); z-index: 10; width: 260px; padding: 15px;">
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <label style="font-size: 0.8rem; font-weight: 600; color: #64748b;">Set Plan</label>
+                            <select id="user-plan-{{ user.id }}" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; outline: none;">
+                                {% for plan_id, plan_details in all_plans.items() %}
+                                {% if not plan_id.startswith('whop_') and plan_id not in ['admin_testing', 'community_member'] %}
+                                <option value="{{ plan_id }}" {% if user.direct_subscription_plan==plan_id or (not user.direct_subscription_plan and plan_id=='free' ) %}selected{% endif %}>{{ plan_details.name }}</option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
+                            <button onclick="setCurrentPlan('{{ user.id }}', 'user', document.getElementById('user-plan-{{ user.id }}').value)" style="width:100%; padding:8px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; font-weight:600; color:#1e293b;">Apply</button>
+                        </div>
+                        <div style="height: 1px; background: #e2e8f0; margin: 15px 0;"></div>
+                        <a href="#" onclick="removePlan('{{ user.id }}', 'user'); return false;" style="display:block; padding:8px; text-decoration:none; color:#64748b; font-weight:500; font-size:0.9rem; text-align:center;">Revert to Default</a>
+                        <a href="#" onclick="deleteUser('{{ user.id }}', '{{ user.email }}'); return false;" style="display:block; padding:8px; text-decoration:none; color:#ef4444; font-weight:500; font-size:0.9rem; text-align:center; margin-top:5px; background:#fef2f2; border-radius:8px;">Delete User</a>
+                    </div>
+                </div>
+            </div>
+            <div style="border-top: 1px solid #f1f5f9; padding-top: 15px; display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem;"><span style="color:#64748b;">Current Plan</span><span style="font-weight:600; background:#e0f2fe; color:#0369a1; padding:2px 10px; border-radius:12px; text-transform:uppercase; font-size:0.75rem;">{{ user.direct_subscription_plan or 'free' }}</span></div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem;"><span style="color:#64748b;">Credits Used</span><span style="font-weight:600; color:#1e293b;">{{ user.usage.queries_this_month if user.usage else 0 }}</span></div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem;"><span style="color:#64748b;">Channels</span><span style="font-weight:600; color:#1e293b;">{{ user.usage.channels_processed if user.usage else 0 }}</span></div>
             </div>
         </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Creator</th>
-                        <th>Amount</th>
-                        <th>Date Requested</th>
-                        <th>Payout Details</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for payout in payouts %}
-                    <tr>
-                        <td class="creator-cell">
-                            <span class="creator-name" title="{{ payout.creator.email }}">{{ payout.creator.full_name or
-                                payout.creator.email }}</span>
-                            <span class="creator-email" title="{{ payout.id }}">ID: {{ payout.id[:8] }}...</span>
-                        </td>
-                        <td class="amount-cell"><strong>${{ "%.2f"|format(payout.amount_usd) }}</strong></td>
-                        <td>{{ payout.requested_at.split('T')[0] }}</td>
-                        <td class="payout-details-cell">
-                            {% if payout.payout_destination_details %}
-                            <div><strong>Name:</strong> {{ payout.payout_destination_details.name }}</div>
-                            <div><strong>Acc No:</strong> {{ payout.payout_destination_details.account_number }}</div>
-                            <div><strong>IFSC:</strong> {{ payout.payout_destination_details.ifsc }}</div>
-                            {% else %}
-                            <span class="text-muted">No Details Provided</span>
-                            {% endif %}
-                        </td>
-                        <td><span class="status-badge status-{{ payout.status }}">{{ payout.status|title }}</span></td>
-                        <td>
-                            {% if payout.status == 'pending' and payout.payout_destination_details %}
-                            <button class="btn-secondary" onclick="markPayoutAsPaid('{{ payout.id }}', this)">Mark as
-                                Paid</button>
-                            {% else %}
-                            <span>-</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="6" class="empty-row">No payouts found matching your search.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        {% else %}
+        <p style="color: #64748b;">No direct users found.</p>
+        {% endfor %}
     </div>
 
-    <div class="admin-section">
-        <h2 class="section-title">Direct Users (Non-Whop)</h2>
-        <div class="admin-grid">
-            {% for user in non_whop_users %}
-            <div class="admin-card">
-                <div class="card-header">
-                    <div class="card-info">
-                        <div class="card-title">{{ user.full_name or user.email }}</div>
-                        <div class="card-subtitle" title="{{ user.id }}">{{ user.email }}</div>
-                    </div>
-                    <div class="card-actions">
-                        <button class="action-menu-btn" onclick="toggleActionMenu(this)">•••</button>
-                        <div class="action-menu">
-                            <div class="action-group">
-                                <label>Set Plan</label>
-                                <select id="user-plan-{{ user.id }}">
-                                    {% for plan_id, plan_details in all_plans.items() %}
-                                    {% if not plan_id.startswith('whop_') and plan_id not in ['admin_testing',
-                                    'community_member'] %}
-                                    <option value="{{ plan_id }}" {% if user.direct_subscription_plan==plan_id or (not
-                                        user.direct_subscription_plan and plan_id=='free' ) %}selected{% endif %}>
-                                        {{ plan_details.name }}
-                                    </option>
-                                    {% endif %}
-                                    {% endfor %}
-                                </select>
-                                <button class="btn-secondary"
-                                    onclick="setCurrentPlan('{{ user.id }}', 'user', document.getElementById('user-plan-{{ user.id }}').value)">Apply</button>
-                            </div>
-                            <div class="action-divider"></div>
-                            <a href="#" onclick="removePlan('{{ user.id }}', 'user')">Revert to Default</a>
-                            <a href="#" class="danger" onclick="deleteUser('{{ user.id }}', '{{ user.email }}')">Delete
-                                User</a>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="stat-item"><span>Current Plan</span><span class="plan-badge">{{
-                            user.direct_subscription_plan or 'free' }}</span></div>
-                    <div class="stat-item"><span>Credits Used</span><span>{{ user.usage.queries_this_month if user.usage
-                            else 0 }}</span></div>
-                    <div class="stat-item"><span>Channels</span><span>{{ user.usage.channels_processed if user.usage
-                            else 0 }}</span></div>
-                </div>
+    <div id="drillDownModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle" style="margin: 0;">Daily Details</h3>
+                <button class="close-modal" onclick="closeModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
             </div>
-            {% else %}
-            <p>No direct users found.</p>
-            {% endfor %}
+            <div class="modal-body" id="modalBody">
+                <div class="loader">Loading...</div>
+            </div>
         </div>
     </div>
 </div>
@@ -211,4 +656,271 @@
 
 {% block page_scripts %}
 <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+<script>
+    // ═══════════════════════════════════════════════════════════════════
+    // CORE TOGGLES & MODALS
+    // ═══════════════════════════════════════════════════════════════════
+    function updateTranscriptMethod(method) {
+        document.getElementById('label-yt-dlp').style.borderColor = method === 'yt-dlp' ? '#0f4a96' : '#e2e8f0';
+        document.getElementById('label-yt-dlp').style.background = method === 'yt-dlp' ? '#f8fafc' : 'white';
+        document.getElementById('label-gemini').style.borderColor = method === 'gemini' ? '#0f4a96' : '#e2e8f0';
+        document.getElementById('label-gemini').style.background = method === 'gemini' ? '#f8fafc' : 'white';
+        
+        fetch('/admin/settings/transcript-method', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ method: method })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.status !== 'success') {
+                alert('Error updating method: ' + data.message);
+            }
+        })
+        .catch(err => alert('Network error updating setting.'));
+    }
+
+    function toggleCurrency(currency) {
+        const btnUsd = document.getElementById('btn-usd');
+        const btnInr = document.getElementById('btn-inr');
+
+        if (currency === 'usd') {
+            btnUsd.classList.add('active');
+            btnInr.classList.remove('active');
+        } else {
+            btnInr.classList.add('active');
+            btnUsd.classList.remove('active');
+        }
+
+        const symbol = currency === 'usd' ? '$' : '₹';
+        document.querySelectorAll('.cashflow-amount, .calc-item').forEach(el => {
+            const val = el.getAttribute(`data-${currency}`);
+            if (val) {
+                el.querySelector('.currency-symbol').innerText = symbol;
+                el.querySelector('.amount-val').innerText = val;
+            }
+        });
+
+        // Update Revenue Chart
+        if (revenueChartInstance && trendData) {
+            const subData = currency === 'usd' ? trendData.revenue.subscription_usd : trendData.revenue.subscription_inr;
+            const mktData = currency === 'usd' ? trendData.revenue.marketplace_usd : trendData.revenue.marketplace_inr;
+            const subLabel = currency === 'usd' ? 'Subscription ($)' : 'Subscription (₹)';
+            const mktLabel = currency === 'usd' ? 'Marketplace ($)' : 'Marketplace (₹)';
+            
+            revenueChartInstance.data.datasets[0].data = subData;
+            revenueChartInstance.data.datasets[0].label = subLabel;
+            revenueChartInstance.data.datasets[1].data = mktData;
+            revenueChartInstance.data.datasets[1].label = mktLabel;
+            revenueChartInstance.update();
+        }
+    }
+
+    function openModal(title, contentHtml) {
+        document.getElementById('modalTitle').innerText = title;
+        document.getElementById('modalBody').innerHTML = contentHtml;
+        document.getElementById('drillDownModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('drillDownModal').style.display = 'none';
+    }
+
+    window.onclick = function (event) {
+        const modal = document.getElementById('drillDownModal');
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // COPY HELPER (for bank account numbers in payout table)
+    // ═══════════════════════════════════════════════════════════════════
+    function copyText(elementId, btn) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        navigator.clipboard.writeText(el.textContent.trim()).then(() => {
+            const orig = btn.textContent;
+            btn.textContent = '✓';
+            btn.style.color = '#15803d';
+            setTimeout(() => { btn.textContent = orig; btn.style.color = '#475569'; }, 1500);
+        }).catch(() => {
+            // Fallback for older browsers
+            const range = document.createRange();
+            range.selectNode(el);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+            document.execCommand('copy');
+            window.getSelection().removeAllRanges();
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CHART.JS INITIALIZATION (EXPRESS DESIGN)
+    // ═══════════════════════════════════════════════════════════════════
+    const trendData = {{ trend_data | tojson }};
+    let revenueChartInstance = null; // Store chart instance for currency toggle
+
+    Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    Chart.defaults.font.size = 12;
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const CHART_GRID = { color: isDark ? '#2A2F36' : '#f1f5f9', drawBorder: false };
+    const customTooltip = { 
+        backgroundColor: isDark ? '#1C2128' : '#0f4a96', 
+        padding: 14, 
+        cornerRadius: 8, 
+        titleFont: { size: 13 }, 
+        bodyFont: { size: 14 },
+        borderColor: isDark ? '#2A2F36' : 'transparent',
+        borderWidth: 1
+    };
+
+    function sparseLabels(labels) {
+        return labels.map((l, i) => (i % 5 === 0 || i === labels.length - 1) ? l : '');
+    }
+
+    // --- 1. User Growth (Stacked Rounded Bar) ---
+    const userCtx = document.getElementById('userGrowthChart').getContext('2d');
+    new Chart(userCtx, {
+        type: 'bar',
+        data: {
+            labels: sparseLabels(trendData.labels),
+            datasets: [
+                { label: 'Referred Users', data: trendData.users.referral, backgroundColor: '#3B82F6', opacity: 0.8, stack: 'Origin', borderRadius: {topLeft: 0, topRight: 0, bottomLeft: 6, bottomRight: 6}, barThickness: 16 },
+                { label: 'Direct Users', data: trendData.users.direct, backgroundColor: '#60A5FA', opacity: 0.8, stack: 'Origin', borderRadius: {topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0}, barThickness: 16 },
+                { label: 'Free Users', data: trendData.users.free, backgroundColor: '#9DA7B3', opacity: 0.8, stack: 'Tier', borderRadius: {topLeft: 0, topRight: 0, bottomLeft: 6, bottomRight: 6}, barThickness: 16 },
+                { label: 'Paid Users', data: trendData.users.paid, backgroundColor: '#EAB308', opacity: 0.8, stack: 'Tier', borderRadius: {topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0}, barThickness: 16 },
+                { label: 'Buyers', data: trendData.users.buyers, backgroundColor: '#22C55E', opacity: 0.8, stack: 'Market', borderRadius: {topLeft: 0, topRight: 0, bottomLeft: 6, bottomRight: 6}, barThickness: 16 },
+                { label: 'Sellers', data: trendData.users.sellers, backgroundColor: '#A855F7', opacity: 0.8, stack: 'Market', borderRadius: {topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0}, barThickness: 16 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { tooltip: customTooltip },
+            scales: {
+                x: { grid: { display: false }, stacked: true },
+                y: { grid: CHART_GRID, beginAtZero: true, stacked: true, ticks: { stepSize: 1 } }
+            }
+        }
+    });
+
+    // --- 2. Revenue Chart (Line Area Curve) - Store instance for currency toggle ---
+    const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+    const revGrad1 = revenueCtx.createLinearGradient(0, 0, 0, 260);
+    revGrad1.addColorStop(0, 'rgba(59, 130, 246, 0.15)'); revGrad1.addColorStop(1, 'rgba(59, 130, 246, 0)');
+    
+    const revGrad2 = revenueCtx.createLinearGradient(0, 0, 0, 260);
+    revGrad2.addColorStop(0, 'rgba(34, 197, 94, 0.15)'); revGrad2.addColorStop(1, 'rgba(34, 197, 94, 0)');
+    
+    const revGrad3 = revenueCtx.createLinearGradient(0, 0, 0, 260);
+    revGrad3.addColorStop(0, 'rgba(234, 179, 8, 0.15)'); revGrad3.addColorStop(1, 'rgba(234, 179, 8, 0)');
+
+    revenueChartInstance = new Chart(revenueCtx, {
+        type: 'line',
+        data: {
+            labels: sparseLabels(trendData.labels),
+            datasets: [
+                { label: 'Affiliate (₹)', data: trendData.revenue.subscription_inr, borderColor: '#3B82F6', backgroundColor: revGrad1, fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 6, pointBackgroundColor: '#3B82F6', pointHoverBackgroundColor: '#60A5FA' },
+                { label: 'Subscription (₹)', data: trendData.revenue.platform_sub_inr, borderColor: '#22C55E', backgroundColor: revGrad2, fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 6, pointBackgroundColor: '#22C55E', pointHoverBackgroundColor: '#4ADE80' },
+                { label: 'Marketplace (₹)', data: trendData.revenue.marketplace_inr, borderColor: '#EAB308', backgroundColor: revGrad3, fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 6, pointBackgroundColor: '#EAB308', pointHoverBackgroundColor: '#FACC15' }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { tooltip: customTooltip },
+            scales: { x: { grid: { display: false } }, y: { grid: CHART_GRID, beginAtZero: true } }
+        }
+    });
+
+    // --- 3. Credit Chart (Line Area Curve) ---
+    const creditCtx = document.getElementById('creditChart').getContext('2d');
+    const credGrad = creditCtx.createLinearGradient(0, 0, 0, 260);
+    credGrad.addColorStop(0, 'rgba(234, 179, 8, 0.2)'); credGrad.addColorStop(1, 'rgba(234, 179, 8, 0)');
+
+    new Chart(creditCtx, {
+        type: 'line',
+        data: {
+            labels: sparseLabels(trendData.labels),
+            datasets: [{ label: 'Credits Used', data: trendData.credits, borderColor: '#EAB308', backgroundColor: credGrad, fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 6, pointBackgroundColor: '#EAB308', pointHoverBackgroundColor: '#FACC15' }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { tooltip: customTooltip },
+            scales: { x: { grid: { display: false } }, y: { grid: CHART_GRID, beginAtZero: true } }
+        }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════
+    // ACTIVITY FEED UPDATES
+    // ═══════════════════════════════════════════════════════════════════
+    function refreshActivityFeed() {
+        fetch('/api/admin/activity_feed')
+            .then(r => r.json())
+            .then(data => {
+                if (data.status !== 'success' || !data.events) return;
+                const feedEl = document.getElementById('activityFeed');
+                if (!feedEl) return;
+
+                feedEl.innerHTML = '';
+                data.events.forEach(ev => {
+                    const item = document.createElement('div');
+                    item.className = `feed-item feed-type-${ev.type || ''}`;
+
+                    const iconDiv = document.createElement('div');
+                    iconDiv.style.cssText = 'width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:#f8fafc;font-size:1.1rem;flex-shrink:0;';
+                    iconDiv.textContent = ev.icon || '';
+
+                    const contentDiv = document.createElement('div');
+                    contentDiv.style.cssText = 'flex:1;min-width:0;';
+
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'feed-item-title';
+                    titleDiv.style.cssText = 'font-size:0.85rem;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+                    titleDiv.textContent = ev.title || '';
+
+                    const descDiv = document.createElement('div');
+                    descDiv.className = 'feed-item-desc';
+                    descDiv.style.cssText = 'font-size:0.8rem;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+                    descDiv.textContent = ev.description || '';
+
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'feed-event-time';
+                    timeDiv.setAttribute('data-ts', ev.timestamp || '');
+                    timeDiv.style.cssText = 'font-size:0.7rem;color:#94a3b8;margin-top:4px;font-weight:500;';
+                    timeDiv.textContent = ev.timestamp ? ev.timestamp.slice(0, 16).replace('T', ' ') : '';
+
+                    contentDiv.appendChild(titleDiv);
+                    contentDiv.appendChild(descDiv);
+                    contentDiv.appendChild(timeDiv);
+                    item.appendChild(iconDiv);
+                    item.appendChild(contentDiv);
+                    feedEl.appendChild(item);
+                });
+                formatRelativeTime();
+            }).catch(() => {});
+    }
+
+    setInterval(refreshActivityFeed, 60000);
+
+    function formatRelativeTime() {
+        document.querySelectorAll('.feed-event-time[data-ts]').forEach(el => {
+            const ts = el.getAttribute('data-ts');
+            if (!ts) return;
+            const diff = Date.now() - new Date(ts).getTime();
+            const mins = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+
+            if (mins < 1) el.textContent = 'Just now';
+            else if (mins < 60) el.textContent = `${mins}m ago`;
+            else if (hours < 24) el.textContent = `${hours}h ago`;
+            else el.textContent = `${days}d ago`;
+        });
+    }
+    formatRelativeTime();
+    setInterval(formatRelativeTime, 30000);
+</script>
 {% endblock %}

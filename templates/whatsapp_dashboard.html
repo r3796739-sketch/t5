@@ -369,15 +369,15 @@
     <!-- Stats -->
     <div class="stats-grid" id="statsGrid">
         <div class="stat-card">
-            <div class="stat-value" id="statConfigs">0</div>
+            <div class="stat-value skeleton" id="statConfigs" style="width: 40px; height: 32px; margin: 0 auto; border-radius: 4px;"></div>
             <div class="stat-label">Connected Numbers</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value" id="statConversations">0</div>
+            <div class="stat-value skeleton" id="statConversations" style="width: 60px; height: 32px; margin: 0 auto; border-radius: 4px;"></div>
             <div class="stat-label">Conversations</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value" id="statMessages">0</div>
+            <div class="stat-value skeleton" id="statMessages" style="width: 80px; height: 32px; margin: 0 auto; border-radius: 4px;"></div>
             <div class="stat-label">Messages</div>
         </div>
     </div>
@@ -471,9 +471,21 @@
             const statsRes = await fetch('/api/whatsapp/stats');
             const statsData = await statsRes.json();
             if (statsData.status === 'success') {
-                document.getElementById('statConfigs').textContent = statsData.stats.active_configs;
-                document.getElementById('statConversations').textContent = statsData.stats.total_conversations;
-                document.getElementById('statMessages').textContent = statsData.stats.total_messages;
+                const configsEl = document.getElementById('statConfigs');
+                const convosEl = document.getElementById('statConversations');
+                const messagesEl = document.getElementById('statMessages');
+
+                configsEl.textContent = statsData.stats.active_configs;
+                configsEl.classList.remove('skeleton');
+                configsEl.style.width = 'auto';
+
+                convosEl.textContent = statsData.stats.total_conversations;
+                convosEl.classList.remove('skeleton');
+                convosEl.style.width = 'auto';
+
+                messagesEl.textContent = statsData.stats.total_messages;
+                messagesEl.classList.remove('skeleton');
+                messagesEl.style.width = 'auto';
             }
         } catch (e) { }
 

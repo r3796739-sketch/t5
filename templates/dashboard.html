@@ -114,6 +114,53 @@
         background: #EF4444;
     }
 
+    /* ---- Upgrade Button inside quota bar ---- */
+    .btn-upgrade-quota {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        padding: 7px 14px;
+        margin-top: 4px;
+        border: none;
+        border-radius: var(--radius-md);
+        background: linear-gradient(135deg, #FF6B35 0%, #F7C59F 50%, #FF6B8A 100%);
+        background-size: 200% 200%;
+        animation: upgradeShimmer 3s ease infinite;
+        color: #fff;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        cursor: pointer;
+        text-decoration: none;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+        box-shadow: 0 2px 10px rgba(255, 107, 53, 0.35);
+    }
+
+    .btn-upgrade-quota:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(255, 107, 53, 0.5);
+    }
+
+    .btn-upgrade-quota:active {
+        transform: translateY(0);
+    }
+
+    @keyframes upgradeShimmer {
+        0% {
+            background-position: 0% 50%;
+        }
+
+        50% {
+            background-position: 100% 50%;
+        }
+
+        100% {
+            background-position: 0% 50%;
+        }
+    }
+
     /* ---- 4-Card Earnings Overview ---- */
     .earnings-overview {
         display: grid;
@@ -675,6 +722,7 @@
     @media (max-width: 768px) {
         .db-container {
             padding: 1rem;
+            padding-top: 20%;
         }
 
         .earnings-overview {
@@ -701,36 +749,11 @@
             flex-direction: column;
         }
 
-        .plan-quota-bar {
-            min-width: 100%;
-        }
     }
 
     @media (max-width: 480px) {
         .earnings-overview {
             grid-template-columns: 1fr;
-        }
-    }
-
-    /* Skeleton loader */
-    .skel {
-        display: inline-block;
-        background: linear-gradient(90deg, var(--neutral-200) 25%, var(--surface-medium) 50%, var(--neutral-200) 75%);
-        background-size: 200% 100%;
-        animation: skel-anim 1.5s infinite;
-        border-radius: 4px;
-        min-width: 40px;
-        height: 1em;
-        vertical-align: middle;
-    }
-
-    @keyframes skel-anim {
-        from {
-            background-position: 200% 0;
-        }
-
-        to {
-            background-position: -200% 0;
         }
     }
 </style>
@@ -750,22 +773,29 @@
                 </svg>
                 Creator Dashboard
             </h1>
-            <p>Your AI chatbot business — revenues, growth, and activity in one place.</p>
+            <p>Your AI business — revenues, growth, and activity in one place.</p>
         </div>
 
         <!-- Plan + Quote Bar -->
         <div class="plan-quota-bar" id="quotaBarWrap">
             <div class="plan-quota-top">
                 <span class="plan-badge" id="planBadge">
-                    <span class="skel" style="width:50px"></span>
+                    <span class="skeleton" style="width:50px"></span>
                 </span>
                 <span class="quota-nums" id="quotaNums">
-                    <span class="skel" style="width:70px;height:0.8em"></span>
+                    <span class="skeleton" style="width:70px;height:0.8em"></span>
                 </span>
             </div>
             <div class="quota-track">
                 <div class="quota-fill" id="quotaFill" style="width: 0%"></div>
             </div>
+            <button class="btn-upgrade-quota" onclick="showPricingModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+                ✨ Upgrade Plan
+            </button>
         </div>
     </div>
 
@@ -783,7 +813,7 @@
                     </svg>
                 </div>
             </div>
-            <div class="eo-value" id="val-total-earned"><span class="skel" style="width:70px;height:1.5em"></span></div>
+            <div class="eo-value" id="val-total-earned"><span class="skeleton" style="width:70px;height:1.5em"></span></div>
             <div class="eo-sub">Total all-time earnings</div>
         </div>
 
@@ -798,12 +828,13 @@
                     </svg>
                 </div>
             </div>
-            <div class="eo-value" id="val-withdrawable"><span class="skel" style="width:70px;height:1.5em"></span></div>
+            <div class="eo-value" id="val-withdrawable"><span class="skeleton" style="width:70px;height:1.5em"></span></div>
             <div class="eo-sub">Ready to withdraw now <a href="/earnings"
                     style="color:var(--accent-primary);text-decoration:none;font-weight:600">→</a></div>
         </div>
 
-        <div class="eo-card blue">
+        <a href="/earnings#marketplace" style="text-decoration: none; color: inherit; display: block; cursor: pointer;"
+            class="eo-card blue">
             <div class="eo-card-top">
                 <span class="eo-label">Total MRR</span>
                 <div class="eo-icon blue">
@@ -816,12 +847,12 @@
                     </svg>
                 </div>
             </div>
-            <div class="eo-value" id="val-total-mrr"><span class="skel" style="width:70px;height:1.5em"></span>
+            <div class="eo-value" id="val-total-mrr"><span class="skeleton" style="width:70px;height:1.5em"></span>
             </div>
             <div class="eo-sub" id="val-mrr-sub">from <span id="val-paid-referrals">--</span> referrals & <span
                     id="val-mp-sales">--</span> mp sales
             </div>
-        </div>
+        </a>
 
         <div class="eo-card orange">
             <div class="eo-card-top">
@@ -834,7 +865,7 @@
                     </svg>
                 </div>
             </div>
-            <div class="eo-value" id="val-plan-name" style="font-size:1.3rem;"><span class="skel"
+            <div class="eo-value" id="val-plan-name" style="font-size:1.3rem;"><span class="skeleton"
                     style="width:70px;height:1.2em"></span></div>
             <div class="eo-sub" id="val-adds-sub"><span id="val-adds">--</span> users added your chatbots</div>
         </div>
@@ -852,11 +883,17 @@
                         <line x1="12" y1="1" x2="12" y2="23" />
                         <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                     </svg>
-                    Revenue Trend — Last 6 Months
+                    Revenue Trend
                 </div>
-                <a href="/earnings"
-                    style="font-size:0.78rem;color:var(--accent-primary);text-decoration:none;font-weight:600">Full
-                    Earnings →</a>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <select id="trendMonths" onchange="updateTrendMonths(this.value)" style="font-size:0.75rem; padding: 4px 8px; border-radius:4px; border: 1px solid var(--neutral-200); background: var(--surface-light); color: var(--text-primary); cursor: pointer; outline: none;">
+                        <option value="6">Last 6 Months</option>
+                        <option value="12">Last 12 Months</option>
+                    </select>
+                    <a href="/earnings"
+                        style="font-size:0.78rem;color:var(--accent-primary);text-decoration:none;font-weight:600">Full
+                        Earnings →</a>
+                </div>
             </div>
             <div class="chart-container">
                 <canvas id="revenueChart"></canvas>
@@ -891,7 +928,7 @@
                         </div>
                         <span class="growth-stat-label">Total Referrals</span>
                     </div>
-                    <span class="growth-stat-val" id="gs-referrals"><span class="skel" style="width:28px"></span></span>
+                    <span class="growth-stat-val" id="gs-referrals"><span class="skeleton" style="width:28px"></span></span>
                 </div>
                 <div class="growth-stat-row">
                     <div class="growth-stat-left">
@@ -904,7 +941,7 @@
                         </div>
                         <span class="growth-stat-label">Paying Subscribers</span>
                     </div>
-                    <span class="growth-stat-val" id="gs-paid"><span class="skel" style="width:28px"></span></span>
+                    <span class="growth-stat-val" id="gs-paid"><span class="skeleton" style="width:28px"></span></span>
                 </div>
                 <div class="growth-stat-row">
                     <div class="growth-stat-left">
@@ -917,7 +954,7 @@
                         </div>
                         <span class="growth-stat-label">Active Chatbot Users</span>
                     </div>
-                    <span class="growth-stat-val" id="gs-adds"><span class="skel" style="width:28px"></span></span>
+                    <span class="growth-stat-val" id="gs-adds"><span class="skeleton" style="width:28px"></span></span>
                 </div>
                 <div class="growth-stat-row">
                     <div class="growth-stat-left">
@@ -929,7 +966,7 @@
                         </div>
                         <span class="growth-stat-label">Total Conversations</span>
                     </div>
-                    <span class="growth-stat-val" id="gs-convos"><span class="skel" style="width:28px"></span></span>
+                    <span class="growth-stat-val" id="gs-convos"><span class="skeleton" style="width:28px"></span></span>
                 </div>
             </div>
         </div>
@@ -977,8 +1014,6 @@
             Your Chatbot Fleet
         </div>
     </div>
-
-    {% if creator_channels %}
     {% for name, channel in creator_channels.items() %}
     <div class="chatbot-card">
         <div class="chatbot-card-main">
@@ -1045,39 +1080,39 @@
         <!-- Stats Strip -->
         <div class="chatbot-stats-strip" data-channel-id="{{ channel.id }}">
             <div class="cstat">
-                <div class="cstat-val" id="cstat-conv-{{ channel.id }}"><span class="skel"
+                <div class="cstat-val" id="cstat-conv-{{ channel.id }}"><span class="skeleton"
                         style="width:24px;height:0.9em"></span></div>
                 <div class="cstat-lbl">Conversations</div>
             </div>
             <div class="cstat">
-                <div class="cstat-val" id="cstat-sources-{{ channel.id }}"><span class="skel"
+                <div class="cstat-val" id="cstat-sources-{{ channel.id }}"><span class="skeleton"
                         style="width:24px;height:0.9em"></span></div>
                 <div class="cstat-lbl">Data Sources</div>
             </div>
             <div class="cstat">
-                <div class="cstat-val" id="cstat-ref-{{ channel.id }}"><span class="skel"
+                <div class="cstat-val" id="cstat-ref-{{ channel.id }}"><span class="skeleton"
                         style="width:24px;height:0.9em"></span></div>
                 <div class="cstat-lbl">Referrals</div>
             </div>
             <div class="cstat">
-                <div class="cstat-val" id="cstat-paid-{{ channel.id }}"><span class="skel"
+                <div class="cstat-val" id="cstat-paid-{{ channel.id }}"><span class="skeleton"
                         style="width:24px;height:0.9em"></span></div>
                 <div class="cstat-lbl">Subscribed</div>
             </div>
             <div class="cstat">
-                <div class="cstat-val" id="cstat-mrr-{{ channel.id }}"><span class="skel"
+                <div class="cstat-val" id="cstat-mrr-{{ channel.id }}"><span class="skeleton"
                         style="width:40px;height:0.9em"></span></div>
                 <div class="cstat-lbl">Aff. MRR</div>
             </div>
             <div class="cstat">
-                <div class="cstat-val" id="cstat-add-{{ channel.id }}"><span class="skel"
+                <div class="cstat-val" id="cstat-add-{{ channel.id }}"><span class="skeleton"
                         style="width:24px;height:0.9em"></span></div>
                 <div class="cstat-lbl">Adds</div>
             </div>
         </div>
     </div>
     {% endfor %}
-    {% else %}
+    {% if not creator_channels %}
     <div class="empty-state">
         <svg class="empty-state-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1126,8 +1161,9 @@
         const textColor = isDark ? '#9ca3af' : '#6b7280';
         const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
 
-        fetch('/api/dashboard/metrics')
-            .then(r => r.json())
+        function loadDashboardData(months = 6) {
+            fetch(`/api/dashboard/metrics?months=${months}`)
+                .then(r => r.json())
             .then(data => {
                 if (data.status !== 'success') return;
 
@@ -1136,7 +1172,8 @@
                 const planId = (pi.plan_id || 'free').toLowerCase();
                 const planName = pi.plan_name || 'Free';
                 const qUsed = pi.queries_used || 0;
-                const qMax = pi.max_queries;
+                let qMax = pi.max_queries;
+                if (qMax === undefined) qMax = pi.max_credits || 20;
 
                 const badge = document.getElementById('planBadge');
                 badge.textContent = planName;
@@ -1147,11 +1184,12 @@
                 const fill = document.getElementById('quotaFill');
                 const nums = document.getElementById('quotaNums');
                 if (qMax === -1) {
-                    nums.innerHTML = `<strong>${qUsed.toLocaleString()}</strong> queries used • Unlimited`;
+                    nums.innerHTML = `<strong>${qUsed.toLocaleString()}</strong> credits used • Unlimited`;
                     fill.style.width = '40%';
                 } else {
+                    const remaining = Math.max(0, qMax - qUsed);
                     const pct = qMax > 0 ? Math.min(100, Math.round((qUsed / qMax) * 100)) : 0;
-                    nums.innerHTML = `<strong>${qUsed.toLocaleString()}</strong> / ${qMax.toLocaleString()} queries`;
+                    nums.innerHTML = `<strong>${remaining.toLocaleString()}</strong> credits remaining`;
                     fill.style.width = pct + '%';
                     fill.className = 'quota-fill' + (pct >= 90 ? ' critical' : pct >= 70 ? ' warning' : '');
                 }
@@ -1170,7 +1208,7 @@
 
                 // ---- Growth Stats Panel ----
                 document.getElementById('gs-referrals').textContent = ts.referrals || 0;
-                document.getElementById('gs-paid').textContent = ts.paid_referrals || 0;
+                document.getElementById('gs-paid').textContent = (ts.paid_referrals || 0) + (es.marketplace_active_count || 0);
                 document.getElementById('gs-adds').textContent = ts.current_adds || 0;
 
                 // Total conversations = sum across all chatbot extras
@@ -1228,28 +1266,46 @@
                     // Check if there's any data at all
                     const hasData = [...affINR, ...mpINR].some(v => v > 0);
 
-                    new Chart(revenueCtx, {
-                        type: 'bar',
+                    if (window.revenueChartInst) {
+                        window.revenueChartInst.destroy();
+                    }
+
+                    window.revenueChartInst = new Chart(revenueCtx, {
+                        type: 'line',
                         data: {
                             labels: rev.labels,
                             datasets: [
                                 {
                                     label: 'Affiliate (₹)',
                                     data: affINR,
-                                    backgroundColor: '#3B82F6',
-                                    borderRadius: 5,
+                                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                                    borderColor: '#3B82F6',
+                                    borderWidth: 2,
+                                    tension: 0.4,
+                                    fill: true
                                 },
                                 {
                                     label: 'Marketplace (₹)',
                                     data: mpINR,
-                                    backgroundColor: '#10B981',
-                                    borderRadius: 5,
+                                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                    borderColor: '#10B981',
+                                    borderWidth: 2,
+                                    tension: 0.4,
+                                    fill: true
                                 }
                             ]
                         },
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
+                            layout: {
+                                padding: {
+                                    top: 10,
+                                    bottom: 10,
+                                    left: 10,
+                                    right: 20
+                                }
+                            },
                             plugins: {
                                 legend: {
                                     position: 'top',
@@ -1263,12 +1319,10 @@
                             },
                             scales: {
                                 x: {
-                                    stacked: true,
                                     grid: { color: gridColor, drawBorder: false },
                                     ticks: { color: textColor, font: { size: 11 } }
                                 },
                                 y: {
-                                    stacked: true,
                                     grid: { color: gridColor, drawBorder: false },
                                     ticks: {
                                         color: textColor, font: { size: 11 },
@@ -1298,6 +1352,14 @@
                 }
             })
             .catch(err => console.error('Dashboard metrics error:', err));
+        }
+        
+        // Initial load
+        loadDashboardData();
+
+        window.updateTrendMonths = function(months) {
+            loadDashboardData(months);
+        };
     });
 </script>
 {% endblock %}

@@ -30,7 +30,8 @@
             <div class="form-group">
                 <div class="input-container">
                     <input type="url" name="channel_url" id="channel_url" class="channel-input"
-                        placeholder="Enter YouTube channel URL (e.g., https://youtube.com/@mkbhd)" required
+                        placeholder="Enter YouTube channel URL (e.g., https://youtube.com/@mkbhd)"
+                        value="{{ prefilled_channel_url or '' }}" required
                         aria-label="YouTube Channel URL Input">
                     <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

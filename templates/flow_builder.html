@@ -2174,27 +2174,52 @@
             async function autoSave() { await save(true); }
 
             async function save(silent = false) {
+                const saveBtn = document.getElementById('saveBtn');
                 const payload = {
                     flow_id: flowId,
                     name: 'Main Flow',
                     flow_data: { nodes, edges, ai_instructions: flowAiInstructions }
                 };
+                // Check payload size before sending
+                const payloadStr = JSON.stringify(payload);
+                const sizeKB = Math.round(payloadStr.length / 1024);
+                if (sizeKB > 5000) {
+                    showToast(`⚠️ Flow is too large (${sizeKB}KB). Try removing some nodes or shortening message text.`, 'error');
+                    if (saveBtn) saveBtn.textContent = '⚠ Too Large';
+                    return;
+                }
                 try {
                     const res = await fetch(`/flow/api/${CHATBOT_ID}`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
+                        body: payloadStr
                     });
+                    if (!res.ok) {
+                        // HTTP error (e.g. 500 from Supabase size limit)
+                        let errMsg = `Save failed (HTTP ${res.status})`;
+                        try {
+                            const errData = await res.json();
+                            if (errData.message) errMsg = errData.message;
+                        } catch(_) {}
+                        showToast('❌ ' + errMsg, 'error');
+                        if (saveBtn) saveBtn.textContent = '✗ Error';
+                        setTimeout(() => { if (saveBtn) saveBtn.textContent = 'Save'; }, 4000);
+                        return;
+                    }
                     const r = await res.json();
                     if (r.status === 'ok') {
                         flowId = r.flow_id;
-                        document.getElementById('saveBtn').textContent = '✓ Saved';
-                        if (!silent) showToast('Flow saved!', 'success');
-                        setTimeout(() => { document.getElementById('saveBtn').textContent = 'Save'; }, 2000);
+                        if (saveBtn) saveBtn.textContent = '✓ Saved';
+                        if (!silent) showToast(`Flow saved! (${sizeKB}KB)`, 'success');
+                        setTimeout(() => { if (saveBtn) saveBtn.textContent = 'Save'; }, 2000);
                     } else {
-                        if (!silent) showToast('Save failed', 'error');
+                        showToast('❌ ' + (r.message || 'Save failed'), 'error');
+                        if (saveBtn) saveBtn.textContent = '✗ Error';
+                        setTimeout(() => { if (saveBtn) saveBtn.textContent = 'Save'; }, 4000);
                     }
                 } catch (ex) {
-                    if (!silent) showToast('Network error', 'error');
+                    showToast('❌ Network error — check connection', 'error');
+                    if (saveBtn) saveBtn.textContent = '✗ Error';
+                    setTimeout(() => { if (saveBtn) saveBtn.textContent = 'Save'; }, 4000);
                 }
             }
 
