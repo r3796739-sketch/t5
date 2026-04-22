@@ -8,7 +8,7 @@ import logging
 import os
 import google.generativeai as genai
 from utils.supabase_client import get_supabase_admin_client
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 logger = logging.getLogger(__name__)
 

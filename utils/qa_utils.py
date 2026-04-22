@@ -697,15 +697,21 @@ def answer_question_stream(
 
     if on_complete is None and user_id:
         # Integration path: check limits before proceeding
-        allowed, error_msg, resolved_community_id, is_marketplace = db_utils.check_bot_query_allowed(
+        allowed, error_msg, resolved_community_id, seller_id_to_charge = db_utils.check_bot_query_allowed(
             user_id, channel_data, active_community_id
         )
         if not allowed:
             yield f"data: {json.dumps({'error': 'QUERY_LIMIT_REACHED', 'message': error_msg})}\n\n"
             yield "data: [DONE]\n\n"
             return
-        # For marketplace queries, the counter was already incremented — don't touch personal pool
-        if not is_marketplace:
+        
+        # Deduct from seller if marketplace allocation is active and seller has credits,
+        # otherwise deduct from buyer's personal pool.
+        if seller_id_to_charge == 'skip_charge':
+            pass
+        elif seller_id_to_charge:
+            db_utils.record_bot_query_usage(seller_id_to_charge, resolved_community_id)
+        else:
             db_utils.record_bot_query_usage(user_id, resolved_community_id)
     
     total_request_start_time = time.perf_counter()

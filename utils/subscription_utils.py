@@ -59,7 +59,7 @@ PLANS = {
     os.environ.get('RAZORPAY_PLAN_ID_PERSONAL_INR', 'personal_inr'): { 
         'name': 'Personal', 
         'max_channels': float('inf'), 
-        'max_queries_per_month': 500, 
+        'max_queries_per_month': 369, 
         'price_usd': 3.60,
         'commission_rate': 0.40 
     },
@@ -187,7 +187,22 @@ def get_user_status(user_id: str, active_community_id: str = None) -> dict:
         raw_plan_id = personal_plan_id
     # --- END OF FIX ---
 
-    plan_details = PLANS.get(raw_plan_id, PLANS['free'])
+    plan_details = PLANS.get(raw_plan_id, PLANS['free']).copy()
+    
+    # Calculate Reserved Marketplace Credits (credits assigned to buyers)
+    reserved_marketplace_credits = 0
+    try:
+        supabase_admin = get_supabase_admin_client()
+        transfers_res = supabase_admin.table('chatbot_transfers').select('query_limit_monthly').eq('creator_id', user_id).eq('status', 'active').execute()
+        if transfers_res and transfers_res.data:
+            reserved_marketplace_credits = sum(t.get('query_limit_monthly', 0) for t in transfers_res.data)
+            
+        if plan_details.get('max_queries_per_month') != float('inf'):
+            plan_details['max_queries_per_month'] = max(0, plan_details['max_queries_per_month'] - reserved_marketplace_credits)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Error calculating reserved credits for {user_id}: {e}")
+
     usage_stats = get_usage_stats(user_id)
 
     status = {
@@ -199,7 +214,7 @@ def get_user_status(user_id: str, active_community_id: str = None) -> dict:
         'active_community_id': active_community_id,
         'is_active_community_owner': is_active_community_owner,
         'community_role': community_role if is_whop_user else None,
-        'limits': plan_details.copy(),
+        'limits': plan_details,
         'usage': {
             'queries_this_month': usage_stats.get('queries_this_month', 0),
             'channels_processed': usage_stats.get('channels_processed', 0)

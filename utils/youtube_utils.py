@@ -14,6 +14,14 @@ from dotenv import load_dotenv
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
 import yt_dlp
+import google.generativeai as genai
+
+import redis
+
+try:
+    redis_client = redis.from_url(os.environ.get('REDIS_URL'))
+except Exception:
+    redis_client = None
 
 # --- Setup ---
 load_dotenv()
@@ -28,6 +36,12 @@ if YOUTUBE_API_KEY:
         log.error(f"Failed to initialize YouTube API client: {e}")
 else:
     log.warning("YOUTUBE_API_KEY not found. API-related functions will not work.")
+
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY_for_transcipt')
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+else:
+    log.warning("GEMINI_API_KEY not found. Gemini native functions will not work.")
 
 # ==================================================================
 # SECTION 1: CORE HELPER FUNCTIONS
@@ -169,6 +183,26 @@ def get_transcript(video_id: str) -> Optional[str]:
     from Method 1 via the outer retry loop (up to MAX_FULL_ATTEMPTS times).
     """
     import urllib.error  # Ensure urllib.error is available for 429 detection
+
+    # Default to environment variable if present, else 'yt-dlp'
+    extraction_method = os.environ.get('TRANSCRIPT_METHOD', 'yt-dlp')
+    if redis_client:
+        try:
+            cached_method = redis_client.get('transcript_extraction_method')
+            if cached_method:
+                extraction_method = cached_method.decode('utf-8') if isinstance(cached_method, bytes) else cached_method
+        except Exception:
+            pass
+            
+    if extraction_method == 'gemini':
+        print(f"[{video_id}] 🤖 Using Gemini Native Transcript Extraction...")
+        prompt = "Transcribe this video exactly as spoken, ignoring any filler words."
+        video_url = f"https://www.youtube.com/watch?v={video_id}"
+        analysis_result = analyze_youtube_with_gemini(video_url, prompt)
+        if analysis_result:
+            return analysis_result
+        else:
+            print(f"[{video_id}] ⚠️ Gemini fallback triggered, attempting standard extraction...")
 
     # Expanded language list to cover all common variants
     PREFERRED_LANGUAGES = [
@@ -784,3 +818,28 @@ def is_youtube_channel_url(url: str) -> bool:
         return False
     channel_pattern = r'^(https?://)?(www\.)?(youtube\.com|youtu\.be)/(channel/UC[\w-]{21}[AQgw]|@[\w.-]+|c/[\w.-]+|user/[\w.-]+)/?$'
     return re.match(channel_pattern, url) is not None
+
+def analyze_youtube_with_gemini(video_url: str, user_prompt: str) -> str:
+    """
+    Passes a YouTube URL directly to Gemini for native multimodal analysis.
+    Compatible with google-generativeai 0.8.x SDK.
+    """
+    try:
+        model = genai.GenerativeModel('gemini-2.5-flash')
+
+        # In SDK 0.8.x, YouTube URLs are passed via the file_data dict format
+        response = model.generate_content([
+            {
+                'file_data': {
+                    'file_uri': video_url,
+                    'mime_type': 'video/*'
+                }
+            },
+            user_prompt
+        ])
+
+        return response.text
+
+    except Exception as e:
+        log.error(f"Gemini native YouTube processing failed for {video_url}: {e}")
+        return None
