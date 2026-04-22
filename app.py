@@ -3482,6 +3482,12 @@ def admin_dashboard():
     activity_feed = db_utils.get_admin_activity_feed(limit=15)
     trend_data = db_utils.get_admin_trend_data(days_back=30)
 
+    transcript_extraction_method = 'yt-dlp'
+    if redis_client:
+        method_bytes = redis_client.get('transcript_extraction_method')
+        if method_bytes:
+            transcript_extraction_method = method_bytes.decode('utf-8') if isinstance(method_bytes, bytes) else method_bytes
+
     saved_channels = get_user_channels() 
     return render_template('admin.html', 
                            communities=communities, 
@@ -3493,7 +3499,8 @@ def admin_dashboard():
                            cashflow_stats=cashflow_stats,
                            activity_feed=activity_feed,
                            trend_data=trend_data,
-                           search_query=search_query) # Pass payouts to the template
+                           search_query=search_query,
+                           transcript_extraction_method=transcript_extraction_method)
 
 @app.route('/api/admin/activity_feed')
 @admin_required
@@ -3532,6 +3539,23 @@ def api_admin_complete_payout(payout_id):
         return jsonify({'status': 'success', 'message': 'Payout marked as paid.'})
     except Exception as e:
         logger.error(f"Error completing payout {payout_id}: {e}")
+        return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
+
+@app.route('/admin/settings/transcript-method', methods=['POST'])
+@admin_required
+def api_admin_toggle_transcript_method():
+    try:
+        data = request.get_json()
+        new_method = data.get('method')
+        if new_method not in ['yt-dlp', 'gemini']:
+            return jsonify({'status': 'error', 'message': 'Invalid method'}), 400
+        if redis_client:
+            redis_client.set('transcript_extraction_method', new_method)
+            return jsonify({'status': 'success', 'method': new_method})
+        else:
+            return jsonify({'status': 'error', 'message': 'Redis is not configured.'}), 500
+    except Exception as e:
+        logger.error(f"Error updating transcript method: {e}")
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
     
 @app.route('/api/admin/create_plan', methods=['POST'])

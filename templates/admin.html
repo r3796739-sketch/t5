@@ -429,6 +429,30 @@
         </div>
     </div>
 
+    <div class="express-section-header" id="platform-settings">
+        <h2 class="express-section-title">Platform Settings</h2>
+    </div>
+    <div class="form-card" style="padding: 25px; margin-bottom: 40px; display: flex; flex-direction: column; gap: 15px;">
+        <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 5px; color: #1e293b;">Transcript Extraction Engine</h3>
+        <p style="color: #64748b; font-size: 0.9rem; margin-top: 0; margin-bottom: 15px;">Choose the method YoppyChat uses to fetch YouTube video transcripts. This affects rate limits and transcription speed.</p>
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer; padding: 15px 20px; border: 2px solid {% if transcript_extraction_method == 'yt-dlp' or not transcript_extraction_method %}#0f4a96{% else %}#e2e8f0{% endif %}; border-radius: 12px; background: {% if transcript_extraction_method == 'yt-dlp' or not transcript_extraction_method %}#f8fafc{% else %}white{% endif %}; flex: 1; transition: 0.2s;" id="label-yt-dlp">
+                <input type="radio" name="transcript_method" value="yt-dlp" {% if transcript_extraction_method == 'yt-dlp' or not transcript_extraction_method %}checked{% endif %} onchange="updateTranscriptMethod(this.value)" style="margin-top: 4px;">
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-weight: 700; color: #1e293b; font-size: 1rem;">Standard / yt-dlp (Default)</span>
+                    <span style="font-size: 0.85rem; color: #64748b; margin-top: 4px; line-height: 1.4;">Uses web scraping & proxies. Avoids AI costs but is slower and susceptible to strict IP blocks.</span>
+                </div>
+            </label>
+            <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer; padding: 15px 20px; border: 2px solid {% if transcript_extraction_method == 'gemini' %}#0f4a96{% else %}#e2e8f0{% endif %}; border-radius: 12px; background: {% if transcript_extraction_method == 'gemini' %}#f8fafc{% else %}white{% endif %}; flex: 1; transition: 0.2s;" id="label-gemini">
+                <input type="radio" name="transcript_method" value="gemini" {% if transcript_extraction_method == 'gemini' %}checked{% endif %} onchange="updateTranscriptMethod(this.value)" style="margin-top: 4px;">
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-weight: 700; color: #1e293b; font-size: 1rem;">Gemini Native Processing</span>
+                    <span style="font-size: 0.85rem; color: #64748b; margin-top: 4px; line-height: 1.4;">Bypasses strict IP rate limits by processing the video natively using the Gemini Flash API.</span>
+                </div>
+            </label>
+        </div>
+    </div>
+
     <div class="express-section-header" id="plans">
         <h2 class="express-section-title">Plan Management</h2>
     </div>
@@ -636,6 +660,26 @@
     // ═══════════════════════════════════════════════════════════════════
     // CORE TOGGLES & MODALS
     // ═══════════════════════════════════════════════════════════════════
+    function updateTranscriptMethod(method) {
+        document.getElementById('label-yt-dlp').style.borderColor = method === 'yt-dlp' ? '#0f4a96' : '#e2e8f0';
+        document.getElementById('label-yt-dlp').style.background = method === 'yt-dlp' ? '#f8fafc' : 'white';
+        document.getElementById('label-gemini').style.borderColor = method === 'gemini' ? '#0f4a96' : '#e2e8f0';
+        document.getElementById('label-gemini').style.background = method === 'gemini' ? '#f8fafc' : 'white';
+        
+        fetch('/admin/settings/transcript-method', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ method: method })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.status !== 'success') {
+                alert('Error updating method: ' + data.message);
+            }
+        })
+        .catch(err => alert('Network error updating setting.'));
+    }
+
     function toggleCurrency(currency) {
         const btnUsd = document.getElementById('btn-usd');
         const btnInr = document.getElementById('btn-inr');
