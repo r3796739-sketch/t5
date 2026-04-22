@@ -71,12 +71,11 @@ def create_multi_source_chatbot():
         community_id_for_chatbot = active_community_id if user_status.get('is_active_community_owner') else None
         
         # Use first YouTube URL for initial channel record (backward compatibility)
+        # NOTE: We intentionally do NOT convert single-video URLs to channel URLs here.
+        # The background task will detect whether it's a video or channel URL and act accordingly.
         initial_youtube_url = None
         if has_youtube:
-            initial_youtube_url = youtube_urls[0].strip()
-            if is_youtube_video_url(initial_youtube_url):
-                initial_youtube_url = get_channel_url_from_video_url(initial_youtube_url)
-            initial_youtube_url = clean_youtube_url(initial_youtube_url)
+            initial_youtube_url = clean_youtube_url(youtube_urls[0].strip())
         
         # Auto-detect bot type based on sources
         # YouTube-only = YouTuber bot, WhatsApp/Website = Business bot, Mixed = General
@@ -125,10 +124,6 @@ def create_multi_source_chatbot():
                 youtube_url = youtube_url.strip()
                 if not youtube_url:
                     continue
-                
-                # Handle video URLs
-                if is_youtube_video_url(youtube_url):
-                    youtube_url = get_channel_url_from_video_url(youtube_url)
                 
                 youtube_url = clean_youtube_url(youtube_url)
                 
@@ -266,6 +261,44 @@ def get_source_status(source_id):
             'source': source_resp.data
         })
         
-    except Exception as e:
+        except Exception as e:
         logger.error(f"Failed to get source status: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/chatbot/analyze-video', methods=['POST'])
+@login_required
+def api_analyze_youtube_video():
+    """
+    Endpoint to natively analyze a YouTube video using Gemini.
+    """
+    from flask import request, jsonify
+    try:
+        data = request.get_json()
+        video_url = data.get('video_url', '').strip()
+        prompt = data.get('prompt', 'Provide a comprehensive summary of this video.')
+        
+        if not video_url:
+            return jsonify({'status': 'error', 'message': 'Video URL is required.'}), 400
+            
+        # Ensure it's a valid YouTube URL using your existing utility
+        from utils.youtube_utils import clean_youtube_url, is_youtube_video_url, analyze_youtube_with_gemini
+        if not is_youtube_video_url(video_url):
+            return jsonify({'status': 'error', 'message': 'Invalid YouTube URL.'}), 400
+            
+        cleaned_url = clean_youtube_url(video_url)
+        
+        # Call the Gemini API
+        analysis_result = analyze_youtube_with_gemini(cleaned_url, prompt)
+        
+        if analysis_result:
+            return jsonify({
+                'status': 'success', 
+                'answer': analysis_result
+            })
+        else:
+            return jsonify({'status': 'error', 'message': 'Gemini could not analyze this video. It may be private or age-restricted.'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error in api_analyze_youtube_video: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500

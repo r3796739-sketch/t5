@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import json
 import logging
+import re
 from functools import wraps
 from cachetools import TTLCache
 
@@ -11,7 +12,7 @@ _user_channels_cache = TTLCache(maxsize=500, ttl=60)
 _integration_status_cache = TTLCache(maxsize=500, ttl=30)
 
 from utils.youtube_utils import is_youtube_video_url, is_youtube_channel_url, clean_youtube_url, get_channel_url_from_video_url
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, Response, g
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, Response, g, send_from_directory, make_response
 import secrets
 from datetime import datetime, timezone
 from tasks import huey, process_channel_task, sync_channel_task, process_telegram_update_task, delete_channel_task,update_bot_profile_task,owner_delete_channel_task
@@ -104,6 +105,9 @@ PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET')
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000
 
 Compress(app)
+from flask_cors import CORS
+CORS(app, resources={r"/api/widget/*": {"origins": "*"}})
+
 app.secret_key = os.environ.get('SECRET_KEY')
 if not app.secret_key:
     raise RuntimeError("SECRET_KEY environment variable is required. Set it before starting the app.")
@@ -118,6 +122,27 @@ app.register_blueprint(flow_bp)
 
 from routes_messenger import messenger_bp
 app.register_blueprint(messenger_bp)
+
+from routes_youtube_comments import youtube_comments_bp
+app.register_blueprint(youtube_comments_bp)
+
+from routes_google_reviews import google_reviews_bp
+app.register_blueprint(google_reviews_bp)
+
+# --- PWA Routes for Android Wrapper (Bubblewrap TWA) ---
+@app.route('/manifest.json')
+def serve_manifest():
+    return send_from_directory('static', 'manifest.json')
+
+@app.route('/sw.js')
+def serve_sw():
+    response = make_response(send_from_directory('static', 'sw.js'))
+    response.headers['Service-Worker-Allowed'] = '/'
+    return response
+
+@app.route('/.well-known/assetlinks.json')
+def serve_assetlinks():
+    return send_from_directory('static/.well-known', 'assetlinks.json')
 
 
 # --- File Upload Configuration for Multi-Source Chatbots ---
@@ -493,7 +518,7 @@ def whop_embed_auth():
         db_utils.link_user_to_community(app_user_id, community_id)
         
         flash("Welcome! You've been securely logged in.", 'success')
-        return redirect(url_for('channel'))
+        return redirect(url_for('chatbot_create_ui'))
 
     except jwt.ExpiredSignatureError:
         flash("Your authentication link has expired. Please try again.", "error")
@@ -553,7 +578,7 @@ def whop_installation_callback():
 
         session['user'] = auth_user.model_dump()
         flash('Your community has been successfully installed! You have 10 free queries to test out the bot.', 'success')
-        return redirect(url_for('channel'))
+        return redirect(url_for('chatbot_create_ui'))
 
     except Exception as e:
         print(f"An error occurred during Whop installation callback: {e}")
@@ -816,9 +841,8 @@ def auth_reset_password():
 
 @app.route('/')
 def home():
-    # If the user hits app.yoppychat.com/ they should be forced to /channel
-    # The /channel route handles unauthenticated users nicely by showing a sign up page.
-    return redirect(url_for('channel'))
+    # Force visitors to the new multi-source AI persona generation page
+    return redirect(url_for('chatbot_create_ui'))
 
 # --- All other routes like /channel, /ask, /stream_answer, etc. remain unchanged ---
 # ... (The rest of your app.py file from /channel downwards remains the same)
@@ -948,6 +972,7 @@ def channel():
         return render_template(
             'channel.html',
             saved_channels=get_user_channels(),
+            prefilled_channel_url=request.args.get('channel_url', '').strip(),
             SUPABASE_URL=os.environ.get('SUPABASE_URL'),
             SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY'),
             razorpay_plan_id_personal=personal_plan_id,
@@ -1096,7 +1121,7 @@ def set_default_channel(channel_id):
 @login_required
 def chatbot_create_ui():
     """Render the multi-source chatbot creation page."""
-    return render_template('chatbot_create.html')
+    return render_template('chatbot_create.html', saved_channels=get_user_channels())
 
 
 @app.route('/chatbot/create', methods=['POST'])
@@ -1428,6 +1453,34 @@ def get_chat_history_api(channel_name):
     history = get_chat_history(user_id, channel_name, access_token)
     return jsonify({'history': history})
 
+@app.route('/api/notifications/unread')
+@login_required
+def get_unread_notifications():
+    user_id = session['user']['id']
+    supabase = get_supabase_admin_client()
+    try:
+        res = supabase.table('notifications').select('*').eq('user_id', user_id).eq('is_read', False).order('created_at', desc=True).execute()
+        return jsonify({'status': 'ok', 'notifications': res.data or []})
+    except Exception as e:
+        logger.error(f"Error fetching notifications for {user_id}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/notifications/mark_read', methods=['POST'])
+@login_required
+def mark_notifications_read():
+    user_id = session['user']['id']
+    notification_ids = request.json.get('notification_ids', [])
+    if not notification_ids:
+        return jsonify({'status': 'ok'})
+    
+    supabase = get_supabase_admin_client()
+    try:
+        supabase.table('notifications').update({'is_read': True}).in_('id', notification_ids).eq('user_id', user_id).execute()
+        return jsonify({'status': 'ok'})
+    except Exception as e:
+        logger.error(f"Error marking notifications as read for {user_id}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 @app.route('/stream_answer', methods=['POST'])
 @login_required
 @limit_enforcer('query')
@@ -1723,10 +1776,14 @@ def chatbot_settings(chatbot_id):
         
         chatbot = chatbot_resp.data
         
-        # Verify ownership
+        # Verify ownership — allow if: (1) user is the creator, or (2) user is linked via user_channels
         owner_id = chatbot.get('creator_id') or chatbot.get('user_id')
         if str(owner_id) != str(user_id):
-            return redirect(url_for('dashboard'))
+            # Fallback: check if user has a user_channels link (e.g. original seller after transfer)
+            supabase_admin = get_supabase_admin_client()
+            link_check = supabase_admin.table('user_channels').select('user_id').eq('user_id', user_id).eq('channel_id', chatbot_id).maybe_single().execute()
+            if not (link_check and link_check.data):
+                return redirect(url_for('dashboard'))
         
         # --- Integrations and Data Sources are now loaded asynchronously via API ---
         
@@ -1848,7 +1905,10 @@ def update_chatbot_settings(chatbot_id):
         
         owner_id = chatbot_resp.data.get('creator_id') or chatbot_resp.data.get('user_id')
         if str(owner_id) != str(user_id):
-            return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
+            # Fallback: check user_channels link (e.g. original seller after marketplace transfer)
+            link_check = supabase.table('user_channels').select('user_id').eq('user_id', user_id).eq('channel_id', chatbot_id).maybe_single().execute()
+            if not (link_check and link_check.data):
+                return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
         
         # Get update data
         data = request.get_json()
@@ -2574,7 +2634,11 @@ def dashboard_metrics():
             total_stats['current_adds'] += channel_stats.get('current_adds', 0)
 
         # --- 3. Monthly Revenue Chart Data ---
-        monthly_revenue = db_utils.get_monthly_revenue_history(user_id, months_back=6)
+        try:
+            months_back = int(request.args.get('months', 6))
+        except ValueError:
+            months_back = 6
+        monthly_revenue = db_utils.get_monthly_revenue_history(user_id, months_back=months_back)
 
         # --- 4. Earnings Snapshot (affiliate + marketplace) ---
         try:
@@ -2893,17 +2957,21 @@ def generate_widget_answer(channel_id, question):
     supabase_admin = get_supabase_admin_client()
     channel_res = supabase_admin.table('channels').select('*').eq('id', channel_id).limit(1).execute()
     if not channel_res.data:
-        return "Sorry, this chatbot is no longer available."
+        return {'answer': "Sorry, this chatbot is no longer available.", 'sources': [], 'actions': []}
     
     channel_data = channel_res.data[0]
     prompt_q = question
     
     response_text = ""
+    sources = []
+    actions = []
+    conversation_state = {'flow_id': None, 'flow_node_id': None, 'flow_variables': {}}
+    
     for chunk in answer_question_stream(
         question_for_prompt=prompt_q,
         question_for_search=question,
         channel_data=channel_data,
-        user_id=channel_data.get('user_id'),
+        user_id=channel_data.get('creator_id'),
         is_manager=False,
         integration_source='embed'
     ):
@@ -2912,26 +2980,67 @@ def generate_widget_answer(channel_id, question):
             if data_str == "[DONE]":
                 break
             try:
-                parsed_data = _json.loads(data_str)
+                parsed_data = json.loads(data_str)
                 if parsed_data.get('answer'):
                     response_text += parsed_data['answer']
-            except _json.JSONDecodeError:
+                if parsed_data.get('sources'):
+                    sources = parsed_data['sources']
+            except json.JSONDecodeError:
                 continue
                 
+    # Extract flow trigger marker if present
+    actions = []
+    trigger_match = re.search(r'\[TRIGGER_FLOW:\s*"(.*?)"\]', response_text)
+    if trigger_match:
+        trigger_flow_marker = trigger_match.group(1)
+        response_text = re.sub(r'\[TRIGGER_FLOW:\s*".*?"\]', '', response_text).strip()
+        try:
+            target_flow = None
+            flow_res_by_name = supabase_admin.table('channel_flows').select('id, flow_data').eq('channel_id', channel_data['id']).ilike('name', trigger_flow_marker).limit(1).execute()
+            if flow_res_by_name.data:
+                target_flow = {'flow_id': flow_res_by_name.data[0]['id'], **flow_res_by_name.data[0]['flow_data']}
+            
+            if target_flow:
+                from utils.flow_runner import run_flow
+                trigger_res = run_flow(
+                    supabase=supabase_admin,
+                    flow=target_flow,
+                    conversation={'flow_node_id': None, 'flow_variables': {}},
+                    message_text='',
+                    is_button_reply=False,
+                    sender_name='Website User'
+                )
+                if trigger_res.get('handled') and trigger_res.get('actions'):
+                    actions.extend(trigger_res.get('actions'))
+                    conversation_state = {
+                        'flow_id': target_flow['flow_id'],
+                        'flow_node_id': trigger_res.get('next_node_id'),
+                        'flow_variables': trigger_res.get('variables', {})
+                    }
+                    if trigger_res.get('end'):
+                        conversation_state = {'flow_id': None, 'flow_node_id': None, 'flow_variables': {}}
+                    response_text = ""
+            else:
+                # Fallback if flow missing, provide a generic button
+                actions.append({'type': 'buttons', 'buttons': [{'id': trigger_flow_marker, 'title': trigger_flow_marker}]})
+        except Exception as flow_err:
+            logging.warning(f"Widget flow trigger error {flow_err}")
+
     # Extract lead capture marker if present
     lead_match = re.search(r'\[LEAD_COMPLETE:\s*(\{.*?\})\]', response_text, re.DOTALL)
     if lead_match:
         try:
-            lead_complete_marker = _json.loads(lead_match.group(1))
+            lead_complete_marker = json.loads(lead_match.group(1))
             response_text = re.sub(r'\[LEAD_COMPLETE:\s*\{.*?\}\]', '', response_text, flags=re.DOTALL).strip()
             
             # Submit lead if captured
             if channel_data.get('lead_capture_enabled'):
+                from utils.lead_capture_utils import process_lead_submission
                 process_lead_submission(channel_id, lead_complete_marker)
-        except _json.JSONDecodeError:
+        except (json.JSONDecodeError, ImportError):
             pass
 
-    return response_text or "Sorry, I couldn't generate an answer."
+    return {'answer': response_text, 'sources': sources, 'actions': actions, 'conversation_state': conversation_state}
 
 @app.route('/api/widget/ask', methods=['POST'])
 def widget_ask_question():
@@ -2941,6 +3050,7 @@ def widget_ask_question():
         channel_name = data.get('channel')
         question = data.get('question', '').strip()
         referrer = data.get('referrer', 'unknown')
+        conversation_state = data.get('conversation_state', {})
         
         if not channel_name or not question:
             return jsonify({'success': False, 'error': 'Missing channel or question'})
@@ -2959,9 +3069,140 @@ def widget_ask_question():
         channel_data = channel_res.data[0]
         channel_id = channel_data['id']
         
+        # Check if we are currently inside a flow
+        flow_id = conversation_state.get('flow_id')
+        flow_node_id = conversation_state.get('flow_node_id')
+        
+        if flow_id and flow_node_id:
+            try:
+                # Ensure the active flow belongs to this channel (avoid cross-channel flow bleed)
+                target_flow_res = supabase_admin.table('channel_flows').select('id, flow_data').eq('id', flow_id).eq('channel_id', channel_id).limit(1).execute()
+                if target_flow_res.data:
+                    target_flow = {'flow_id': target_flow_res.data[0]['id'], **target_flow_res.data[0]['flow_data']}
+                    from utils.flow_runner import run_flow, _match_button, _match_list_row
+                    
+                    # Load nodes to check the current node's buttons
+                    nodes_dict = {n['id']: n for n in target_flow.get('nodes', [])}
+                    current_node = nodes_dict.get(flow_node_id)
+                    
+                    # Check if the user's text exactly matches a button/row label
+                    is_button_match = False
+                    if current_node:
+                        matched_btn = _match_button(current_node, question)
+                        matched_row = _match_list_row(current_node, question) if current_node.get('type') == 'list_node' else None
+                        is_button_match = bool(matched_btn or matched_row)
+                    
+                    if is_button_match:
+                        # User clicked/typed an exact button — advance flow normally
+                        trigger_res = run_flow(
+                            supabase=supabase_admin,
+                            flow=target_flow,
+                            conversation={'flow_node_id': flow_node_id, 'flow_variables': conversation_state.get('flow_variables', {})},
+                            message_text=question,
+                            is_button_reply=True,
+                            sender_name='Website User'
+                        )
+                        
+                        if trigger_res.get('handled'):
+                            actions = trigger_res.get('actions', [])
+                            new_state = {
+                                'flow_id': flow_id,
+                                'flow_node_id': trigger_res.get('next_node_id'),
+                                'flow_variables': trigger_res.get('variables', {})
+                            }
+                            if trigger_res.get('end'):
+                                new_state = {'flow_id': None, 'flow_node_id': None, 'flow_variables': {}}
+                                
+                            try:
+                                supabase_admin.table('widget_analytics').upsert({
+                                    'channel_id': channel_id,
+                                    'domain': referrer,
+                                    'question_count': 1,
+                                    'chat_count': 1,
+                                    'unique_visitors': 1,
+                                    'last_activity': datetime.now(timezone.utc).isoformat()
+                                }, on_conflict='channel_id,domain').execute()
+                            except Exception as track_err:
+                                logging.warning(f"Widget tracking error: {track_err}")
+                                
+                            return jsonify({
+                                'success': True,
+                                'answer': '',
+                                'sources': [],
+                                'actions': actions,
+                                'conversation_state': new_state
+                            })
+                    else:
+                        # User asked a free-text question not covered by the flow buttons.
+                        # Let the AI answer, then re-present the current node's buttons
+                        # so the user can continue through the flow.
+                        ai_result = generate_widget_answer(channel_id, question)
+                        ai_answer = ai_result.get('answer', '')
+                        ai_sources = ai_result.get('sources', [])
+                        
+                        # Collect the current node's buttons to re-append
+                        post_flow_actions = []
+                        if current_node:
+                            ntype = current_node.get('type', '')
+                            data = current_node.get('data', {})
+                            edges = target_flow.get('edges', [])
+                            
+                            if ntype == 'list_node':
+                                rows = []
+                                for r in (data.get('rows') or []):
+                                    rows.append({'id': r['id'], 'title': r.get('title', '')[:24]})
+                                if rows:
+                                    post_flow_actions.append({
+                                        'type': 'list',
+                                        'body': data.get('message', 'Please choose:'),
+                                        'button_label': data.get('buttonLabel', 'See Options'),
+                                        'section_title': data.get('sectionTitle', 'Options'),
+                                        'rows': rows
+                                    })
+                            else:
+                                reply_btns = [
+                                    {'id': b['id'], 'title': b.get('label', '')}
+                                    for b in data.get('buttons', [])
+                                    if b.get('label', '').strip() and b.get('type', 'reply') == 'reply'
+                                ]
+                                if reply_btns:
+                                    post_flow_actions.append({
+                                        'type': 'buttons',
+                                        'body': data.get('message', 'Please choose one of the options below 👇'),
+                                        'buttons': reply_btns
+                                    })
+                        
+                        # State stays at the current node so user can still click buttons
+                        try:
+                            supabase_admin.table('widget_analytics').upsert({
+                                'channel_id': channel_id,
+                                'domain': referrer,
+                                'question_count': 1,
+                                'chat_count': 1,
+                                'unique_visitors': 1,
+                                'last_activity': datetime.now(timezone.utc).isoformat()
+                            }, on_conflict='channel_id,domain').execute()
+                        except Exception as track_err:
+                            logging.warning(f"Widget tracking error: {track_err}")
+                        
+                        return jsonify({
+                            'success': True,
+                            'answer': ai_answer,
+                            'sources': ai_sources,
+                            'actions': post_flow_actions,   # re-show current node buttons after AI response
+                            'conversation_state': conversation_state  # state unchanged — still at same flow node
+                        })
+            except Exception as flow_err:
+                logging.warning(f"Widget active flow error {flow_err}", exc_info=True)
+
+
+        # Provide conversation state to generate_widget_answer if we ever pass it down
         # Generate answer using existing AI function
-        # Note: You may need to adapt this to your existing ask_question logic
-        answer = generate_widget_answer(channel_id, question)
+        result = generate_widget_answer(channel_id, question)
+        answer = result['answer']
+        sources = result['sources']
+        actions = result.get('actions', [])
+        new_state = result.get('conversation_state', conversation_state) 
         
         # Track the question for analytics
         try:
@@ -2978,7 +3219,10 @@ def widget_ask_question():
         
         return jsonify({
             'success': True,
-            'answer': answer
+            'answer': answer,
+            'sources': sources,
+            'actions': actions,
+            'conversation_state': new_state
         })
         
     except Exception as e:
@@ -3027,24 +3271,6 @@ def widget_track_event():
         logging.warning(f"Widget track error: {e}")
         return jsonify({'success': False})
 
-def generate_widget_answer(channel_id, question):
-    """
-    Generate an answer for the widget.
-    This is a simplified version - you should integrate with your existing AI logic.
-    """
-    try:
-        # Import your existing AI functions here
-        # This is a placeholder - replace with your actual implementation
-        from ask_video import ask_question_for_widget
-        
-        answer = ask_question_for_widget(channel_id, question)
-        return answer
-    except ImportError:
-        # Fallback if the function doesn't exist yet
-        return "I'm sorry, I couldn't process your question at this time. Please try again later."
-    except Exception as e:
-        logging.error(f"Widget answer generation error: {e}")
-        return "Something went wrong. Please try again."
 
 @app.route('/about')
 def about():
@@ -3233,20 +3459,34 @@ def admin_dashboard():
     communities_res = supabase_admin.table('communities').select('*, owner:owner_user_id(full_name, email)').execute()
     communities = communities_res.data if communities_res.data else []
 
-    non_whop_users_res = supabase_admin.table('profiles').select('*, usage:usage_stats!inner(*)').is_('whop_user_id', None).execute()
+    non_whop_users_res = supabase_admin.table('profiles').select('*, usage:usage_stats(*)').is_('whop_user_id', None).execute()
     non_whop_users = non_whop_users_res.data if non_whop_users_res.data else []
 
-    # Base query for payouts
-    payout_query = supabase_admin.table('creator_payouts').select('*, creator:creator_id(email, full_name, payout_details)').order('requested_at', desc=True)
+    # Base query for payouts (fetch all, then filter in Python if searching)
+    payouts_res = supabase_admin.table('creator_payouts').select('*, creator:creator_id(email, full_name, payout_details)').order('requested_at', desc=True).execute()
+    payouts_all = payouts_res.data if payouts_res.data else []
 
-    # If there's a search query, filter the results
+    # If there's a search query, filter by creator email in Python (safe, avoids PostgREST join-filter issues)
     if search_query:
-        # This will search for the query in the creator's email OR in the payout ID
-        payout_query = payout_query.or_(f"creator.email.ilike.%{search_query}%,id.ilike.%{search_query}%")
-
-    payouts_res = payout_query.execute()
-    payouts = payouts_res.data if payouts_res.data else []
+        sq_lower = search_query.lower()
+        payouts = [p for p in payouts_all if sq_lower in (p.get('creator') or {}).get('email', '').lower()
+                   or sq_lower in str(p.get('id', ''))]
+    else:
+        payouts = payouts_all
     # --- END OF MODIFICATION ---
+    
+    # Get cashflow stats
+    cashflow_stats = db_utils.get_platform_cashflow_stats()
+    
+    # Get activity feed and trend data
+    activity_feed = db_utils.get_admin_activity_feed(limit=15)
+    trend_data = db_utils.get_admin_trend_data(days_back=30)
+
+    transcript_extraction_method = 'yt-dlp'
+    if redis_client:
+        method_bytes = redis_client.get('transcript_extraction_method')
+        if method_bytes:
+            transcript_extraction_method = method_bytes.decode('utf-8') if isinstance(method_bytes, bytes) else method_bytes
 
     saved_channels = get_user_channels() 
     return render_template('admin.html', 
@@ -3256,7 +3496,33 @@ def admin_dashboard():
                            COMMUNITY_PLANS=COMMUNITY_PLANS, 
                            saved_channels=saved_channels,
                            payouts=payouts,
-                           search_query=search_query) # Pass payouts to the template
+                           cashflow_stats=cashflow_stats,
+                           activity_feed=activity_feed,
+                           trend_data=trend_data,
+                           search_query=search_query,
+                           transcript_extraction_method=transcript_extraction_method)
+
+@app.route('/api/admin/activity_feed')
+@admin_required
+def api_admin_activity_feed():
+    """Returns the latest activity feed events as JSON for AJAX polling."""
+    try:
+        feed = db_utils.get_admin_activity_feed(limit=15)
+        return jsonify({'status': 'success', 'events': feed})
+    except Exception as e:
+        logger.error(f"Error fetching activity feed: {e}")
+        return jsonify({'status': 'error', 'events': []}), 500
+
+@app.route('/api/admin/trend_data')
+@admin_required
+def api_admin_trend_data():
+    """Returns trend chart data as JSON for AJAX polling."""
+    try:
+        data = db_utils.get_admin_trend_data(days_back=30)
+        return jsonify({'status': 'success', 'data': data})
+    except Exception as e:
+        logger.error(f"Error fetching trend data: {e}")
+        return jsonify({'status': 'error', 'data': {}}), 500
 
 @app.route('/api/admin/complete_payout/<payout_id>', methods=['POST'])
 @admin_required
@@ -3273,6 +3539,23 @@ def api_admin_complete_payout(payout_id):
         return jsonify({'status': 'success', 'message': 'Payout marked as paid.'})
     except Exception as e:
         logger.error(f"Error completing payout {payout_id}: {e}")
+        return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
+
+@app.route('/admin/settings/transcript-method', methods=['POST'])
+@admin_required
+def api_admin_toggle_transcript_method():
+    try:
+        data = request.get_json()
+        new_method = data.get('method')
+        if new_method not in ['yt-dlp', 'gemini']:
+            return jsonify({'status': 'error', 'message': 'Invalid method'}), 400
+        if redis_client:
+            redis_client.set('transcript_extraction_method', new_method)
+            return jsonify({'status': 'success', 'method': new_method})
+        else:
+            return jsonify({'status': 'error', 'message': 'Redis is not configured.'}), 500
+    except Exception as e:
+        logger.error(f"Error updating transcript method: {e}")
         return jsonify({'status': 'error', 'message': 'An internal server error occurred.'}), 500
     
 @app.route('/api/admin/create_plan', methods=['POST'])
@@ -3456,9 +3739,12 @@ def request_payout():
         return jsonify({'status': 'error', 'message': 'Invalid amount specified.'}), 400
 
     # --- START OF THE FIX ---
+    # User inputs INR via UI, but Affiliate DB expects USD 
+    amount_usd = amount_float / 83.0
+    
     # We now pass the creator's CURRENT bank details to the database function
     current_payout_details = profile.get('payout_details')
-    payout, message = db_utils.create_payout_request(creator_id, amount_float, current_payout_details)
+    payout, message = db_utils.create_payout_request(creator_id, amount_usd, current_payout_details)
     # --- END OF THE FIX ---
 
     if payout:
@@ -3963,30 +4249,12 @@ def razorpay_webhook():
             plan_id = subscription_details.get('plan_id')
             user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
             
-            if user_id and plan_id:
-                logging.info(f"UPDATING PLAN for user {user_id} to plan {plan_id}.")
-                
-                profile = db_utils.get_profile(user_id)
-                if profile:
-                    db_utils.create_or_update_profile({
-                        'id': user_id, 
-                        'email': profile.get('email'),
-                        'direct_subscription_plan': plan_id
-                    })
-                    if redis_client:
-                        cache_key = f"user_status:{user_id}:community:none"
-                        redis_client.delete(cache_key)
-                        logging.info(f"Cache invalidated for user {user_id}")
-
-                db_utils.update_razorpay_subscription(user_id, subscription_details)
-                db_utils.record_creator_earning(referred_user_id=user_id, plan_id=plan_id)
-                
-            # Marketplace transfer payment event
+            # Check if this is a marketplace transfer payment
             supabase_admin = get_supabase_admin_client()
             transfer_res = supabase_admin.table('chatbot_transfers').select('*').eq('razorpay_subscription_id', subscription_id).maybe_single().execute()
+            
             if transfer_res and transfer_res.data:
                 transfer = transfer_res.data
-                user_id = db_utils.get_user_by_razorpay_customer_id(customer_id)
                 
                 if transfer['status'] in ('pending', 'subscription_pending') and user_id:
                     # First payment: Move the chatbot
@@ -3995,8 +4263,56 @@ def razorpay_webhook():
                 # Record the earning event for the creator
                 inv_amount = invoice_data.get('amount', 0)  # Amount is in paise
                 marketplace_utils.record_creator_marketplace_earning(subscription_id, inv_amount)
+                
+                # Create a notification for the seller
+                seller_id = transfer.get('creator_id')
+                if seller_id:
+                    is_new_purchase = transfer.get('status') in ('pending', 'subscription_pending')
+                    purchase_type_label = "New Purchase" if is_new_purchase else "Recurring Payment"
+                    
+                    buyer_name = "Someone"
+                    if user_id:
+                        buyer_profile = db_utils.get_profile(user_id)
+                        if buyer_profile:
+                            buyer_name = buyer_profile.get('full_name') or buyer_profile.get('email') or "Someone"
+                            
+                    item_name = "Marketplace Item"
+                    if transfer.get('chatbot_id'):
+                        channel_data = db_utils.get_channel_by_id(transfer['chatbot_id'])
+                        if channel_data:
+                            item_name = f"'{channel_data.get('channel_name')}' chatbot"
+                    elif transfer.get('google_review_id'):
+                        item_name = "Google Reviews Addon"
+                        
+                    display_amount = inv_amount / 100.0
+                    message_text = f"🎉 [{purchase_type_label}] {buyer_name} paid ₹{display_amount:.2f} for {item_name}."
+
+                    db_utils.create_notification(
+                        user_id=seller_id,
+                        message=message_text,
+                        type='sale'
+                    )
             else:
-                logging.error(f"Webhook Error: Could not find user for customer_id {customer_id} or plan_id from webhook.")
+                # Platform Subscription Payment
+                if user_id and plan_id:
+                    logging.info(f"UPDATING PLAN for user {user_id} to plan {plan_id}.")
+                    
+                    profile = db_utils.get_profile(user_id)
+                    if profile:
+                        db_utils.create_or_update_profile({
+                            'id': user_id, 
+                            'email': profile.get('email'),
+                            'direct_subscription_plan': plan_id
+                        })
+                        if redis_client:
+                            cache_key = f"user_status:{user_id}:community:none"
+                            redis_client.delete(cache_key)
+                            logging.info(f"Cache invalidated for user {user_id}")
+
+                    db_utils.update_razorpay_subscription(user_id, subscription_details)
+                    db_utils.record_creator_earning(referred_user_id=user_id, plan_id=plan_id)
+                else:
+                    logging.error(f"Webhook Error: Could not find user for customer_id {customer_id} or plan_id from webhook.")
         except Exception as e:
             logging.error(f"Error processing 'invoice.paid' webhook: {e}")
             return jsonify({'status': 'error', 'message': 'Internal processing error'}), 500
@@ -4020,32 +4336,33 @@ def razorpay_webhook():
             if transfer_res and transfer_res.data:
                 supabase_admin.table('chatbot_transfers').update({'status': 'cancelled'}).eq('id', transfer_res.data['id']).execute()
                 logging.info(f"Marketplace transfer {transfer_res.data['id']} cancelled for subscription {subscription_id}.")
-
-            if user_id:
-                logging.info(f"Subscription ended (event={event['event']}) for user {user_id}. Downgrading to free plan.")
-                profile = db_utils.get_profile(user_id)
-                if profile:
-                    db_utils.create_or_update_profile({
-                        'id': user_id,
-                        'email': profile.get('email'),
-                        'direct_subscription_plan': None,  # Clear the plan → free tier
-                        'personal_plan_id': None
-                    })
-                    # FIX Issue #2: Reset query counter so the user isn't locked out on the free plan
-                    try:
-                        supabase_admin.table('usage_stats').update({
-                            'queries_this_month': 0
-                        }).eq('user_id', user_id).execute()
-                        logging.info(f"Reset queries_this_month to 0 for user {user_id} after subscription end.")
-                    except Exception as reset_err:
-                        logging.error(f"Failed to reset query counter for user {user_id}: {reset_err}")
-                    if redis_client:
-                        # Invalidate the user status cache so they see the change immediately
-                        cache_key = f"user_status:{user_id}:community:none"
-                        redis_client.delete(cache_key)
-                        logging.info(f"Cache invalidated for user {user_id} after subscription end.")
             else:
-                logging.error(f"Webhook '{event['event']}': Could not find user for customer_id {customer_id}.")
+                # Platform Subscription Cancellation
+                if user_id:
+                    logging.info(f"Subscription ended (event={event['event']}) for user {user_id}. Downgrading to free plan.")
+                    profile = db_utils.get_profile(user_id)
+                    if profile:
+                        db_utils.create_or_update_profile({
+                            'id': user_id,
+                            'email': profile.get('email'),
+                            'direct_subscription_plan': None,  # Clear the plan → free tier
+                            'personal_plan_id': None
+                        })
+                        # FIX Issue #2: Reset query counter so the user isn't locked out on the free plan
+                        try:
+                            supabase_admin.table('usage_stats').update({
+                                'queries_this_month': 0
+                            }).eq('user_id', user_id).execute()
+                            logging.info(f"Reset queries_this_month to 0 for user {user_id} after subscription end.")
+                        except Exception as reset_err:
+                            logging.error(f"Failed to reset query counter for user {user_id}: {reset_err}")
+                        if redis_client:
+                            # Invalidate the user status cache so they see the change immediately
+                            cache_key = f"user_status:{user_id}:community:none"
+                            redis_client.delete(cache_key)
+                            logging.info(f"Cache invalidated for user {user_id} after subscription end.")
+                else:
+                    logging.error(f"Webhook '{event['event']}': Could not find user for customer_id {customer_id}.")
         except Exception as e:
             logging.error(f"Error processing '{event['event']}' webhook: {e}")
             return jsonify({'status': 'error', 'message': 'Internal processing error'}), 500
@@ -4270,36 +4587,76 @@ def earnings_page():
 def earnings_data_api():
     """
     Returns earnings statistics, payout details, and transfer history asynchronously.
+    Supports ?status=active|pending|cancelled and ?page=N for pagination (15 rows/page).
     """
     try:
         creator_id = session['user']['id']
-        
-        # Affiliate Earnings Data
+
+        # --- Query Params ---
+        status_filter = request.args.get('status', 'active').lower()
+        page = max(1, int(request.args.get('page', 1)))
+        limit = 15
+        offset = (page - 1) * limit
+
+        # Affiliate Earnings Data (always full, never paginated)
         affiliate_data = db_utils.get_creator_balance_and_history(creator_id)
-        
+
         # Marketplace Earnings Data
         marketplace_data = marketplace_utils.get_creator_marketplace_balance(creator_id)
-        
-        # Calculate Totals
-        total_withdrawable = affiliate_data['withdrawable_balance'] + marketplace_data['withdrawable_balance']
-        total_pending = affiliate_data['pending_payouts'] + marketplace_data['pending_payouts']
-        total_earned_all_time = affiliate_data['total_earned'] + marketplace_data['total_earned']
-        
+
+        # Calculate Combined Totals (Affiliate is in USD, Marketplace is in INR)
+        exchange_rate = 83.0
+        aff_withdrawable_inr = affiliate_data['withdrawable_balance'] * exchange_rate
+        aff_pending_inr = affiliate_data['pending_payouts'] * exchange_rate
+        aff_earned_inr = affiliate_data['total_earned'] * exchange_rate
+
         combined_totals = {
-            'withdrawable_balance': total_withdrawable,
-            'pending_payouts': total_pending,
-            'total_earned': total_earned_all_time
+            'withdrawable_balance': round(aff_withdrawable_inr + marketplace_data['withdrawable_balance'], 2),
+            'pending_payouts': round(aff_pending_inr + marketplace_data['pending_payouts'], 2),
+            'total_earned': round(aff_earned_inr + marketplace_data['total_earned'], 2)
         }
-        
+
         profile = db_utils.get_profile(creator_id)
         payout_details = profile.get('payout_details') if profile else None
-        
-        # Fetch active transfers
+
+        # --- Fetch transfers with status filter + pagination ---
         supabase = get_supabase_admin_client()
-        transfers_res = supabase.table('chatbot_transfers').select(
-            '*, channels!chatbot_transfers_chatbot_id_fkey(channel_name)'
-        ).eq('creator_id', creator_id).order('created_at', desc=True).execute()
-        transfers = transfers_res.data or []
+        query = supabase.table('chatbot_transfers').select('*', count='exact').eq('creator_id', creator_id)
+
+        if status_filter == 'active':
+            query = query.eq('status', 'active')
+        elif status_filter == 'pending':
+            query = query.in_('status', ['pending', 'subscription_pending'])
+        elif status_filter == 'cancelled':
+            query = query.eq('status', 'cancelled')
+        # status_filter == 'all' → no extra filter
+        else:
+            query = query.eq('status', 'active')  # safe default
+
+        transfers_res = query.order('created_at', desc=True).range(offset, offset + limit - 1).execute()
+        transfers_raw = transfers_res.data or []
+        total_records = transfers_res.count if hasattr(transfers_res, 'count') and transfers_res.count is not None else 0
+
+        # --- Bulk-enrich transfers (avoid N+1 queries) ---
+        if transfers_raw:
+            chatbot_ids = list({t['chatbot_id'] for t in transfers_raw if t.get('chatbot_id')})
+            buyer_ids   = list({t['buyer_id']   for t in transfers_raw if t.get('buyer_id')})
+
+            channels_map = {}
+            if chatbot_ids:
+                ch_res = supabase.table('channels').select('id, channel_name').in_('id', chatbot_ids).execute()
+                channels_map = {ch['id']: ch for ch in (ch_res.data or [])}
+
+            buyers_map = {}
+            if buyer_ids:
+                b_res = supabase.table('profiles').select('id, email, full_name').in_('id', buyer_ids).execute()
+                buyers_map = {b['id']: b for b in (b_res.data or [])}
+
+            for t in transfers_raw:
+                t['channels'] = channels_map.get(t.get('chatbot_id'))
+                bp = buyers_map.get(t.get('buyer_id'), {})
+                t['buyer_email'] = bp.get('email') or bp.get('full_name') or ''
+                t['buyer_name']  = bp.get('full_name') or ''
 
         return jsonify({
             'status': 'success',
@@ -4307,7 +4664,13 @@ def earnings_data_api():
             'affiliate_data': affiliate_data,
             'marketplace_data': marketplace_data,
             'payout_details': payout_details,
-            'transfers': transfers
+            'transfers': transfers_raw,
+            'pagination': {
+                'page': page,
+                'limit': limit,
+                'total_records': total_records,
+                'total_pages': max(1, (total_records + limit - 1) // limit) if total_records else 1
+            }
         })
     except Exception as e:
         logger.error(f"Error fetching earnings data: {e}", exc_info=True)
@@ -4336,8 +4699,7 @@ def save_payout_details():
             'name': data['name'],
             'account_number': data['account_number'],
             'ifsc': data['ifsc']
-        },
-        'razorpay_fund_account_id': None # Also invalidate any existing fund account
+        }
     }
     
     # Call the database update function once with all the data
@@ -4410,7 +4772,40 @@ def marketplace_transfer(chatbot_id):
         
     return render_template(
         'marketplace_transfer.html',
-        chatbot=channel_res.data,
+        item_type='chatbot',
+        item=channel_res.data,
+        cost_per_query=cost_per_query,
+        saved_channels=get_user_channels()
+    )
+
+@app.route('/marketplace/transfer/google-review/<int:settings_id>', methods=['GET'])
+@login_required
+def marketplace_transfer_google_review(settings_id):
+    user_id = session['user']['id']
+    supabase_admin = get_supabase_admin_client()
+    try:
+        gr_res = supabase_admin.table('google_review_settings').select('*').eq('id', settings_id).maybe_single().execute()
+    except Exception as e:
+        logger.error(f"Error fetching gr business for marketplace transfer: {e}")
+        flash("Something went wrong. Please try again.", "error")
+        return redirect(url_for('google_reviews.google_reviews_dashboard'))
+    
+    if not gr_res or not gr_res.data:
+        flash("Google Review Business not found.", "error")
+        return redirect(url_for('google_reviews.google_reviews_dashboard'))
+    
+    # Verify ownership
+    owner_id = gr_res.data.get('user_id')
+    if str(owner_id) != str(user_id):
+        flash("You don't have permission to transfer this business.", "error")
+        return redirect(url_for('google_reviews.google_reviews_dashboard'))
+        
+    cost_per_query = int(os.environ.get('MARKETPLACE_COST_PER_QUERY_PAISE', 90))
+        
+    return render_template(
+        'marketplace_transfer.html',
+        item_type='google_review',
+        item=gr_res.data,
         cost_per_query=cost_per_query,
         saved_channels=get_user_channels()
     )
@@ -4420,28 +4815,67 @@ def marketplace_transfer(chatbot_id):
 def create_marketplace_transfer():
     user_id = session['user']['id']
     data = request.json
-    chatbot_id = data.get('chatbot_id')
-    query_limit = int(data.get('query_limit_monthly', 1000))
-    creator_price_monthly = int(data.get('creator_price_monthly', 0)) * 100 # convert to paise
-    
+    item_id = data.get('item_id')
+    item_type = data.get('item_type')
+    if not item_type and data.get('chatbot_id'):
+        item_type = 'chatbot'
+        item_id = data.get('chatbot_id')
+
+    query_limit = int(data.get('query_limit_monthly', 100))
+    creator_price_monthly = int(float(data.get('creator_price_monthly', 0))) * 100 # convert to paise
+    credit_payer = data.get('credit_payer', 'creator')
+
+    if creator_price_monthly < 100:  # minimum ₹1
+        return jsonify({'status': 'error', 'message': 'Price must be at least ₹1.'}), 400
+    if query_limit < 1:
+        return jsonify({'status': 'error', 'message': 'Credit allowance must be at least 1.'}), 400
+
+    # Anti-money laundering check: Price cannot exceed Credits * 10
+    max_price_paise = query_limit * 10 * 100
+    if creator_price_monthly > max_price_paise:
+        return jsonify({'status': 'error', 'message': f'Price is too high for the amount of credits. Maximum allowed price for {query_limit} credits is ₹{query_limit * 10}.'}), 400
+
+    platform_fee_paise = 0
+
+    if credit_payer == 'buyer':
+        # App Store Model: Buyer pays platform directly for their AI credits
+        # 0.8 INR = 80 paise per credit
+        platform_fee_paise = int(query_limit * 80)
+    else:
+        # Agency Model: Capacity Check to ensure seller isn't overselling their own credits
+        from utils.subscription_utils import get_user_status
+        seller_status = get_user_status(user_id)
+        if not seller_status or not seller_status.get('has_personal_plan'):
+            return jsonify({'status': 'error', 'message': 'You must have an active paid subscription to sell using your own credits.'}), 403
+            
+        s_max = seller_status['limits'].get('max_queries_per_month', 0)
+        if s_max != float('inf'):
+            supabase_admin = get_supabase_admin_client()
+            active_transfers_res = supabase_admin.table('chatbot_transfers').select('query_limit_monthly').eq('creator_id', user_id).eq('status', 'active').execute()
+            total_allocated = sum(t.get('query_limit_monthly', 0) for t in active_transfers_res.data) if active_transfers_res.data else 0
+            
+            if total_allocated + query_limit > s_max:
+                available = max(0, s_max - total_allocated)
+                return jsonify({'status': 'error', 'message': f'You cannot allocate {query_limit} credits. You only have {int(available)} credits left. Upgrade your plan, or choose "Client pays for credits".'}), 400
+
     # Validate ownership
     supabase_admin = get_supabase_admin_client()
-    channel_res = supabase_admin.table('channels').select('id').eq('id', chatbot_id).eq('creator_id', user_id).single().execute()
-    if not channel_res.data:
-        return jsonify({'status': 'error', 'message': 'Chatbot not found or permission denied.'}), 403
-        
-    cost_per_query = int(os.environ.get('MARKETPLACE_COST_PER_QUERY_PAISE', 90))
-    platform_fee_paise = cost_per_query * query_limit
-    
-    if creator_price_monthly < platform_fee_paise:
-         return jsonify({'status': 'error', 'message': f'Price must be at least ₹{platform_fee_paise/100:.2f} to cover platform fees.'}), 400
-         
+    if item_type == 'chatbot':
+        channel_res = supabase_admin.table('channels').select('id').eq('id', item_id).eq('creator_id', user_id).single().execute()
+        if not channel_res.data:
+            return jsonify({'status': 'error', 'message': 'Chatbot not found or permission denied.'}), 403
+    elif item_type == 'google_review':
+        gr_res = supabase_admin.table('google_review_settings').select('id').eq('id', item_id).eq('user_id', user_id).single().execute()
+        if not gr_res.data:
+            return jsonify({'status': 'error', 'message': 'Business not found or permission denied.'}), 403
+
     transfer_code = marketplace_utils.create_transfer_record(
         creator_id=user_id,
-        chatbot_id=chatbot_id,
+        chatbot_id=item_id if item_type == 'chatbot' else None,
         query_limit=query_limit,
         platform_fee_paise=platform_fee_paise,
-        creator_price_paise=creator_price_monthly
+        creator_price_paise=creator_price_monthly,
+        google_review_id=item_id if item_type == 'google_review' else None
     )
     
     if transfer_code:
@@ -4466,12 +4900,18 @@ def marketplace_accept(transfer_code):
             return render_template('error.html', error_message="This transfer is currently being processed by another buyer. Please try again later."), 409
         
     chatbot = transfer.get('channels')
+    google_review_settings = transfer.get('google_review_settings')
+    
+    item = chatbot if chatbot else google_review_settings
+    item_type = 'chatbot' if chatbot else 'google_review'
     
     # Render checkout page for the buyer
     return render_template(
         'marketplace_accept.html',
         transfer=transfer,
-        chatbot=chatbot,
+        item=item,
+        item_type=item_type,
+        chatbot=chatbot,  # Keep for backwards compatibility
         creator_price_inr=transfer['creator_price_monthly'] / 100.0,
         is_logged_in=is_logged_in,
         saved_channels=get_user_channels() if is_logged_in else {},
@@ -4479,98 +4919,149 @@ def marketplace_accept(transfer_code):
         SUPABASE_ANON_KEY=os.environ.get('SUPABASE_ANON_KEY')
     )
 
+@app.route('/marketplace/thank-you/<transfer_code>')
+@login_required
+def marketplace_thank_you(transfer_code):
+    """
+    Thank you page after successful marketplace purchase.
+    Shows details of the purchased item.
+    """
+    user_id = session['user']['id']
+    supabase_admin = get_supabase_admin_client()
+
+    # Get the transfer details
+    transfer = marketplace_utils.get_transfer_by_code(transfer_code)
+
+    if not transfer or transfer.get('buyer_id') != user_id or transfer.get('status') != 'active':
+        return render_template('error.html', error_message="This purchase confirmation is not available."), 404
+
+    chatbot = transfer.get('channels')
+    google_review_settings = transfer.get('google_review_settings')
+
+    item = chatbot if chatbot else google_review_settings
+    item_type = 'chatbot' if chatbot else 'google_review'
+
+    total_price_inr = (transfer.get('creator_price_monthly', 0) + transfer.get('platform_fee_monthly', 0)) / 100.0
+    platform_fee_inr = transfer.get('platform_fee_monthly', 0) / 100.0
+
+    return render_template(
+        'marketplace_thank_you.html',
+        transfer=transfer,
+        item=item,
+        item_type=item_type,
+        total_price_inr=total_price_inr,
+        platform_fee_inr=platform_fee_inr
+    )
+
 @app.route('/api/marketplace/subscribe', methods=['POST'])
 @login_required
 def create_marketplace_subscription():
-    data = request.get_json()
-    transfer_code = data.get('transfer_code')
-    user_id = session['user']['id']
-    
-    transfer = marketplace_utils.get_transfer_by_code(transfer_code)
-    
-    if not transfer or transfer['status'] not in ('pending', 'subscription_pending'):
-        return jsonify({'status': 'error', 'message': 'Invalid or expired transfer link. It may already be in use.'}), 400
-        
-    if transfer['status'] == 'subscription_pending':
-        if transfer.get('buyer_id') and str(transfer.get('buyer_id')) != str(user_id):
-            return jsonify({'status': 'error', 'message': 'This link is currently being claimed by someone else.'}), 409
-    
-    # Immediately mark as 'subscription_pending' to block other buyers
-    supabase_admin_mp = get_supabase_admin_client()
-    supabase_admin_mp.table('chatbot_transfers').update({
-        'status': 'subscription_pending',
-        'buyer_id': user_id
-    }).eq('id', transfer['id']).execute()
-        
-    profile = db_utils.get_profile(user_id)
-    
-    base_plan_id = os.environ.get('RAZORPAY_MARKETPLACE_BASE_PLAN_ID')
-    if not base_plan_id:
-        return jsonify({'status': 'error', 'message': 'Marketplace is not fully configured.'}), 500
-        
-    razorpay_client = get_razorpay_client()
-    
-    # Handle Customer ID (similar to regular subscription logic)
-    customer_id = profile.get('razorpay_customer_id')
-    user_email = profile.get('email') or session.get('user', {}).get('email')
-    
-    if customer_id:
-        try:
-            # Verify the customer_id is valid
-            razorpay_client.customer.fetch(customer_id)
-        except Exception as e:
-            # If the customer_id is invalid, set it to None to trigger creation
-            logger.warning(f"Invalid cached customer_id {customer_id}: {e}")
-            customer_id = None
-            
-    if not customer_id:
-        try:
-            # Reusing existing logic
-            customers_response = razorpay_client.customer.all()
-            for c in customers_response.get('items', []):
-                if c.get('email') == user_email:
-                    customer_id = c['id']
-                    break
-            if not customer_id:
-                customer = razorpay_client.customer.create({'email': user_email})
-                customer_id = customer['id']
-                db_utils.create_or_update_profile({'id': user_id, 'email': user_email, 'razorpay_customer_id': customer_id})
-        except Exception as e:
-            logger.error(f"Razorpay customer error: {e}")
-            supabase_admin_mp.table('chatbot_transfers').update({'status': 'pending', 'buyer_id': None}).eq('id', transfer['id']).execute()
-            return jsonify({'status': 'error', 'message': f"Razorpay error: {e}"}), 500
-            
-    # Quantity is the total paise divided by 100 for the ₹1 base plan.
-    # So if price is ₹5000, paise=500000. For ₹1 plans (100 paise), quantity=5000
-    quantity = transfer['creator_price_monthly'] // 100
-    
     try:
-        total_count = int(os.environ.get('RAZORPAY_SUBSCRIPTION_TOTAL_COUNT', 12))
-        subscription = razorpay_client.subscription.create({
-            "plan_id": base_plan_id,
-            "customer_id": customer_id,
-            "total_count": total_count,  # FIX Issue #12: Configurable via env var
-            "quantity": quantity,
-        })
+        data = request.get_json()
+        transfer_code = data.get('transfer_code')
+        user_id = session['user']['id']
         
-        # Link this preliminary subscription ID to the transfer record
-        supabase_admin = get_supabase_admin_client()
-        supabase_admin.table('chatbot_transfers').update({
-            'razorpay_subscription_id': subscription['id']
+        logging.info(f"[Marketplace Subscribe] User {user_id} initiating subscription for transfer_code: {transfer_code}")
+        
+        transfer = marketplace_utils.get_transfer_by_code(transfer_code)
+        
+        if not transfer or transfer['status'] not in ('pending', 'subscription_pending'):
+            logging.warning(f"[Marketplace Subscribe] Invalid or expired transfer for code {transfer_code}")
+            return jsonify({'status': 'error', 'message': 'Invalid or expired transfer link. It may already be in use.'}), 400
+            
+        if transfer['status'] == 'subscription_pending':
+            if transfer.get('buyer_id') and str(transfer.get('buyer_id')) != str(user_id):
+                logging.warning(f"[Marketplace Subscribe] Transfer {transfer_code} locked by another user")
+                return jsonify({'status': 'error', 'message': 'This link is currently being claimed by someone else.'}), 409
+        
+        # Immediately mark as 'subscription_pending' to block other buyers
+        supabase_admin_mp = get_supabase_admin_client()
+        supabase_admin_mp.table('chatbot_transfers').update({
+            'status': 'subscription_pending',
+            'buyer_id': user_id
         }).eq('id', transfer['id']).execute()
+            
+        profile = db_utils.get_profile(user_id)
         
+        base_plan_id = os.environ.get('RAZORPAY_MARKETPLACE_BASE_PLAN_ID')
+        if not base_plan_id:
+            logging.error(f"[Marketplace Subscribe] RAZORPAY_MARKETPLACE_BASE_PLAN_ID not configured")
+            return jsonify({'status': 'error', 'message': 'Marketplace is not fully configured.'}), 500
+            
+        razorpay_client = get_razorpay_client()
+        
+        # Handle Customer ID (similar to regular subscription logic)
+        customer_id = profile.get('razorpay_customer_id')
+        user_email = profile.get('email') or session.get('user', {}).get('email')
+        
+        if customer_id:
+            try:
+                # Verify the customer_id is valid
+                razorpay_client.customer.fetch(customer_id)
+            except Exception as e:
+                # If the customer_id is invalid, set it to None to trigger creation
+                logging.warning(f"[Marketplace Subscribe] Invalid cached customer_id {customer_id}: {e}")
+                customer_id = None
+                
+        if not customer_id:
+            try:
+                # Reusing existing logic
+                customers_response = razorpay_client.customer.all()
+                for c in customers_response.get('items', []):
+                    if c.get('email') == user_email:
+                        customer_id = c['id']
+                        break
+                if not customer_id:
+                    customer = razorpay_client.customer.create({'email': user_email})
+                    customer_id = customer['id']
+                
+                # Unindented: Always save the customer ID back to the user's profile
+                db_utils.create_or_update_profile({'id': user_id, 'email': user_email, 'razorpay_customer_id': customer_id})
+                logging.info(f"[Marketplace Subscribe] Created/Found customer {customer_id} for user {user_id}")
+            except Exception as e:
+                logging.error(f"[Marketplace Subscribe] Razorpay customer error for user {user_id}: {e}", exc_info=True)
+                supabase_admin_mp.table('chatbot_transfers').update({'status': 'pending', 'buyer_id': None}).eq('id', transfer['id']).execute()
+                return jsonify({'status': 'error', 'message': f"Failed to setup payment: {str(e)}"}), 500
+                
+        # Quantity is the total paise divided by 100 for the ₹1 base plan.
+        # So if price is ₹5000, paise=500000. For ₹1 plans (100 paise), quantity=5000
+        total_price_paise = transfer['creator_price_monthly'] + transfer.get('platform_fee_monthly', 0)
+        quantity = total_price_paise // 100
+        logging.info(f"[Marketplace Subscribe] Creating subscription with quantity={quantity}, total_price={total_price_paise}")
+        
+        try:
+            total_count = int(os.environ.get('RAZORPAY_SUBSCRIPTION_TOTAL_COUNT', 12))
+            subscription = razorpay_client.subscription.create({
+                "plan_id": base_plan_id,
+                "customer_id": customer_id,
+                "total_count": total_count,  # FIX Issue #12: Configurable via env var
+                "quantity": quantity,
+            })
+            
+            logging.info(f"[Marketplace Subscribe] Subscription created: {subscription['id']}")
+            
+            # Link this preliminary subscription ID to the transfer record
+            supabase_admin = get_supabase_admin_client()
+            supabase_admin.table('chatbot_transfers').update({
+                'razorpay_subscription_id': subscription['id']
+            }).eq('id', transfer['id']).execute()
+            
+        except Exception as e:
+            logging.error(f"[Marketplace Subscribe] Failed to create subscription: {e}", exc_info=True)
+            supabase_admin_mp.table('chatbot_transfers').update({'status': 'pending', 'buyer_id': None}).eq('id', transfer['id']).execute()
+            return jsonify({'status': 'error', 'message': f'Could not create subscription: {str(e)}'}), 500
+            
+        return jsonify({
+            'status': 'success',
+            'subscription_id': subscription['id'],
+            'razorpay_key_id': os.environ.get('RAZORPAY_KEY_ID'),
+            'plan_name': f"Marketplace: {transfer.get('channels', {}).get('channel_name') or transfer.get('google_review_settings', {}).get('business_name')}",
+            'user_name': profile.get('full_name'),
+            'user_email': user_email
+        })
     except Exception as e:
-        supabase_admin_mp.table('chatbot_transfers').update({'status': 'pending', 'buyer_id': None}).eq('id', transfer['id']).execute()
-        return jsonify({'status': 'error', 'message': f'Could not create subscription: {e}'}), 500
-        
-    return jsonify({
-        'status': 'success',
-        'subscription_id': subscription['id'],
-        'razorpay_key_id': os.environ.get('RAZORPAY_KEY_ID'),
-        'plan_name': f"Marketplace Chatbot: {transfer['channels']['channel_name']}",
-        'user_name': profile.get('full_name'),
-        'user_email': user_email
-    })
+        logging.error(f"[Marketplace Subscribe] Unexpected error: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': f'Unexpected error: {str(e)}'}), 500
 
 @app.route('/api/marketplace/cancel_checkout', methods=['POST'])
 @login_required
@@ -4594,6 +5085,59 @@ def cancel_marketplace_checkout():
             return jsonify({'status': 'success', 'message': 'Checkout cancelled.'})
             
     return jsonify({'status': 'error', 'message': 'Could not cancel checkout or not authorized.'}), 400
+
+@app.route('/api/marketplace/test-razorpay', methods=['GET'])
+@login_required
+def test_razorpay_config():
+    """Diagnostic endpoint to test Razorpay configuration and connectivity."""
+    results = {
+        'razorpay_configured': False,
+        'env_vars': {},
+        'razorpay_client': None,
+        'test_api_call': None,
+        'errors': []
+    }
+    
+    try:
+        # Check environment variables
+        key_id = os.environ.get('RAZORPAY_KEY_ID')
+        key_secret = os.environ.get('RAZORPAY_KEY_SECRET')
+        marketplace_plan = os.environ.get('RAZORPAY_MARKETPLACE_BASE_PLAN_ID')
+        
+        results['env_vars'] = {
+            'RAZORPAY_KEY_ID': '✓' if key_id else '✗ MISSING',
+            'RAZORPAY_KEY_SECRET': '✓' if key_secret else '✗ MISSING',
+            'RAZORPAY_MARKETPLACE_BASE_PLAN_ID': '✓' if marketplace_plan else f'✗ MISSING'
+        }
+        
+        if not key_id or not key_secret:
+            results['errors'].append('Razorpay API credentials not configured')
+            return jsonify(results), 400
+        
+        # Try to initialize Razorpay client
+        razorpay_client = get_razorpay_client()
+        if not razorpay_client:
+            results['errors'].append('Failed to initialize Razorpay client')
+            return jsonify(results), 400
+        
+        results['razorpay_client'] = 'Initialized successfully'
+        
+        # Test API call - fetch plans (without count parameter for compatibility)
+        try:
+            plans = razorpay_client.plan.all()
+            results['test_api_call'] = f'✓ Successfully connected to Razorpay API'
+            results['razorpay_configured'] = True
+        except Exception as api_err:
+            results['errors'].append(f'API connection failed: {str(api_err)}')
+            results['test_api_call'] = f'✗ {str(api_err)}'
+        
+        return jsonify(results)
+    
+    except Exception as e:
+        results['errors'].append(f'Unexpected error: {str(e)}')
+        logging.error(f"[Test Razorpay] Error: {e}", exc_info=True)
+        return jsonify(results), 500
+
 @app.route('/api/marketplace/request_payout', methods=['POST'])
 @login_required
 def marketplace_request_payout():
@@ -4840,4 +5384,4 @@ def paypal_webhook():
 
 if __name__ == '__main__':
 
-    app.run(debug=True, host='0.0.0.0', port=5678)
+    app.run(debug=True, host='0.0.0.0', port=5000)
