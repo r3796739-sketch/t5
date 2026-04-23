@@ -1,0 +1,824 @@
+{% extends "base.html" %}
+
+{% block title %}Create AI Chatbot - YoppyChat{% endblock %}
+
+{% block page_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chatbot_create.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="create-page">
+
+    <!-- Back Link -->
+    <a href="/dashboard" class="back-link" id="backToDashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M19 12H5" />
+            <polyline points="12 19 5 12 12 5" />
+        </svg>
+        Back to Dashboard
+    </a>
+
+    <!-- Header -->
+    <div class="create-header">
+        <div class="create-header-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path
+                    d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+            </svg>
+            Multi-Source AI Chatbot Builder
+        </div>
+        <h1>Create Your AI Persona</h1>
+        <p>Build a smart chatbot from YouTube, WhatsApp, or your website — in just a few steps.</p>
+    </div>
+
+    <!-- Stepper -->
+    <div class="stepper" id="stepper">
+        <div class="step-item active" data-step="1">
+            <div class="step-circle">1</div>
+            <div class="step-label">Basics</div>
+        </div>
+        <div class="step-connector" id="conn-1-2"></div>
+        <div class="step-item" data-step="2">
+            <div class="step-circle">2</div>
+            <div class="step-label">Sources</div>
+        </div>
+        <div class="step-connector" id="conn-2-3"></div>
+        <div class="step-item" data-step="3">
+            <div class="step-circle">3</div>
+            <div class="step-label">Review</div>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <form id="chatbotForm" enctype="multipart/form-data">
+
+        <!-- ========== STEP 1: Basics ========== -->
+        <div class="step-panel active" id="step-1">
+            <div class="form-card">
+                <div class="name-input-group">
+                    <label for="chatbot_name">What should we call your chatbot?</label>
+                    <input type="text" name="chatbot_name" id="chatbot_name" class="chatbot-name-input"
+                        placeholder="e.g. My AI Assistant, Tech Guru Bot" required>
+                    <div class="input-hint">This name will be visible to everyone who chats with your bot</div>
+                </div>
+            </div>
+
+            <div class="step-nav">
+                <div></div>
+                <button type="button" class="btn-next" id="toStep2" disabled>
+                    Choose Data Sources
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M5 12h14" />
+                        <polyline points="12 5 19 12 12 19" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- ========== STEP 2: Data Sources ========== -->
+        <div class="step-panel" id="step-2">
+
+            <!-- Source Selector Cards -->
+            <div class="source-selector">
+                <div class="source-toggle" data-source="youtube" onclick="toggleSource('youtube')">
+                    <div class="source-toggle-icon">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                            <path
+                                d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"
+                                fill="#FF0000" />
+                        </svg>
+                    </div>
+                    <div class="source-toggle-info">
+                        <h4>YouTube Channels</h4>
+                        <p>Train your bot on any YouTube channel's videos</p>
+                    </div>
+                    <div class="source-toggle-check">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="source-toggle" data-source="whatsapp" onclick="toggleSource('whatsapp')">
+                    <div class="source-toggle-icon">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                            <path
+                                d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"
+                                fill="#25D366" />
+                        </svg>
+                    </div>
+                    <div class="source-toggle-info">
+                        <h4>WhatsApp Chat Export</h4>
+                        <p>Upload a chat export to learn conversation style</p>
+                    </div>
+                    <div class="source-toggle-check">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="source-toggle" data-source="website" onclick="toggleSource('website')">
+                    <div class="source-toggle-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#ff9a56" stroke-width="1.8" stroke-linecap="round"
+                            stroke-linejoin="round" width="28" height="28">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="2" y1="12" x2="22" y2="12" />
+                            <path
+                                d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                        </svg>
+                    </div>
+                    <div class="source-toggle-info">
+                        <h4>Website</h4>
+                        <p>Scrape up to 50 pages to build a knowledge base</p>
+                    </div>
+                    <div class="source-toggle-check">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="source-toggle" data-source="pdf" onclick="toggleSource('pdf')">
+                    <div class="source-toggle-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#e53e3e" stroke-width="1.8" stroke-linecap="round"
+                            stroke-linejoin="round" width="28" height="28">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                            <polyline points="10 9 9 9 8 9" />
+                        </svg>
+                    </div>
+                    <div class="source-toggle-info">
+                        <h4>PDF Document</h4>
+                        <p>Upload a PDF to train your bot on its contents</p>
+                    </div>
+                    <div class="source-toggle-check">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- YouTube Config -->
+            <div class="source-config" id="youtube-config">
+                <div class="source-config-card">
+                    <div class="source-config-header">
+                        <span>📹</span>
+                        <h4>YouTube Channels</h4>
+                    </div>
+                    <div id="youtubeInputs" class="dynamic-inputs">
+                        <div class="form-group input-with-remove">
+                            <div class="input-container">
+                                <input type="url" name="youtube_urls[]" class="channel-input youtube-input"
+                                    placeholder="https://youtube.com/@channelname">
+                                <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2">
+                                    <path
+                                        d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.42a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .54 5.33A2.78 2.78 0 0 0 3.46 19c1.72.42 8.6.42 8.6.42s6.88 0 8.6-.42a2.78 2.78 0 0 0 1.94-2A29 29 0 0 0 23 11.75a29 29 0 0 0-.46-5.33z" />
+                                    <path d="M10 15.25l5-3.5-5-3.5v7z" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="add-more-btn" onclick="addYouTubeInput()">
+                        <span>+</span> Add Another Channel
+                    </button>
+                </div>
+            </div>
+
+            <!-- WhatsApp Config -->
+            <div class="source-config" id="whatsapp-config">
+                <div class="source-config-card">
+                    <div class="source-config-header">
+                        <span>💬</span>
+                        <h4>WhatsApp Chat Export</h4>
+                    </div>
+                    <div class="form-group">
+                        <div class="file-upload-container" id="fileUploadContainer">
+                            <input type="file" name="whatsapp_file" id="whatsapp_file" accept=".txt" class="file-input"
+                                onchange="handleFileSelect(this)">
+                            <label for="whatsapp_file" class="file-upload-label">
+                                <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="17 8 12 3 7 8" />
+                                    <line x1="12" y1="3" x2="12" y2="15" />
+                                </svg>
+                                <span class="upload-text">
+                                    <strong>Choose a file</strong> or drag it here
+                                </span>
+                                <span class="upload-hint">WhatsApp chat export (.txt), max 16MB</span>
+                            </label>
+                            <div class="file-info" id="fileInfo" style="display: none;">
+                                <span class="file-name" id="fileName"></span>
+                                <button type="button" class="remove-file-btn" onclick="removeFile()">✕</button>
+                            </div>
+                        </div>
+                        <div class="input-hint">
+                            Export your WhatsApp chat: Chat → More → Export Chat → Without Media
+                        </div>
+                    </div>
+
+                    <!-- Agent Name Field -->
+                    <div class="form-group" id="agentNameGroup" style="display: none;">
+                        <label for="whatsapp_agent_name" class="form-label">
+                            👤 Agent Name <span class="optional-badge">Optional</span>
+                        </label>
+                        <input type="text" name="whatsapp_agent_name" id="whatsapp_agent_name" class="form-input"
+                            style="padding-left: 16px;" placeholder="e.g. Divi, Support Team, John">
+                        <div class="input-hint">
+                            The bot will learn this person's communication style. If empty, we'll auto-detect.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Website Config -->
+            <div class="source-config" id="website-config">
+                <div class="source-config-card">
+                    <div class="source-config-header">
+                        <span>🌐</span>
+                        <h4>Website URL</h4>
+                    </div>
+                    <div class="form-group">
+                        <div class="input-container">
+                            <input type="url" name="website_url" id="website_url" class="channel-input"
+                                placeholder="https://myblog.com">
+                            <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="2" y1="12" x2="22" y2="12" />
+                                <path
+                                    d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                            </svg>
+                        </div>
+                        <div class="input-hint">We'll automatically scrape up to 50 pages from this site</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PDF Config -->
+            <div class="source-config" id="pdf-config">
+                <div class="source-config-card">
+                    <div class="source-config-header">
+                        <span>📄</span>
+                        <h4>PDF Document</h4>
+                    </div>
+                    <div class="form-group">
+                        <div class="file-upload-container" id="pdfUploadContainer">
+                            <input type="file" name="pdf_file" id="pdf_file" accept=".pdf,application/pdf"
+                                class="file-input" onchange="handlePdfSelect(this)">
+                            <label for="pdf_file" class="file-upload-label" id="pdfUploadLabelCreate">
+                                <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                    <line x1="16" y1="13" x2="8" y2="13" />
+                                    <line x1="16" y1="17" x2="8" y2="17" />
+                                </svg>
+                                <span class="upload-text"><strong>Choose a PDF</strong> or drag it here</span>
+                                <span class="upload-hint">Text-based PDF, up to 32MB</span>
+                            </label>
+                            <div class="file-info" id="pdfFileInfo" style="display: none;">
+                                <span class="file-name" id="pdfFileName"></span>
+                                <button type="button" class="remove-file-btn" onclick="removePdfFile()">✕</button>
+                            </div>
+                        </div>
+                        <div class="input-hint">Only text-based PDFs are supported (not scanned images).</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty state if no sources selected -->
+            <div class="sources-empty" id="sourcesEmpty">
+                <span>👆</span>
+                Select at least one data source above to continue
+            </div>
+
+            <div class="step-nav">
+                <button type="button" class="btn-prev" onclick="goToStep(1)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M19 12H5" />
+                        <polyline points="12 19 5 12 12 5" />
+                    </svg>
+                    Back
+                </button>
+                <button type="button" class="btn-next" id="toStep3" disabled>
+                    Review & Create
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M5 12h14" />
+                        <polyline points="12 5 19 12 12 19" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- ========== STEP 3: Review & Create ========== -->
+        <div class="step-panel" id="step-3">
+            <div class="form-card">
+                <div class="review-summary" id="reviewSummary">
+                    <!-- Dynamically populated -->
+                </div>
+
+                <div class="review-notice">
+                    <span>⏱️</span>
+                    <div>Processing usually takes <strong>5–15 minutes</strong> depending on content size. We'll notify
+                        you by <strong>email</strong> when it's ready!</div>
+                </div>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">
+                <span>🚀</span>
+                Create My Chatbot
+            </button>
+
+            <div class="step-nav" style="margin-top: 1rem;">
+                <button type="button" class="btn-prev" onclick="goToStep(2)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M19 12H5" />
+                        <polyline points="12 19 5 12 12 5" />
+                    </svg>
+                    Edit Sources
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Processing Display (shown after submit) -->
+    <div id="processingContainer" class="processing-display" style="display: none;">
+        <div class="processing-header">
+            <h2>🎨 Processing Your Data Sources</h2>
+            <p>This may take a few minutes. You can close this page — we'll email you when ready!</p>
+        </div>
+
+        <div id="sourcesProgress" class="sources-progress">
+            <!-- Dynamic source cards will be inserted here -->
+        </div>
+
+        <div class="processing-actions">
+            <a href="/dashboard" class="secondary-btn">Go to Dashboard</a>
+            <button type="button" class="process-btn" onclick="location.reload()">Create Another</button>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('chatbotForm');
+        const processingContainer = document.getElementById('processingContainer');
+        const sourcesProgress = document.getElementById('sourcesProgress');
+        const pollingIntervals = {};
+        let totalSources = 0;
+        let completedSources = 0;
+        let completionHandled = false;
+        let chatbotId = null;
+        let safetyTimeout = null;
+
+        // Current step
+        let currentStep = 1;
+        const selectedSources = new Set();
+
+        // ========== Step Navigation ==========
+        window.goToStep = function (step) {
+            currentStep = step;
+            document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(`step-${step}`).classList.add('active');
+
+            // Update stepper
+            document.querySelectorAll('.step-item').forEach(item => {
+                const s = parseInt(item.dataset.step);
+                item.classList.remove('active', 'completed');
+                if (s === step) item.classList.add('active');
+                else if (s < step) item.classList.add('completed');
+            });
+
+            // Connectors
+            const conn12 = document.getElementById('conn-1-2');
+            const conn23 = document.getElementById('conn-2-3');
+            conn12.className = 'step-connector' + (step > 1 ? ' completed' : '');
+            conn23.className = 'step-connector' + (step > 2 ? ' completed' : '');
+
+            // Build review on step 3
+            if (step === 3) buildReview();
+        };
+
+        // ========== Step 1: Name validation ==========
+        const nameInput = document.getElementById('chatbot_name');
+        const toStep2Btn = document.getElementById('toStep2');
+
+        nameInput.addEventListener('input', function () {
+            toStep2Btn.disabled = this.value.trim().length < 2;
+        });
+
+        toStep2Btn.addEventListener('click', function () {
+            if (nameInput.value.trim().length >= 2) goToStep(2);
+        });
+
+        window.quickCreate = function() {
+            let nameValue = nameInput.value.trim();
+            const urlValue = document.getElementById('quick_youtube_url').value.trim();
+
+            if (!urlValue) {
+                alert('Please enter a YouTube Channel URL first.');
+                return;
+            }
+
+            if (!nameValue) {
+                nameValue = "My AI Persona";
+            }
+
+            const formData = new FormData();
+            formData.append('chatbot_name', nameValue);
+            formData.append('youtube_urls[]', urlValue);
+
+            // Hide UI and show Processing
+            document.getElementById('chatbotForm').style.display = 'none';
+            document.querySelector('.stepper').style.display = 'none';
+            processingContainer.style.display = 'block';
+
+            // Submit using fetch identical to regular manual submit
+            fetch('/chatbot/create', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'processing') {
+                    chatbotId = data.chatbot_id;
+                    totalSources = data.task_ids.length;
+                    completedSources = 0;
+                    completionHandled = false;
+
+                    data.task_ids.forEach(task => {
+                        createSourceCard(task);
+                        startPolling(task.source_id);
+                    });
+
+                    safetyTimeout = setTimeout(() => {
+                        if (!completionHandled) handleAllComplete(true);
+                    }, 10 * 60 * 1000);
+
+                } else if (data.status === 'error') {
+                    throw new Error(data.message);
+                }
+            })
+            .catch(error => {
+                alert(error.message || 'Failed to quickly create chatbot');
+                document.getElementById('chatbotForm').style.display = 'block';
+                document.querySelector('.stepper').style.display = 'flex';
+                processingContainer.style.display = 'none';
+            });
+        };
+
+        // ========== Step 2: Source toggles ==========
+        window.toggleSource = function (source) {
+            const card = document.querySelector(`.source-toggle[data-source="${source}"]`);
+            const config = document.getElementById(`${source}-config`);
+
+            if (selectedSources.has(source)) {
+                selectedSources.delete(source);
+                card.classList.remove('selected');
+                config.classList.remove('visible');
+            } else {
+                selectedSources.add(source);
+                card.classList.add('selected');
+                config.classList.add('visible');
+            }
+
+            updateStep2State();
+        };
+
+        function updateStep2State() {
+            const toStep3 = document.getElementById('toStep3');
+            const empty = document.getElementById('sourcesEmpty');
+
+            if (selectedSources.size > 0) {
+                toStep3.disabled = false;
+                empty.style.display = 'none';
+            } else {
+                toStep3.disabled = true;
+                empty.style.display = 'block';
+            }
+        }
+
+        document.getElementById('toStep3').addEventListener('click', function () {
+            if (selectedSources.size > 0) goToStep(3);
+        });
+
+        // ========== Step 3: Build Review ==========
+        function buildReview() {
+            const container = document.getElementById('reviewSummary');
+            container.innerHTML = '';
+
+            // Bot name
+            const nameItem = createReviewItem('🤖', 'Chatbot Name', nameInput.value.trim());
+            container.appendChild(nameItem);
+
+            // YouTube
+            if (selectedSources.has('youtube')) {
+                const urls = Array.from(document.querySelectorAll('.youtube-input'))
+                    .map(i => i.value.trim()).filter(Boolean);
+                const desc = urls.length > 0 ? `${urls.length} channel${urls.length > 1 ? 's' : ''}: ${urls[0]}` : 'No URLs entered';
+                container.appendChild(createReviewItem('📹', 'YouTube', desc));
+            }
+
+            // WhatsApp
+            if (selectedSources.has('whatsapp')) {
+                const file = document.getElementById('whatsapp_file').files[0];
+                const desc = file ? file.name : 'No file selected';
+                container.appendChild(createReviewItem('💬', 'WhatsApp Chat', desc));
+            }
+
+            // Website
+            if (selectedSources.has('website')) {
+                const url = document.getElementById('website_url').value.trim();
+                const desc = url || 'No URL entered';
+                container.appendChild(createReviewItem('🌐', 'Website', desc));
+            }
+
+            // PDF
+            if (selectedSources.has('pdf')) {
+                const file = document.getElementById('pdf_file').files[0];
+                const desc = file ? file.name : 'No file selected';
+                container.appendChild(createReviewItem('📄', 'PDF Document', desc));
+            }
+        }
+
+        function createReviewItem(icon, label, desc) {
+            const div = document.createElement('div');
+            div.className = 'review-item';
+            div.innerHTML = `
+                <div class="review-item-icon">${icon}</div>
+                <div class="review-item-info">
+                    <h5>${label}</h5>
+                    <p>${desc}</p>
+                </div>
+                <div class="review-item-status">✅</div>
+            `;
+            return div;
+        }
+
+        // ========== YouTube dynamic inputs ==========
+        window.addYouTubeInput = function () {
+            const container = document.getElementById('youtubeInputs');
+            const newInput = document.createElement('div');
+            newInput.className = 'form-group input-with-remove';
+            newInput.innerHTML = `
+            <div class="input-container">
+                <input type="url" name="youtube_urls[]"
+                       class="channel-input youtube-input"
+                       placeholder="https://youtube.com/@channelname">
+                <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.42a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .54 5.33A2.78 2.78 0 0 0 3.46 19c1.72.42 8.6.42 8.6.42s6.88 0 8.6-.42a2.78 2.78 0 0 0 1.94-2A29 29 0 0 0 23 11.75a29 29 0 0 0-.46-5.33z"/>
+                    <path d="M10 15.25l5-3.5-5-3.5v7z"/>
+                </svg>
+                <button type="button" class="remove-input-btn" onclick="this.closest('.input-with-remove').remove()">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            `;
+            container.appendChild(newInput);
+        };
+
+        // ========== WhatsApp file ==========
+        window.handleFileSelect = function (input) {
+            const file = input.files[0];
+            if (file) {
+                document.getElementById('fileName').textContent = file.name;
+                document.getElementById('fileInfo').style.display = 'flex';
+                document.querySelector('.file-upload-label').style.display = 'none';
+                document.getElementById('agentNameGroup').style.display = 'block';
+            }
+        };
+
+        window.removeFile = function () {
+            document.getElementById('whatsapp_file').value = '';
+            document.getElementById('fileInfo').style.display = 'none';
+            document.querySelector('.file-upload-label').style.display = 'flex';
+            document.getElementById('agentNameGroup').style.display = 'none';
+            document.getElementById('whatsapp_agent_name').value = '';
+        };
+
+        // ========== PDF file ==========
+        window.handlePdfSelect = function (input) {
+            const file = input.files[0];
+            if (file) {
+                document.getElementById('pdfFileName').textContent = file.name;
+                document.getElementById('pdfFileInfo').style.display = 'flex';
+                document.getElementById('pdfUploadLabelCreate').style.display = 'none';
+            }
+        };
+
+        window.removePdfFile = function () {
+            document.getElementById('pdf_file').value = '';
+            document.getElementById('pdfFileInfo').style.display = 'none';
+            document.getElementById('pdfUploadLabelCreate').style.display = 'flex';
+        };
+
+        // ========== Form Submission ==========
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            // Validate
+            const youtubeInputs = selectedSources.has('youtube')
+                ? Array.from(document.querySelectorAll('.youtube-input')).filter(i => i.value.trim())
+                : [];
+            const whatsappFile = selectedSources.has('whatsapp')
+                ? document.getElementById('whatsapp_file').files[0]
+                : null;
+            const websiteUrl = selectedSources.has('website')
+                ? document.getElementById('website_url').value.trim()
+                : '';
+            const pdfFile = selectedSources.has('pdf')
+                ? document.getElementById('pdf_file').files[0]
+                : null;
+
+            if (youtubeInputs.length === 0 && !whatsappFile && !websiteUrl && !pdfFile) {
+                showNotification('Please provide at least one data source', 'error');
+                return;
+            }
+
+            // Clear unselected sources from FormData
+            const formData = new FormData(form);
+
+            // Remove sources that aren't selected
+            if (!selectedSources.has('youtube')) {
+                formData.delete('youtube_urls[]');
+            }
+            if (!selectedSources.has('whatsapp')) {
+                formData.delete('whatsapp_file');
+                formData.delete('whatsapp_agent_name');
+            }
+            if (!selectedSources.has('website')) {
+                formData.delete('website_url');
+            }
+            if (!selectedSources.has('pdf')) {
+                formData.delete('pdf_file');
+            }
+
+            // Show processing
+            form.style.display = 'none';
+            document.querySelector('.stepper').style.display = 'none';
+            processingContainer.style.display = 'block';
+
+            fetch('/chatbot/create', {
+                method: 'POST',
+                body: formData
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'processing') {
+                        chatbotId = data.chatbot_id;
+                        totalSources = data.task_ids.length;
+                        completedSources = 0;
+                        completionHandled = false;
+
+                        data.task_ids.forEach(task => {
+                            createSourceCard(task);
+                            startPolling(task.source_id);
+                        });
+
+                        safetyTimeout = setTimeout(() => {
+                            if (!completionHandled) handleAllComplete(true);
+                        }, 10 * 60 * 1000);
+
+                    } else if (data.status === 'error') {
+                        throw new Error(data.message);
+                    }
+                })
+                .catch(error => {
+                    showNotification(error.message || 'Failed to create chatbot', 'error');
+                    form.style.display = 'block';
+                    document.querySelector('.stepper').style.display = 'flex';
+                    processingContainer.style.display = 'none';
+                });
+        });
+
+        // ========== Processing Functions ==========
+        function createSourceCard(task) {
+            const icons = { 'youtube': '📹', 'whatsapp': '💬', 'website': '🌐', 'pdf': '📄' };
+            const card = document.createElement('div');
+            card.className = 'source-card processing';
+            card.id = `source-${task.source_id}`;
+            card.innerHTML = `
+            <div class="source-header">
+                <span class="source-icon">${icons[task.type]}</span>
+                <div class="source-info">
+                    <div class="source-title">${task.type.charAt(0).toUpperCase() + task.type.slice(1)}</div>
+                    <div class="source-status">Processing...</div>
+                </div>
+                <div class="source-badge processing">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-bar-inner" style="width: 0%"></div>
+                </div>
+                <div class="progress-text">0%</div>
+            </div>
+            `;
+            sourcesProgress.appendChild(card);
+        }
+
+        function startPolling(sourceId) {
+            pollingIntervals[sourceId] = setInterval(() => {
+                fetch(`/source/${sourceId}/status`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.source) {
+                            updateSourceCard(sourceId, data.source);
+                            if (data.source.status === 'ready' || data.source.status === 'failed') {
+                                clearInterval(pollingIntervals[sourceId]);
+                                completedSources++;
+                                if (completedSources >= totalSources && !completionHandled) handleAllComplete(false);
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Polling error:', err);
+                        clearInterval(pollingIntervals[sourceId]);
+                        completedSources++;
+                        if (completedSources >= totalSources && !completionHandled) handleAllComplete(true);
+                    });
+            }, 2000);
+        }
+
+        function handleAllComplete(isTimeout) {
+            completionHandled = true;
+            if (safetyTimeout) clearTimeout(safetyTimeout);
+            Object.values(pollingIntervals).forEach(i => clearInterval(i));
+
+            const actionsDiv = processingContainer.querySelector('.processing-actions');
+            if (actionsDiv) {
+                const banner = document.createElement('div');
+                banner.style.cssText = 'background: linear-gradient(135deg, #10b981, #059669); color: white; border-radius: 16px; padding: 24px; text-align: center; margin-bottom: 20px;';
+                if (isTimeout) {
+                    banner.innerHTML = `
+                        <div style="font-size: 2rem; margin-bottom: 8px;">⏱️</div>
+                        <h3 style="margin: 0 0 8px; font-size: 1.25rem;">Processing is taking longer than usual</h3>
+                        <p style="margin: 0; opacity: 0.9;">Your chatbot is still being created. Check your dashboard or wait for the email.</p>
+                    `;
+                } else {
+                    banner.innerHTML = `
+                        <div style="font-size: 2.5rem; margin-bottom: 8px;">🎉</div>
+                        <h3 style="margin: 0 0 8px; font-size: 1.4rem;">Your Chatbot is Ready!</h3>
+                        <p style="margin: 0 0 16px; opacity: 0.9;">All data sources have been processed successfully.</p>
+                        <a href="/dashboard" style="display: inline-block; background: white; color: #059669; font-weight: 700; padding: 10px 28px; border-radius: 8px; text-decoration: none;">Go to Dashboard →</a>
+                    `;
+                }
+                actionsDiv.insertBefore(banner, actionsDiv.firstChild);
+            }
+
+            if (!isTimeout) {
+                setTimeout(() => { window.location.href = '/dashboard'; }, 4000);
+            }
+        }
+
+        function updateSourceCard(sourceId, source) {
+            const card = document.getElementById(`source-${sourceId}`);
+            if (!card) return;
+
+            const progressBar = card.querySelector('.progress-bar-inner');
+            const progressText = card.querySelector('.progress-text');
+            const statusText = card.querySelector('.source-status');
+            const badge = card.querySelector('.source-badge');
+
+            progressBar.style.width = `${source.progress || 0}%`;
+            progressText.textContent = `${source.progress || 0}%`;
+
+            if (source.status === 'ready') {
+                card.className = 'source-card ready';
+                statusText.textContent = 'Ready!';
+                badge.innerHTML = '✓';
+                badge.className = 'source-badge ready';
+            } else if (source.status === 'failed') {
+                card.className = 'source-card failed';
+                statusText.textContent = source.error_message || 'Processing failed';
+                badge.innerHTML = '✕';
+                badge.className = 'source-badge failed';
+            } else {
+                statusText.textContent = 'Processing...';
+            }
+        }
+    });
+</script>
+{% endblock %}

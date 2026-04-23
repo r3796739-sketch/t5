@@ -1,0 +1,563 @@
+{% extends "base.html" %}
+
+{% block title %}Claim {{ 'Chatbot' if item_type == 'chatbot' else 'Tool' }}: {{ item.business_name if item_type != 'chatbot' else (item.channel_name or item.creator_name) }} - YoppyChat AI{% endblock %}
+
+{% block seo_head %}
+    {% set obj_name = item.business_name if item_type != 'chatbot' else (item.channel_name or item.creator_name) %}
+    {% set title_text = 'Claim ' ~ ('Chatbot' if item_type == 'chatbot' else 'Google Review Tool') ~ ': ' ~ (obj_name or 'YoppyChat Tool') %}
+    {% set desc_text = 'Subscribe to ' ~ (obj_name or 'this amazing tool') ~ ' and get ' ~ transfer.query_limit_monthly ~ ' monthly credits.' %}
+    {% set image_url = item.logo_url if item_type != 'chatbot' else item.channel_thumbnail %}
+    {% if not image_url %}
+        {% set image_url = url_for('static', filename='images/logo/favicon.png', _external=True) %}
+    {% endif %}
+
+    <meta name="description" content="{{ desc_text }}">
+    <meta property="og:title" content="{{ title_text }}">
+    <meta property="og:description" content="{{ desc_text }}">
+    <meta property="og:image" content="{{ image_url }}">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ title_text }}">
+    <meta name="twitter:description" content="{{ desc_text }}">
+    <meta name="twitter:image" content="{{ image_url }}">
+{% endblock %}
+
+{% block page_styles %}
+<style>
+    .accept-wrapper {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+        background: radial-gradient(circle at 50% 0%, rgba(255, 154, 86, 0.08) 0%, transparent 60%);
+    }
+
+    .accept-container {
+        max-width: 900px;
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 0;
+        background: var(--surface-light, #ffffff);
+        border: 1px solid var(--border-color, #e5e7eb);
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+    }
+
+    @media (max-width: 768px) {
+        .accept-container {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Left Side: Bot Info */
+    .bot-info-side {
+        padding: 3.5rem 3rem;
+        background: linear-gradient(145deg, var(--surface-medium, #f9fafb) 0%, var(--bg-primary, #ffffff) 100%);
+        border-right: 1px solid var(--border-color, #e5e7eb);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .bot-avatar-container {
+        width: 110px;
+        height: 110px;
+        border-radius: 24px;
+        background: linear-gradient(135deg, var(--accent-primary, #ff9a56), #fb7185);
+        padding: 4px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 10px 25px rgba(255, 107, 53, 0.2);
+    }
+
+    .bot-avatar {
+        width: 100%;
+        height: 100%;
+        border-radius: 20px;
+        object-fit: cover;
+        background: white;
+    }
+
+    .bot-title {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: var(--text-primary, #111827);
+        margin-bottom: 0.5rem;
+        line-height: 1.2;
+    }
+
+    .bot-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.85rem;
+        background: rgba(147, 51, 234, 0.1);
+        color: #9333ea;
+        font-weight: 700;
+        font-size: 0.85rem;
+        border-radius: 9999px;
+        margin-bottom: 2.5rem;
+        gap: 6px;
+    }
+
+    .features-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    .feature-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+    }
+
+    .feature-icon {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: rgba(16, 185, 129, 0.15);
+        color: #10B981;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-top: 2px;
+        font-weight: bold;
+    }
+
+    .feature-text {
+        font-size: 0.95rem;
+        color: var(--text-secondary, #4b5563);
+        line-height: 1.5;
+    }
+
+    .feature-text strong {
+        color: var(--text-primary, #111827);
+        display: block;
+        margin-bottom: 3px;
+        font-size: 1.05rem;
+    }
+
+    /* Right Side: Checkout */
+    .checkout-side {
+        padding: 3.5rem 3rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        background: var(--bg-primary, #ffffff);
+    }
+
+    .checkout-header {
+        margin-bottom: 2rem;
+    }
+
+    .checkout-header h3 {
+        font-size: 1.35rem;
+        color: var(--text-primary, #111827);
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+    }
+
+    .summary-box {
+        background: var(--surface-light, #ffffff);
+        border: 2px solid var(--surface-medium, #f3f4f6);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+    }
+
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 1rem;
+        margin-bottom: 1rem;
+        border-bottom: 1px dashed var(--border-color, #e5e7eb);
+    }
+
+    .summary-row:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+        margin-bottom: 0;
+    }
+
+    .summary-label {
+        color: var(--text-secondary, #4b5563);
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+
+    .summary-val {
+        color: var(--text-primary, #111827);
+        font-weight: 800;
+        font-size: 1.05rem;
+    }
+
+    .price-total {
+        font-size: 2.2rem;
+        font-weight: 900;
+        color: var(--accent-primary, #ff9a56);
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+    }
+
+    .price-period {
+        font-size: 1rem;
+        color: var(--text-muted, #9ca3af);
+        font-weight: 600;
+    }
+
+    .btn-checkout {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.75rem;
+        width: 100%;
+        padding: 1.15rem;
+        background: linear-gradient(135deg, var(--accent-primary, #ff9a56), var(--accent-secondary, #ff6b35));
+        color: white;
+        font-size: 1.15rem;
+        font-weight: 800;
+        border-radius: 12px;
+        border: none;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        text-decoration: none;
+        box-shadow: 0 4px 12px rgba(255, 107, 53, 0.25);
+    }
+
+    .btn-checkout:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(255, 107, 53, 0.35);
+    }
+
+    .btn-checkout:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    .secure-badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 1.5rem;
+        color: var(--text-muted, #9ca3af);
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .secure-badge svg {
+        color: #10B981;
+    }
+
+    .auth-state {
+        margin-top: 1.2rem;
+        text-align: center;
+        font-size: 0.85rem;
+        color: var(--text-secondary, #4b5563);
+    }
+
+    .btn-secondary {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        padding: 1.15rem;
+        background: var(--surface-medium, #f9fafb);
+        color: var(--text-primary, #111827);
+        font-size: 1.1rem;
+        font-weight: 700;
+        border-radius: 12px;
+        border: 1px solid var(--border-color, #e5e7eb);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+        background: #f3f4f6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="accept-wrapper">
+    <div class="accept-container">
+        <!-- Left Side: Bot Info -->
+        <div class="bot-info-side">
+            <div class="bot-avatar-container">
+                <img src="{{ item.channel_thumbnail or item.logo_url or url_for('static', filename='images/logo/favicon.png') }}"
+                    alt="{{ item.channel_name or item.business_name or 'Item' }}" class="bot-avatar"
+                    onerror="this.src='{{ url_for('static', filename='images/logo/favicon.png') }}'">
+            </div>
+
+            <h1 class="bot-title">{{ item.channel_name or item.creator_name or item.business_name }}</h1>
+            <div class="bot-badge">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                </svg>
+                {% if item_type == 'chatbot' %}Premium {{ item.bot_type|capitalize }} Agent{% else %}Google Review Business{% endif %}
+            </div>
+
+            <ul class="features-list">
+                {% if item_type == 'chatbot' %}
+                {% if item.bot_type == 'creator' %}
+                <li class="feature-item">
+                    <div class="feature-icon">✓</div>
+                    <div class="feature-text">
+                        <strong>Creator-Trained Knowledge</strong>
+                        Ask questions and get answers based directly on their actual content and style.
+                    </div>
+                </li>
+                <li class="feature-item">
+                    <div class="feature-icon">✓</div>
+                    <div class="feature-text">
+                        <strong>Verified Source Citations</strong>
+                        Every answer links exactly to the source video or document where they said it.
+                    </div>
+                </li>
+                {% elif item.bot_type == 'business' %}
+                <li class="feature-item">
+                    <div class="feature-icon">✓</div>
+                    <div class="feature-text">
+                        <strong>Automated Customer Support</strong>
+                        Instantly answer incoming queries based on your verified knowledge base.
+                    </div>
+                </li>
+                <li class="feature-item">
+                    <div class="feature-icon">✓</div>
+                    <div class="feature-text">
+                        <strong>Lead Capture & Handoff</strong>
+                        Qualify leads 24/7 and seamlessly route complex questions to human agents.
+                    </div>
+                </li>
+                {% else %}
+                <li class="feature-item">
+                    <div class="feature-icon">✓</div>
+                    <div class="feature-text">
+                        <strong>Custom-Trained Agent</strong>
+                        A specialized AI programmed exactly for this specific workflow and data.
+                    </div>
+                </li>
+                <li class="feature-item">
+                    <div class="feature-icon">✓</div>
+                    <div class="feature-text">
+                        <strong>Seamless Automations</strong>
+                        Handles repetitive tasks, logic chains, and data processing instantly.
+                    </div>
+                </li>
+                {% endif %}
+                {% else %}
+                <li class="feature-item">
+                    <div class="feature-icon">✓</div>
+                    <div class="feature-text">
+                        <strong>Automated Review Generation</strong>
+                        Automates the collection of fresh 5-star Google reviews.
+                    </div>
+                </li>
+                <li class="feature-item">
+                    <div class="feature-icon">✓</div>
+                    <div class="feature-text">
+                        <strong>Public Review Page</strong>
+                        Fully functioning standalone page for collecting and capturing feedback.
+                    </div>
+                </li>
+                {% endif %}
+                <li class="feature-item">
+                    <div class="feature-icon">✓</div>
+                    <div class="feature-text">
+                        <strong>Always Available 24/7</strong>
+                        Skip the waiting. Deploy this {{ 'agent' if item_type == 'chatbot' else 'review tool' }} anywhere at any time.
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Right Side: Checkout Details -->
+        <div class="checkout-side">
+            <div class="checkout-header">
+                <h3>Payment Summary</h3>
+            </div>
+
+            <div class="summary-box">
+                <div class="summary-row">
+                    <span class="summary-label">Monthly AI Credits</span>
+                    <span class="summary-val">{{ transfer.query_limit_monthly }}</span>
+                </div>
+                <div class="summary-row" style="align-items: flex-start; flex-direction: column; gap: 4px;">
+                    <div style="display: flex; justify-content: space-between; width: 100%;">
+                        <span class="summary-label">Creator Updates</span>
+                        <span class="summary-val" style="color: #10B981;">Opt-in</span>
+                    </div>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">You choose whether the original creator
+                        can push future updates to your {{ 'agent' if item_type == 'chatbot' else 'system' }} after purchase.</span>
+                </div>
+                <div class="summary-row" style="margin-top: 1rem; border: none; align-items: flex-end;">
+                    <span class="summary-label" style="margin-bottom: 6px;">Total due today</span>
+                    <div class="price-total">
+                        ₹{{ "%.2f"|format(creator_price_inr) }}<span class="price-period">/mo</span>
+                    </div>
+                </div>
+            </div>
+
+            {% if is_logged_in %}
+            <button class="btn-checkout" id="checkoutBtn" onclick="initiateCheckout()">
+                <span>Subscribe & Claim</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+            </button>
+            <p class="auth-state">Logged in securely as <strong>{{ session['user'].get('email') }}</strong></p>
+            {% else %}
+            <!-- FIX Issue #11: Use the app's standard login popup instead of a broken route -->
+            <button class="btn-secondary" onclick="showLoginPopup()">
+                Log In to Continue
+            </button>
+            <p class="auth-state">You need a free account to safely store and manage your agent.</p>
+            {% endif %}
+
+            <div class="secure-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                Guaranteed safe & secure checkout. Cancel anytime.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+    {% if not is_logged_in %}
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            if (typeof showLoginPopup === 'function') {
+                showLoginPopup();
+            }
+        }, 300);
+    });
+    {% endif %}
+
+    async function initiateCheckout() {
+        const btn = document.getElementById('checkoutBtn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span>Processing...</span>';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch('/api/marketplace/subscribe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    transfer_code: '{{ transfer.transfer_code }}'
+                })
+            });
+
+            let result;
+            try {
+                result = await response.json();
+            } catch (parseError) {
+                console.error('[Checkout] Failed to parse response JSON:', response.status, response.statusText, parseError);
+                showNotification('Invalid response from server. Please try again.', 'error');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                return;
+            }
+
+            // FIX Issue #11: Handle 401 from the subscribe endpoint for logged-out users
+            if (response.status === 401) {
+                console.warn('[Checkout] Unauthorized (401) - user not logged in');
+                showNotification('Please log in to subscribe to this chatbot.', 'error');
+                if (typeof showLoginPopup === 'function') {
+                    showLoginPopup();
+                }
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                return;
+            }
+
+            if (response.status !== 200 && response.status !== 201) {
+                console.error('[Checkout] Error response from server:', response.status, result);
+            }
+
+            if (result.status === 'success') {
+                console.log('[Checkout] Success - subscription created:', result.subscription_id);
+                const cancelCheckout = () => {
+                    fetch('/api/marketplace/cancel_checkout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ transfer_code: '{{ transfer.transfer_code }}' })
+                    }).catch(err => console.error("[Checkout] Error cancelling checkout:", err));
+                };
+
+                const options = {
+                    "key": result.razorpay_key_id,
+                    "subscription_id": result.subscription_id,
+                    "name": "YoppyChat Marketplace",
+                    "description": result.plan_name,
+                    "image": "https://app.yoppychat.com/static/images/logo/logo.png",
+                    "handler": function (response) {
+                        console.log('[Checkout] Payment successful:', response);
+                        showNotification("Payment successful! Redirecting to confirmation page...", 'success');
+                        // Redirect to thank you page instead of directly to the item
+                        window.location.href = "/marketplace/thank-you/{{ transfer.transfer_code }}";
+                    },
+                    "modal": {
+                        "ondismiss": function () {
+                            console.log('[Checkout] Modal dismissed');
+                            cancelCheckout();
+                            btn.innerHTML = originalText;
+                            btn.disabled = false;
+                        }
+                    },
+                    "prefill": {
+                        "name": result.user_name || "",
+                        "email": result.user_email || ""
+                    },
+                    "theme": {
+                        "color": "#FF6B35"
+                    }
+                };
+
+                const rzp = new Razorpay(options);
+                rzp.on('payment.failed', function (response) {
+                    console.error('[Checkout] Payment failed:', response);
+                    showNotification("Payment failed: " + response.error.description, 'error');
+                    cancelCheckout();
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                });
+                rzp.open();
+
+            } else {
+                console.error('[Checkout] Error from endpoint:', result.message || 'Unknown error');
+                showNotification(result.message || 'Error initiating checkout.', 'error');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        } catch (error) {
+            console.error('[Checkout] Network/Fetch Error:', error.message, error.stack);
+            showNotification('A network error occurred. Please check your connection and try again.', 'error');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+</script>
+
+<!-- Razorpay SDK -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+{% endblock %}

@@ -1,33 +1,49 @@
 {% from "_macros.html" import render_sidebar_channel_item %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-M6N6YSPRHC"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-M6N6YSPRHC');
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}YouTube Channel QA{% endblock %}</title>
+    {% block seo_head %}
+    {# Default: no extra meta tags. Pages that need SEO override this block. #}
+    {% endblock %}
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap"
+        media="print" onload="this.media='all'">
+
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo/favicon.png') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/logo/favicon.png') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main-purged.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main-purged.css', v=1775245547) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css', v=1775245547) }}">
     {% block page_styles %}{% endblock %}
     <script>
-        (function() {
+        (function () {
             const theme = localStorage.getItem('theme') || 'light';
             if (theme === 'dark') {
                 document.documentElement.setAttribute('data-theme', 'dark');
             }
         })();
     </script>
+
 </head>
+
 <body>
     <div id="notification-container" class="notification-container"></div>
 
-    <button class="hamburger" id="hamburgerBtn" aria-label="Toggle Sidebar">
+    <button class="hamburger" id="hamburgerBtn" aria-label="Toggle Sidebar" aria-expanded="false">
         <span></span><span></span><span></span>
     </button>
 
@@ -35,170 +51,440 @@
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <a href="{{ url_for('channel') }}" class="sidebar-logo-link">
-                    <img src="{{ url_for('static', filename='images/logo/primiry__logo.png') }}" alt="yoppychat Logo" class="sidebar-logo-img logo-light">
-                    <img src="{{ url_for('static', filename='images/logo/primiry_logo_dark.png') }}" alt="yoppychat Logo" class="sidebar-logo-img logo-dark">
+                    <img src="{{ url_for('static', filename='images/logo/primiry__logo.png') }}" alt="yoppychat Logo"
+                        class="sidebar-logo-img logo-light">
+                    <img src="{{ url_for('static', filename='images/logo/primiry_logo_dark.png') }}"
+                        alt="yoppychat Logo" class="sidebar-logo-img logo-dark">
                 </a>
             </div>
             <div class="sidebar-content">
                 <div class="channel-section">
-                    {% if user_status %}
                     <div class="channel-section-title">Channels</div>
                     <div class="channel-list">
-                        
-                            {% set can_add_personal = user_status.usage.channels_processed < user_status.limits.max_channels %}
+                        {% if user_status %}
+                        {% set can_add_personal = user_status.usage.channels_processed < user_status.limits.max_channels
+                            %} {# For community owners, check if they can add more shared channels #} {% set
+                            can_add_shared=False %} {% if user_status.is_active_community_owner %} {% set
+                            can_add_shared=True %} {% endif %} {% set
+                            is_google_reviews=request.endpoint=='google_reviews.google_reviews_dashboard' %} {% if
+                            can_add_personal or can_add_shared %} {% if is_google_reviews %} <div
+                            class="add-channel-btn" onclick="showNewForm()">+ Add Business</div>
+                    {% else %}
+                    <div class="add-channel-btn" onclick="location.href='/chatbot/create-ui'">+ Add Channel</div>
+                    {% endif %}
+                    {% elif user_status.is_whop_user %}
+                    {% if is_google_reviews %}
+                    <div class="add-channel-btn"
+                        onclick="showUpgradePopup('You have reached your business limit. Please upgrade for more.')">+
+                        Add Business (Upgrade)</div>
+                    {% else %}
+                    <div class="add-channel-btn"
+                        onclick="showUpgradePopup('You have reached your channel limit. Please upgrade for more.')">+
+                        Add Channel (Upgrade)</div>
+                    {% endif %}
+                    {% else %}
+                    <div class="add-channel-btn disabled">{% if is_google_reviews %}Business{% else %}Channel{% endif %}
+                        Limit Reached</div>
+                    {% endif %}
+                    {% endif %}
 
-                            {# For community owners, check if they can add more shared channels #}
-                            {% set can_add_shared = False %}
-                            {% if user_status.is_active_community_owner %}
-                                {# This part requires fetching community status, which might be complex here.
-                                   Assuming a simple check for now, but a more robust solution might need a dedicated function.
-                                   For simplicity, we'll just check if they are an owner. #}
-                                {% set can_add_shared = True %}
-                            {% endif %}
+                    {% if saved_channels %}
+                    {% for name, channel in saved_channels.items() %}
+                    {{ render_sidebar_channel_item(channel, name, community_status) }}
+                    {% endfor %}
+                    {% endif %}
 
-                            {% if can_add_personal or can_add_shared %}
-                                <div class="add-channel-btn" onclick='location.href="{{ url_for("channel") }}"'>+ Add Channel</div>
-                            {% elif user_status.is_whop_user %}
-                                <div class="add-channel-btn" onclick="showUpgradePopup('You have reached your channel limit. Please upgrade for more.')">+ Add Channel (Upgrade)</div>
-                            {% else %}
-                                <div class="add-channel-btn disabled">Channel Limit Reached</div>
-                            {% endif %}
-                        
-
-                        {% for name, channel in saved_channels.items() %}
-                            {{ render_sidebar_channel_item(channel, name, community_status) }}
+                    {% if is_google_reviews and settings_list|default([])|length > 0 %}
+                        {% for business in settings_list %}
+                        {% set is_active = selected_settings and selected_settings.id == business.id %}
+                        <div class="channel-item-wrapper {% if is_active %}active{% endif %}">
+                            <a class="channel-link"
+                                href="{{ url_for('google_reviews.google_reviews_dashboard', sid=business.id) }}"
+                                title="{{ business.business_name }}">
+                                <div class="channel-avatar" style="display:flex;align-items:center;justify-content:center;background:var(--surface-medium);border:1px solid var(--neutral-200);border-radius:50%;width:36px;height:36px;flex-shrink:0;margin-right:12px;">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;">
+                                        <rect x="2" y="7" width="20" height="14" rx="2"/>
+                                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                                    </svg>
+                                </div>
+                                <span class="channel-name">{{ business.business_name or 'Untitled' }}</span>
+                            </a>
+                        </div>
                         {% endfor %}
-                    </div>
                     {% endif %}
                 </div>
-                
             </div>
+    </div>
 
-            {% if user and not session.get('active_community_id') %}
-            <div class="sidebar-actions-section">
-                <a href="{{ url_for('dashboard') }}" class="sidebar-action-item">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-layout"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+    {% if user and not session.get('active_community_id') %}
+    <div class="sidebar-actions-section"
+        style="padding-top: 0; padding-bottom: 0; border-top: 1px solid var(--border-color); margin-top: 0.5rem;">
+        <div class="sidebar-tools-toggle" onclick="toggleBusinessTools()"
+            style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem 0.5rem; cursor: pointer; color: var(--text-color); margin-top: 0.25rem;">
+            <div style="display: flex; align-items: center; gap: 12px; font-weight: 500; font-size: 0.95rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="feather feather-briefcase" style="opacity:0.8;">
+                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                </svg>
+                Business Tools
+            </div>
+            <svg id="businessToolsChevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                style="transition: transform 0.3s ease; opacity: 0.6;">
+                <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+        </div>
+
+        <div id="businessToolsMenu"
+            style="max-height: 0; overflow: hidden; transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1); padding-left: 0.5rem;">
+            <div style="padding-bottom: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem;">
+                <a href="{{ url_for('dashboard') }}"
+                    class="sidebar-action-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                        <line x1="9" y1="21" x2="9" y2="9"></line>
+                    </svg>
                     <span>Dashboard</span>
                 </a>
-            {# Only show the Earnings link if the user is currently on the dashboard page #}
-            {% if request.endpoint == 'dashboard' %}
-            <a href="{{ url_for('earnings_page') }}" class="sidebar-action-item">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-dollar-sign"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                <span>Earnings</span>
-            </a>
-            {% endif %}
+                <a href="{{ url_for('chatbot_create_ui') }}"
+                    class="sidebar-action-item {% if request.endpoint == 'chatbot_create_ui' %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span>AI Chatbots</span>
+                </a>
+                <a href="{{ url_for('google_reviews.google_reviews_dashboard') }}"
+                    class="sidebar-action-item {% if request.endpoint == 'google_reviews.google_reviews_dashboard' %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon
+                            points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+                        </polygon>
+                    </svg>
+                    <span>Google Reviews</span>
+                </a>
+                <a href="{{ url_for('earnings_page') }}"
+                    class="sidebar-action-item {% if request.endpoint == 'earnings_page' %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                    <span>Earnings</span>
+                </a>
+
+                {% if is_admin %}
+                <a href="{{ url_for('admin_dashboard') }}"
+                    class="sidebar-action-item {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                    <span>Admin Dashboard</span>
+                </a>
+                {% endif %}
             </div>
-            {% endif %}
+        </div>
+        <script>
+            function toggleBusinessTools() {
+                const menu = document.getElementById('businessToolsMenu');
+                const chevron = document.getElementById('businessToolsChevron');
+                if (menu.style.maxHeight === '0px' || menu.style.maxHeight === '') {
+                    menu.style.maxHeight = '500px';
+                    chevron.style.transform = 'rotate(180deg)';
+                    localStorage.setItem('businessToolsExpanded', 'true');
+                } else {
+                    menu.style.maxHeight = '0px';
+                    chevron.style.transform = 'rotate(0deg)';
+                    localStorage.setItem('businessToolsExpanded', 'false');
+                }
+            }
+            document.addEventListener('DOMContentLoaded', () => {
+                const menu = document.getElementById('businessToolsMenu');
+                if (!menu) return;
+                const chevron = document.getElementById('businessToolsChevron');
+                const hasActiveItem = menu.querySelector('.active') !== null;
+                if (hasActiveItem || localStorage.getItem('businessToolsExpanded') === 'true') {
+                    menu.style.maxHeight = '500px';
+                    if (chevron) chevron.style.transform = 'rotate(180deg)';
+                }
+            });
+        </script>
+    </div>
+    {% endif %}
 
-            <div class="sidebar-footer">
-                <div style="position: relative;" id="profile-container">
-                    <div class="user-profile-section" id="user-profile-trigger" style="cursor: pointer;">
-                        {% if session.user %}
-                            <div class="user-avatar">
-                                {# --- START: MODIFIED AVATAR LOGIC --- #}
-                                {# Get the user's name or fallback to their email to create an initial #}
-                                {% set user_name = session.user.user_metadata.full_name or session.user.email %}
-                                
-                                {# Check if an avatar URL is provided #}
-                                {% if session.user.user_metadata.avatar_url %}
-                                    <img src="{{ session.user.user_metadata.avatar_url }}" 
-                                         alt="User Avatar" 
-                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                    <span class="avatar-initial" style="display: none;">{{ user_name[0] | upper if user_name }}</span>
-                                {% else %}
-                                    {# If no avatar URL, just show the initial #}
-                                    <span class="avatar-initial">{{ user_name[0] | upper if user_name }}</span>
-                                {% endif %}
-                                {# --- END: MODIFIED AVATAR LOGIC --- #}
-                            </div>
-                        
-                            <div class="user-details">
-                                <span class="user-name">{{ session.user.user_metadata.full_name or session.user.email }}</span>
-                            </div>
-                        {% else %}
-                            <a href="#" onclick="showLoginPopup()" class="login-prompt-btn">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points=" १० १७ १५ १२ १० ७"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-                                <span>Login or Sign Up</span>
-                            </a>
-                        {% endif %}
-                    </div>
+    <div class="sidebar-footer">
+        <div style="position: relative;" id="profile-container">
+            <div class="user-profile-section" id="user-profile-trigger" style="cursor: pointer;">
+                {% if session.user %}
+                <div class="user-avatar">
+                    {% set user_name = session.user.user_metadata.full_name or session.user.email %}
 
-                    {% if user and user_status %}
-                    <div class="profile-menu" id="user-profile-menu">
-                        <div class="menu-plan-display">
-                            <div class="plan-badge">{{ user_status.plan_name | title }} Plan</div>
-                            <p class="plan-queries">
-                                {% if user_status.has_personal_plan or not user_status.is_whop_user %}
-                                    {% if user_status.limits.max_queries_per_month|string() == 'inf' %}
-                                        You have <strong>Unlimited</strong> personal queries.
-                                    {% else %}
-                                        You have <strong>{{ (user_status.limits.max_queries_per_month - user_status.usage.queries_this_month) | int }}</strong> personal queries remaining.
-                                    {% endif %}
-                                {% elif community_status %}
-                                    The community has <strong>{{ (community_status.limits.query_limit - community_status.usage.queries_used) | int }}</strong> shared queries remaining.
-                                {% endif %}
-                            </p>
-                        </div>
+                    {# 1. Try to show Image #}
+                    {% if session.user.user_metadata.avatar_url %}
+                    <img src="{{ session.user.user_metadata.avatar_url }}" alt="User Avatar" class="avatar-img"
+                        onload="this.style.display='block'; this.parentElement.classList.remove('fallback-active')"
+                        onerror="this.style.display='none'; this.parentElement.classList.add('fallback-active')">
+                    {% endif %}
 
-                        {% if user_status.plan_id != 'pro' %}
-                        <a href="#" onclick="showPricingModal(); return false;" class="menu-upgrade-button">
-                            <span>✨ Upgrade Plan</span>
-                        </a>
-                        {% endif %}
+                    {# 2. Fallback Initials (Always present in DOM, hidden by CSS unless needed) #}
+                    <span class="avatar-initial">{{ user_name[0] | upper if user_name else 'U' }}</span>
+                </div>
 
-                        <ul class="menu-links">
-                            {% if not is_embedded_whop_user %}
-                             <li><a href="{{ url_for('about') }}">About</a></li>
-                             <li><a href="{{ url_for('terms') }}">Terms of Service</a></li>
-                             <li><a href="{{ url_for('privacy') }}">Privacy Policy</a></li>
-                             <li><a href="#" onclick="handleLogout(event)" class="logout">Logout</a></li>
-                            {% endif %}
-                             <li>
-                                 <div class="menu-toggle-option">
-                                     <span>Dark Mode</span>
-                                     <label class="theme-switch">
-                                         <input type="checkbox" id="profile-theme-toggle">
-                                         <span class="slider"></span>
-                                     </label>
-                                 </div>
-                             </li>
-                        </ul>
-                    </div>
+                <div class="user-details">
+                    <span class="user-name">{{ session.user.user_metadata.full_name or session.user.email }}</span>
+                    {% if user_status %}
+                    <span class="user-plan">{{ user_status.plan_name | title }} Plan</span>
                     {% endif %}
                 </div>
+                {% else %}
+                <a href="#" onclick="showLoginPopup()" class="login-prompt-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                        <polyline points="10 17 15 12 10 7" />
+                        <line x1="15" y1="12" x2="3" y2="12" />
+                    </svg>
+                    <span>Login or Sign Up</span>
+                </a>
+                {% endif %}
             </div>
-        </aside>
 
-        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+            {% if user and user_status %}
+            <div class="profile-menu" id="user-profile-menu">
+                <div class="menu-plan-display">
+                    <div class="plan-badge">{{ user_status.plan_name | title }} Plan</div>
+                    <p class="plan-credits">
+                        {% if user_status.has_personal_plan or not user_status.is_whop_user %}
+                        {% if user_status.limits.max_queries_per_month|string() == 'inf' %}
+                        You have <strong>Unlimited</strong> personal credits.
+                        {% else %}
+                        You have <strong>{{ (user_status.limits.max_queries_per_month -
+                            user_status.usage.queries_this_month) | int }}</strong> personal credits remaining.
+                        {% endif %}
+                        {% elif community_status %}
+                        The community has <strong>{{ (community_status.limits.query_limit -
+                            community_status.usage.queries_used) | int }}</strong> shared credits remaining.
+                        {% endif %}
+                    </p>
+                </div>
 
-        <main class="main-content {% if request.endpoint in ['ask', 'public_chat_page'] %}has-mobile-nav{% endif %}">
-            <div class="card">
-                {% block content %}{% endblock %}
+
+                <a href="#" onclick="event.preventDefault(); showPricingModal();" class="menu-upgrade-button">
+                    <span>✨ Upgrade Plan</span>
+                </a>
+
+
+                <ul class="menu-links">
+                    {% if not is_embedded_whop_user %}
+                    <li><a href="{{ url_for('about') }}">About</a></li>
+                    <li><a href="{{ url_for('terms') }}">Terms of Service</a></li>
+                    <li><a href="{{ url_for('privacy') }}">Privacy Policy</a></li>
+                    <li><a href="#" onclick="handleLogout(event)" class="logout">Logout</a></li>
+                    {% endif %}
+                    <li>
+                        <div class="menu-toggle-option">
+                            <span>Dark Mode</span>
+                            <label class="theme-switch">
+                                <input type="checkbox" id="profile-theme-toggle">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </li>
+                </ul>
             </div>
-        </main>
+            {% endif %}
+        </div>
+    </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <main class="main-content {% if request.endpoint in ['ask', 'public_chat_page'] %}has-mobile-nav{% endif %}" style="position:relative;">
+        {% if user %}
+        <!-- Notification Bell – top-right of main content -->
+        <style>
+            #notif-bell-wrapper {
+                position: absolute;
+                top: 16px;
+                right: 24px;
+                z-index: 200;
+            }
+            #notif-panel {
+                width: 340px;
+            }
+            /* Mobile: move bell below the hamburger & narrow dropdown */
+            @media (max-width: 767px) {
+                #notif-bell-wrapper {
+                    top: 56px;
+                    right: 12px;
+                }
+                #notif-panel {
+                    width: min(340px, 92vw);
+                    right: 0;
+                }
+            }
+        </style>
+        <div id="notif-bell-wrapper">
+            <button id="notif-bell-btn" onclick="toggleNotifPanel()" title="Notifications"
+                style="background:var(--surface-light);border:1px solid var(--neutral-200);cursor:pointer;padding:8px 10px;color:var(--text-secondary);display:flex;align-items:center;justify-content:center;border-radius:var(--radius-full);box-shadow:var(--shadow-md);transition:all 0.2s;position:relative;gap:6px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                <span id="notif-badge" style="display:none;background:#ef4444;color:#fff;font-size:0.7rem;font-weight:700;border-radius:var(--radius-full);padding:0 6px;line-height:18px;">0</span>
+            </button>
+
+            <!-- Notification Dropdown Panel -->
+            <div id="notif-panel" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--surface-light);border:1px solid var(--neutral-200);border-radius:var(--radius-lg);box-shadow:var(--shadow-xl);z-index:3000;overflow:hidden;">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--neutral-200);">
+                    <span style="font-weight:700;font-size:0.9rem;color:var(--text-primary);">🔔 Notifications</span>
+                    <button onclick="markAllNotifsRead()" style="background:none;border:none;cursor:pointer;font-size:0.75rem;color:var(--accent-primary);font-weight:600;">Mark all read</button>
+                </div>
+                <div id="notif-list" style="max-height:380px;overflow-y:auto;"></div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
     </div>
 
     <div id="login-popup-modal" class="login-popup-overlay">
         <div class="login-popup-content">
             <button class="login-popup-close-btn" onclick="closeLoginPopup()">&times;</button>
-            <div class="login-popup-icon">
-                <img src="{{ url_for('static', filename='images/logo/primiry__logo.png') }}" alt="yoppychat Logo" class="sidebar-logo-img logo-light" width="60" height="60">
-                <img src="{{ url_for('static', filename='images/logo/primiry_logo_dark.png') }}" alt="yoppychat Logo" class="sidebar-logo-img logo-dark" width="60" height="60">
+
+            <!-- Header -->
+            <div style="text-align:center; margin-bottom:12px;">
+                <p class="login-popup-title" id="auth-popup-title"
+                    style="font-size:1.25rem; font-weight:700; margin-bottom:8px;">Welcome to</p>
+                <img src="{{ url_for('static', filename='images/logo/primiry__logo.png') }}" alt="YoppyChat"
+                    class="logo-light" style="height:75px; width:auto; margin: 0 auto;">
+                <img src="{{ url_for('static', filename='images/logo/primiry_logo_dark.png') }}" alt="YoppyChat"
+                    class="logo-dark" style="height:75px; width:auto; margin: 0 auto;">
             </div>
-            <h3 class="login-popup-title">Welcome to YoppyChat</h3>
-            <p class="login-popup-subtitle">Create an account or log in to continue</p>
-            <button id="google-login-btn" class="login-popup-google-btn">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M19.9999 10.2248C19.9999 9.53448 19.9452 8.85345 19.8265 8.18103H10.204V11.8534H15.7516C15.5344 13.069 14.8973 14.1207 13.9648 14.7759V17.2672H16.7137C18.6637 15.4397 19.9999 13.0172 19.9999 10.2248Z" fill="#4285F4"/><path d="M10.2042 20C12.8363 20 15.0432 19.181 16.7137 17.2672L13.9648 14.7759C13.0958 15.3534 11.9053 15.7328 10.2042 15.7328C7.15271 15.7328 4.60271 13.7328 3.70615 11.0603H0.836304V13.6293C2.48115 17.2328 6.09494 20 10.2042 20Z" fill="#34A853"/><path d="M3.70604 11.0603C3.52839 10.5345 3.42839 9.97414 3.42839 9.39655C3.42839 8.81897 3.52839 8.25862 3.70604 7.73276V5.16379H0.836202C0.301636 6.24138 0 7.75862 0 9.39655C0 11.0345 0.301636 12.5517 0.836202 13.6293L3.70604 11.0603Z" fill="#FBBC05"/><path d="M10.2042 3.06034C11.5794 3.06034 12.9139 3.56034 13.9053 4.50862L16.7758 1.63793C15.0349 0.0344827 12.8279 0 10.2042 0C6.09494 0 2.48115 2.76724 0.836304 6.37069L3.70615 8.93966C4.60271 6.26724 7.15271 3.06034 10.2042 3.06034Z" fill="#EA4335"/></svg>
-                Continue with Google
-            </button>
-            <p class="login-popup-terms">By signing in, you are agreeing to the <strong>Terms of Service</strong> and <strong>Privacy Policy</strong></p>
+            <p class="login-popup-subtitle" id="auth-popup-subtitle" style="margin-bottom:18px;">Create an account or
+                log in to continue</p>
+
+            <!-- ── MAIN LOGIN PANEL ── -->
+            <div id="auth-main-panel">
+                <!-- Google Login -->
+                <button id="google-login-btn" class="login-popup-google-btn">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M19.9999 10.2248C19.9999 9.53448 19.9452 8.85345 19.8265 8.18103H10.204V11.8534H15.7516C15.5344 13.069 14.8973 14.1207 13.9648 14.7759V17.2672H16.7137C18.6637 15.4397 19.9999 13.0172 19.9999 10.2248Z"
+                            fill="#4285F4" />
+                        <path
+                            d="M10.2042 20C12.8363 20 15.0432 19.181 16.7137 17.2672L13.9648 14.7759C13.0958 15.3534 11.9053 15.7328 10.2042 15.7328C7.15271 15.7328 4.60271 13.7328 3.70615 11.0603H0.836304V13.6293C2.48115 17.2328 6.09494 20 10.2042 20Z"
+                            fill="#34A853" />
+                        <path
+                            d="M3.70604 11.0603C3.52839 10.5345 3.42839 9.97414 3.42839 9.39655C3.42839 8.81897 3.52839 8.25862 3.70604 7.73276V5.16379H0.836202C0.301636 6.24138 0 7.75862 0 9.39655C0 11.0345 0.301636 12.5517 0.836202 13.6293L3.70604 11.0603Z"
+                            fill="#FBBC05" />
+                        <path
+                            d="M10.2042 3.06034C11.5794 3.06034 12.9139 3.56034 13.9053 4.50862L16.7758 1.63793C15.0349 0.0344827 12.8279 0 10.2042 0C6.09494 0 2.48115 2.76724 0.836304 6.37069L3.70615 8.93966C4.60271 6.26724 7.15271 3.06034 10.2042 3.06034Z"
+                            fill="#EA4335" />
+                    </svg>
+                    Continue with Google
+                </button>
+
+                <!-- Divider -->
+                <div style="display:flex; align-items:center; gap:10px; margin:16px 0;">
+                    <div style="flex:1; height:1px; background:var(--border-color, #e5e7eb);"></div>
+                    <span style="font-size:0.8rem; color:var(--text-muted, #9ca3af); white-space:nowrap;">or continue
+                        with email</span>
+                    <div style="flex:1; height:1px; background:var(--border-color, #e5e7eb);"></div>
+                </div>
+
+                <!-- Email / Password Form -->
+                <form id="email-auth-form" onsubmit="handleEmailAuth(event)" novalidate>
+                    <div id="email-auth-error"
+                        style="display:none; background:#fee2e2; color:#b91c1c; padding:8px 12px; border-radius:8px; font-size:0.85rem; margin-bottom:10px;">
+                    </div>
+                    <div id="email-auth-success"
+                        style="display:none; background:#d1fae5; color:#065f46; padding:8px 12px; border-radius:8px; font-size:0.85rem; margin-bottom:10px;">
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <input id="email-auth-email" type="email" placeholder="Email address" autocomplete="email"
+                            required
+                            style="width:100%; padding:10px 14px; border:1px solid var(--border-color, #d1d5db); border-radius:8px; font-size:0.95rem; background:var(--bg-primary, #fff); color:var(--text-primary, #111); box-sizing:border-box; outline:none; transition:border-color 0.2s;"
+                            onfocus="this.style.borderColor='var(--accent-primary, #ff9a56)'"
+                            onblur="this.style.borderColor='var(--border-color, #d1d5db)'">
+                        <div style="position:relative;">
+                            <input id="email-auth-password" type="password" placeholder="Password"
+                                autocomplete="current-password" required
+                                style="width:100%; padding:10px 14px; border:1px solid var(--border-color, #d1d5db); border-radius:8px; font-size:0.95rem; background:var(--bg-primary, #fff); color:var(--text-primary, #111); box-sizing:border-box; outline:none; transition:border-color 0.2s;"
+                                onfocus="this.style.borderColor='var(--accent-primary, #ff9a56)'"
+                                onblur="this.style.borderColor='var(--border-color, #d1d5db)'">
+                        </div>
+                        <!-- Forgot Password link -->
+                        <div style="text-align:right; margin-top:-4px;">
+                            <a href="#" onclick="showForgotPassword(event)"
+                                style="font-size:0.82rem; color:var(--accent-primary, #ff9a56); text-decoration:none;">Forgot
+                                password?</a>
+                        </div>
+                    </div>
+                    <button type="submit" id="email-auth-submit"
+                        style="width:100%; margin-top:12px; padding:10px 14px; background:var(--accent-primary, #ff9a56); color:#fff; font-weight:600; border:none; border-radius:8px; font-size:0.95rem; cursor:pointer; transition:opacity 0.2s;">
+                        Sign In
+                    </button>
+                </form>
+
+                <!-- Toggle Sign In / Sign Up -->
+                <p style="text-align:center; margin-top:12px; font-size:0.85rem; color:var(--text-muted, #6b7280);">
+                    <span id="auth-toggle-text">Don't have an account?</span>
+                    <a href="#" id="auth-toggle-link" onclick="toggleAuthMode(event)"
+                        style="color:var(--accent-primary, #ff9a56); font-weight:600; text-decoration:none; margin-left:4px;">Sign
+                        Up</a>
+                </p>
+
+                <p class="login-popup-terms">By signing in, you agree to our <strong>Terms of Service</strong> and
+                    <strong>Privacy Policy</strong>.
+                </p>
+            </div>
+
+            <!-- ── FORGOT PASSWORD PANEL ── -->
+            <div id="auth-forgot-panel" style="display:none;">
+                <p style="font-size:0.9rem; color:var(--text-secondary, #4b5563); margin-bottom:16px; line-height:1.5;">
+                    Enter the email address linked to your account and we'll send you a password reset link.
+                </p>
+                <div id="forgot-pw-error"
+                    style="display:none; background:#fee2e2; color:#b91c1c; padding:8px 12px; border-radius:8px; font-size:0.85rem; margin-bottom:10px;">
+                </div>
+                <div id="forgot-pw-success"
+                    style="display:none; background:#d1fae5; color:#065f46; padding:8px 12px; border-radius:8px; font-size:0.85rem; margin-bottom:10px;">
+                </div>
+                <form id="forgot-pw-form" onsubmit="handleForgotPassword(event)" novalidate>
+                    <input id="forgot-pw-email" type="email" placeholder="Your email address" autocomplete="email"
+                        required
+                        style="width:100%; padding:10px 14px; border:1px solid var(--border-color, #d1d5db); border-radius:8px; font-size:0.95rem; background:var(--bg-primary, #fff); color:var(--text-primary, #111); box-sizing:border-box; outline:none; transition:border-color 0.2s;"
+                        onfocus="this.style.borderColor='var(--accent-primary, #ff9a56)'"
+                        onblur="this.style.borderColor='var(--border-color, #d1d5db)'">
+                    <button type="submit" id="forgot-pw-submit"
+                        style="width:100%; margin-top:12px; padding:10px 14px; background:var(--accent-primary, #ff9a56); color:#fff; font-weight:600; border:none; border-radius:8px; font-size:0.95rem; cursor:pointer; transition:opacity 0.2s;">
+                        Send Reset Link
+                    </button>
+                </form>
+                <p style="text-align:center; margin-top:14px; font-size:0.85rem;">
+                    <a href="#" onclick="hideForgotPassword(event)"
+                        style="color:var(--accent-primary, #ff9a56); text-decoration:none; font-weight:500;">← Back to
+                        sign in</a>
+                </p>
+            </div>
         </div>
     </div>
 
     <div id="confirmDeleteDialog" class="confirm-dialog" style="display: none;">
         <div class="confirm-content">
             <h3>Confirm Deletion</h3>
-            <p>Are you sure you want to delete the channel "<strong id="channelToDeleteName"></strong>"? This action cannot be undone.</p>
+            <p>Are you sure you want to delete the channel "<strong id="channelToDeleteName"></strong>"? This action
+                cannot be undone.</p>
             <div class="confirm-actions">
                 <button class="btn cancel-btn" onclick="cancelDeleteChannel()">Cancel</button>
                 <button class="btn confirm-btn">Delete</button>
@@ -206,212 +492,481 @@
         </div>
     </div>
 
-<div id="pricing-modal-overlay" class="login-popup-overlay">
-    <div class="login-popup-content" style="max-width: 1200px; text-align: left;">
-        <button class="login-popup-close-btn" onclick="closePricingModal()">&times;</button>
-        <div style="padding: 1rem;">
-            <h3 class="login-popup-title" style="text-align: center;">Simple, Scalable Pricing</h3>
-
-                                        <p style="text-align: center; margin-top: 2rem; color: var(--text-muted); font-weight: 500;">
-                We're committed to making this the best platform for creators and thier Viewers. 90% of all revenue is reinvested directly into improving this project.
-            </p>
-            <div class="pricing-grid-modal">
-                    <div class="pricing-card">
-                        <h4>Free</h4>
-                        <p class="text-muted">Get a taste of what's possible.</p>
-                        <p class="price">₹0 <span>/ month</span></p>
-                        <a href="#" class="btn-pricing btn-pricing-neutral">Get Started</a>
-                        <ul class="pricing-features">
-                            <li><span class="icon">✓</span>3 Channel</li>
-                            <li><span class="icon">✓</span>50 queries/month</li>
-                            <li><span class="icon">✓</span>Manual Refresh</li>
-                        </ul>
-                    </div>
-
-                    <div class="pricing-card featured">
+    <!-- Pricing Modal -->
+    <div id="pricing-modal-overlay" class="login-popup-overlay">
+        <div class="login-popup-content" id="pricing-popup-content"
+            style="max-width: 1200px; text-align: left; transform-origin: center;">
+            <button class="login-popup-close-btn" onclick="closePricingModal()">&times;</button>
+            <div style="padding: 1rem;">
+                <h3 class="login-popup-title" style="text-align: center;">Simple, Scalable Pricing</h3>
+                <p style="text-align: center; margin-top: 2rem; color: var(--text-muted); font-weight: 500;">
+                    We're committed to making this the best platform for creators and their Viewers. 90% of all revenue
+                    is reinvested directly into improving this project.
+                </p>
+                <div class="pricing-grid-modal">
+                    <div class="pricing-card featured" data-plan-type="personal">
                         <span class="popular-badge">MOST POPULAR</span>
                         <h4>Personal</h4>
-                        <p class="text-muted">For the serious community builder.</p>
-                        <p class="price price-featured">₹299 <span>/ month</span></p>
-                        <a href="#" onclick="buySubscription('{{ razorpay_plan_id_personal }}')" class="btn-pricing btn-pricing-accent">Choose Personal</a>
+                        <p class="text-muted">For the enthusiast who wants to dive deep.</p>
+                        <p class="price price-featured">&#x20B9;299 <span>/ month</span></p>
+                        {% if user_status and user_status.plan_name == 'Personal' %}
+                        <a class="btn-pricing btn-pricing-disabled">Current Plan</a>
+                        {% else %}
+                        <a href="#" onclick="buySubscription('personal', this)"
+                            class="btn-pricing btn-pricing-accent">Choose Personal</a>
+                        {% endif %}
                         <ul class="pricing-features">
-                            <li><span class="icon">✓</span>10 Channels</li>
-                            <li><span class="icon">✓</span>500+queries/month</li>
-                            <li><span class="icon">✓</span>Auto knowledge update</li>
-                            <li><span class="icon">✓</span>Faster Responses</li>
+                            <li><span class="icon">&#x2713;</span><strong>369 AI Credits/month</strong></li>
+                            <li><span class="icon">&#x2713;</span><strong>create Unlimited chatbots</strong></li>
+                            <li><span class="icon">&#x2713;</span><strong>WhatsApp, telegram, discord, youtube &amp; web Bot</strong></li>
+                            <li><span class="icon">&#x2713;</span><strong>Google Reviews Auto-Reply</strong></li>
+                            <li><span class="icon">&#x2713;</span><strong>Flow Builder</strong></li>
+                            <li><span class="icon">&#x2713;</span><strong>Profit Dashboard</strong></li>
+                            <li><span class="icon">&#x2713;</span><strong>Selling access </strong> <span
+                                    style="font-size: smaller; color: var(--text-muted);">(Auto Sync)</span></li>
                         </ul>
                     </div>
 
-                    <div class="pricing-card">
+                    <div class="pricing-card premium" data-plan-type="creator">
+                        <span class="premium-badge">ULTIMATE TIER</span>
                         <h4>Creator</h4>
-                        <p class="text-muted">A fully branded, white-glove experience.</p>
-                        <p class="price">₹1,499 <span>/ month</span></p>
-                        <a href="#" onclick="buySubscription('{{ razorpay_plan_id_creator }}')" class="btn-pricing btn-pricing-neutral">Choose Creator</a>
+                        <p class="text-muted">Build, deploy, and monetize your AI empire.</p>
+                        <p class="price">&#x20B9;2,799 <span>/ month</span></p>
+                        {% if user_status and user_status.plan_name == 'Creator' %}
+                        <a class="btn-pricing btn-pricing-disabled">Current Plan</a>
+                        {% else %}
+                        <a href="#" onclick="buySubscription('creator', this)"
+                            class="btn-pricing btn-pricing-premium">Unlock VIP Power</a>
+                        {% endif %}
                         <ul class="pricing-features">
-                             <li><span class="icon">✓</span>Unlimited Channels</li>
-                            <li><span class="icon">✓</span>2,000 queries/month</li>
-                            <li><span class="icon">✓</span>2,500 extra quries for your channel's chatbot</li>
-                            <li><span class="icon">✓</span>Faster Responses</li>
-                            <li><span class="icon">✓</span><strong>channel's chatbot features integration </strong></li>
+                            <li><span class="icon">&#x2713;</span><strong>Everything in Personal, plus:</strong></li>
+                            <li>
+                                <span class="icon">&#x2713;</span>
+                                <div style="display: flex; justify-content: space-between; width: 100%;">
+                                    <strong>Massive Engagement &#x1F680;</strong>
+                                    <span
+                                        style="font-size: smaller; color: #10B981; font-weight: 700; text-align: right; padding-left: 10px;">(10,000
+                                        Credits)</span>
+                                </div>
+                            </li>
+                            <li>
+                                <span class="icon">&#x2713;</span>
+                                <div style="display: flex; justify-content: space-between; width: 100%;">
+                                    <strong>Deploy Your AI Anywhere &#x1F30D;</strong>
+                                    <span
+                                        style="font-size: smaller; color: var(--text-muted); text-align: right; padding-left: 10px;">(Discord,
+                                        Telegram, Custom Embed &amp; more)</span>
+                                </div>
+                            </li>
                         </ul>
                     </div>
-            </div>
-        </div>
-    </div>
-</div>
 
-    <script>
-        // All JavaScript functions remain the same
-    </script>
-    {% block page_scripts %}{% endblock %}
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-        <script>
-        const IS_USER_LOGGED_IN = {{ 'true' if user else 'false' }};
-    </script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+                    <div class="pricing-card" data-plan-type="free-credits"
+                        style="border: 2px dashed #10B981; background: rgba(16, 185, 129, 0.02);">
+                        <span class="popular-badge" style="background: #10B981;">EARN CREDITS</span>
+                        <h4>Free Credits</h4>
+                        <p class="text-muted">Earn extra credits by sharing YoppyChat.</p>
+                        <p class="price">&#x20B9;0 <span>/ easy tasks</span></p>
 
-<script>
-    /**
-     * ===================================================================
-     * 1. GLOBALLY ACCESSIBLE FUNCTIONS
-     * ===================================================================
-     */
+                        <a href="https://wa.me/918081495964?text=Hi!%20I%20have%20shared%20the%20platform%20and%20would%20like%20to%20claim%20my%20free%20credits."
+                            target="_blank" class="btn-pricing"
+                            style="background: #25D366; color: white; border-color: #25D366;">Contact on WhatsApp</a>
 
-    function showNotification(message, type = 'info') {
-        const container = document.getElementById('notification-container');
-        if (!container) return;
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        notification.innerHTML = `<span class="notification-message">${message}</span>`;
-        container.appendChild(notification);
-        setTimeout(() => notification.classList.add('show'), 100);
-        setTimeout(() => {
-            notification.classList.remove('show');
-            setTimeout(() => { if (container.contains(notification)) container.removeChild(notification); }, 500);
-        }, 5000);
-    }
+                        <ul class="pricing-features">
+                            <li style="align-items: flex-start;">
+                                <span class="icon" style="color:#10B981; margin-top: 2px;">&#x2713;</span>
+                                <div>
+                                    <strong>Share a Post</strong> <span style="color: #10B981; font-weight: 700;">(+50
+                                        to +200 Credits)</span><br>
+                                    <span style="font-size: smaller; color: var(--text-muted);">Write about YoppyChat on
+                                        any social media.</span>
+                                </div>
+                            </li>
+                            <li style="align-items: flex-start;">
+                                <span class="icon" style="color:#10B981; margin-top: 2px;">&#x2713;</span>
+                                <div>
+                                    <strong>Share a Video</strong> <span style="color: #10B981; font-weight: 700;">(+100
+                                        to +500 Credits)</span><br>
+                                    <span style="font-size: smaller; color: var(--text-muted);">Post a reel, short, or
+                                        vlog on any platform.</span>
+                                </div>
+                            </li>
+                        </ul>
 
-    function showLoginPopup() {
-        const modal = document.getElementById('login-popup-modal');
-        if (modal) {
-            modal.style.display = 'flex';
-        }
+                        <div class="fc-hover-tips">
+                            <p style="font-size: 0.78rem; font-weight: 700; color: #10B981; margin-bottom: 6px;">💡
+                                Content ideas that earn more credits:</p>
+                            <ul>
+                                <li>Show the chatbot you built &amp; what it does</li>
+                                <li>Share your Google Reviews dashboard</li>
+                                <li>Tell how you're earning from the marketplace</li>
+                                <li>Explain how others can make money here too</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
 
-        // --- START: CORE FIX ---
-        // This logic now runs every time the popup is shown, guaranteeing the button works.
-        const supabaseUrl = "{{ SUPABASE_URL or '' }}";
-        const supabaseAnonKey = "{{ SUPABASE_ANON_KEY or '' }}";
 
-        if (supabaseUrl && supabaseAnonKey && window.supabase) {
-            if (!window.supabaseClient) {
-                window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-            }
-            
-            const googleLoginBtn = document.getElementById('google-login-btn');
-            if (googleLoginBtn && !googleLoginBtn.dataset.listenerAttached) {
-                googleLoginBtn.addEventListener('click', () => {
-                    // --- START: NEW REDIRECT LOGIC ---
-                    // Save the current URL to localStorage before redirecting to Google
-                    localStorage.setItem('login_redirect_url', window.location.href);
-                    // --- END: NEW REDIRECT LOGIC ---
-                    window.supabaseClient.auth.signInWithOAuth({
-                        provider: 'google',
-                        options: { redirectTo: "{{ url_for('auth_callback', _external=True) }}" }
-                    });
-                });
-                // Mark the button so we don't attach the listener more than once.
-                googleLoginBtn.dataset.listenerAttached = 'true';
-            }
-        } else {
-            console.warn("Supabase credentials not found. Auth features will be disabled.");
-        }
-        // --- END: CORE FIX ---
-    }
 
-    function closeLoginPopup() {
-        const modal = document.getElementById('login-popup-modal');
-        if (modal) modal.style.display = 'none';
-    }
+                <script>
+                    /**
+                     * ===================================================================
+                     * 1. GLOBALLY ACCESSIBLE FUNCTIONS
+                     * ===================================================================
+                     */
 
-    function showPricingModal() {
-        const modal = document.getElementById('pricing-modal-overlay');
-        if (modal) modal.style.display = 'flex';
-    }
+                    function showNotification(message, type = 'info') {
+                        const container = document.getElementById('notification-container');
+                        if (!container) return;
+                        const notification = document.createElement('div');
+                        notification.className = `notification ${type}`;
+                        notification.innerHTML = `<span class="notification-message">${message}</span>`;
+                        container.appendChild(notification);
+                        setTimeout(() => notification.classList.add('show'), 100);
+                        setTimeout(() => {
+                            notification.classList.remove('show');
+                            setTimeout(() => { if (container.contains(notification)) container.removeChild(notification); }, 500);
+                        }, 5000);
+                    }
 
-    function closePricingModal() {
-        const modal = document.getElementById('pricing-modal-overlay');
-        if (modal) modal.style.display = 'none';
-    }
+                    // --- Auth Mode: 'signin' | 'signup' | 'forgot' ---
+                    let _authMode = 'signin';
 
-    async function handleLogout(event) {
-        event.preventDefault();
-        if (window.supabaseClient) {
-            await window.supabaseClient.auth.signOut();
-        }
-        window.location.href = "{{ url_for('logout') }}";
-    }
+                    function showForgotPassword(event) {
+                        if (event) event.preventDefault();
+                        const mainPanel = document.getElementById('auth-main-panel');
+                        const forgotPanel = document.getElementById('auth-forgot-panel');
+                        const title = document.getElementById('auth-popup-title');
+                        const subtitle = document.getElementById('auth-popup-subtitle');
+                        if (mainPanel) mainPanel.style.display = 'none';
+                        if (forgotPanel) forgotPanel.style.display = 'block';
+                        if (title) title.textContent = 'Reset your password';
+                        if (subtitle) subtitle.textContent = "We'll email you a secure reset link";
+                        // Pre-fill email if typed
+                        const emailInput = document.getElementById('email-auth-email');
+                        const forgotEmailInput = document.getElementById('forgot-pw-email');
+                        if (emailInput && forgotEmailInput && emailInput.value) {
+                            forgotEmailInput.value = emailInput.value;
+                        }
+                        _authMode = 'forgot';
+                    }
 
-    function cancelDeleteChannel() {
-        const dialog = document.getElementById('confirmDeleteDialog');
-        if (dialog) dialog.style.display = 'none';
-    }
+                    function hideForgotPassword(event) {
+                        if (event) event.preventDefault();
+                        const mainPanel = document.getElementById('auth-main-panel');
+                        const forgotPanel = document.getElementById('auth-forgot-panel');
+                        const title = document.getElementById('auth-popup-title');
+                        const subtitle = document.getElementById('auth-popup-subtitle');
+                        // Clear forgot panel state
+                        const errDiv = document.getElementById('forgot-pw-error');
+                        const okDiv = document.getElementById('forgot-pw-success');
+                        if (errDiv) { errDiv.style.display = 'none'; errDiv.textContent = ''; }
+                        if (okDiv) { okDiv.style.display = 'none'; okDiv.textContent = ''; }
+                        const forgotEmailInput = document.getElementById('forgot-pw-email');
+                        if (forgotEmailInput) forgotEmailInput.value = '';
+                        // Always restore the form so the input is visible next time the panel opens
+                        const forgotForm = document.getElementById('forgot-pw-form');
+                        if (forgotForm) forgotForm.style.display = '';
+                        if (forgotPanel) forgotPanel.style.display = 'none';
+                        if (mainPanel) mainPanel.style.display = 'block';
+                        if (title) title.textContent = 'Welcome to';
+                        if (subtitle) subtitle.textContent = 'Create an account or log in to continue';
+                        _authMode = 'signin';
+                    }
 
-    function confirmDeleteChannel(id, name, buttonElement) {
-        const dialog = document.getElementById('confirmDeleteDialog');
-        if (!dialog) return;
-        dialog.querySelector('#channelToDeleteName').textContent = name;
-        const confirmBtn = dialog.querySelector('.confirm-btn');
-        confirmBtn.onclick = () => deleteChannel(id, buttonElement);
-        dialog.style.display = 'flex';
-    }
+                    async function handleForgotPassword(event) {
+                        event.preventDefault();
+                        const email = document.getElementById('forgot-pw-email').value.trim();
+                        const errDiv = document.getElementById('forgot-pw-error');
+                        const okDiv = document.getElementById('forgot-pw-success');
+                        const submitBtn = document.getElementById('forgot-pw-submit');
 
-    function deleteChannel(id, buttonElement) {
-        if (!id || !buttonElement) {
-            console.error("Delete function called without ID or button reference.");
-            return;
-        }
-        cancelDeleteChannel();
-        buttonElement.disabled = true;
-        const spinner = document.createElement('div');
-        spinner.className = 'inline-spinner';
-        buttonElement.innerHTML = '';
-        buttonElement.appendChild(spinner);
-        fetch(`/delete_channel/${id}`, { method: 'POST' })
-            .then(res => {
-                if (!res.ok) return res.json().then(err => Promise.reject(err.message || 'Server error'));
-                return res.json();
-            })
-            .then(data => {
-                if (data.status === 'success') {
-                    showNotification('Channel deletion started in the background.', 'info');
-                    const cardsToRemove = document.querySelectorAll(`[data-channel-id="${id}"]`);
-                    cardsToRemove.forEach(card => {
-                        card.style.transition = 'all 0.5s ease';
-                        card.style.opacity = '0';
-                        card.style.transform = 'scale(0.95)';
-                        card.style.height = '0px';
-                        card.style.paddingTop = '0';
-                        card.style.paddingBottom = '0';
-                        card.style.marginTop = '0';
-                        card.style.marginBottom = '0';
-                        setTimeout(() => card.remove(), 500);
-                    });
-                } else {
-                    throw new Error(data.message);
-                }
-            })
-            .catch(err => {
-                showNotification(err.toString(), 'error');
-                buttonElement.disabled = false;
-                buttonElement.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-l-1h-5l-1 1H5v2h14V4z"/></svg>`;
-            });
-    }
+                        if (errDiv) { errDiv.style.display = 'none'; errDiv.textContent = ''; }
+                        if (okDiv) { okDiv.style.display = 'none'; okDiv.textContent = ''; }
 
-    function showUpgradePopup(message) {
-        const modal = document.getElementById('pricing-modal-overlay');
-        const modalContent = modal ? modal.querySelector('.login-popup-content > div') : null;
-        if (modal && modalContent) {
-            modalContent.innerHTML = `
+                        if (!email) {
+                            if (errDiv) { errDiv.textContent = 'Please enter your email address.'; errDiv.style.display = 'block'; }
+                            return;
+                        }
+                        if (!window.supabaseClient) {
+                            if (errDiv) { errDiv.textContent = 'Authentication service not available.'; errDiv.style.display = 'block'; }
+                            return;
+                        }
+
+                        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending...'; }
+
+                        try {
+                            const { error } = await window.supabaseClient.auth.resetPasswordForEmail(email, {
+                                redirectTo: window.location.origin + '/auth/reset-password'
+                            });
+                            if (error) {
+                                const msg = error.message || '';
+                                if (msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('too many')) {
+                                    // Supabase rate-limit: the previous email is still valid — tell the user
+                                    if (okDiv) {
+                                        okDiv.textContent = 'A reset link was already sent to this email. Please check your inbox (and spam folder) — the previous link is still valid for 1 hour.';
+                                        okDiv.style.display = 'block';
+                                    }
+                                    const forgotForm = document.getElementById('forgot-pw-form');
+                                    if (forgotForm) forgotForm.style.display = 'none';
+                                } else {
+                                    if (errDiv) { errDiv.textContent = msg; errDiv.style.display = 'block'; }
+                                }
+                            } else {
+                                if (okDiv) {
+                                    okDiv.textContent = 'Reset link sent! Check your inbox (and spam folder). The link expires in 1 hour.';
+                                    okDiv.style.display = 'block';
+                                }
+                                const forgotForm = document.getElementById('forgot-pw-form');
+                                if (forgotForm) forgotForm.style.display = 'none';
+                            }
+                        } catch (err) {
+                            console.error('Forgot password error:', err);
+                            if (errDiv) { errDiv.textContent = 'An unexpected error occurred. Please try again.'; errDiv.style.display = 'block'; }
+                        } finally {
+                            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send Reset Link'; }
+                        }
+                    }
+
+                    function toggleAuthMode(event) {
+                        if (event) event.preventDefault();
+                        _authMode = (_authMode === 'signin') ? 'signup' : 'signin';
+                        const submitBtn = document.getElementById('email-auth-submit');
+                        const toggleText = document.getElementById('auth-toggle-text');
+                        const toggleLink = document.getElementById('auth-toggle-link');
+                        const subtitle = document.getElementById('auth-popup-subtitle');
+                        const pwdInput = document.getElementById('email-auth-password');
+                        const emailError = document.getElementById('email-auth-error');
+                        const emailSuccess = document.getElementById('email-auth-success');
+                        if (emailError) { emailError.style.display = 'none'; emailError.textContent = ''; }
+                        if (emailSuccess) { emailSuccess.style.display = 'none'; emailSuccess.textContent = ''; }
+                        if (_authMode === 'signup') {
+                            if (submitBtn) submitBtn.textContent = 'Create Account';
+                            if (toggleText) toggleText.textContent = 'Already have an account?';
+                            if (toggleLink) toggleLink.textContent = 'Sign In';
+                            if (subtitle) subtitle.textContent = 'Create a free account to get started';
+                            if (pwdInput) pwdInput.placeholder = 'Password (min. 6 characters)';
+                        } else {
+                            if (submitBtn) submitBtn.textContent = 'Sign In';
+                            if (toggleText) toggleText.textContent = "Don't have an account?";
+                            if (toggleLink) toggleLink.textContent = 'Sign Up';
+                            if (subtitle) subtitle.textContent = 'Create an account or log in to continue';
+                            if (pwdInput) pwdInput.placeholder = 'Password';
+                        }
+                    }
+
+                    async function handleEmailAuth(event) {
+                        event.preventDefault();
+                        const email = document.getElementById('email-auth-email').value.trim();
+                        const password = document.getElementById('email-auth-password').value;
+                        const errorDiv = document.getElementById('email-auth-error');
+                        const successDiv = document.getElementById('email-auth-success');
+                        const submitBtn = document.getElementById('email-auth-submit');
+
+                        if (errorDiv) { errorDiv.style.display = 'none'; errorDiv.textContent = ''; }
+                        if (successDiv) { successDiv.style.display = 'none'; successDiv.textContent = ''; }
+
+                        if (!email || !password) {
+                            if (errorDiv) { errorDiv.textContent = 'Please enter your email and password.'; errorDiv.style.display = 'block'; }
+                            return;
+                        }
+
+                        if (!window.supabaseClient) {
+                            if (errorDiv) { errorDiv.textContent = 'Authentication service not available. Please try Google login.'; errorDiv.style.display = 'block'; }
+                            return;
+                        }
+
+                        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Please wait...'; }
+
+                        try {
+                            let authResult;
+                            if (_authMode === 'signup') {
+                                authResult = await window.supabaseClient.auth.signUp({ email, password });
+                            } else {
+                                authResult = await window.supabaseClient.auth.signInWithPassword({ email, password });
+                            }
+
+                            const { data, error } = authResult;
+
+                            if (error) {
+                                if (errorDiv) { errorDiv.textContent = error.message; errorDiv.style.display = 'block'; }
+                                return;
+                            }
+
+                            // Sign up with email confirmation required
+                            if (_authMode === 'signup' && data.user && !data.session) {
+                                if (successDiv) {
+                                    successDiv.textContent = 'Account created! Please check your email to confirm your account, then sign in.';
+                                    successDiv.style.display = 'block';
+                                }
+                                _authMode = 'signin';
+                                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Sign In'; }
+                                return;
+                            }
+
+                            if (data.session) {
+                                const expiresAt = data.session.expires_at || (Date.now() / 1000 + data.session.expires_in);
+                                const response = await fetch('/auth/set-cookie', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        access_token: data.session.access_token,
+                                        refresh_token: data.session.refresh_token,
+                                        expires_at: expiresAt
+                                    })
+                                });
+                                if (response.ok) {
+                                    const redirectUrl = localStorage.getItem('login_redirect_url');
+                                    if (redirectUrl) {
+                                        localStorage.removeItem('login_redirect_url');
+                                        window.location.href = redirectUrl;
+                                    } else {
+                                        window.location.href = '/chatbot/create-ui';
+                                    }
+                                } else {
+                                    if (errorDiv) { errorDiv.textContent = 'Login succeeded but session sync failed. Please try again.'; errorDiv.style.display = 'block'; }
+                                }
+                            }
+                        } catch (err) {
+                            console.error('Email auth error:', err);
+                            if (errorDiv) { errorDiv.textContent = 'An unexpected error occurred. Please try again.'; errorDiv.style.display = 'block'; }
+                        } finally {
+                            if (submitBtn) {
+                                submitBtn.disabled = false;
+                                submitBtn.textContent = (_authMode === 'signup') ? 'Create Account' : 'Sign In';
+                            }
+                        }
+                    }
+
+                    function showLoginPopup() {
+                        const modal = document.getElementById('login-popup-modal');
+                        if (modal) {
+                            modal.style.display = 'flex';
+                        }
+
+                        // Save the URL so users return to this exact page after logging in.
+                        // Avoid saving if we are already in a redirect loop or generic page
+                        if (!window.location.search.includes('login=1') && !window.location.pathname.includes('/auth/callback')) {
+                            localStorage.setItem('login_redirect_url', window.location.href);
+                        }
+
+                        // Reset to sign-in mode each time popup opens
+                        if (_authMode === 'forgot') hideForgotPassword(null);
+                        else if (_authMode !== 'signin') toggleAuthMode(null);
+
+                        const supabaseUrl = "{{ SUPABASE_URL or '' }}";
+                        const supabaseAnonKey = "{{ SUPABASE_ANON_KEY or '' }}";
+
+                        if (supabaseUrl && supabaseAnonKey && window.supabase) {
+                            if (!window.supabaseClient) {
+                                window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
+                                    realtime: { params: { eventsPerSecond: 0 } },
+                                    global: { headers: {} }
+                                });
+                                // Disable realtime connection (we don't use it)
+                                window.supabaseClient.realtime.disconnect();
+                            }
+
+                            const googleLoginBtn = document.getElementById('google-login-btn');
+                            if (googleLoginBtn && !googleLoginBtn.dataset.listenerAttached) {
+                                googleLoginBtn.addEventListener('click', () => {
+                                    localStorage.setItem('login_redirect_url', window.location.href);
+                                    window.supabaseClient.auth.signInWithOAuth({
+                                        provider: 'google',
+                                        options: { redirectTo: window.location.origin + "/auth/callback" }
+                                    });
+                                });
+                                googleLoginBtn.dataset.listenerAttached = 'true';
+                            }
+                        } else {
+                            console.warn("Supabase credentials not found. Auth features will be disabled.");
+                        }
+                    }
+
+                    function closeLoginPopup() {
+                        const modal = document.getElementById('login-popup-modal');
+                        if (modal) modal.style.display = 'none';
+                    }
+
+                    function showPricingModal() {
+                        const modal = document.getElementById('pricing-modal-overlay');
+                        if (modal) modal.style.display = 'flex';
+                    }
+
+                    function closePricingModal() {
+                        const modal = document.getElementById('pricing-modal-overlay');
+                        if (modal) modal.style.display = 'none';
+                    }
+
+                    async function handleLogout(event) {
+                        event.preventDefault();
+                        if (window.supabaseClient) {
+                            await window.supabaseClient.auth.signOut();
+                        }
+                        window.location.href = "{{ url_for('logout') }}";
+                    }
+
+                    function cancelDeleteChannel() {
+                        const dialog = document.getElementById('confirmDeleteDialog');
+                        if (dialog) dialog.style.display = 'none';
+                    }
+
+                    function confirmDeleteChannel(id, name, buttonElement) {
+                        const dialog = document.getElementById('confirmDeleteDialog');
+                        if (!dialog) return;
+                        dialog.querySelector('#channelToDeleteName').textContent = name;
+                        const confirmBtn = dialog.querySelector('.confirm-btn');
+                        confirmBtn.onclick = () => deleteChannel(id, buttonElement);
+                        dialog.style.display = 'flex';
+                    }
+
+                    function deleteChannel(id, buttonElement) {
+                        if (!id || !buttonElement) {
+                            console.error("Delete function called without ID or button reference.");
+                            return;
+                        }
+                        cancelDeleteChannel();
+                        buttonElement.disabled = true;
+                        const spinner = document.createElement('div');
+                        spinner.className = 'inline-spinner';
+                        buttonElement.innerHTML = '';
+                        buttonElement.appendChild(spinner);
+                        fetch(`/delete_channel/${id}`, { method: 'POST' })
+                            .then(res => {
+                                if (!res.ok) return res.json().then(err => Promise.reject(err.message || 'Server error'));
+                                return res.json();
+                            })
+                            .then(data => {
+                                if (data.status === 'success') {
+                                    showNotification('Channel deletion started in the background.', 'info');
+                                    const cardsToRemove = document.querySelectorAll(`[data-channel-id="${id}"]`);
+                                    cardsToRemove.forEach(card => {
+                                        card.style.transition = 'all 0.5s ease';
+                                        card.style.opacity = '0';
+                                        card.style.transform = 'scale(0.95)';
+                                        card.style.height = '0px';
+                                        card.style.paddingTop = '0';
+                                        card.style.paddingBottom = '0';
+                                        card.style.marginTop = '0';
+                                        card.style.marginBottom = '0';
+                                        setTimeout(() => card.remove(), 500);
+                                    });
+                                } else {
+                                    throw new Error(data.message);
+                                }
+                            })
+                            .catch(err => {
+                                showNotification(err.toString(), 'error');
+                                buttonElement.disabled = false;
+                                buttonElement.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-l-1h-5l-1 1H5v2h14V4z"/></svg>`;
+                            });
+                    }
+
+                    function showUpgradePopup(message) {
+                        const modal = document.getElementById('pricing-modal-overlay');
+                        const modalContent = modal ? modal.querySelector('.login-popup-content > div') : null;
+                        if (modal && modalContent) {
+                            modalContent.innerHTML = `
                 <div style="text-align: center; padding: 1rem 2rem;">
                     <h3 style="font-size: 1.5rem; color: var(--text-primary); margin-bottom: 0.75rem;">Upgrade Required</h3>
                     <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">${message}</p>
@@ -423,109 +978,357 @@
                     </a>
                 </div>
             `;
-            modal.style.display = 'flex';
-        }
-    }
-
-    /**
-     * Initializes the Supabase client and Google Login button.
-     */
-    function initializeAuth() {
-        const supabaseUrl = "{{ SUPABASE_URL or '' }}";
-        const supabaseAnonKey = "{{ SUPABASE_ANON_KEY or '' }}";
-        const loginModal = document.getElementById('login-popup-modal');
-
-        if (supabaseUrl && supabaseAnonKey && window.supabase) {
-            if (!window.supabaseClient) {
-                window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-            }
-            
-            const googleLoginBtn = document.getElementById('google-login-btn');
-            if (googleLoginBtn) {
-                googleLoginBtn.addEventListener('click', () => {
-                    window.supabaseClient.auth.signInWithOAuth({
-                        provider: 'google',
-                        options: { redirectTo: "{{ url_for('auth_callback', _external=True) }}" }
-                    });
-                });
-            }
-
-            if(loginModal) {
-                loginModal.addEventListener('click', (event) => {
-                    if (event.target === loginModal) {
-                        closeLoginPopup();
+                            modal.style.display = 'flex';
+                        }
                     }
-                });
-            }
-        } else {
-            console.warn("Supabase credentials not found. Auth features will be disabled.");
-        }
-    }
 
-    /**
-     * ===================================================================
-     * 2. CORE SITE LOGIC (RUNS AFTER DOM IS READY)
-     * ===================================================================
-     */
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize authentication logic on every page load.
-        initializeAuth();
+                    /**
+                     * Initializes the Supabase client and Google Login button.
+                     */
+                    function initializeAuth() {
+                        const supabaseUrl = "{{ SUPABASE_URL or '' }}";
+                        const supabaseAnonKey = "{{ SUPABASE_ANON_KEY or '' }}";
+                        const loginModal = document.getElementById('login-popup-modal');
 
-        // --- Theme Toggle Logic ---
-        const themeToggle = document.getElementById('profile-theme-toggle');
-        const updateThemeUI = (theme) => {
-            if (theme === 'dark') {
-                document.documentElement.setAttribute('data-theme', 'dark');
-                if (themeToggle) themeToggle.checked = true;
-            } else {
-                document.documentElement.removeAttribute('data-theme');
-                if (themeToggle) themeToggle.checked = false;
-            }
-        };
-        const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        updateThemeUI(currentTheme);
-        if (themeToggle) {
-            themeToggle.addEventListener('change', () => {
-                const newTheme = themeToggle.checked ? 'dark' : 'light';
-                localStorage.setItem('theme', newTheme);
-                updateThemeUI(newTheme);
-            });
-        }
+                        if (supabaseUrl && supabaseAnonKey && window.supabase) {
+                            if (!window.supabaseClient) {
+                                window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
+                                    realtime: { params: { eventsPerSecond: 0 } },
+                                    global: { headers: {} }
+                                });
+                                // Disable realtime connection (we don't use it)
+                                window.supabaseClient.realtime.disconnect();
+                            }
 
-        // --- Hamburger Menu Toggle ---
-        const hamburgerBtn = document.getElementById('hamburgerBtn');
-        const sidebar = document.getElementById('sidebar');
-        const sidebarOverlay = document.getElementById('sidebarOverlay');
-        if (hamburgerBtn && sidebar && sidebarOverlay) {
-            const toggleSidebar = () => {
-                sidebar.classList.toggle('open');
-                sidebarOverlay.classList.toggle('show');
-                hamburgerBtn.classList.toggle('active');
-            };
-            hamburgerBtn.addEventListener('click', toggleSidebar);
-            sidebarOverlay.addEventListener('click', toggleSidebar);
-        }
+                            const googleLoginBtn = document.getElementById('google-login-btn');
+                            if (googleLoginBtn && !googleLoginBtn.dataset.listenerAttached) {
+                                googleLoginBtn.addEventListener('click', () => {
+                                    localStorage.setItem('login_redirect_url', window.location.href);
+                                    window.supabaseClient.auth.signInWithOAuth({
+                                        provider: 'google',
+                                        options: { redirectTo: window.location.origin + "/auth/callback" }
+                                    });
+                                });
+                                googleLoginBtn.dataset.listenerAttached = 'true';
+                            }
 
-        // --- Profile Menu Toggle ---
-        const profileTrigger = document.getElementById('user-profile-trigger');
-        const profileMenu = document.getElementById('user-profile-menu');
-        if (profileTrigger && profileMenu) {
-            profileTrigger.addEventListener('click', (event) => {
-                event.stopPropagation();
-                profileMenu.classList.toggle('show');
-            });
-            window.addEventListener('click', () => {
-                if (profileMenu.classList.contains('show')) {
-                    profileMenu.classList.remove('show');
-                }
-            });
-        }
-    });
-</script>
+                            if (loginModal) {
+                                loginModal.addEventListener('click', (event) => {
+                                    if (event.target === loginModal) {
+                                        closeLoginPopup();
+                                    }
+                                });
+                            }
+                        } else {
+                            console.warn("Supabase credentials not found. Auth features will be disabled.");
+                        }
+                    }
 
+                    /**
+                     * ===================================================================
+                     * 2. CORE SITE LOGIC (RUNS AFTER DOM IS READY)
+                     * ===================================================================
+                     */
+                    document.addEventListener('DOMContentLoaded', function () {
+                        // Initialize authentication logic on every page load.
+                        initializeAuth();
 
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+                        // Auto-open login popup when redirected from a protected page
+                        const urlParams = new URLSearchParams(window.location.search);
+                        if (urlParams.get('login') === '1') {
+                            showLoginPopup();
+                            // Clean the ?login=1 from the URL bar without a page reload
+                            const cleanUrl = window.location.pathname + (urlParams.toString().replace('login=1', '').replace(/^&|&$/, '') ? '?' + urlParams.toString().replace('login=1', '').replace(/^&|&$/, '') : '');
+                            window.history.replaceState({}, '', cleanUrl);
+                        }
+
+                        // --- Theme Toggle Logic ---
+                        const themeToggle = document.getElementById('profile-theme-toggle');
+                        const themeSwitch = document.querySelector('.theme-switch');
+                        const updateThemeUI = (theme) => {
+                            if (theme === 'dark') {
+                                document.documentElement.setAttribute('data-theme', 'dark');
+                                if (themeToggle) themeToggle.checked = true;
+                            } else {
+                                document.documentElement.removeAttribute('data-theme');
+                                if (themeToggle) themeToggle.checked = false;
+                            }
+                        };
+                        const currentTheme = localStorage.getItem('theme') || 'light';
+                        updateThemeUI(currentTheme);
+                        
+                        // Add click handler to slider to toggle checkbox
+                        if (themeSwitch) {
+                            themeSwitch.addEventListener('click', (e) => {
+                                if (themeToggle) {
+                                    themeToggle.checked = !themeToggle.checked;
+                                    const newTheme = themeToggle.checked ? 'dark' : 'light';
+                                    localStorage.setItem('theme', newTheme);
+                                    updateThemeUI(newTheme);
+                                }
+                            });
+                        }
+                        
+                        if (themeToggle) {
+                            themeToggle.addEventListener('change', () => {
+                                const newTheme = themeToggle.checked ? 'dark' : 'light';
+                                localStorage.setItem('theme', newTheme);
+                                updateThemeUI(newTheme);
+                            });
+                        }
+
+                        // --- Hamburger Menu Toggle ---
+                        const hamburgerBtn = document.getElementById('hamburgerBtn');
+                        const sidebar = document.getElementById('sidebar');
+                        const sidebarOverlay = document.getElementById('sidebarOverlay');
+                        if (hamburgerBtn && sidebar && sidebarOverlay) {
+                            const toggleSidebar = () => {
+                                sidebar.classList.toggle('open');
+                                sidebarOverlay.classList.toggle('show');
+                                hamburgerBtn.classList.toggle('active');
+                                const expanded = hamburgerBtn.getAttribute('aria-expanded') === 'true';
+                                hamburgerBtn.setAttribute('aria-expanded', String(!expanded));
+                            };
+                            hamburgerBtn.addEventListener('click', toggleSidebar);
+                            sidebarOverlay.addEventListener('click', toggleSidebar);
+                        }
+
+                        // --- Profile Menu Toggle ---
+                        const profileTrigger = document.getElementById('user-profile-trigger');
+                        const profileMenu = document.getElementById('user-profile-menu');
+                        if (profileTrigger && profileMenu) {
+                            profileTrigger.addEventListener('click', (event) => {
+                                event.stopPropagation();
+                                profileMenu.classList.toggle('show');
+                            });
+                            window.addEventListener('click', () => {
+                                if (profileMenu.classList.contains('show')) {
+                                    profileMenu.classList.remove('show');
+                                }
+                            });
+                        }
+                    });
+                </script>
+
+                <script>
+                    /**
+                     * Initiates a subscription purchase via Razorpay for the given plan.
+                     * @param {string} plan - 'personal' or 'creator'
+                     * @param {HTMLElement} el - The button element that was clicked
+                     */
+                    async function buySubscription(plan, el) {
+                        if (!el) return;
+                        const origText = el.innerHTML;
+                        el.innerHTML = '<span class="button-spinner"></span>Processing...';
+                        el.style.pointerEvents = 'none';
+
+                        try {
+                            const response = await fetch('/create_razorpay_subscription', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ plan_type: plan })
+                            });
+
+                            if (response.status === 401) {
+                                closePricingModal();
+                                showLoginPopup();
+                                return;
+                            }
+
+                            const result = await response.json();
+
+                            if (result.status === 'success' && result.subscription_id) {
+                                const options = {
+                                    key: result.razorpay_key_id,
+                                    subscription_id: result.subscription_id,
+                                    name: 'YoppyChat AI',
+                                    description: result.plan_name || plan + ' Plan',
+                                    handler: function () {
+                                        showNotification('Subscription activated! Reloading...', 'success');
+                                        setTimeout(() => window.location.reload(), 1500);
+                                    },
+                                    theme: { color: '#FF6B35' }
+                                };
+                                const rzp = new Razorpay(options);
+                                rzp.on('payment.failed', function (resp) {
+                                    showNotification('Payment failed: ' + (resp.error.description || 'Unknown error'), 'error');
+                                });
+                                closePricingModal();
+                                rzp.open();
+                            } else {
+                                showNotification(result.message || 'Could not start payment. Please try again.', 'error');
+                            }
+                        } catch (err) {
+                            console.error('buySubscription error:', err);
+                            showNotification('A network error occurred. Please try again.', 'error');
+                        } finally {
+                            el.innerHTML = origText;
+                            el.style.pointerEvents = '';
+                        }
+                    }
+                </script>
+
+                <!-- PERFORMANCE: Supabase deferred, Razorpay/PayPal/marked lazy-loaded -->
+                <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+                {% block marked_script %}{% endblock %}
+
+                {% if user %}
+                <script>
+                (function() {
+                    var _seenNotifIds = new Set();
+                    var _notifPanelOpen = false;
+
+                    window.toggleNotifPanel = function() {
+                        var panel = document.getElementById('notif-panel');
+                        _notifPanelOpen = !_notifPanelOpen;
+                        panel.style.display = _notifPanelOpen ? 'block' : 'none';
+                        if (_notifPanelOpen) {
+                            setTimeout(function() {
+                                document.addEventListener('click', _closeNotifOnOutside);
+                            }, 0);
+                        }
+                    };
+
+                    function _closeNotifOnOutside(e) {
+                        var wrapper = document.getElementById('notif-bell-wrapper');
+                        if (wrapper && !wrapper.contains(e.target)) {
+                            document.getElementById('notif-panel').style.display = 'none';
+                            _notifPanelOpen = false;
+                            document.removeEventListener('click', _closeNotifOnOutside);
+                        }
+                    }
+
+                    window.markAllNotifsRead = function() {
+                        var ids = Array.from(_seenNotifIds);
+                        if (!ids.length) return;
+                        fetch('/api/notifications/mark_read', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({notification_ids: ids})
+                        }).then(function() {
+                            localStorage.removeItem('yc_seen_notif_ids');
+                            _seenNotifIds.clear();
+                            _updateBadge(0);
+                            var list = document.getElementById('notif-list');
+                            if (list) list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:0.85rem;">No new notifications</div>';
+                        });
+                    };
+
+                    function _updateBadge(count) {
+                        var badge = document.getElementById('notif-badge');
+                        if (!badge) return;
+                        if (count > 0) {
+                            badge.textContent = count > 9 ? '9+' : String(count);
+                            badge.style.display = 'inline-block';
+                        } else {
+                            badge.style.display = 'none';
+                        }
+                    }
+
+                    function _renderNotifs(notifs) {
+                        var list = document.getElementById('notif-list');
+                        if (!list) return;
+                        if (!notifs || notifs.length === 0) {
+                            list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:0.85rem;">You have no new notifications.</div>';
+                            return;
+                        }
+                        list.innerHTML = notifs.map(function(n) {
+                            var typeIcon = n.type === 'sale' ? '💰' : '🔔';
+                            var date = (n.created_at || '').replace('T', ' ').substring(0, 16);
+                            if (date.includes(' ')) {
+                                var parts = date.split(' ');
+                                var timeParts = parts[1].split(':');
+                                if (timeParts.length === 2) {
+                                    var hr = parseInt(timeParts[0], 10);
+                                    var min = timeParts[1];
+                                    var ampm = hr >= 12 ? 'PM' : 'AM';
+                                    hr = hr % 12;
+                                    hr = hr ? hr : 12;
+                                    var hrStr = hr < 10 ? '0' + hr : hr;
+                                    date = parts[0] + ' ' + hrStr + ':' + min + ' ' + ampm;
+                                }
+                            }
+                            return '<div style="padding:12px 16px;border-bottom:1px solid var(--neutral-100);display:flex;gap:10px;align-items:flex-start;">'
+                                + '<span style="font-size:1.2rem;flex-shrink:0;margin-top:2px;">' + typeIcon + '</span>'
+                                + '<div style="flex:1;">'
+                                + '<div style="font-size:0.83rem;color:var(--text-primary);font-weight:500;line-height:1.4;">' + n.message + '</div>'
+                                + '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px;">' + date + '</div>'
+                                + '</div></div>';
+                        }).join('');
+                    }
+
+                    function _playSound() {
+                        try {
+                            var audio = new Audio('/static/payment_received.mpeg');
+                            audio.volume = 0.6;
+                            audio.play();
+                        } catch(e) {}
+                    }
+
+                    var LS_KEY = 'yc_seen_notif_ids';
+
+                    function _loadSeenIds() {
+                        try {
+                            var raw = localStorage.getItem(LS_KEY);
+                            if (raw) JSON.parse(raw).forEach(function(id) { _seenNotifIds.add(id); });
+                        } catch(e) {}
+                    }
+
+                    function _saveSeenIds() {
+                        try {
+                            var arr = Array.from(_seenNotifIds);
+                            if (arr.length > 300) arr = arr.slice(arr.length - 300);
+                            localStorage.setItem(LS_KEY, JSON.stringify(arr));
+                        } catch(e) {}
+                    }
+
+                    function _pollNotifications() {
+                        fetch('/api/notifications/unread')
+                            .then(function(r) { return r.json(); })
+                            .then(function(data) {
+                                if (data.status !== 'ok') return;
+                                var notifs = data.notifications || [];
+
+                                var newSaleCount = 0;
+                                notifs.forEach(function(n) {
+                                    if (!_seenNotifIds.has(n.id)) {
+                                        _seenNotifIds.add(n.id);
+                                        if (n.type === 'sale') newSaleCount++;
+                                    }
+                                });
+                                _saveSeenIds();
+
+                                if (newSaleCount > 0) {
+                                    _playSound();
+                                    if (typeof showNotification === 'function') {
+                                        showNotification('🎉 ' + newSaleCount + ' new sale' + (newSaleCount > 1 ? 's' : '') + '! Check your Earnings page.', 'success');
+                                    }
+                                }
+
+                                _updateBadge(notifs.length);
+                                _renderNotifs(notifs);
+                            })
+                            .catch(function() { /* silent */ });
+                    }
+
+                    document.addEventListener('DOMContentLoaded', function() {
+                        _loadSeenIds();
+                        _pollNotifications();
+                        setInterval(_pollNotifications, 30000);
+                    });
+                })();
+                </script>
+                {% endif %}
+
+                <script>
+                    // Pass server-side data to JavaScript as global constants
+                    const IS_USER_LOGGED_IN = {{ 'true' if user else 'false' }};
+                    const SUPABASE_URL = "{{ SUPABASE_URL or '' }}";
+                    const SUPABASE_ANON_KEY = "{{ SUPABASE_ANON_KEY or '' }}";
+                </script>
+                <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+
+                {% block page_scripts %}{% endblock %}
 </body>
+
 </html>

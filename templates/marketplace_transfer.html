@@ -1,0 +1,574 @@
+{% extends "base.html" %}
+
+{% block title %}Create Transfer Link - YoppyChat AI{% endblock %}
+
+{% block page_styles %}
+<style>
+    .transfer-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1.5rem;
+    }
+
+    .transfer-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .transfer-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .transfer-header p {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+    }
+
+    .chatbot-preview {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1.5rem;
+        background: var(--surface-medium);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        margin-bottom: 2rem;
+    }
+
+    .chatbot-preview img {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .chatbot-details h3 {
+        margin: 0;
+        font-size: 1.25rem;
+    }
+
+    .chatbot-details p {
+        margin: 0.25rem 0 0;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    .pricing-card {
+        background: var(--surface-light);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .pricing-card h2 {
+        font-size: 1.25rem;
+        margin-top: 0;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .tier-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .tier-card {
+        padding: 1rem;
+        border: 2px solid var(--neutral-200);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.2s;
+        background: var(--surface-light);
+    }
+
+    .tier-card:hover {
+        border-color: var(--neutral-300);
+    }
+
+    .tier-card.selected {
+        border-color: var(--accent-primary);
+        background: rgba(99, 102, 241, 0.05);
+        /* indigo tint */
+    }
+
+    .tier-queries {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .tier-price {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin-top: 0.25rem;
+    }
+
+    .input-group {
+        display: flex;
+        align-items: center;
+        background: var(--surface-medium);
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+    }
+
+    .input-prefix {
+        padding: 0.75rem 1rem;
+        background: var(--neutral-100);
+        color: var(--text-secondary);
+        font-weight: 500;
+        border-right: 1px solid var(--neutral-200);
+    }
+
+    .input-group input {
+        flex: 1;
+        border: none;
+        padding: 0.75rem;
+        background: transparent;
+        font-size: 1rem;
+    }
+
+    .input-group input:focus {
+        outline: none;
+    }
+
+    .fee-breakdown {
+        background: rgba(255, 107, 53, 0.05);
+        /* Yoppy orange tint */
+        border: 1px dashed rgba(255, 107, 53, 0.3);
+        border-radius: var(--radius-md);
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+
+    .fee-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+        font-size: 0.95rem;
+    }
+
+    .fee-row:last-child {
+        margin-bottom: 0;
+        padding-top: 0.75rem;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+
+    .fee-row.highlight {
+        color: #10B981;
+        /* Green */
+        font-weight: 600;
+    }
+
+    .btn-create {
+        display: block;
+        width: 100%;
+        padding: 1rem;
+        background: var(--accent-primary);
+        color: white;
+        text-align: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+        border-radius: var(--radius-md);
+        border: none;
+        cursor: pointer;
+        transition: opacity 0.2s;
+        margin-top: 2rem;
+    }
+
+    .btn-create:hover {
+        opacity: 0.9;
+    }
+
+    .link-container {
+        display: none;
+        margin-top: 2rem;
+        padding: 2rem;
+        background: #10B981;
+        color: white;
+        text-align: center;
+        border-radius: var(--radius-lg);
+    }
+
+    .link-box {
+        display: flex;
+        background: white;
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        margin-top: 1rem;
+    }
+
+    .link-box input {
+        flex: 1;
+        padding: 1rem;
+        border: none;
+        font-size: 1rem;
+        color: var(--text-primary);
+    }
+
+    .link-box button {
+        padding: 0 1.5rem;
+        border: none;
+        background: var(--neutral-100);
+        color: var(--text-primary);
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .link-box button:hover {
+        background: var(--neutral-200);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="transfer-container">
+    <div class="transfer-header">
+        {% if item_type == 'chatbot' %}
+        <h1>Sell Your Chatbot</h1>
+        <p>Set a monthly credit allowance and price. You keep 100% of what your client pays.</p>
+        {% else %}
+        <h1>Sell Your Review Business</h1>
+        <p>Set a monthly credit allowance and price. You keep 100% of what your client pays.</p>
+        {% endif %}
+    </div>
+
+    <div class="chatbot-preview">
+        {% if item_type == 'chatbot' %}
+        <div class="item-avatar-container" style="{% if item_type != 'chatbot' %}border-radius: 12px;{% endif %}">
+        <img src="{{ item.channel_thumbnail or url_for('static', filename='images/logo/favicon.png') }}" alt="Chatbot Avatar">
+        </div>
+        <div class="chatbot-details">
+            <h3>{{ item.channel_name or item.creator_name }}</h3>
+            <p>{{ item.bot_type|capitalize }} Assistant</p>
+        </div>
+        {% else %}
+        <div class="item-avatar-container" style="{% if item_type != 'chatbot' %}border-radius: 12px;{% endif %}">
+        <img src="{{ item.logo_url or url_for('static', filename='images/logo/favicon.png') }}" alt="Business Avatar">
+        </div>
+        <div class="chatbot-details">
+            <h3>{{ item.business_name }}</h3>
+            <p>Google Review Business</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="pricing-card" id="configurationSection">
+        <h2>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-primary);">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+            Client Pricing
+        </h2>
+
+        <div class="form-group">
+            <label class="form-label">Who pays for the credits?</label>
+            <div style="display:flex; gap: 1rem; margin-bottom: 1.5rem;">
+                <label style="flex:1; padding: 1rem; border: 2px solid var(--accent-primary); border-radius: 8px; cursor: pointer; background: rgba(99, 102, 241, 0.05);" id="payerCreatorLabel">
+                    <input type="radio" name="creditPayer" value="creator" checked style="display:none;" onchange="updateBreakdown()">
+                    <div style="font-weight:700;">I will provide them</div>
+                    <div style="font-size:0.85rem; color: var(--text-secondary); margin-top:4px;">Deducted from your monthly limits</div>
+                </label>
+                <label style="flex:1; padding: 1rem; border: 2px solid var(--neutral-200); border-radius: 8px; cursor: pointer; background: var(--surface-light);" id="payerBuyerLabel">
+                    <input type="radio" name="creditPayer" value="buyer" style="display:none;" onchange="updateBreakdown()">
+                    <div style="font-weight:700;">Client buys them</div>
+                    <div style="font-size:0.85rem; color: var(--text-secondary); margin-top:4px;">₹0.8/credit added to checkout</div>
+                </label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Monthly Credit Allowance</label>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                {% if item_type == 'chatbot' %}
+                How many AI queries your client can make per month.
+                {% else %}
+                How many review generations your client gets per month.
+                {% endif %}
+                <span id="creditAllowanceDesc">These credits come from your own plan.</span>
+            </p>
+
+            <div class="tier-options" id="tierSelector">
+                <div class="tier-card selected" data-queries="100">
+                    <div class="tier-queries">100</div>
+                    <div class="tier-price">credits/mo</div>
+                </div>
+                <div class="tier-card" data-queries="250">
+                    <div class="tier-queries">250</div>
+                    <div class="tier-price">credits/mo</div>
+                </div>
+                <div class="tier-card" data-queries="500">
+                    <div class="tier-queries">500</div>
+                    <div class="tier-price">credits/mo</div>
+                </div>
+                <div class="tier-card" data-queries="1000">
+                    <div class="tier-queries">1,000</div>
+                    <div class="tier-price">credits/mo</div>
+                </div>
+                <div class="tier-card" data-queries="custom">
+                    <div class="tier-queries">Custom</div>
+                    <div class="tier-price">You decide</div>
+                </div>
+            </div>
+
+            <div id="customQueryConfig" style="display: none; margin-top: 1rem;">
+                <div class="input-group">
+                    <div class="input-prefix">Credits</div>
+                    <input type="number" id="customQueriesInput" min="10" placeholder="e.g. 2000">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Your Price (per month)</label>
+            <p id="priceDesc" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">Set any amount you want —
+                <strong style="color: var(--text-primary);">100% goes directly to you</strong>. No platform fee.
+            </p>
+            <div class="input-group">
+                <div class="input-prefix">₹</div>
+                <input type="number" id="clientPriceInput" min="1" value="499">
+            </div>
+        </div>
+
+        <div class="fee-breakdown" id="feeBreakdown"
+            style="background: rgba(16,185,129,0.05); border-color: rgba(16,185,129,0.3);">
+            <div class="fee-row" style="font-size: 1.1rem; font-weight: 800; color: var(--text-primary);">
+                <span>💳 Total Client Pays Monthly:</span>
+                <span id="displayClientPrice" style="color: var(--accent-primary);">₹499</span>
+            </div>
+            <div class="fee-row" style="color: var(--text-secondary);">
+                <span>Credits Allocated:</span>
+                <span id="displayQueries">100 / mo (from your plan)</span>
+            </div>
+            <div class="fee-row" id="ratioErrorRow" style="display:none; color: #ef4444;">
+                <span>⚠️ Add more credits to charge over <span id="displayMaxPrice">₹1,000</span></span>
+            </div>
+            <div class="fee-row highlight" style="font-size: 1.15rem;">
+                <span>💰 Your Monthly Earnings:</span>
+                <span id="displayCreatorProfit">₹499</span>
+            </div>
+        </div>
+
+        <div id="apiErrorContainer" class="fee-row"
+            style="display:none; color: #ef4444; background: rgba(239, 68, 68, 0.1); padding: 12px; border-radius: 8px; margin: 15px; text-align: left; line-height: 1.4;">
+            <span>⚠️ <span id="apiErrorMessage">An error occurred.</span></span>
+        </div>
+
+        <button class="btn-create" id="generateLinkBtn" onclick="generateTransferLink()">
+            Generate Transfer Link
+        </button>
+    </div>
+
+    <div class="link-container" id="linkSection">
+        <h2>🎉 Transfer Link Ready!</h2>
+        <p>Send this link to your client. Once they subscribe, you'll start earning and they'll get access to their
+            credits.</p>
+        <div class="link-box">
+            <input type="text" id="transferLinkInput" readonly>
+            <button onclick="copyLink()">Copy</button>
+        </div>
+        <button class="btn btn-secondary"
+            style="margin-top: 2rem; background: rgba(255,255,255,0.2); color: white; border: none;"
+            onclick="window.location.href='{{ url_for('dashboard') }}'">Return to Dashboard</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+    let currentQueries = 100;
+
+    const tierSelector = document.getElementById('tierSelector');
+    const customQueryConfig = document.getElementById('customQueryConfig');
+    const customQueriesInput = document.getElementById('customQueriesInput');
+    const clientPriceInput = document.getElementById('clientPriceInput');
+    const displayClientPrice = document.getElementById('displayClientPrice');
+    const displayQueries = document.getElementById('displayQueries');
+    const displayCreatorProfit = document.getElementById('displayCreatorProfit');
+    const generateBtn = document.getElementById('generateLinkBtn');
+    const RATIO_MAX_PRICE_PER_CREDIT = 10;
+
+    function updateBreakdown() {
+        const clientPrice = parseFloat(clientPriceInput.value) || 0;
+        const maxPrice = currentQueries * RATIO_MAX_PRICE_PER_CREDIT;
+        const ratioExceeded = clientPrice > maxPrice;
+
+        const creditPayer = document.querySelector('input[name="creditPayer"]:checked').value;
+        const payerCreatorLabel = document.getElementById('payerCreatorLabel');
+        const payerBuyerLabel = document.getElementById('payerBuyerLabel');
+        const creditAllowanceDesc = document.getElementById('creditAllowanceDesc');
+        const priceDesc = document.getElementById('priceDesc');
+
+        // Update Label Styles & Dynamic Text
+        if (creditPayer === 'creator') {
+            payerCreatorLabel.style.borderColor = 'var(--accent-primary)';
+            payerCreatorLabel.style.background = 'rgba(99, 102, 241, 0.05)';
+            payerBuyerLabel.style.borderColor = 'var(--neutral-200)';
+            payerBuyerLabel.style.background = 'var(--surface-light)';
+            
+            creditAllowanceDesc.innerHTML = 'These credits come from your own plan.';
+            priceDesc.innerHTML = 'Set any amount you want — <strong style="color: var(--text-primary);">100% goes directly to you</strong>. No platform fee.';
+        } else {
+            payerBuyerLabel.style.borderColor = 'var(--accent-primary)';
+            payerBuyerLabel.style.background = 'rgba(99, 102, 241, 0.05)';
+            payerCreatorLabel.style.borderColor = 'var(--neutral-200)';
+            payerCreatorLabel.style.background = 'var(--surface-light)';
+            
+            creditAllowanceDesc.innerHTML = '<strong style="color: var(--accent-primary);">Client pays platform for these at checkout.</strong>';
+            priceDesc.innerHTML = 'Set your base price — <strong style="color: var(--text-primary);">100% goes directly to you</strong> (AI platform fee billed to client).';
+        }
+
+        const platformFee = creditPayer === 'buyer' ? (currentQueries * 0.8) : 0;
+        const totalCheckoutPrice = clientPrice + platformFee;
+
+        displayClientPrice.textContent = `₹${totalCheckoutPrice.toLocaleString('en-IN')}`;
+        displayQueries.textContent = `${currentQueries.toLocaleString('en-IN')} / mo ` + (creditPayer === 'creator' ? '(from your plan)' : `(Platform fee: ₹${platformFee.toLocaleString('en-IN')})`);
+        displayCreatorProfit.textContent = `₹${clientPrice.toLocaleString('en-IN')}`;
+
+        const ratioErrorRow = document.getElementById('ratioErrorRow');
+        const feeBreakdown = document.getElementById('feeBreakdown');
+
+        if (ratioExceeded) {
+            ratioErrorRow.style.display = 'flex';
+            document.getElementById('displayMaxPrice').textContent = `₹${maxPrice.toLocaleString('en-IN')}`;
+            feeBreakdown.style.background = 'rgba(239,68,68,0.05)';
+            feeBreakdown.style.borderColor = 'rgba(239,68,68,0.3)';
+        } else {
+            ratioErrorRow.style.display = 'none';
+            feeBreakdown.style.background = 'rgba(16,185,129,0.05)';
+            feeBreakdown.style.borderColor = 'rgba(16,185,129,0.3)';
+        }
+
+        generateBtn.disabled = clientPrice < 1 || ratioExceeded;
+        generateBtn.style.opacity = (clientPrice < 1 || ratioExceeded) ? '0.5' : '1';
+    }
+
+    function hideApiError() {
+        const errCont = document.getElementById('apiErrorContainer');
+        if (errCont) errCont.style.display = 'none';
+    }
+
+    tierSelector.addEventListener('click', (e) => {
+        hideApiError();
+        const card = e.target.closest('.tier-card');
+        if (!card) return;
+
+        document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+
+        if (card.dataset.queries === 'custom') {
+            customQueryConfig.style.display = 'block';
+            updateCustomQueries();
+        } else {
+            customQueryConfig.style.display = 'none';
+            currentQueries = parseInt(card.dataset.queries);
+            updateBreakdown();
+        }
+    });
+
+    function updateCustomQueries() {
+        if (!customQueryConfig.style.display || customQueryConfig.style.display === 'none') return;
+        let q = parseInt(customQueriesInput.value) || 0;
+        if (q < 0) q = 0;
+        currentQueries = q;
+        updateBreakdown();
+    }
+
+    customQueriesInput.addEventListener('input', () => { hideApiError(); updateCustomQueries(); });
+    clientPriceInput.addEventListener('input', () => { hideApiError(); updateBreakdown(); });
+
+    // Initial calculate
+    updateBreakdown();
+
+    async function generateTransferLink() {
+        const clientPrice = parseFloat(clientPriceInput.value);
+        const errorContainer = document.getElementById('apiErrorContainer');
+        const errorMessage = document.getElementById('apiErrorMessage');
+
+        errorContainer.style.display = 'none';
+
+        if (!clientPrice || clientPrice < 1) {
+            errorMessage.innerText = 'Please enter a valid price (minimum ₹1).';
+            errorContainer.style.display = 'flex';
+            return;
+        }
+        if (!currentQueries || currentQueries < 1) {
+            errorMessage.innerText = 'Please select a credit allowance for your client.';
+            errorContainer.style.display = 'flex';
+            return;
+        }
+
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = 'Generating...';
+
+        try {
+            const creditPayer = document.querySelector('input[name="creditPayer"]:checked').value;
+
+            const response = await fetch('/api/marketplace/create_transfer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    item_id: '{{ item.id }}',
+                    item_type: '{{ item_type }}',
+                    query_limit_monthly: currentQueries,
+                    creator_price_monthly: clientPrice,
+                    credit_payer: creditPayer
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                document.getElementById('configurationSection').style.display = 'none';
+                document.getElementById('linkSection').style.display = 'block';
+                document.getElementById('transferLinkInput').value = result.transfer_url;
+            } else {
+                let msgHtml = result.message || 'An error occurred.';
+                if (msgHtml.includes('Upgrade your plan')) {
+                    msgHtml += `<div style="margin-top: 18px; margin-bottom: 4px;">
+                        <button type="button" onclick="showPricingModal()" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 16px; border: none; border-radius: 6px; background: linear-gradient(135deg, #10B981 0%, #34D399 50%, #059669 100%); color: #fff; font-size: 0.8rem; font-weight: 700; cursor: pointer; text-decoration: none; box-shadow: 0 2px 10px rgba(16, 185, 129, 0.35);">✨ Upgrade Plan</button>
+                    </div>`;
+                }
+                errorMessage.innerHTML = msgHtml;
+                errorContainer.style.display = 'flex';
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = 'Generate Transfer Link';
+            }
+        } catch (error) {
+            errorMessage.innerHTML = 'Network error. Please try again.';
+            errorContainer.style.display = 'flex';
+            console.error('Error:', error);
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = 'Generate Transfer Link';
+        }
+    }
+
+    function copyLink() {
+        const input = document.getElementById('transferLinkInput');
+        input.select();
+        document.execCommand('copy');
+        alert('Link copied to clipboard!');
+    }
+</script>
+{% endblock %}

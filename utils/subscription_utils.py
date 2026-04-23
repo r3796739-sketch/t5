@@ -1,16 +1,20 @@
 # yoppychat2/utils/subscription_utils.py
 
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from functools import wraps
-from flask import session, jsonify
+from flask import session, jsonify, request, redirect, url_for, g
 import redis
 import json
+from cachetools import TTLCache
 from .supabase_client import get_supabase_admin_client
 from .db_utils import get_profile, get_usage_stats
 # The direct dependency on whop_api for role checking is now removed.
 # from . import whop_api 
 
-# --- Redis Caching Setup (Unchanged) ---
+# --- Redis Caching Setup ---
 try:
     redis_client = redis.from_url(os.environ.get("REDIS_URL"))
     CACHE_DURATION_SECONDS = 300 # Cache for 5 minutes
@@ -18,6 +22,11 @@ try:
 except Exception as e:
     redis_client = None
     print(f"Could not connect to Redis for caching: {e}. Caching will be disabled.")
+
+# --- PERFORMANCE: In-memory TTL cache as fallback when Redis is unavailable ---
+# maxsize=500 = max 500 cached entries, ttl=60 = expire after 60 seconds
+_memory_cache = TTLCache(maxsize=500, ttl=60)
+
 
 # --- Plan Definitions (Unchanged) ---
 COMMUNITY_PLANS = {
@@ -42,25 +51,25 @@ PLANS = {
     'free': { 
         'name': 'Free', 
         'max_channels': 2, 
-        'max_queries_per_month': 50, 
+        'max_queries_per_month': 20, 
         'price_usd': 0, 
         'commission_rate': 0 
     },
-    # This is the old 'creator' plan, now for regular users
-    os.environ.get('RAZORPAY_PLAN_ID_PERSONAL', 'personal'): { 
+    # This now correctly loads your INR plan ID from the .env file
+    os.environ.get('RAZORPAY_PLAN_ID_PERSONAL_INR', 'personal_inr'): { 
         'name': 'Personal', 
-        'max_channels': 10, 
-        'max_queries_per_month': 2500, 
-        'price_usd': 3.60,  # Corrected from 9 (approx. ₹299)
-        'commission_rate': 0.70 
+        'max_channels': float('inf'), 
+        'max_queries_per_month': 369, 
+        'price_usd': 3.60,
+        'commission_rate': 0.40 
     },
-    # This is the old 'pro' plan, now repurposed for creators
-    os.environ.get('RAZORPAY_PLAN_ID_CREATOR', 'creator'): { 
+    # This now correctly loads your INR plan ID from the .env file
+    os.environ.get('RAZORPAY_PLAN_ID_CREATOR_INR', 'creator_inr'): { 
         'name': 'Creator', 
         'max_channels': float('inf'), 
         'max_queries_per_month': 10000, 
-        'price_usd': 18.00, # Corrected from 9.99 (approx. ₹1,499)
-        'commission_rate': 0.75 
+        'price_usd': 18.00,
+        'commission_rate': 0.45 
     },
     'admin_testing': { 'name': 'free', 'max_channels': 1, 'max_queries_per_month': 10 },
     'community_member': { 'name': 'Community Member', 'max_channels': 0, 'max_queries_per_month': 50 },
@@ -83,6 +92,9 @@ def get_community_status(community_id: str) -> dict:
                 return json.loads(cached_status)
         except redis.RedisError as e:
             print(f"Redis GET error for community {community_id}: {e}. Fetching from DB.")
+    # --- PERFORMANCE: In-memory fallback when Redis is unavailable ---
+    elif cache_key in _memory_cache:
+        return _memory_cache[cache_key]
 
     supabase_admin = get_supabase_admin_client()
     response = supabase_admin.table('communities').select('*').eq('id', community_id).single().execute()
@@ -111,6 +123,8 @@ def get_community_status(community_id: str) -> dict:
 
     if redis_client:
         redis_client.setex(cache_key, CACHE_DURATION_SECONDS, json.dumps(status))
+    else:
+        _memory_cache[cache_key] = status
 
     return status
 
@@ -134,6 +148,9 @@ def get_user_status(user_id: str, active_community_id: str = None) -> dict:
                 return cached_data
         except redis.RedisError as e:
             print(f"Redis GET error for user {user_id}: {e}. Fetching from DB.")
+    # --- PERFORMANCE: In-memory fallback when Redis is unavailable ---
+    elif cache_key in _memory_cache:
+        return _memory_cache[cache_key]
 
     profile = get_profile(user_id)
     if not profile:
@@ -142,9 +159,8 @@ def get_user_status(user_id: str, active_community_id: str = None) -> dict:
     is_whop_user = bool(profile.get('whop_user_id'))
     personal_plan_id = profile.get('personal_plan_id') or profile.get('direct_subscription_plan')
     
-    # NEW: Determine ownership and role from the database
     is_active_community_owner = False
-    community_role = 'member' # Default role for Whop users
+    community_role = 'member'
     if is_whop_user and active_community_id:
         supabase_admin = get_supabase_admin_client()
         community_res = supabase_admin.table('communities').select('owner_user_id').eq('id', active_community_id).single().execute()
@@ -164,25 +180,41 @@ def get_user_status(user_id: str, active_community_id: str = None) -> dict:
                 if trial_used < trial_limit:
                     raw_plan_id = 'admin_testing'
 
+    # --- START OF FIX ---
+    # The incorrect 'is_valid_plan' check has been removed.
+    # We now only check if the plan ID from the database exists in our main PLANS dictionary.
     if personal_plan_id and personal_plan_id in PLANS:
-        is_valid_plan = (is_whop_user and personal_plan_id.startswith('whop_')) or \
-                        (not is_whop_user and personal_plan_id in ['creator', 'pro', 'free'])
-        if is_valid_plan:
-            raw_plan_id = personal_plan_id
+        raw_plan_id = personal_plan_id
+    # --- END OF FIX ---
 
-    plan_details = PLANS.get(raw_plan_id, PLANS['free'])
+    plan_details = PLANS.get(raw_plan_id, PLANS['free']).copy()
+    
+    # Calculate Reserved Marketplace Credits (credits assigned to buyers)
+    reserved_marketplace_credits = 0
+    try:
+        supabase_admin = get_supabase_admin_client()
+        transfers_res = supabase_admin.table('chatbot_transfers').select('query_limit_monthly').eq('creator_id', user_id).eq('status', 'active').execute()
+        if transfers_res and transfers_res.data:
+            reserved_marketplace_credits = sum(t.get('query_limit_monthly', 0) for t in transfers_res.data)
+            
+        if plan_details.get('max_queries_per_month') != float('inf'):
+            plan_details['max_queries_per_month'] = max(0, plan_details['max_queries_per_month'] - reserved_marketplace_credits)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Error calculating reserved credits for {user_id}: {e}")
+
     usage_stats = get_usage_stats(user_id)
 
     status = {
         'user_id': user_id,
         'plan_id': raw_plan_id,
         'plan_name': plan_details.get('name', 'Unknown Plan'),
-        'has_personal_plan': bool(personal_plan_id),
+        'has_personal_plan': bool(personal_plan_id) and personal_plan_id != 'free',
         'is_whop_user': is_whop_user,
         'active_community_id': active_community_id,
         'is_active_community_owner': is_active_community_owner,
         'community_role': community_role if is_whop_user else None,
-        'limits': plan_details.copy(),
+        'limits': plan_details,
         'usage': {
             'queries_this_month': usage_stats.get('queries_this_month', 0),
             'channels_processed': usage_stats.get('channels_processed', 0)
@@ -192,24 +224,79 @@ def get_user_status(user_id: str, active_community_id: str = None) -> dict:
     if redis_client:
         serializable_status = json.loads(json.dumps(status, default=lambda o: 'inf' if o == float('inf') else o))
         redis_client.setex(cache_key, CACHE_DURATION_SECONDS, json.dumps(serializable_status))
+    else:
+        _memory_cache[cache_key] = status
 
     return status
 
-# --- Decorators (Unchanged) ---
+# --- Auth redirect helper ---
+def _auth_redirect_or_json():
+    """Return a redirect for browser navigations, or a JSON 401 for AJAX/POST."""
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' \
+              or 'application/json' in request.headers.get('Accept', '') \
+              or request.content_type == 'application/json'
+    if is_ajax or request.method != 'GET':
+        return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+    return redirect(url_for('channel') + '?login=1')
+
+# --- Decorators ---
+def _has_marketplace_credits(user_id):
+    """
+    Check if the current request targets a marketplace chatbot that the user
+    has purchased and still has credits remaining.
+    Returns True if the user should bypass the personal/community limit check.
+    """
+    try:
+        channel_name = request.form.get('channel_name')
+        if not channel_name:
+            return False
+        supabase_admin = get_supabase_admin_client()
+        # Look up the channel ID from the channel name
+        channel_res = supabase_admin.table('channels').select('id').eq(
+            'channel_name', channel_name
+        ).maybe_single().execute()
+        if not channel_res or not channel_res.data:
+            return False
+        chatbot_id = channel_res.data['id']
+        # Check if there's an active marketplace transfer for this user & bot
+        transfer_res = supabase_admin.table('chatbot_transfers').select(
+            'query_limit_monthly, queries_used_this_month'
+        ).eq('chatbot_id', chatbot_id).eq('buyer_id', user_id).eq(
+            'status', 'active'
+        ).maybe_single().execute()
+        if not transfer_res or not transfer_res.data:
+            return False
+        transfer = transfer_res.data
+        return transfer['queries_used_this_month'] < transfer['query_limit_monthly']
+    except Exception as e:
+        # Fail open — if the check errors, don't block the user;
+        # the marketplace check in stream_answer will handle it
+        import logging
+        logging.getLogger(__name__).warning(f"Marketplace credit check failed: {e}")
+        return False
+
+
 def limit_enforcer(check_type: str):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if 'user' not in session:
-                return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+                return _auth_redirect_or_json()
             user_id = session['user']['id']
             active_community_id = session.get('active_community_id')
-            user_status = get_user_status(user_id, active_community_id)
+            # --- PERFORMANCE: Check g cache from context processor first ---
+            user_status = getattr(g, 'user_status', None)
+            if user_status is None:
+                user_status = get_user_status(user_id, active_community_id)
             if not user_status:
                  return jsonify({'status': 'error', 'message': 'Could not verify user.'}), 500
+            g.user_status = user_status
+            g.community_status = getattr(g, 'community_status', None)
+            # --- END PERFORMANCE ---
             if check_type == 'query':
                 if user_status.get('is_active_community_owner'):
                     community_status = get_community_status(active_community_id)
+                    g.community_status = community_status
                     if community_status:
                         trial_limit = community_status['limits'].get('owner_trial_limit', 0)
                         trial_used = community_status['usage'].get('trial_queries_used', 0)
@@ -219,20 +306,36 @@ def limit_enforcer(check_type: str):
                     max_queries = user_status['limits'].get('max_queries_per_month', 0)
                     queries_used = user_status['usage'].get('queries_this_month', 0)
                     if max_queries != float('inf') and queries_used >= max_queries:
-                        return jsonify({'status': 'limit_reached', 'message': f"You've reached your monthly query limit of {int(max_queries)}."}), 403
+                        # FIX: Before blocking, check if this is a marketplace bot with credits
+                        if _has_marketplace_credits(user_id):
+                            return f(*args, **kwargs)
+                        return jsonify({'status': 'limit_reached', 'message': f"You've reached your monthly credit limit of {int(max_queries)}."}), 403
+                elif user_status.get('is_active_community_owner') and not user_status.get('has_personal_plan'):
+                    # FIX Issue #8: Community owner without a personal plan should be told to upgrade
+                    # instead of consuming from the shared community pool
+                    if _has_marketplace_credits(user_id):
+                        return f(*args, **kwargs)
+                    return jsonify({'status': 'limit_reached', 'message': "Your trial credits have been used. Please upgrade to a personal plan to continue chatting."}), 403
                 elif active_community_id:
                     community_status = get_community_status(active_community_id)
+                    g.community_status = community_status
                     if not community_status:
                         return jsonify({'status': 'error', 'message': 'Could not verify community status.'}), 500
                     max_queries = community_status['limits'].get('query_limit', 0)
                     queries_used = community_status['usage'].get('queries_used', 0)
                     if max_queries != float('inf') and queries_used >= max_queries:
-                        return jsonify({'status': 'limit_reached', 'message': "The community's shared query limit has been reached."}), 403
+                        # FIX: Before blocking, check if this is a marketplace bot with credits
+                        if _has_marketplace_credits(user_id):
+                            return f(*args, **kwargs)
+                        return jsonify({'status': 'limit_reached', 'message': "The community's shared credit limit has been reached."}), 403
                 else:
                     max_queries = user_status['limits'].get('max_queries_per_month', 0)
                     queries_used = user_status['usage'].get('queries_this_month', 0)
                     if max_queries != float('inf') and queries_used >= max_queries:
-                        return jsonify({'status': 'limit_reached', 'message': f"You've reached your monthly query limit of {int(max_queries)}."}), 403
+                        # FIX: Before blocking, check if this is a marketplace bot with credits
+                        if _has_marketplace_credits(user_id):
+                            return f(*args, **kwargs)
+                        return jsonify({'status': 'limit_reached', 'message': f"You've reached your monthly credit limit of {int(max_queries)}."}), 403
             elif check_type == 'channel':
                 max_channels = user_status['limits'].get('max_channels', 0)
                 current_channels = user_status['usage'].get('channels_processed', 0)
@@ -251,7 +354,7 @@ def community_channel_limit_enforcer(_func=None, *, check_on_increase_only=False
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if 'user' not in session:
-                return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+                return _auth_redirect_or_json()
             user_id = session['user']['id']
             active_community_id = session.get('active_community_id')
             if not active_community_id:
@@ -266,10 +369,10 @@ def community_channel_limit_enforcer(_func=None, *, check_on_increase_only=False
                     return jsonify({'status': 'error', 'message': 'Channel not found.'}), 404
                 if channel_res.data['is_shared']:
                     return f(*args, **kwargs)
-            user_status = get_user_status(user_id, active_community_id)
+            user_status = getattr(g, 'user_status', None) if hasattr(g, 'user_status') else get_user_status(user_id, active_community_id)
             if not user_status.get('is_active_community_owner'):
                 return jsonify({'status': 'error', 'message': 'Only community owners can perform this action.'}), 403
-            community_status = get_community_status(active_community_id)
+            community_status = getattr(g, 'community_status', None) or get_community_status(active_community_id)
             if not community_status:
                 return jsonify({'status': 'error', 'message': 'Could not verify community status.'}), 500
             from . import db_utils
@@ -287,15 +390,15 @@ def admin_channel_limit_enforcer(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user' not in session:
-            return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+            return _auth_redirect_or_json()
         user_id = session['user']['id']
         active_community_id = session.get('active_community_id')
         if not active_community_id:
             return jsonify({'status': 'error', 'message': 'No active community context found.'}), 400
-        user_status = get_user_status(user_id, active_community_id)
+        user_status = getattr(g, 'user_status', None) if hasattr(g, 'user_status') else get_user_status(user_id, active_community_id)
         if not user_status.get('is_active_community_owner'):
             return jsonify({'status': 'error', 'message': 'Only community owners can perform this action.'}), 403
-        community_status = get_community_status(active_community_id)
+        community_status = getattr(g, 'community_status', None) or get_community_status(active_community_id)
         if not community_status:
             return jsonify({'status': 'error', 'message': 'Could not verify community status.'}), 500
         from . import db_utils

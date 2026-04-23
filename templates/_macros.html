@@ -73,9 +73,14 @@
 
         {% set is_default_channel = community_status and community_status.default_channel_id == channel.id %}
         {% if not (is_default_channel and not user_status.is_active_community_owner) %}
-        <button class="delete-btn" onclick="confirmDeleteChannel('{{ channel.id }}', '{{ channel_name }}', this)" aria-label="Delete {{ channel_name }}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        </button>
+        <div class="channel-actions" style="display: flex; gap: 0.3rem;">
+            <a href="{{ url_for('chatbot_settings', chatbot_id=channel.id) }}" class="channel-action-btn settings-btn" aria-label="Settings for {{ channel_name }}" title="Channel Settings">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+            </a>
+            <button class="delete-btn" onclick="confirmDeleteChannel('{{ channel.id }}', '{{ channel_name }}', this)" aria-label="Delete {{ channel_name }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+        </div>
         {% endif %}
     </div>
     {% endif %}
@@ -88,30 +93,34 @@
     {# ... (no changes needed in this macro) ... #}
 {% endmacro %}
 
-{# This macro renders the branded Discord bot management card #}
+{# --- START: REVISED BOT CARD MACRO --- #}
 {% macro render_bot_card(bot) %}
-<div class="bot-card" data-bot-id="{{ bot.id }}" data-status="{{ bot.status }}">
+<div class="bot-card" data-bot-id="{{ bot.id }}" data-status="{{ bot.status or 'offline' }}">
     <div class="bot-card-header">
-        <img src="{{ bot.channel.channel_thumbnail or url_for('static', filename='images/default_avatar.png') }}" alt="Bot Avatar" class="bot-avatar">
+        <img src="{{ bot.channel.channel_thumbnail or url_for('static', filename='images/logo/favicon.png') }}" alt="Bot Avatar" class="bot-avatar">
         <div class="bot-info">
             <div class="name">{{ bot.channel.channel_name or 'Branded Bot' }}</div>
             <div class="link">Linked to {{ bot.channel.channel_name or 'YouTube Channel' }}</div>
         </div>
-    </div>
-    <div class="bot-card-body">
-        <div class="status-indicator">
-            <div class="status-dot {{ bot.status }}"></div>
-            <span class="status-text">{{ bot.status|capitalize }}</span>
+        <div class="bot-actions">
+            <button class="action-menu-btn" onclick="toggleActionMenu(this)">•••</button>
+            <div class="action-menu">
+                <a href="#" onclick="toggleBot('{{ bot.id }}', this); return false;">
+                    {% if bot.status == 'online' %}Deactivate{% else %}Activate{% endif %}
+                </a>
+                <a href="#" onclick="openBotShareModal('{{ bot.invite_link }}', '{{ bot.channel.channel_name or 'Branded Bot' | e }}'); return false;">Share</a>
+                <a href="#" onclick="openEditBotModal('{{ bot.id }}'); return false;">Edit</a>
+                <div class="action-divider"></div>
+                <a href="#" class="danger" onclick="confirmDeleteBot('{{ bot.id }}', '{{ bot.channel.channel_name or 'Branded Bot' | e }}', this); return false;">Delete</a>
+            </div>
         </div>
     </div>
     <div class="bot-card-footer">
-        {# --- MODIFIED BUTTON --- #}
-        <button class="btn action-btn" onclick="toggleBot('{{ bot.id }}', this)" {% if bot.status == 'connecting' %}disabled{% endif %}>
-            {% if bot.status == 'online' %}Deactivate{% else %}Activate{% endif %}
-        </button>
-        <button class="btn btn-secondary" onclick="openShareModal('{{ bot.invite_link }}', '{{ bot.channel.channel_name or 'Branded Bot' }}')">Share</button>
-        <button class="btn btn-secondary" onclick="openEditBotModal('{{ bot.id }}')">Edit</button>
-        <button class="btn btn-danger" onclick="confirmDeleteBot('{{ bot.id }}', '{{ bot.channel.channel_name or 'Branded Bot' }}', this)">Delete</button>
+        <div class="status-indicator">
+            <div class="status-dot {{ bot.status or 'offline' }}"></div>
+            <span class="status-text">{{ (bot.status or 'offline')|capitalize }}</span>
+        </div>
     </div>
 </div>
 {% endmacro %}
+{# --- END: REVISED BOT CARD MACRO --- #}

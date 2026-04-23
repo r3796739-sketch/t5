@@ -9,7 +9,6 @@ from functools import lru_cache
 from typing import Iterator, List, Optional, Dict, Any
 from dotenv import load_dotenv
 from sentence_transformers import CrossEncoder
-from datetime import datetime
 from . import prompts
 from .supabase_client import get_supabase_client, get_supabase_admin_client
 import re
@@ -17,8 +16,9 @@ import threading
 from . import prompts 
 from utils.supabase_client import get_supabase_admin_client
 import tiktoken
-
-
+import datetime
+from flask import session
+from .subscription_utils import get_user_status
 # Load environment variables from .env file
 load_dotenv()
 cross_encoder = None
@@ -32,11 +32,16 @@ def _get_api_key(provider: str) -> Optional[str]:
     """Gets the appropriate API key from environment variables."""
     key_map = {
         'openai': 'OPENAI_API_KEY',
-        'gemini': 'GEMINI_API_KEY',
+        'gemini': 'GEMINI_API_KEY2',
         'groq': 'GROQ_API_KEY'
     }
     env_var = key_map.get(provider)
-    return os.environ.get(env_var) if env_var else None
+    val = os.environ.get(env_var) if env_var else None
+    
+    if provider == 'gemini' and not val:
+        val = os.environ.get('GEMINI_API_KEY')
+        
+    return val
 
 # --- Helper network request with retries ---
 def _post_with_retries(url: str, json_payload: dict, headers: dict = None, timeout: int = DEFAULT_REQUEST_TIMEOUT) -> Optional[requests.Response]:
@@ -80,47 +85,63 @@ def _create_gemini_embedding(texts: List[str], model: str, api_key: str) -> Opti
     """
     Uses Google Gemini embed_content with configurable output dimensions.
     Normalizes output to a list aligned with inputs.
+    Includes a retry mechanism with exponential backoff for rate limit errors.
     """
     try:
         import google.generativeai as genai
+        import time
+        from google.api_core import exceptions
+
         genai.configure(api_key=api_key)
         model_name = f"models/{model}" if not model.startswith('models/') else model
         
-        # Get the desired output dimension from environment variable, default to 768
-        output_dimensions = int(os.environ.get('GEMINI_EMBED_DIMENSIONS', '768'))
+        output_dimensions = int(os.environ.get('GEMINI_EMBED_DIMENSIONS', '1536'))
         
-        # Gemini batching: prefer sending the whole list if supported
-        result = genai.embed_content(
-            model=model_name, 
-            content=texts, 
-            task_type="retrieval_document",
-            output_dimensionality=output_dimensions  # This is the key parameter!
-        )
+        max_retries = 5
+        backoff_factor = 2
+
+        for i in range(max_retries):
+            try:
+                result = genai.embed_content(
+                    model=model_name, 
+                    content=texts, 
+                    task_type="retrieval_document",
+                    output_dimensionality=output_dimensions
+                )
+                
+                embeddings = []
+                if isinstance(result, dict) and 'embedding' in result:
+                    emb_data = result['embedding']
+                    if isinstance(emb_data, (list, tuple)) and all(isinstance(x, (float, int)) for x in emb_data) and len(texts) == 1:
+                        embeddings = [np.array(emb_data).astype('float32')]
+                    elif isinstance(emb_data, list) and len(emb_data) == len(texts):
+                        for embedding in emb_data:
+                            embeddings.append(np.array(embedding).astype('float32') if embedding is not None else None)
+                    else:
+                        for embedding in emb_data:
+                            embeddings.append(np.array(embedding).astype('float32') if embedding is not None else None)
+                else:
+                    logging.error("Unexpected Gemini response format when creating embeddings.")
+                    return [None] * len(texts)
+                    
+                if len(embeddings) != len(texts):
+                    embeddings = (embeddings + [None] * len(texts))[:len(texts)]
+                return embeddings
+
+            except exceptions.ResourceExhausted as e:
+                if i < max_retries - 1:
+                    sleep_time = backoff_factor ** i
+                    logging.warning(f"Gemini API rate limit exceeded. Retrying in {sleep_time} seconds... (Attempt {i + 1}/{max_retries})")
+                    time.sleep(sleep_time)
+                else:
+                    logging.error(f"Failed to create Gemini batch embedding after {max_retries} retries due to rate limiting.")
+                    raise e
+            except Exception as e:
+                logging.error(f"An unexpected error occurred during Gemini embedding: {e}", exc_info=True)
+                return [None] * len(texts)
         
-        # result may contain 'embedding' as a list-of-lists or single list. Normalize it.
-        embeddings = []
-        if isinstance(result, dict) and 'embedding' in result:
-            emb_data = result['embedding']
-            # If single embedding for a single text:
-            if isinstance(emb_data, (list, tuple)) and all(isinstance(x, (float, int)) for x in emb_data) and len(texts) == 1:
-                embeddings = [np.array(emb_data).astype('float32')]
-            elif isinstance(emb_data, list) and len(emb_data) == len(texts):
-                # already aligned
-                for embedding in emb_data:
-                    embeddings.append(np.array(embedding).astype('float32') if embedding is not None else None)
-            else:
-                # Unknown shape; try to coerce
-                for embedding in emb_data:
-                    embeddings.append(np.array(embedding).astype('float32') if embedding is not None else None)
-        else:
-            logging.error("Unexpected Gemini response format when creating embeddings.")
-            return [None] * len(texts)
-            
-        # Ensure alignment with input length
-        if len(embeddings) != len(texts):
-            # pad or truncate to match
-            embeddings = (embeddings + [None] * len(texts))[:len(texts)]
-        return embeddings
+        return [None] * len(texts)
+
     except Exception as e:
         logging.error(f"Failed to create Gemini batch embedding: {e}", exc_info=True)
         return [None] * len(texts)
@@ -256,13 +277,29 @@ def get_routed_context(question: str, channel_data: Optional[dict], user_id: str
                 'video_url': channel_data.get('channel_url', '#'),
                 'video_id': 'intro_chunk'
             })
-        semantic_chunks = search_and_rerank_chunks(question, user_id, access_token, channel_data.get('videos'))
+        video_ids = {v['video_id'] for v in (channel_data.get('videos') or [])} if channel_data else None
+        
+        # If multi-source, search everything (don't restrict to YouTube IDs)
+        if channel_data and (channel_data.get('has_website') or channel_data.get('has_whatsapp')):
+            video_ids = None
+        
+        # Always pass channel_id to ensure data isolation between different chatbots.
+        effective_channel_id = channel_data.get('id') if channel_data else None
+            
+        semantic_chunks = search_and_rerank_chunks(question, user_id, access_token, video_ids, effective_channel_id)
         return identity_context + semantic_chunks
 
-    # --- Default Intent: Semantic Search (no changes needed here) ---
     print("Query routed to: semantic_search")
-    video_ids = {v['video_id'] for v in channel_data.get('videos', [])} if channel_data else None
-    return search_and_rerank_chunks(question, user_id, access_token, video_ids)
+    video_ids = {v['video_id'] for v in (channel_data.get('videos') or [])} if channel_data else None
+    
+    # If multi-source, search everything (don't restrict to YouTube IDs)
+    if channel_data and (channel_data.get('has_website') or channel_data.get('has_whatsapp')):
+        video_ids = None
+    
+    # Always pass channel_id to ensure data isolation between different chatbots.
+    effective_channel_id = channel_data.get('id') if channel_data else None
+
+    return search_and_rerank_chunks(question, user_id, access_token, video_ids, effective_channel_id)
 
 # --- Provider-Specific LLM STREAMING FUNCTIONS ---
 def _get_openai_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
@@ -270,23 +307,75 @@ def _get_openai_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
         import openai
         base_url = kwargs.get('base_url')
         temperature = kwargs.get('temperature', 1)
+        max_tokens = kwargs.get('max_tokens', 1024)
         client = openai.OpenAI(api_key=api_key, base_url=base_url)
-        response_stream = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=1024,
-            temperature=temperature,
-            stream=True
-        )
-        for chunk in response_stream:
-            # compatibility with different SDK response shapes
-            content = None
-            if hasattr(chunk.choices[0].delta, 'content'):
-                content = chunk.choices[0].delta.content
-            elif 'choices' in chunk and chunk['choices'][0].get('delta', {}).get('content'):
-                content = chunk['choices'][0]['delta']['content']
-            if content:
-                yield content
+        
+        try:
+            image_base64 = kwargs.get('image_base64')
+            image_mime_type = kwargs.get('image_mime_type', 'image/jpeg')
+            
+            messages = []
+            if image_base64:
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{image_mime_type};base64,{image_base64}"
+                            }
+                        }
+                    ]
+                })
+            else:
+                messages.append({"role": "user", "content": prompt})
+                
+            # First attempt: try streaming
+            response_stream = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                stream=True
+            )
+            for chunk in response_stream:
+                # compatibility with different SDK response shapes
+                content = None
+                if hasattr(chunk.choices[0].delta, 'content'):
+                    content = chunk.choices[0].delta.content
+                elif 'choices' in chunk and chunk['choices'][0].get('delta', {}).get('content'):
+                    content = chunk['choices'][0]['delta']['content']
+                if content:
+                    yield content
+                    
+        except openai.APIError as e:
+            if "streaming the response from the model provider" in str(e):
+                logging.warning(f"Streaming failed for model {model}, falling back to non-streaming: {e}")
+                # Fallback: try non-streaming approach
+                try:
+                    response = client.chat.completions.create(
+                        model=model,
+                        messages=messages,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        stream=False
+                    )
+                    # Get the complete response and yield it in chunks to simulate streaming
+                    content = response.choices[0].message.content
+                    if content:
+                        # Simulate streaming by yielding words
+                        words = content.split()
+                        for i in range(0, len(words), 3):  # yield 3 words at a time
+                            chunk_words = words[i:i+3]
+                            yield " ".join(chunk_words) + (" " if i + 3 < len(words) else "")
+                            time.sleep(0.01)  # Small delay to simulate streaming
+                except Exception as fallback_error:
+                    logging.error(f"Both streaming and non-streaming failed: {fallback_error}")
+                    yield "Error: Could not get a response from the provider."
+            else:
+                raise  # Re-raise if it's a different API error
+                
     except Exception as e:
         logging.error(f"Failed to get OpenAI stream: {e}", exc_info=True)
         yield "Error: Could not get a response from the provider."
@@ -294,8 +383,15 @@ def _get_openai_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
 def _get_groq_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
     try:
         headers = {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
-        data = {'model': model, 'messages': [{"role": "user", "content": prompt}], 'max_tokens': 1024, 'temperature': 1, 'stream': True}
+        max_tokens = kwargs.get('max_tokens')
+        data = {'model': model, 'messages': [{"role": "user", "content": prompt}], 'max_tokens': max_tokens, 'temperature': 1, 'stream': True}
         with requests.post('https://api.groq.com/openai/v1/chat/completions', headers=headers, json=data, stream=True, timeout=DEFAULT_REQUEST_TIMEOUT) as response:
+            # Check for non-200 responses and surface the error clearly
+            if response.status_code != 200:
+                error_body = response.text
+                logging.error(f"Groq API returned HTTP {response.status_code} for model '{model}': {error_body}")
+                yield f"Error: Groq API error {response.status_code}. Model '{model}' may be unavailable or the API key is invalid. Details: {error_body[:200]}"
+                return
             for raw in response.iter_lines():
                 if raw and raw.startswith(b'data: '):
                     chunk_data = raw.decode('utf-8')[6:].strip()
@@ -311,19 +407,95 @@ def _get_groq_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
         logging.error(f"Failed to get Groq stream: {e}", exc_info=True)
         yield "Error: Could not get a response from the provider."
 
+
 def _get_gemini_answer_stream(prompt: str, model: str, api_key: str, **kwargs):
     try:
         import google.generativeai as genai
+        from google.generativeai.types import generation_types
         genai.configure(api_key=api_key)
         gemini_model = genai.GenerativeModel(model)
-        response_stream = gemini_model.generate_content(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=1024, temperature=0.7), stream=True)
+        max_tokens = kwargs.get('max_tokens', 1024) # Get max_tokens from kwargs
+        
+        image_base64 = kwargs.get('image_base64')
+        image_mime_type = kwargs.get('image_mime_type', 'image/jpeg')
+        
+        contents = [prompt]
+        if image_base64:
+            contents.append({
+                "mime_type": image_mime_type,
+                "data": image_base64
+            })
+            
+        safety_settings = {
+            'HARM_CATEGORY_HARASSMENT': 'BLOCK_NONE',
+            'HARM_CATEGORY_HATE_SPEECH': 'BLOCK_NONE',
+            'HARM_CATEGORY_SEXUALLY_EXPLICIT': 'BLOCK_NONE',
+            'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE',
+        }
+        
+        # Gemini "thinking" models (e.g. gemini-3-flash-preview) use hidden
+        # chain-of-thought tokens that count against max_output_tokens.
+        # With max_output_tokens=1024, ~840 go to thinking leaving only
+        # ~180 chars for the actual response → truncation.
+        # Fix: disable thinking (chatbot doesn't need it) or bump the budget.
+        gen_config_kwargs = {
+            'max_output_tokens': max_tokens,
+            'temperature': 0.7,
+        }
+        
+        # Try to disable thinking mode if the SDK supports it
+        try:
+            thinking_config = genai.types.ThinkingConfig(thinking_budget=0)
+            gen_config_kwargs['thinking_config'] = thinking_config
+            print(f"[Gemini] Thinking mode DISABLED (thinking_budget=0), max_output_tokens={max_tokens}")
+        except (AttributeError, TypeError):
+            # SDK doesn't support ThinkingConfig — multiply tokens to compensate
+            gen_config_kwargs['max_output_tokens'] = max_tokens * 8
+            print(f"[Gemini] ThinkingConfig not available, boosting max_output_tokens to {max_tokens * 8}")
+        
+        response_stream = gemini_model.generate_content(
+            contents, 
+            generation_config=genai.types.GenerationConfig(**gen_config_kwargs), 
+            stream=True,
+            safety_settings=safety_settings
+        )
+        
+        chunk_count = 0
+        total_chars = 0
+        
         for chunk in response_stream:
-            if hasattr(chunk, 'text') and chunk.text:
-                yield chunk.text
+            chunk_count += 1
+            
+            # Log finish reason for every chunk (helps diagnose truncation)
+            finish_reason_name = None
+            if hasattr(chunk, 'candidates') and chunk.candidates:
+                finish_reason_name = chunk.candidates[0].finish_reason.name
+            
+            if not chunk.parts:
+                print(f"[Gemini] Chunk #{chunk_count} has no parts. finish_reason={finish_reason_name}")
+                if finish_reason_name == 'SAFETY':
+                    logging.warning("Gemini response was blocked due to safety settings.")
+                    yield "Error: The response was blocked by the model's safety filters. Please try rephrasing your question."
+                    return
+                continue  # Skip chunks with no parts instead of falling through
+            try:
+                if hasattr(chunk, 'text') and chunk.text:
+                    total_chars += len(chunk.text)
+                    yield chunk.text
+            except ValueError as ve:
+                logging.warning(f"Gemini chunk #{chunk_count} text blocked or invalid: {ve}")
+                continue
+        
+        print(f"[Gemini] Stream complete: {chunk_count} chunks, {total_chars} total chars, last finish_reason={finish_reason_name}")
+        
+    except generation_types.StopCandidateException as e:
+        logging.error(f"Gemini stream stopped due to safety or other reasons: {e}")
+    except GeneratorExit:
+        print("[Gemini] WARNING: GeneratorExit received — stream was closed before completion!")
     except Exception as e:
         logging.error(f"Failed to get Gemini stream: {e}", exc_info=True)
         yield "Error: Could not get a response from the provider."
-
+        
 def _get_ollama_answer_stream(prompt: str, model: str, ollama_url: str, **kwargs):
     try:
         response = requests.post(f"{ollama_url}/api/chat", json={"model": model, "messages": [{"role": "user", "content": prompt}], "stream": True}, timeout=DEFAULT_REQUEST_TIMEOUT, stream=True)
@@ -384,7 +556,7 @@ def rerank_with_cross_encoder(query: str, chunks: List[Dict[str, Any]]) -> List[
     print(f"[TIME_LOG] Re-ranking with Cross-Encoder took {end_time - start_time:.4f} seconds.")
     return sorted_chunks
 
-def search_and_rerank_chunks(query: str, user_id: str, access_token: str, video_ids: Optional[set] = None):
+def search_and_rerank_chunks(query: str, user_id: str, access_token: str, video_ids: Optional[set] = None, channel_id: Optional[int] = None):
     total_start_time = time.perf_counter()
     
     def create_query_embedding(query_text: str):
@@ -425,12 +597,13 @@ def search_and_rerank_chunks(query: str, user_id: str, access_token: str, video_
             'query_embedding': query_embedding.tolist(),
             'match_threshold': float(os.environ.get('MATCH_THRESHOLD', 0.4)),
             'match_count': int(os.environ.get('MATCH_COUNT', 50)),
-            'p_video_ids': list(video_ids) if video_ids else None
+            'p_video_ids': list(video_ids) if video_ids else None,
+            'p_channel_id': channel_id
         }
         
         print(f"Calling 'match_embeddings' with params:")
         print(f"  - user_id: {user_id}")
-        #print(f"  - video_ids: {'All' if not video_ids else list(video_ids)}")
+        print(f"  - channel_id: {channel_id}")
         print(f"  - match_threshold: {match_params['match_threshold']}")
         
         rpc_start_time = time.perf_counter()
@@ -449,28 +622,30 @@ def search_and_rerank_chunks(query: str, user_id: str, access_token: str, video_
             chunk_data['similarity_score'] = row.get('similarity')
             initial_results.append(chunk_data)
 
-        CHUNKS_TO_RERANK = int(os.environ.get('CHUNKS_TO_RERANK', 15))
-        print(f"Passing the top {CHUNKS_TO_RERANK} results to the re-ranker.")
-        if os.environ.get('ENABLE_RERANKING', 'true').lower() == 'true':
-            reranked_results = rerank_with_cross_encoder(query, initial_results[:CHUNKS_TO_RERANK])
-        else:
-            print("Re-ranking is disabled via environment variable. Skipping.")
-            reranked_results = initial_results
-        
-        filtering_start_time = time.perf_counter()
+        CHUNKS_TO_RERANK = int(os.environ.get('CHUNKS_TO_RERANK', 55))
         top_k = int(os.environ.get('TOP_K', 5))
-        final_results = []
-        video_counts = {}
-        for chunk in reranked_results:
-            video_id = chunk.get('video_id')
-            if video_counts.get(video_id, 0) < 2:
-                final_results.append(chunk)
-                video_counts[video_id] = video_counts.get(video_id, 0) + 1
-            if len(final_results) >= top_k:
-                break
-        filtering_end_time = time.perf_counter()
-        print(f"[TIME_LOG] Final result diversification/filtering took {filtering_end_time - filtering_start_time:.4f} seconds.")
-        print(f"Selected {len(final_results)} diverse, highly relevant chunks for the context.")
+        
+        if os.environ.get('ENABLE_RERANKING', 'true').lower() == 'true':
+            print(f"Passing the top {CHUNKS_TO_RERANK} results to the re-ranker.")
+            reranked_results = rerank_with_cross_encoder(query, initial_results[:CHUNKS_TO_RERANK])
+            
+            filtering_start_time = time.perf_counter()
+            final_results = []
+            video_counts = {}
+            for chunk in reranked_results:
+                video_id = chunk.get('video_id')
+                if video_counts.get(video_id, 0) < 2:
+                    final_results.append(chunk)
+                    video_counts[video_id] = video_counts.get(video_id, 0) + 1
+                if len(final_results) >= top_k:
+                    break
+            filtering_end_time = time.perf_counter()
+            print(f"[TIME_LOG] Final result diversification/filtering took {filtering_end_time - filtering_start_time:.4f} seconds.")
+            print(f"Selected {len(final_results)} diverse, highly relevant chunks for the context.")
+        else:
+            print("Re-ranking is disabled via environment variable. Using pure semantic search.")
+            final_results = initial_results[:top_k]
+            print(f"Selected top {len(final_results)} chunks from semantic search.")
         
         total_end_time = time.perf_counter()
         print(f"[TIME_LOG] Total search_and_rerank_chunks took {total_end_time - total_start_time:.4f} seconds.")
@@ -497,24 +672,66 @@ def count_tokens(text: str, model: str = "gpt-4") -> int:
     
     return len(encoding.encode(text))
 
-def answer_question_stream(question_for_prompt: str, question_for_search: str, channel_data: dict = None, video_ids: set = None, user_id: str = None, access_token: str = None, tone: str = 'Casual', on_complete: callable = None, conversation_id: str = None) -> Iterator[str]:
+def answer_question_stream(
+    question_for_prompt: str, 
+    question_for_search: str, 
+    channel_data: dict = None, 
+    video_ids: set = None, 
+    user_id: str = None, 
+    access_token: str = None, 
+    tone: str = 'Casual', 
+    on_complete: callable = None, 
+    conversation_id: str = None, 
+    active_community_id: str = None, 
+    user_status: dict = None, 
+    is_manager: bool = False,
+    image_base64: str = None,
+    image_mime_type: str = None,
+    integration_source: str = 'web'
+) -> Iterator[str]:
     """
-    Finds relevant context and streams an answer. Now deducts bot queries synchronously.
+    Finds relevant context and streams an answer, optionally including an image. Now deducts bot queries synchronously.
     """
     from tasks import post_answer_processing_task
     from . import db_utils 
 
-    # --- START: NEW DEDUCTION LOGIC FOR BOTS ---
-    # We check if 'on_complete' is None. This is true ONLY for requests from bots.
     if on_complete is None and user_id:
-        # If it's a bot, deduct the query immediately before doing any work.
-        db_utils.record_bot_query_usage(user_id)
-    # --- END: NEW DEDUCTION LOGIC FOR BOTS ---
+        # Integration path: check limits before proceeding
+        allowed, error_msg, resolved_community_id, seller_id_to_charge = db_utils.check_bot_query_allowed(
+            user_id, channel_data, active_community_id
+        )
+        if not allowed:
+            yield f"data: {json.dumps({'error': 'QUERY_LIMIT_REACHED', 'message': error_msg})}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+        
+        # Deduct from seller if marketplace allocation is active and seller has credits,
+        # otherwise deduct from buyer's personal pool.
+        if seller_id_to_charge == 'skip_charge':
+            pass
+        elif seller_id_to_charge:
+            db_utils.record_bot_query_usage(seller_id_to_charge, resolved_community_id)
+        else:
+            db_utils.record_bot_query_usage(user_id, resolved_community_id)
     
     total_request_start_time = time.perf_counter()
 
-    # --- Configuration Logging ---
-    llm_provider = os.environ.get('LLM_PROVIDER', 'groq')
+    # --- PERFORMANCE: Use pre-fetched user_status if available, otherwise fetch ---
+    if user_status is None:
+        user_status = get_user_status(user_id, active_community_id)
+    plan_id = user_status.get('plan_name', 'Free') if user_status else 'Free'
+    print(f"<<<<<<<<<<<<DEBUG: Answering for user {user_id}. Detected plan_id: '{plan_id}'>>>>>>>>>>>>>>>>>")
+    if 'Creator' in plan_id:
+        max_tokens = 4096
+        word_count_guideline = "around 800-1000 words"
+    elif any(p in plan_id for p in ['Personal', 'pro', 'rich']):
+        max_tokens = 2048
+        word_count_guideline = "around 400-500 words"
+    else:
+        max_tokens = 1024
+        word_count_guideline = "around 200-250 words"
+
+    llm_provider = os.environ.get('LLM_PROVIDER', 'groq').lower()
     llm_model = os.environ.get('MODEL_NAME', 'Not Set')
     embed_provider = os.environ.get('EMBED_PROVIDER', 'openai')
     embed_model = os.environ.get('EMBED_MODEL', 'Not Set')
@@ -532,7 +749,8 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
         print(f"  OpenAI Base URL:      {base_url}")
     print("---------------------------------------------------------")
 
-    # --- Separate chat history from the original question ---
+    current_date = datetime.datetime.utcnow().strftime("%B %d, %Y")
+
     chat_history_for_prompt = ""
     original_question = question_for_prompt 
     history_marker = "Now, answer this new question, considering the history as context:\n"
@@ -547,7 +765,6 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
         yield "data: {\"error\": \"User not identified. Please log in.\"}\n\n"
         return
 
-    # --- Use the dedicated `question_for_search` to find relevant documents ---
     relevant_chunks = get_routed_context(question_for_search, channel_data, user_id, access_token)
 
     if relevant_chunks == "JWT_EXPIRED":
@@ -559,43 +776,179 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
         yield "data: [DONE]\n\n"
         return
 
-    # --- The rest of the function for processing and streaming the answer ---
     sources_dict = {}
     for chunk in relevant_chunks:
         try:
-            url = chunk.get('video_url')
+            # Handle different source types
+            source_type = chunk.get('source_type')
+            
+            # extract URL and Title
+            url = chunk.get('video_url') or chunk.get('url')
+            title = chunk.get('video_title') or chunk.get('title') or 'Unknown Source'
+            
+            if source_type == 'whatsapp':
+                # WhatsApp doesn't have a real URL, so we create a distinct placeholder or use the title
+                url = url or "whatsapp://chat"
+                title = title if title != 'Unknown Source' else "WhatsApp Chat"
+            
             if url and url not in sources_dict:
-                sources_dict[url] = {'title': chunk.get('video_title', 'Unknown Title'), 'url': url}
+                snippet = chunk.get('chunk_text', '')[:250] + "..." if chunk.get('chunk_text') else ''
+                sources_dict[url] = {'title': title, 'url': url, 'snippet': snippet}
         except Exception:
             continue
     formatted_sources = sorted(list(sources_dict.values()), key=lambda s: s['title'])
     yield f"data: {json.dumps({'sources': formatted_sources})}\n\n"
 
-    context_parts = [f"From video '{chunk.get('video_title', 'Unknown')}' (uploaded on {chunk.get('upload_date', 'N/A')}): {chunk.get('chunk_text', '')}" for chunk in relevant_chunks]
+    # Format context based on source type
+    context_parts = []
+    for chunk in relevant_chunks:
+        source_type = chunk.get('source_type', 'youtube')
+        title = chunk.get('video_title') or chunk.get('title') or 'Unknown Source'
+        date = chunk.get('upload_date') or chunk.get('date') or 'N/A'
+        text = chunk.get('chunk_text', '')
+
+        if source_type == 'whatsapp':
+            context_parts.append(f"[WhatsApp Chat: \"{title}\" | {date}]\n{text}")
+        elif source_type == 'website':
+            context_parts.append(f"[Website: \"{title}\" | {chunk.get('url')}]\n{text}")
+        else:
+            context_parts.append(f"[Video: \"{title}\" | {date}]\n{text}")
     context = '\n\n'.join(context_parts)
     
     if channel_data:
         creator_name = channel_data.get('creator_name', channel_data.get('channel_name', 'the creator'))
+        speaking_style = channel_data.get('speaking_style', 'Professional and helpful. Provide clear, accurate information.')
+        bot_type = channel_data.get('bot_type', 'youtuber')  # Default to youtuber for legacy bots
+        promotion_triggers = channel_data.get('promotion_triggers')
         
-        # We now ALWAYS use the new HYBRID_PERSONA_PROMPT
-        prompt_template = prompts.HYBRID_PERSONA_PROMPT
-        print("Using HYBRID Persona Prompt")
+        if promotion_triggers:
+            speaking_style += f"\n\nCRITICAL INSTRUCTIONS / PROMOTION TRIGGERS:\n{promotion_triggers}"
+        
+        # Select prompt based on bot type
+        if bot_type == 'business':
+            prompt_template = prompts.BUSINESS_SUPPORT_PROMPT
+            print("Using BUSINESS SUPPORT Persona Prompt")
+            prompt = prompt_template.format(
+                business_name=creator_name,
+                context=context,
+                current_date=current_date,
+                question=original_question,
+                chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
+                word_count=word_count_guideline,
+                speaking_style=speaking_style
+            )
+        elif bot_type == 'general':
+            prompt_template = prompts.GENERAL_ASSISTANT_PROMPT
+            print("Using GENERAL ASSISTANT Persona Prompt")
+            prompt = prompt_template.format(
+                bot_name=creator_name,
+                context=context,
+                current_date=current_date,
+                question=original_question,
+                chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
+                word_count=word_count_guideline,
+                speaking_style=speaking_style
+            )
+        else:  # youtuber (default)
+            prompt_template = prompts.HYBRID_PERSONA_PROMPT
+            print("Using YOUTUBER/CREATOR Persona Prompt with Soul + Style Guidance")
+            creator_soul = channel_data.get('creator_soul', '')
 
-        prompt = prompt_template.format(
-            creator_name=creator_name, 
-            context=context, 
-            question=original_question,
-            chat_history=chat_history_for_prompt or "This is the first message in the conversation."
-        )
+            # --- Extract creator-specific anti-patterns from soul profile at runtime ---
+            # Looks for the 'LANGUAGE & STYLE TO AVOID' section added by the updated extraction prompt.
+            # Backward-compatible: returns empty string for channels processed before this update.
+            creator_antipatterns = ""
+            if creator_soul:
+                soul_lower = creator_soul.lower()
+                antipattern_markers = [
+                    '**language & style to avoid',
+                    '**language to avoid',
+                    '**anti-patterns',
+                    '**what they never say',
+                    '**style to avoid',
+                ]
+                for marker in antipattern_markers:
+                    idx = soul_lower.find(marker)
+                    if idx != -1:
+                        section_start = creator_soul.find('\n', idx) + 1
+                        next_section_idx = creator_soul.find('\n**', section_start)
+                        if next_section_idx != -1:
+                            raw_antipatterns = creator_soul[section_start:next_section_idx].strip()
+                        else:
+                            raw_antipatterns = creator_soul[section_start:section_start + 600].strip()
+                        if raw_antipatterns:
+                            creator_antipatterns = (
+                                "\n**Additional Creator-Specific Anti-Patterns (from their actual content):**\n"
+                                + raw_antipatterns
+                            )
+                            print(f"[PERSONA] Injected creator anti-patterns ({len(creator_antipatterns)} chars)")
+                        break
+
+            prompt = prompt_template.format(
+                creator_name=creator_name,
+                context=context,
+                current_date=current_date,
+                question=original_question,
+                chat_history=chat_history_for_prompt or "This is the first message in the conversation.",
+                word_count=word_count_guideline,
+                speaking_style=speaking_style,
+                creator_soul=creator_soul or "Not yet analyzed. Use speaking style and context to infer personality.",
+                creator_antipatterns=creator_antipatterns
+            )
     else:
         prompt = prompts.NEUTRAL_ASSISTANT_PROMPT.format(context=context, question=original_question)
 
-    # --- This block now contains all necessary variables ---
-    llm_provider = os.environ.get('LLM_PROVIDER', 'groq')
+    # --- Manager Persona Mode vs Lead Capture Mode ---
+    if is_manager:
+        manager_instruction = (
+            "You are the business assistant. The person speaking to you right now is the OWNER/MANAGER of the business. "
+            "Do not try to sell to them. Be concise, report facts, and assist them administratively."
+        )
+        prompt = manager_instruction + "\n\n" + prompt
+        print("[MANAGER_MODE] Manager persona active — instructions prepended to prompt.")
+    elif channel_data and channel_data.get('lead_capture_enabled'):
+        lead_fields = channel_data.get('lead_capture_fields') or []
+        lead_custom_prompt = channel_data.get('lead_capture_prompt', '')
+        try:
+            from utils.lead_capture_utils import build_lead_prompt
+            lead_instructions = build_lead_prompt(lead_fields, custom_intro=lead_custom_prompt)
+            if lead_instructions:
+                prompt = lead_instructions + "\n" + prompt
+                print("[LEAD_CAPTURE] Lead capture mode active — instructions prepended to prompt.")
+        except Exception as lc_err:
+            logging.warning(f"[LEAD_CAPTURE] Could not build lead prompt: {lc_err}")
+
+    # --- AI Flow Trigger Settings ---
+    if channel_data:
+        try:
+            from . import db_utils
+            # Let's see if we have flow tools
+            flow_res = get_supabase_admin_client().table('channel_flows').select('id, name, flow_data').eq('channel_id', channel_data['id']).eq('is_active', True).execute()
+            if flow_res.data:
+                flows_list = []
+                for f in flow_res.data:
+                    instructions = ""
+                    if f.get('flow_data') and f['flow_data'].get('ai_instructions'):
+                        instructions = f" (TRIGGER WHEN: {f['flow_data']['ai_instructions']})"
+                    flows_list.append(f"- Name: \"{f['name']}\" | ID: {f['id']}{instructions}")
+
+                flows_list_str = "\n".join(flows_list)
+                flow_instruction = (
+                    "\n\n--- VISUAL FLOW TRIGGERS ---\n"
+                    "You have the ability to hand over the conversation to specific visual workflows configured by the user, if the user's intent matches.\n"
+                    f"Available Flows:\n{flows_list_str}\n\n"
+                    "If the user asks to start one of these flows, or their intent precisely matches the general purpose of one of these flows (e.g., booking, support, survey), or if their message matches the 'TRIGGER WHEN' rules defined above, you MUST STOP answering their prompt directly, and instead trigger the workflow.\n"
+                    "To trigger a flow, simply append the exact tag: [TRIGGER_FLOW: \"<FLOW_NAME>\"] at the very end of your response.\n"
+                    "IMPORTANT: Use only the exact name exactly as written in the Available Flows list above.\n"
+                    "Example: \"I'll redirect you to our booking system now! [TRIGGER_FLOW: \"Booking\"]\"\n"
+                )
+                prompt = flow_instruction + "\n" + prompt
+        except Exception as f_err:
+            logging.warning(f"Could not load channel flows for AI context: {f_err}")
+
     model = os.environ.get('MODEL_NAME')
-    api_key = _get_api_key(llm_provider)
     ollama_url = os.environ.get('OLLAMA_URL')
-    openai_base_url = os.environ.get('OPENAI_API_BASE_URL')
+    openai_base_url = os.environ.get('OPENAI_API_BASE_URL', 'https://api.openai.com/v1')
     temperature = float(os.environ.get('LLM_TEMPERATURE', 0.7))
     prompt_token_count = count_tokens(prompt, model)
     print(f"  Prompt Token Count:     {prompt_token_count}")
@@ -614,7 +967,10 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
         'api_key': api_key,
         'ollama_url': ollama_url,
         'base_url': openai_base_url,
-        'temperature': temperature
+        'temperature': temperature,
+        'max_tokens': max_tokens,
+        'image_base64': image_base64,
+        'image_mime_type': image_mime_type
     }
 
     try:
@@ -647,15 +1003,14 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
     
     if full_answer and "Error:" not in full_answer:
         try:
-            # This logic now correctly handles both web app and Discord conversations
             channel_name_for_history = conversation_id or (channel_data.get('channel_name', 'general') if channel_data else 'general')
-            
             post_answer_processing_task(
                 user_id=user_id,
                 channel_name=channel_name_for_history,
                 question=original_question,
                 answer=full_answer,
-                sources=formatted_sources
+                sources=formatted_sources,
+                integration_source=integration_source
             )
         except Exception as e:
             logging.error(f"post_answer_processing_task failed: {e}", exc_info=True)
@@ -665,16 +1020,33 @@ def answer_question_stream(question_for_prompt: str, question_for_search: str, c
 
     
 def _get_openai_answer_non_stream(prompt: str, model: str, api_key: str, **kwargs):
-    """Gets a single, non-streamed response from an OpenAI-compatible API."""
+    """Gets a single, non-streamed response. Supports native Gemini logic and OpenAI-compatible APIs."""
     try:
+        provider = kwargs.get('provider', '').lower()
+        temperature = kwargs.get('temperature', 0.2) # Lower temp for factual extraction
+        max_tokens = kwargs.get('max_tokens', 100)
+        
+        if provider == 'gemini' or 'gemini' in model.lower():
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            model_name = f"models/{model}" if not model.startswith('models/') else model
+            gemini_model = genai.GenerativeModel(model_name)
+            
+            gemini_config = genai.types.GenerationConfig(
+                temperature=temperature,
+                max_output_tokens=max_tokens,
+            )
+            
+            response = gemini_model.generate_content(prompt, generation_config=gemini_config)
+            return response.text if response.text else ""
+            
         import openai
         base_url = kwargs.get('base_url')
-        temperature = kwargs.get('temperature', 0.2) # Lower temp for factual extraction
         client = openai.OpenAI(api_key=api_key, base_url=base_url)
         response = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=100,
+            max_tokens=max_tokens,
             temperature=temperature,
             stream=False
         )
@@ -686,12 +1058,12 @@ def _get_openai_answer_non_stream(prompt: str, model: str, api_key: str, **kwarg
             content = response.choices[0]['message']['content']
         return content or ""
     except Exception as e:
-        logging.error(f"Failed to get OpenAI non-stream response: {e}", exc_info=True)
+        logging.error(f"Failed to get non-stream response: {e}", exc_info=True)
         return ""
     
 def extract_topics_from_text(text_sample: str) -> list:
     print('llm called')
-    llm_provider = os.environ.get('TOPIC_LLM_PROVIDER', os.environ.get('LLM_PROVIDER', 'openai'))
+    llm_provider = os.environ.get('TOPIC_LLM_PROVIDER', os.environ.get('LLM_PROVIDER', 'openai')).lower()
     model = os.environ.get('TOPIC_MODEL_NAME', os.environ.get('MODEL_NAME'))
     api_key = _get_api_key(llm_provider)
 
@@ -721,7 +1093,7 @@ def extract_topics_from_text(text_sample: str) -> list:
     return []
 
 def generate_channel_summary(text_sample: str) -> str:
-    llm_provider = os.environ.get('SUMMARY_LLM_PROVIDER', os.environ.get('LLM_PROVIDER', 'openai'))
+    llm_provider = os.environ.get('SUMMARY_LLM_PROVIDER', os.environ.get('LLM_PROVIDER', 'openai')).lower()
     model = os.environ.get('SUMMARY_MODEL_NAME', os.environ.get('MODEL_NAME'))
     api_key = _get_api_key(llm_provider)
 
@@ -739,6 +1111,80 @@ def generate_channel_summary(text_sample: str) -> str:
 
     return summary.strip() if summary else ""
 
+def extract_speaking_style(text_sample: str, source_type: str = 'youtube') -> str:
+    """
+    Analyzes transcripts/chats to extract the speaker's unique speaking style,
+    catchphrases, and vocabulary using an LLM.
+    
+    Args:
+        text_sample: Text to analyze
+        source_type: 'youtube' for creator content, 'whatsapp' for customer service chats
+    """
+    print(f"Extracting speaking style from {source_type} sample...")
+    llm_provider = os.environ.get('STYLE_LLM_PROVIDER', os.environ.get('LLM_PROVIDER', 'openai')).lower()
+    
+    # Use a higher quality model for style extraction if possible
+    model = os.environ.get('STYLE_MODEL_NAME', os.environ.get('MODEL_NAME'))
+    print(f"[{source_type.upper()} STYLE EXTRACTION] Using provider: {llm_provider}, model: {model}")
+    
+    api_key = _get_api_key(llm_provider)
+
+    # Correct base_url handling
+    if llm_provider == 'groq':
+        base_url = 'https://api.groq.com/openai/v1'
+    else:
+        base_url = os.environ.get('OPENAI_API_BASE_URL', None)
+
+    if not all([llm_provider, model, api_key]):
+        logging.warning("Style extraction LLM not fully configured.")
+        return ""
+
+    # Use appropriate prompt based on source type
+    if source_type == 'whatsapp':
+        prompt = prompts.BUSINESS_STYLE_EXTRACTION_PROMPT.format(context=text_sample)
+    else:
+        prompt = prompts.SPEAKING_STYLE_EXTRACTION_PROMPT.format(context=text_sample)
+    
+    # We want a fairly comprehensive analysis, so allow more tokens
+    style_analysis = _get_openai_answer_non_stream(prompt, model, api_key, base_url=base_url, temperature=0.4, max_tokens=1500)
+
+    if style_analysis:
+        print("Speaking style extracted successfully.")
+        return style_analysis.strip()
+    
+    return ""
+
+
+def extract_creator_soul(text_sample: str) -> str:
+    """
+    Extracts the creator's core identity — values, opinions, personality traits,
+    passions, and pet peeves — grounded in their actual video content.
+    This is the OpenClaw SOUL.md equivalent: who the creator IS, not just how they talk.
+    """
+    print("Extracting creator soul profile from transcripts...")
+    llm_provider = os.environ.get('STYLE_LLM_PROVIDER', os.environ.get('LLM_PROVIDER', 'openai')).lower()
+    model = os.environ.get('STYLE_MODEL_NAME', os.environ.get('MODEL_NAME'))
+    print(f"[SOUL EXTRACTION] Using provider: {llm_provider}, model: {model}")
+    api_key = _get_api_key(llm_provider)
+
+    if llm_provider == 'groq':
+        base_url = 'https://api.groq.com/openai/v1'
+    else:
+        base_url = os.environ.get('OPENAI_API_BASE_URL', None)
+
+    if not all([llm_provider, model, api_key]):
+        logging.warning("Soul extraction LLM not fully configured.")
+        return ""
+
+    prompt = prompts.CREATOR_SOUL_EXTRACTION_PROMPT.format(context=text_sample)
+    soul_profile = _get_openai_answer_non_stream(prompt, model, api_key, base_url=base_url, temperature=0.4, max_tokens=1500)
+
+    if soul_profile:
+        print("Creator soul profile extracted successfully.")
+        return soul_profile.strip()
+    
+    return ""
+
 def _get_transcript_summary(text: str) -> str:
     """
     Uses a fast LLM to generate a concise summary of a given text.
@@ -749,7 +1195,7 @@ def _get_transcript_summary(text: str) -> str:
         # We use a fast and efficient model for this internal task.
         # Groq's Llama3 8B is excellent for summarization.
         provider = "groq"
-        model = "llama3-8b-8192"
+        model = "llama-3.1-8b-instant"
         api_key = _get_api_key(provider)
         
         if not api_key:

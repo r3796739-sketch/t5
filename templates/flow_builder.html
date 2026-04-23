@@ -1,0 +1,2296 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flow Builder — {{ chatbot.channel_name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #0f1117;
+            --bg-panel: #161b27;
+            --bg-card: #1e2535;
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #e8eaf0;
+            --text-2: #8b93a7;
+            --text-3: #4a5568;
+            --accent: #f97316;
+            --accent-2: rgba(249, 115, 22, .15);
+            --grid: rgba(255, 255, 255, 0.035);
+
+            --node-start: #10b981;
+            --node-message: #3b82f6;
+            --node-ai: #8b5cf6;
+            --node-lead: #f59e0b;
+            --node-action: #06b6d4;
+            --node-end: #6b7280;
+
+            --node-w: 280px;
+        }
+
+        html,
+        body {
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        /* ── HEADER ─────────────────────────────────────────────────── */
+        .fb-header {
+            height: 52px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-panel);
+            position: relative;
+            z-index: 100;
+            flex-shrink: 0;
+        }
+
+        .fb-header-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text);
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .fb-header-title span {
+            color: var(--text-2);
+            font-weight: 400;
+        }
+
+        .fb-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all .15s;
+            white-space: nowrap;
+        }
+
+        .fb-btn-ghost {
+            background: transparent;
+            color: var(--text-2);
+            border: 1px solid var(--border);
+        }
+
+        .fb-btn-ghost:hover {
+            background: var(--bg-card);
+            color: var(--text);
+        }
+
+        .fb-btn-save {
+            background: var(--bg-card);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .fb-btn-save:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .fb-btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .fb-btn-primary:hover {
+            background: #ea6c10;
+        }
+
+        .fb-btn-danger {
+            background: transparent;
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, .3);
+        }
+
+        .fb-btn-danger:hover {
+            background: rgba(239, 68, 68, .1);
+        }
+
+        .fb-active-badge {
+            font-size: 0.72rem;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .fb-active-badge.on {
+            background: rgba(16, 185, 129, .15);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, .3);
+        }
+
+        .fb-active-badge.off {
+            background: rgba(107, 114, 128, .15);
+            color: var(--text-2);
+            border: 1px solid rgba(107, 114, 128, .3);
+        }
+
+        /* ── LAYOUT ─────────────────────────────────────────────────── */
+        .fb-layout {
+            display: grid;
+            grid-template-columns: 200px 1fr 4px 380px;
+            height: calc(100vh - 52px);
+            overflow: hidden;
+        }
+
+        .fb-layout-resizer {
+            background: var(--border);
+            cursor: col-resize;
+            transition: background 0.2s;
+            z-index: 10;
+        }
+
+        .fb-layout-resizer:hover,
+        .fb-layout-resizer.active {
+            background: var(--accent);
+        }
+
+        /* ── PALETTE ─────────────────────────────────────────────────── */
+        .fb-palette {
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            padding: 12px;
+            overflow-y: auto;
+        }
+
+        .fb-palette-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            margin-bottom: 8px;
+            padding: 0 4px;
+        }
+
+        .fb-palette-node {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            margin-bottom: 6px;
+            cursor: grab;
+            transition: all .15s;
+            background: var(--bg-card);
+            user-select: none;
+        }
+
+        .fb-palette-node:hover {
+            border-color: rgba(255, 255, 255, .2);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, .3);
+        }
+
+        .fb-palette-node:active {
+            cursor: grabbing;
+            transform: scale(0.97);
+        }
+
+        .fb-palette-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .fb-palette-label {
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .fb-palette-desc {
+            font-size: 0.72rem;
+            color: var(--text-2);
+            margin-top: 1px;
+        }
+
+        .fb-palette-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 8px 0;
+        }
+
+        /* ── CANVAS WRAPPER ──────────────────────────────────────────── */
+        .fb-canvas-wrap {
+            position: relative;
+            overflow: hidden;
+            background: var(--bg);
+            cursor: default;
+            background-image:
+                radial-gradient(circle, var(--grid) 1px, transparent 1px);
+            background-size: 28px 28px;
+        }
+
+        .fb-canvas-wrap.pan-mode {
+            cursor: grab;
+        }
+
+        .fb-canvas-wrap.pan-mode:active {
+            cursor: grabbing;
+        }
+
+        #canvas-world {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 0;
+            /* Grows with content */
+            transform-origin: 0 0;
+        }
+
+        /* ── SVG EDGES ───────────────────────────────────────────────── */
+        #edges-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 6000px;
+            height: 4000px;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        .fb-edge {
+            fill: none;
+            stroke: rgba(255, 255, 255, .25);
+            stroke-width: 2;
+        }
+
+        .fb-edge.selected {
+            stroke: var(--accent);
+            stroke-width: 2.5;
+        }
+
+        .fb-edge-ghost {
+            fill: none;
+            stroke: var(--accent);
+            stroke-width: 2;
+            stroke-dasharray: 6 4;
+            pointer-events: none;
+        }
+
+        .fb-edge-hit {
+            fill: none;
+            stroke: transparent;
+            stroke-width: 16;
+            cursor: pointer;
+            pointer-events: stroke;
+        }
+
+        /* ── NODES ───────────────────────────────────────────────────── */
+        .fb-node {
+            position: absolute;
+            width: var(--node-w);
+            background: var(--bg-card);
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, .4);
+            cursor: pointer;
+            transition: border-color .15s, box-shadow .15s;
+            user-select: none;
+        }
+
+        .fb-node:hover {
+            border-color: rgba(255, 255, 255, .18);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, .5);
+        }
+
+        .fb-node.selected {
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, .2), 0 8px 32px rgba(0, 0, 0, .5);
+        }
+
+        .fb-node-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 14px;
+            border-radius: 12px 12px 0 0;
+            border-bottom: 1px solid rgba(255, 255, 255, .06);
+            position: relative;
+        }
+
+        .fb-node-type-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .fb-node-type-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            flex: 1;
+        }
+
+        .fb-node-drag-handle {
+            position: absolute;
+            inset: 0;
+            border-radius: 12px 12px 0 0;
+            cursor: grab;
+        }
+
+        .fb-node-drag-handle:active {
+            cursor: grabbing;
+        }
+
+        /* Input port — left side of header */
+        .fb-port-in {
+            position: absolute;
+            left: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--bg-panel);
+            border: 2px solid rgba(255, 255, 255, .3);
+            z-index: 10;
+            transition: border-color .15s, transform .15s;
+        }
+
+        .fb-port-in:hover {
+            border-color: #fff;
+            transform: translateY(-50%) scale(1.3);
+        }
+
+        .fb-port-in.accepting {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, .3);
+            transform: translateY(-50%) scale(1.4);
+        }
+
+        .fb-node-body {
+            padding: 10px 14px 4px;
+        }
+
+        .fb-node-message {
+            font-size: 0.8rem;
+            color: var(--text-2);
+            line-height: 1.5;
+            max-height: 52px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            margin-bottom: 8px;
+        }
+
+        .fb-node-message.empty {
+            color: var(--text-3);
+            font-style: italic;
+        }
+
+        /* Buttons inside node */
+        .fb-node-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding-bottom: 10px;
+        }
+
+        .fb-node-btn-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            position: relative;
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid rgba(255, 255, 255, .07);
+            border-radius: 8px;
+            padding: 6px 10px;
+            padding-right: 28px;
+        }
+
+        .fb-node-btn-label {
+            font-size: 0.78rem;
+            color: var(--text);
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .fb-node-btn-connected {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--node-start);
+            flex-shrink: 0;
+            margin-right: 4px;
+        }
+
+        .fb-node-btn-unconnected {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: transparent;
+            border: 1.5px solid var(--text-3);
+            flex-shrink: 0;
+            margin-right: 4px;
+        }
+
+        /* Output port — right side of each button */
+        .fb-port-out {
+            position: absolute;
+            right: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--bg-panel);
+            border: 2px solid rgba(255, 255, 255, .3);
+            z-index: 10;
+            cursor: crosshair;
+            transition: border-color .15s, transform .15s;
+        }
+
+        .fb-port-out:hover {
+            border-color: var(--accent);
+            background: rgba(249, 115, 22, .3);
+            transform: translateY(-50%) scale(1.3);
+        }
+
+        .fb-port-out.connected {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, .2);
+        }
+
+        /* End node (no buttons / ports out) */
+        .fb-node-end-msg {
+            font-size: 0.8rem;
+            color: var(--text-2);
+            padding: 8px 14px 14px;
+            text-align: center;
+        }
+
+        /* Zoom indicator */
+        .fb-zoom-indicator {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            color: var(--text-2);
+            pointer-events: none;
+        }
+
+        /* Minimap (optional future) */
+
+        /* ── EDITOR PANEL ────────────────────────────────────────────── */
+        .fb-editor {
+            background: var(--bg-panel);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .fb-editor-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .fb-editor-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .fb-editor-empty {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--text-3);
+            font-size: 0.85rem;
+            padding: 32px;
+        }
+
+        .fb-editor-empty svg {
+            opacity: .3;
+        }
+
+        .fb-field {
+            margin-bottom: 16px;
+        }
+
+        .fb-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-2);
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .fb-input,
+        .fb-textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 0.83rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color .15s;
+        }
+
+        .fb-textarea {
+            resize: vertical;
+            min-height: 80px;
+            line-height: 1.5;
+        }
+
+        .fb-input:focus,
+        .fb-textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .fb-hint {
+            font-size: 0.72rem;
+            color: var(--text-3);
+            margin-top: 4px;
+        }
+
+        /* Button list in editor */
+        .fb-btn-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .fb-btn-row-edit {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
+
+        .fb-btn-row-edit input {
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-size: 0.82rem;
+            font-family: inherit;
+            flex: 1;
+            outline: none;
+        }
+
+        .fb-btn-row-edit input::placeholder {
+            color: var(--text-3);
+        }
+
+        .fb-btn-drag {
+            cursor: grab;
+            color: var(--text-3);
+        }
+
+        .fb-btn-del {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-3);
+            padding: 2px;
+            display: flex;
+            border-radius: 4px;
+        }
+
+        .fb-btn-del:hover {
+            color: #ef4444;
+            background: rgba(239, 68, 68, .1);
+        }
+
+        .fb-add-btn {
+            width: 100%;
+            padding: 7px;
+            border-radius: 8px;
+            border: 1px dashed var(--border);
+            background: transparent;
+            color: var(--text-2);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all .15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .fb-add-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-2);
+        }
+
+        .fb-type-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        .fb-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 16px 0;
+        }
+
+        .fb-delete-node {
+            width: 100%;
+            padding: 8px;
+            background: transparent;
+            border: 1px solid rgba(239, 68, 68, .3);
+            border-radius: 8px;
+            color: #ef4444;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all .15s;
+            margin-top: 8px;
+        }
+
+        .fb-delete-node:hover {
+            background: rgba(239, 68, 68, .1);
+        }
+
+        /* ── Button type badges ───────────────────────────────────── */
+        .fb-btn-type-badge {
+            font-size: 0.62rem;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            flex-shrink: 0;
+        }
+
+        .fb-btn-type-reply {
+            background: rgba(59, 130, 246, .15);
+            color: #3b82f6;
+        }
+
+        .fb-btn-type-url {
+            background: rgba(16, 185, 129, .15);
+            color: #10b981;
+        }
+
+        .fb-btn-type-phone {
+            background: rgba(245, 158, 11, .15);
+            color: #f59e0b;
+        }
+
+        /* ── Node image indicator ─────────────────────────────────── */
+        .fb-node-img-badge {
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #06b6d4;
+            background: rgba(6, 182, 212, .12);
+            border: 1px solid rgba(6, 182, 212, .25);
+            border-radius: 6px;
+            padding: 2px 7px;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        /* Sub-field for url/phone inside button row */
+        .fb-btn-subfield {
+            width: 100%;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            background: rgba(255, 255, 255, .05);
+            border: 1px solid rgba(255, 255, 255, .1);
+            color: var(--text);
+            font-family: inherit;
+            outline: none;
+            margin-top: 4px;
+        }
+
+        .fb-btn-subfield:focus {
+            border-color: var(--accent);
+        }
+
+        .fb-btn-subfield::placeholder {
+            color: var(--text-3);
+        }
+
+        /* Image URL input hint */
+        .fb-img-preview {
+            width: 100%;
+            height: 72px;
+            border-radius: 8px;
+            object-fit: cover;
+            margin-top: 6px;
+            display: none;
+        }
+
+        /* ── DROP INDICATOR ──────────────────────────────────────────── */
+        .fb-drop-indicator {
+            position: absolute;
+            width: var(--node-w);
+            height: 80px;
+            border: 2px dashed rgba(249, 115, 22, .5);
+            border-radius: 14px;
+            background: rgba(249, 115, 22, .05);
+            pointer-events: none;
+            display: none;
+            transition: opacity .1s;
+        }
+
+        /* ── TOAST ───────────────────────────────────────────────────── */
+        .fb-toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 0.83rem;
+            color: var(--text);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, .4);
+            z-index: 9999;
+            animation: fadeUp .25s ease;
+            display: none;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        /* scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, .1);
+            border-radius: 99px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- HEADER -->
+    <div class="fb-header">
+        <a href="/chatbot/{{ chatbot.id }}/settings" class="fb-btn fb-btn-ghost" title="Back to settings">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 5l-7 7 7 7" />
+            </svg>
+            Back
+        </a>
+
+        <div class="fb-header-title">
+            Flow Builder &nbsp;·&nbsp; <span>{{ chatbot.channel_name }}</span>
+        </div>
+
+        <div id="activeStatus" class="fb-active-badge off">
+            <svg width="7" height="7" viewBox="0 0 7 7">
+                <circle cx="3.5" cy="3.5" r="3.5" fill="currentColor" />
+            </svg>
+            Inactive
+        </div>
+
+        <button class="fb-btn fb-btn-ghost" onclick="FB.zoomReset()" title="Reset zoom">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 7V3h4M21 7V3h-4M3 17v4h4M21 17v4h-4" />
+            </svg>
+            Reset View
+        </button>
+        <button class="fb-btn fb-btn-save" onclick="FB.save()" id="saveBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
+            </svg>
+            Save
+        </button>
+        <button class="fb-btn fb-btn-primary" onclick="FB.toggleActivate()" id="activateBtn">
+            Activate Flow
+        </button>
+    </div>
+
+    <!-- MAIN LAYOUT -->
+    <div class="fb-layout">
+
+        <!-- LEFT PALETTE -->
+        <div class="fb-palette">
+            <div class="fb-palette-title">Nodes</div>
+
+            <div class="fb-palette-node" draggable="true" data-type="message">
+                <div class="fb-palette-dot" style="background:var(--node-message)"></div>
+                <div>
+                    <div class="fb-palette-label">Message</div>
+                    <div class="fb-palette-desc">Text + buttons</div>
+                </div>
+            </div>
+
+            <div class="fb-palette-node" draggable="true" data-type="ai">
+                <div class="fb-palette-dot" style="background:var(--node-ai)"></div>
+                <div>
+                    <div class="fb-palette-label">AI Answer</div>
+                    <div class="fb-palette-desc">Free AI response</div>
+                </div>
+            </div>
+
+            <div class="fb-palette-node" draggable="true" data-type="lead">
+                <div class="fb-palette-dot" style="background:var(--node-lead)"></div>
+                <div>
+                    <div class="fb-palette-label">Lead Form</div>
+                    <div class="fb-palette-desc">Collect visitor info</div>
+                </div>
+            </div>
+
+            <div class="fb-palette-node" draggable="true" data-type="list_node">
+                <div class="fb-palette-dot" style="background:#0ea5e9"></div>
+                <div>
+                    <div class="fb-palette-label">List Menu</div>
+                    <div class="fb-palette-desc">Button → opens options</div>
+                </div>
+            </div>
+
+            <div class="fb-palette-divider"></div>
+            <div class="fb-palette-title" style="margin-top:4px;">Media</div>
+
+            <div class="fb-palette-node" draggable="true" data-type="image_node">
+                <div class="fb-palette-dot" style="background:#06b6d4"></div>
+                <div>
+                    <div class="fb-palette-label">Image</div>
+                    <div class="fb-palette-desc">Send a photo</div>
+                </div>
+            </div>
+
+            <div class="fb-palette-node" draggable="true" data-type="video_node">
+                <div class="fb-palette-dot" style="background:#7c3aed"></div>
+                <div>
+                    <div class="fb-palette-label">Video</div>
+                    <div class="fb-palette-desc">Send a video</div>
+                </div>
+            </div>
+
+            <div class="fb-palette-node" draggable="true" data-type="audio_node">
+                <div class="fb-palette-dot" style="background:#db2777"></div>
+                <div>
+                    <div class="fb-palette-label">Audio</div>
+                    <div class="fb-palette-desc">Send audio / voice</div>
+                </div>
+            </div>
+
+            <div class="fb-palette-node" draggable="true" data-type="document_node">
+                <div class="fb-palette-dot" style="background:#16a34a"></div>
+                <div>
+                    <div class="fb-palette-label">Document</div>
+                    <div class="fb-palette-desc">Send PDF / file</div>
+                </div>
+            </div>
+
+            <div class="fb-palette-node" draggable="true" data-type="location_node">
+                <div class="fb-palette-dot" style="background:#dc2626"></div>
+                <div>
+                    <div class="fb-palette-label">Location</div>
+                    <div class="fb-palette-desc">Send a map pin</div>
+                </div>
+            </div>
+
+            <div class="fb-palette-divider"></div>
+            <div class="fb-palette-title" style="margin-top:4px;">Other</div>
+
+            <div class="fb-palette-node" draggable="true" data-type="condition_node">
+                <div class="fb-palette-dot" style="background:#eab308"></div>
+                <div>
+                    <div class="fb-palette-label">Condition</div>
+                    <div class="fb-palette-desc">Branch by rules</div>
+                </div>
+            </div>
+
+            <div class="fb-palette-node" draggable="true" data-type="variable_node">
+                <div class="fb-palette-dot" style="background:#8b5cf6"></div>
+                <div>
+                    <div class="fb-palette-label">Set Variable</div>
+                    <div class="fb-palette-desc">Save user data</div>
+                </div>
+            </div>
+
+            <div class="fb-palette-node" draggable="true" data-type="action">
+                <div class="fb-palette-dot" style="background:var(--node-action)"></div>
+                <div>
+                    <div class="fb-palette-label">Action</div>
+                    <div class="fb-palette-desc">CTA / webhook</div>
+                </div>
+            </div>
+
+            <div class="fb-palette-node" draggable="true" data-type="end">
+                <div class="fb-palette-dot" style="background:var(--node-end)"></div>
+                <div>
+                    <div class="fb-palette-label">End</div>
+                    <div class="fb-palette-desc">Close conversation</div>
+                </div>
+            </div>
+
+            <div class="fb-palette-divider"></div>
+            <div class="fb-palette-title" style="margin-top:4px;">Canvas</div>
+            <div style="font-size:0.72rem;color:var(--text-3);line-height:1.7;padding:4px;">
+                <b style="color:var(--text-2)">Drag</b> node from palette<br>
+                <b style="color:var(--text-2)">Click</b> node to edit<br>
+                <b style="color:var(--text-2)">Drag ●</b> port to connect<br>
+                <b style="color:var(--text-2)">Scroll</b> to zoom<br>
+                <b style="color:var(--text-2)">Space+drag</b> to pan<br>
+                <b style="color:var(--text-2)">Del</b> to delete selected
+            </div>
+        </div>
+
+        <!-- CANVAS -->
+        <div class="fb-canvas-wrap" id="canvasWrap">
+            <!-- WORLD / SVG -->
+            <div id="canvas-world">
+                <svg id="edges-svg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+                            <polygon points="0 0, 8 3, 0 6" fill="rgba(255,255,255,.25)" />
+                        </marker>
+                        <marker id="arrowhead-accent" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+                            <polygon points="0 0, 8 3, 0 6" fill="#f97316" />
+                        </marker>
+                    </defs>
+                </svg>
+            </div>
+            <!-- MINIMAP (hidden for now) -->
+            <div class="fb-drop-indicator" id="dropIndicator"></div>
+            <div class="fb-zoom-indicator" id="zoomIndicator">100%</div>
+        </div>
+
+        <!-- RESIZER -->
+        <div class="fb-layout-resizer" id="editorResizer"></div>
+
+        <!-- RIGHT EDITOR PANEL -->
+        <div class="fb-editor" id="editorPanel">
+            <div class="fb-editor-body">
+                <div class="fb-editor-empty" id="editorEmpty">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="1.5">
+                        <rect x="3" y="3" width="18" height="18" rx="3" />
+                        <path d="M9 9h6M9 12h6M9 15h4" />
+                    </svg>
+                    <div>Click a node to edit</div>
+                    <div style="font-size:0.75rem;">or drag one from the palette</div>
+                </div>
+                <div id="editorContent" style="display:none;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- TOAST -->
+    <div class="fb-toast" id="toast"></div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════
+        // FLOW BUILDER CORE
+        // ═══════════════════════════════════════════════════════════════════
+
+        const CHATBOT_ID = {{ chatbot.id }};
+        const INITIAL_FLOW = {{ (flow | tojson) if flow else 'null' }};
+
+        const NODE_COLORS = {
+            start: '#10b981',
+            message: '#3b82f6',
+            ai: '#8b5cf6',
+            lead: '#f59e0b',
+            list_node: '#0ea5e9',
+            condition_node: '#eab308',
+            variable_node: '#8b5cf6',
+            action: '#06b6d4',
+            end: '#6b7280',
+            image_node: '#06b6d4',
+            video_node: '#7c3aed',
+            audio_node: '#db2777',
+            document_node: '#16a34a',
+            location_node: '#dc2626',
+        };
+
+        const NODE_LABELS = {
+            start: 'Start',
+            message: 'Message',
+            ai: 'AI Answer',
+            lead: 'Lead Form',
+            list_node: 'List Menu',
+            condition_node: 'Condition',
+            variable_node: 'Set Variable',
+            action: 'Action',
+            end: 'End',
+            image_node: 'Image',
+            video_node: 'Video',
+            audio_node: 'Audio',
+            document_node: 'Document',
+            location_node: 'Location',
+        };
+
+        const FB = (() => {
+            // ── State ────────────────────────────────────────────────────────
+            let nodes = [];
+            let edges = [];
+            let selectedNodeId = null;
+            let selectedEdgeKey = null;
+
+            let pan = { x: 80, y: 80 };
+            let zoom = 1;
+
+            let dragging = null;        // {nodeId, startX, startY, origX, origY}
+            let drawing = null;        // {sourceNodeId, buttonId, ghostPath}
+            let panning = false;
+            let panStart = null;
+            let spaceDown = false;
+
+            let flowId = null;
+            let isActive = false;
+            let flowAiInstructions = '';
+            let saveTimeout = null;
+
+            const world = document.getElementById('canvas-world');
+            const svgEl = document.getElementById('edges-svg');
+            const wrap = document.getElementById('canvasWrap');
+            const zoomInd = document.getElementById('zoomIndicator');
+
+            let idCounter = 1;
+            function newId() { return 'n' + (idCounter++); }
+            function newBtnId() { return 'b' + Date.now() + Math.floor(Math.random() * 999); }
+
+            // ── Init ─────────────────────────────────────────────────────────
+            function init() {
+                // Load initial flow
+                if (INITIAL_FLOW && INITIAL_FLOW.flow_data) {
+                    const fd = INITIAL_FLOW.flow_data;
+                    flowId = INITIAL_FLOW.id;
+                    isActive = INITIAL_FLOW.is_active;
+                    nodes = fd.nodes || [];
+                    edges = fd.edges || [];
+                    flowAiInstructions = fd.ai_instructions || '';
+                    // Sync idCounter
+                    nodes.forEach(n => {
+                        const num = parseInt(n.id.replace(/\D/g, ''));
+                        if (!isNaN(num) && num >= idCounter) idCounter = num + 1;
+                    });
+                    updateActiveUI();
+                } else {
+                    // Create default start node
+                    nodes.push(makeNode('start', 120, 160));
+                }
+
+                renderAll();
+                bindEvents();
+            }
+
+            function makeNode(type, x, y) {
+                const id = newId();
+                const data = { message: '', buttons: [], imageUrl: '' };
+                if (type === 'start') {
+                    data.message = 'Hi! Welcome. How can I help you today?';
+                    data.buttons = [
+                        { id: newBtnId(), label: 'Option 1', type: 'reply', url: '', phone: '' },
+                        { id: newBtnId(), label: 'Option 2', type: 'reply', url: '', phone: '' },
+                    ];
+                } else if (type === 'message') {
+                    data.buttons = [{ id: newBtnId(), label: 'Continue', type: 'reply', url: '', phone: '' }];
+                } else if (type === 'ai') {
+                    data.message = '';
+                    data.buttons = [{ id: newBtnId(), label: 'Back to menu', type: 'reply', url: '', phone: '' }];
+                } else if (type === 'lead') {
+                    data.message = 'I\'d love to learn more about you. Let me ask a few quick questions!';
+                } else if (type === 'list_node') {
+                    data.message = 'Please choose an option:';
+                    data.buttonLabel = 'See Options';
+                    data.sectionTitle = 'Options';
+                    data.rows = [
+                        { id: newBtnId(), title: 'Option 1', description: '' },
+                        { id: newBtnId(), title: 'Option 2', description: '' },
+                    ];
+                } else if (type === 'condition_node') {
+                    data.prompt = 'Please reply (e.g. Yes/No):';
+                    data.conditions = [
+                        { id: newBtnId(), operator: 'contains', value: 'yes' },
+                        { id: newBtnId(), operator: 'else', value: '' },
+                    ];
+                } else if (type === 'variable_node') {
+                    data.varName = 'my_var'; data.varValue = 'some_value';
+                } else if (type === 'action') {
+                    data.url = ''; data.actionType = 'link'; data.actionLabel = 'Click here';
+                } else if (type === 'end') {
+                    data.message = 'Thanks for chatting! Have a great day. 👋';
+                    // ── Media nodes ────────────────────────────────────────────────
+                } else if (type === 'image_node') {
+                    data.mediaUrl = ''; data.caption = '';
+                } else if (type === 'video_node') {
+                    data.mediaUrl = ''; data.caption = '';
+                } else if (type === 'audio_node') {
+                    data.mediaUrl = '';
+                } else if (type === 'document_node') {
+                    data.mediaUrl = ''; data.filename = ''; data.caption = '';
+                } else if (type === 'location_node') {
+                    data.latitude = ''; data.longitude = ''; data.locationName = ''; data.address = '';
+                }
+                return { id, type, x, y, data };
+            }
+
+            // ── Coordinate transforms ─────────────────────────────────────────
+            function screenToWorld(sx, sy) {
+                const r = wrap.getBoundingClientRect();
+                return { x: (sx - r.left - pan.x) / zoom, y: (sy - r.top - pan.y) / zoom };
+            }
+
+            function applyTransform() {
+                world.style.transform = `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`;
+                zoomInd.textContent = Math.round(zoom * 100) + '%';
+            }
+
+            // ── Render all nodes ──────────────────────────────────────────────
+            function renderAll() {
+                applyTransform();
+                renderNodes();
+                renderEdges();
+            }
+
+            function renderNodes() {
+                // Remove old node elements (keep svg)
+                world.querySelectorAll('.fb-node').forEach(el => el.remove());
+
+                nodes.forEach(node => {
+                    const el = createNodeEl(node);
+                    world.appendChild(el);
+                });
+            }
+
+            function createNodeEl(node) {
+                const color = NODE_COLORS[node.type] || '#6b7280';
+                const label = NODE_LABELS[node.type] || node.type;
+                const isSelected = selectedNodeId === node.id;
+                const isStart = node.type === 'start';
+                const isEnd = node.type === 'end';
+                const isAI = node.type === 'ai';
+
+                const el = document.createElement('div');
+                el.className = 'fb-node' + (isSelected ? ' selected' : '');
+                el.dataset.nodeId = node.id;
+                el.style.left = node.x + 'px';
+                el.style.top = node.y + 'px';
+
+                // Header
+                const header = document.createElement('div');
+                header.className = 'fb-node-header';
+                header.innerHTML = `
+      <div class="fb-node-drag-handle" data-node-drag="${node.id}"></div>
+      ${!isStart ? `<div class="fb-port-in" data-port-in="${node.id}" title="Connect here"></div>` : ''}
+      <div class="fb-node-type-dot" style="background:${color}"></div>
+      <div class="fb-node-type-label" style="color:${color}">${label}</div>
+      ${isStart ? '<div style="font-size:0.7rem;padding:2px 7px;border-radius:10px;background:rgba(16,185,129,.15);color:#10b981;font-weight:600;">Entry</div>' : ''}
+    `;
+                el.appendChild(header);
+
+                // Body
+                const body = document.createElement('div');
+                body.className = 'fb-node-body';
+
+                // Message preview
+                if (node.type === 'variable_node') {
+                    const msgEl = document.createElement('div');
+                    msgEl.className = 'fb-node-message';
+                    msgEl.innerHTML = `<code style="font-size:0.75rem;background:rgba(255,255,255,0.1);padding:2px 4px;border-radius:4px;">${escHtml(node.data.varName || 'var')} = ${escHtml(node.data.varValue || '""')}</code>`;
+                    body.appendChild(msgEl);
+                } else if (!isAI || node.data.message) {
+                    const msgEl = document.createElement('div');
+                    msgEl.className = 'fb-node-message' + (node.data.message ? '' : ' empty');
+                    msgEl.textContent = node.data.message || (isAI ? 'AI will answer freely from knowledge base' : 'Click to add message…');
+                    body.appendChild(msgEl);
+                } else {
+                    const msgEl = document.createElement('div');
+                    msgEl.className = 'fb-node-message empty';
+                    msgEl.textContent = 'AI will answer freely from knowledge base';
+                    body.appendChild(msgEl);
+                }
+
+                // Image indicator
+                if (node.data.imageUrl) {
+                    const imgBadge = document.createElement('div');
+                    imgBadge.className = 'fb-node-img-badge';
+                    imgBadge.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Image attached';
+                    body.appendChild(imgBadge);
+                }
+
+                // Node output ports generator
+                function getPortsObj(n) {
+                    if (!n) return [];
+                    if (n.type === 'list_node') {
+                        return (n.data.rows || []).map((r, i) => ({ id: r.id, label: `Row ${i + 1}: ` + (r.title || 'Untitled'), type: 'reply' }));
+                    }
+                    if (n.type === 'condition_node') {
+                        return (n.data.conditions || []).map(c => {
+                            let lbl = c.operator;
+                            if (c.operator !== 'else') lbl += ' "' + (c.value || '') + '"';
+                            return { id: c.id, label: lbl, type: 'reply' };
+                        });
+                    }
+                    if (['image_node', 'video_node', 'audio_node', 'document_node', 'location_node', 'lead', 'action', 'variable_node'].includes(n.type)) {
+                        return [{ id: 'out', label: 'Next Step', type: 'reply' }];
+                    }
+                    if (n.type === 'end') return [];
+                    return (n.data.buttons || []).map(b => ({ id: b.id, label: b.label || 'Untitled', type: b.type || 'reply' }));
+                }
+
+                if (!isEnd) {
+                    const ports = getPortsObj(node);
+                    const btnsEl = document.createElement('div');
+                    btnsEl.className = 'fb-node-buttons';
+
+                    ports.forEach(btn => {
+                        const btype = btn.type;
+                        const hasEdge = edges.some(e => e.source_node === node.id && e.button_id === btn.id);
+                        const typeColors = { reply: '#3b82f6', url: '#10b981', phone: '#f59e0b' };
+                        const typeIcons = { reply: '↩', url: '🔗', phone: '📞' };
+                        const row = document.createElement('div');
+                        row.className = 'fb-node-btn-row';
+                        row.innerHTML = `
+          <div class="${hasEdge ? 'fb-node-btn-connected' : 'fb-node-btn-unconnected'}" style="${btype !== 'reply' ? 'background:' + typeColors[btype] + ';border:none;' : ''}"></div>
+          <span class="fb-node-btn-label" style="font-size:0.75rem;">${typeIcons[btype] || ''} ${btn.label}</span>
+          ${btype === 'reply' ? `<div class="fb-port-out ${hasEdge ? 'connected' : ''}" data-port-out="${node.id}" data-btn-id="${btn.id}" title="Drag to connect"></div>` : ''}
+        `;
+                        btnsEl.appendChild(row);
+                    });
+                    body.appendChild(btnsEl);
+                } else {
+                    const endMsg = document.createElement('div');
+                    endMsg.className = 'fb-node-end-msg';
+                    endMsg.textContent = node.data.message || 'End of conversation';
+                    el.removeChild(header.querySelector('.fb-node-drag-handle'));
+                    body.appendChild(endMsg);
+                }
+
+                el.appendChild(body);
+
+                // Click to select
+                el.addEventListener('mousedown', e => {
+                    if (e.target.dataset.portOut || e.target.dataset.portIn) return;
+                    if (e.target.dataset.nodeDrag !== undefined) return;
+                    if (e.button !== 0) return;
+                    selectNode(node.id);
+                    e.stopPropagation();
+                });
+
+                return el;
+            }
+
+            // ── Render edges ──────────────────────────────────────────────────
+            function renderEdges() {
+                // Remove all edge paths
+                svgEl.querySelectorAll('.fb-edge, .fb-edge-hit, .fb-edge-lbl').forEach(e => e.remove());
+
+                edges.forEach(edge => {
+                    const srcPort = getPortOutPos(edge.source_node, edge.button_id);
+                    const tgtPort = getPortInPos(edge.target_node);
+                    if (!srcPort || !tgtPort) return;
+
+                    const key = `${edge.source_node}__${edge.button_id}`;
+                    const isSelEdge = selectedEdgeKey === key;
+
+                    const path = makeBezier(srcPort, tgtPort);
+
+                    // Visible path
+                    const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    pathEl.setAttribute('class', 'fb-edge' + (isSelEdge ? ' selected' : ''));
+                    pathEl.setAttribute('d', path);
+                    pathEl.setAttribute('marker-end', isSelEdge ? 'url(#arrowhead-accent)' : 'url(#arrowhead)');
+                    svgEl.appendChild(pathEl);
+
+                    // Invisible hit-target
+                    const hitEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    hitEl.setAttribute('class', 'fb-edge-hit');
+                    hitEl.setAttribute('d', path);
+                    hitEl.dataset.edgeKey = key;
+                    hitEl.addEventListener('click', e => {
+                        selectedEdgeKey = key === selectedEdgeKey ? null : key;
+                        selectedNodeId = null;
+                        renderAll(); renderEditor();
+                        e.stopPropagation();
+                    });
+                    svgEl.appendChild(hitEl);
+                });
+            }
+
+            function makeBezier(src, tgt) {
+                const dx = Math.abs(tgt.x - src.x) * 0.6;
+                return `M${src.x},${src.y} C${src.x + dx},${src.y} ${tgt.x - dx},${tgt.y} ${tgt.x},${tgt.y}`;
+            }
+
+            // ── Port position utilities ───────────────────────────────────────
+            const NODE_W = 280;
+            const HEADER_H = 48;
+            const MSG_H = 56;
+            const BTN_H = 36;
+            const BTN_TOP_PAD = 4;
+
+            function getPortInPos(nodeId) {
+                const node = nodes.find(n => n.id === nodeId);
+                if (!node) return null;
+                const portEl = world.querySelector(`.fb-port-in[data-port-in="${nodeId}"]`);
+                if (portEl) {
+                    const wrapRect = wrap.getBoundingClientRect();
+                    const portRect = portEl.getBoundingClientRect();
+                    return {
+                        x: (portRect.left + portRect.width / 2 - wrapRect.left - pan.x) / zoom,
+                        y: (portRect.top + portRect.height / 2 - wrapRect.top - pan.y) / zoom
+                    };
+                }
+                return { x: node.x, y: node.y + HEADER_H / 2 };
+            }
+
+            function getPortOutPos(nodeId, buttonId) {
+                const node = nodes.find(n => n.id === nodeId);
+                if (!node) return null;
+                const portEl = world.querySelector(`.fb-port-out[data-port-out="${nodeId}"][data-btn-id="${buttonId}"]`);
+                if (portEl) {
+                    const wrapRect = wrap.getBoundingClientRect();
+                    const portRect = portEl.getBoundingClientRect();
+                    return {
+                        x: (portRect.left + portRect.width / 2 - wrapRect.left - pan.x) / zoom,
+                        y: (portRect.top + portRect.height / 2 - wrapRect.top - pan.y) / zoom
+                    };
+                }
+                // Fallback (mathematical approx)
+                return { x: node.x + NODE_W, y: node.y + HEADER_H + MSG_H };
+            }
+
+            // ── Selection ─────────────────────────────────────────────────────
+            function selectNode(id) {
+                selectedNodeId = id;
+                selectedEdgeKey = null;
+                renderAll();
+                renderEditor();
+            }
+
+            function deselectAll() {
+                selectedNodeId = null;
+                selectedEdgeKey = null;
+                renderAll();
+                renderEditor();
+            }
+
+            // ── Editor panel ──────────────────────────────────────────────────
+            function renderEditor() {
+                const empty = document.getElementById('editorEmpty');
+                const content = document.getElementById('editorContent');
+
+                if (!selectedNodeId && !selectedEdgeKey) {
+                    content.innerHTML = `
+        <div style="text-align:center;padding:32px 16px;color:var(--text-3);">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.3;margin-bottom:12px;">
+                <rect x="3" y="3" width="18" height="18" rx="3" />
+                <path d="M9 9h6M9 12h6M9 15h4" />
+            </svg>
+            <div style="font-size:0.9rem;color:var(--text-2);font-weight:500;margin-bottom:4px;">Flow Canvas Settings</div>
+            <div style="font-size:0.75rem;">Click any node to configure it here.</div>
+        </div>
+        <div class="fb-divider"></div>
+        <div class="fb-field">
+            <div class="fb-label">AI Trigger Instructions <span style="font-weight:400;color:var(--text-3)">(Optional)</span></div>
+            <textarea class="fb-textarea" id="ed-flow-ai" rows="4" placeholder="e.g. Trigger this flow when the user asks about booking an appointment or seeing calendar availability.">${escHtml(flowAiInstructions)}</textarea>
+            <p class="fb-hint" style="margin-top:8px;">When this flow is active, the AI evaluates these rules and auto-triggers the flow if conditions match the user's chat.</p>
+        </div>
+                    `;
+                    empty.style.display = 'none';
+                    content.style.display = 'block';
+
+                    const aiTa = document.getElementById('ed-flow-ai');
+                    if (aiTa) aiTa.addEventListener('input', () => { flowAiInstructions = aiTa.value; scheduleSave(); });
+                    return;
+                }
+
+                empty.style.display = 'none';
+                content.style.display = 'block';
+
+                if (selectedEdgeKey) {
+                    content.innerHTML = `
+        <div class="fb-field">
+          <div style="font-size:.85rem;color:var(--text-2);margin-bottom:12px;">Connection selected</div>
+          <button class="fb-delete-node" onclick="FB.deleteSelectedEdge()">
+            🗑 Delete Connection
+          </button>
+        </div>
+      `;
+                    return;
+                }
+
+                const node = nodes.find(n => n.id === selectedNodeId);
+                if (!node) return;
+
+                const color = NODE_COLORS[node.type];
+                const label = NODE_LABELS[node.type];
+                let html = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+        <div class="fb-type-dot" style="background:${color}"></div>
+        <div style="font-size:.9rem;font-weight:600;">${label}</div>
+        ${node.type !== 'start' ? `<div style="margin-left:auto;"><button class="fb-btn fb-btn-danger" style="padding:5px 10px;font-size:.75rem;" onclick="FB.deleteNode('${node.id}')">Delete</button></div>` : ''}
+      </div>
+    `;
+
+                // ── Lead Form node: simple info card, no duplicated fields ──────
+                if (node.type === 'lead') {
+                    html += `
+        <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:14px 14px 10px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span style="font-size:.82rem;font-weight:600;color:#f59e0b;">Uses Lead Capture Settings</span>
+          </div>
+          <p style="font-size:.78rem;color:var(--text-2);line-height:1.6;margin:0;">
+            This node runs your <strong>Lead Capture</strong> flow — it collects the visitor fields you configured in
+            <strong>Chatbot Settings → Lead Capture</strong> tab (email, WhatsApp, fields, and bot instructions).
+          </p>
+          <a href="/chatbot/{{ chatbot.id }}/settings#leads"
+             style="display:inline-block;margin-top:10px;font-size:.75rem;color:#f59e0b;text-decoration:none;font-weight:500;">
+            ✏ Edit Lead Capture Settings →
+          </a>
+        </div>
+        <div class="fb-divider"></div>
+        <div class="fb-label">After Lead Collected</div>
+        <div class="fb-label" style="font-size:.72rem;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0;margin-top:-4px;">
+          Connect the ● output port on the canvas to the next node (e.g. a Thank You message).
+        </div>
+        <div class="fb-field">
+          <textarea class="fb-textarea" id="ed-msg" rows="2" placeholder="Thank you message after lead is collected (optional)…">${escHtml(node.data.message || '')}</textarea>
+          <p class="fb-hint">This message is sent after all lead fields are filled in.</p>
+        </div>
+      `;
+                    html += `<div style="height:16px;"></div>`;
+                    content.innerHTML = html;
+                    const msgTa = document.getElementById('ed-msg');
+                    if (msgTa) msgTa.addEventListener('input', () => { node.data.message = msgTa.value; scheduleSave(); });
+                    return;
+                }
+
+                // ── Condition Branch node editor ─────────────────────────────────
+                if (node.type === 'condition_node') {
+                    const conditions = node.data.conditions || [];
+                    html += `
+          <div class="fb-field">
+            <div class="fb-label">Wait for Input Prompt</div>
+            <textarea class="fb-textarea" id="ed-msg" rows="2" placeholder="e.g. Please reply with Yes or No…">${escHtml(node.data.prompt || '')}</textarea>
+            <p class="fb-hint">If set, this prompt is sent. The bot will wait for user's reply, then evaluate rules.</p>
+          </div>
+          <div class="fb-divider"></div>
+          <div class="fb-label">Condition Rules <span style="font-weight:400;color:var(--text-3)">(First matched rule runs)</span></div>
+          <div id="ed-conditions" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;">
+            ${conditions.map((c, i) => `
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:6px;">
+                ${c.operator === 'else' ?
+                            `<span style="font-size:.82rem;font-weight:600;flex:1;">Else (Fallback)</span>` :
+                            `
+                  <span style="font-size:.72rem;color:var(--text-3);">If response</span>
+                  <select onchange="FB.updateCondition('${node.id}','${c.id}','operator',this.value)"
+                    style="font-size:.75rem;padding:2px;border-radius:4px;background:var(--bg);border:1px solid var(--border);color:var(--text);outline:none;">
+                    <option value="contains" ${c.operator === 'contains' ? 'selected' : ''}>contains</option>
+                    <option value="not_contains" ${c.operator === 'not_contains' ? 'selected' : ''}>not contains</option>
+                    <option value="equals" ${c.operator === 'equals' ? 'selected' : ''}>equals</option>
+                    <option value="starts_with" ${c.operator === 'starts_with' ? 'selected' : ''}>starts with</option>
+                  </select>
+                  <input value="${escHtml(c.value)}" placeholder="text value"
+                    style="flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:4px;padding:3px 6px;color:var(--text);font-size:.75rem;outline:none;"
+                    oninput="FB.updateCondition('${node.id}','${c.id}','value',this.value)">
+                  `
+                        }
+                ${c.operator !== 'else' ? `
+                <button class="fb-btn-del" onclick="FB.deleteCondition('${node.id}','${c.id}')" title="Remove">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg>
+                </button>
+                ` : ''}
+              </div>
+            `).join('')}
+          </div>
+          <button class="fb-add-btn" onclick="FB.addCondition('${node.id}')">+ Add Rule</button>
+          <div class="fb-divider"></div>
+          <p style="font-size:.72rem;color:var(--text-3);">Connect rule ports on the canvas to destination nodes.</p>
+        `;
+                    content.innerHTML = html;
+                    const msgTa = document.getElementById('ed-msg');
+                    if (msgTa) msgTa.addEventListener('input', () => { node.data.prompt = msgTa.value; scheduleSave(); });
+                    return;
+                }
+
+                // ── List Menu node editor ────────────────────────────────────────
+                if (node.type === 'list_node') {
+                    const rows = node.data.rows || [];
+                    html += `
+          <div class="fb-field">
+            <div class="fb-label">Body Message</div>
+            <textarea class="fb-textarea" id="ed-msg" rows="3" placeholder="Message shown above the list button…">${escHtml(node.data.message || '')}</textarea>
+          </div>
+          <div class="fb-field">
+            <div class="fb-label">Button Label <span style="font-weight:400;color:var(--text-3)">max 20 chars</span></div>
+            <input class="fb-input" id="ed-btnLabel" value="${escHtml(node.data.buttonLabel || 'See Options')}" maxlength="20" placeholder="See Options">
+            <p class="fb-hint">This is the single button users tap to open the list.</p>
+          </div>
+          <div class="fb-field">
+            <div class="fb-label">Section Title <span style="font-weight:400;color:var(--text-3)">max 24 chars</span></div>
+            <input class="fb-input" id="ed-secTitle" value="${escHtml(node.data.sectionTitle || 'Options')}" maxlength="24" placeholder="Options">
+          </div>
+          <div class="fb-divider"></div>
+          <div class="fb-label">List Rows <span style="font-weight:400;color:var(--text-3)">(max 10) — connect each row's port on canvas</span></div>
+          <div id="ed-list-rows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;">
+            ${rows.map((row, i) => `
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px 10px;">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                  <span style="font-size:.72rem;color:var(--text-3);flex-shrink:0;">#${i + 1}</span>
+                  <input value="${escHtml(row.title)}" maxlength="24"
+                    style="flex:1;background:transparent;border:none;color:var(--text);font-size:.82rem;font-family:inherit;outline:none;"
+                    placeholder="Row title (max 24)" oninput="FB.updateListRow('${node.id}','${row.id}','title',this.value)">
+                  <button class="fb-btn-del" onclick="FB.deleteListRow('${node.id}','${row.id}')" title="Remove">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg>
+                  </button>
+                </div>
+                <input value="${escHtml(row.description || '')}" maxlength="72"
+                  style="width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:5px;padding:3px 7px;color:var(--text-2);font-size:.75rem;font-family:inherit;outline:none;"
+                  placeholder="Optional description (max 72 chars)" oninput="FB.updateListRow('${node.id}','${row.id}','description',this.value)">
+              </div>`).join('')}
+          </div>
+          ${rows.length < 10 ? `<button class="fb-add-btn" onclick="FB.addListRow('${node.id}')">+ Add Row</button>` : ''}
+          <div class="fb-divider"></div>
+          <p style="font-size:.72rem;color:var(--text-3);">Each row generates a port on the canvas — drag to connect to the next node.</p>
+        `;
+                    html += `<div style="height:16px;"></div>`;
+                    content.innerHTML = html;
+                    const msgTa = document.getElementById('ed-msg');
+                    if (msgTa) msgTa.addEventListener('input', () => { node.data.message = msgTa.value; scheduleSave(); });
+                    const btnLbl = document.getElementById('ed-btnLabel');
+                    if (btnLbl) btnLbl.addEventListener('input', () => { node.data.buttonLabel = btnLbl.value; renderNodes(); scheduleSave(); });
+                    const secTitle = document.getElementById('ed-secTitle');
+                    if (secTitle) secTitle.addEventListener('input', () => { node.data.sectionTitle = secTitle.value; scheduleSave(); });
+                    return;
+                }
+
+                // ── Media node editors (early-return like lead) ───────────────────
+                const MEDIA_TYPES = ['image_node', 'video_node', 'audio_node', 'document_node', 'location_node'];
+                if (MEDIA_TYPES.includes(node.type)) {
+                    const icons = {
+                        image_node: '🖼️', video_node: '🎬', audio_node: '🎵',
+                        document_node: '📄', location_node: '📍',
+                    };
+                    const hints = {
+                        image_node: 'JPG / PNG / GIF / WEBP · max 5 MB',
+                        video_node: 'MP4 / 3GPP · max 16 MB',
+                        audio_node: 'AAC / MP3 / OGG / AMR · max 16 MB',
+                        document_node: 'PDF / DOCX / XLSX / etc · max 100 MB',
+                        location_node: 'Coordinates shown as a map pin in WhatsApp',
+                    };
+                    html += `<p style="font-size:.78rem;color:var(--text-2);margin-bottom:16px;">${icons[node.type]} Sends a <strong>${NODE_LABELS[node.type]}</strong> message on WhatsApp.</p>`;
+
+                    if (node.type !== 'location_node') {
+                        html += `
+          <div class="fb-field">
+            <div class="fb-label">Media URL</div>
+            <input class="fb-input" id="ed-mediaUrl" value="${escHtml(node.data.mediaUrl || '')}" placeholder="https://…">
+            <p class="fb-hint">${hints[node.type]}</p>
+          </div>`;
+                    }
+                    if (node.type === 'image_node' || node.type === 'video_node' || node.type === 'document_node') {
+                        html += `
+          <div class="fb-field">
+            <div class="fb-label">Caption <span style="font-weight:400;color:var(--text-3)">Optional</span></div>
+            <input class="fb-input" id="ed-caption" value="${escHtml(node.data.caption || '')}" placeholder="Caption shown below the media…">
+          </div>`;
+                    }
+                    if (node.type === 'document_node') {
+                        html += `
+          <div class="fb-field">
+            <div class="fb-label">Filename <span style="font-weight:400;color:var(--text-3)">Optional</span></div>
+            <input class="fb-input" id="ed-filename" value="${escHtml(node.data.filename || '')}" placeholder="brochure.pdf">
+          </div>`;
+                    }
+                    if (node.type === 'location_node') {
+                        html += `
+          <div class="fb-field">
+            <div class="fb-label">Latitude</div>
+            <input class="fb-input" id="ed-lat" value="${escHtml(String(node.data.latitude || ''))}" placeholder="e.g. 23.0225">
+          </div>
+          <div class="fb-field">
+            <div class="fb-label">Longitude</div>
+            <input class="fb-input" id="ed-lng" value="${escHtml(String(node.data.longitude || ''))}" placeholder="e.g. 72.5714">
+          </div>
+          <div class="fb-field">
+            <div class="fb-label">Place Name <span style="font-weight:400;color:var(--text-3)">Optional</span></div>
+            <input class="fb-input" id="ed-locname" value="${escHtml(node.data.locationName || '')}" placeholder="e.g. Our Office">
+          </div>
+          <div class="fb-field">
+            <div class="fb-label">Address <span style="font-weight:400;color:var(--text-3)">Optional</span></div>
+            <input class="fb-input" id="ed-locaddr" value="${escHtml(node.data.address || '')}" placeholder="Street address…">
+          </div>`;
+                    }
+                    html += `
+          <div class="fb-divider"></div>
+          <p style="font-size:.72rem;color:var(--text-3);">
+            Connect the ● output port on the canvas to the next node.
+          </p>`;
+                    html += `<div style="height:16px;"></div>`;
+                    content.innerHTML = html;
+                    // Bind inputs
+                    const bind = (id, field) => {
+                        const el = document.getElementById(id);
+                        if (el) el.addEventListener('input', () => { node.data[field] = el.value; renderNodes(); scheduleSave(); });
+                    };
+                    bind('ed-mediaUrl', 'mediaUrl');
+                    bind('ed-caption', 'caption');
+                    bind('ed-filename', 'filename');
+                    bind('ed-lat', 'latitude');
+                    bind('ed-lng', 'longitude');
+                    bind('ed-locname', 'locationName');
+                    bind('ed-locaddr', 'address');
+                    return;
+                }
+
+                // ── Image field (Message / Start only) ───────────────────────────
+                const canHaveImage = ['start', 'message'].includes(node.type);
+                if (canHaveImage) {
+                    html += `
+        <div class="fb-field">
+          <div class="fb-label">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Image URL <span style="font-weight:400;color:var(--text-3)">Optional</span>
+          </div>
+          <input class="fb-input" id="ed-imageUrl" value="${escHtml(node.data.imageUrl || '')}" placeholder="https://… (jpg, png, gif)">
+          <img id="ed-imgPreview" class="fb-img-preview" src="${escHtml(node.data.imageUrl || '')}" onerror="this.style.display='none'" onload="this.style.display='block'">
+          <p class="fb-hint">Image is sent before the message text on WhatsApp.</p>
+        </div>
+      `;
+                }
+
+                // ── Message / prompt field (not lead, not end with no message) ───
+                if (node.type !== 'lead') {
+                    const placeholder = node.type === 'ai'
+                        ? 'Optional: add context or instructions for the AI at this step…'
+                        : node.type === 'end'
+                            ? 'Farewell message (e.g. "Thanks! Have a great day 👋")'
+                            : 'Message the bot will send…';
+                    html += `
+        <div class="fb-field">
+          <div class="fb-label">${node.type === 'ai' ? 'AI Context (optional)' : 'Message'}</div>
+          <textarea class="fb-textarea" id="ed-msg" rows="4" placeholder="${placeholder}">${escHtml(node.data.message || '')}</textarea>
+        </div>
+      `;
+                }
+
+                // ── Action-specific fields ────────────────────────────────────────
+                if (node.type === 'action') {
+                    html += `
+        <div class="fb-field">
+          <div class="fb-label">Action Type</div>
+          <select class="fb-input" id="ed-actionType" onchange="FB.editorChange()">
+            <option value="link" ${node.data.actionType === 'link' ? 'selected' : ''}>Send Link</option>
+            <option value="image" ${node.data.actionType === 'image' ? 'selected' : ''}>Send Image URL</option>
+          </select>
+        </div>
+        <div class="fb-field">
+          <div class="fb-label">URL</div>
+          <input class="fb-input" id="ed-url" value="${escHtml(node.data.url || '')}" placeholder="https://…">
+        </div>
+        <div class="fb-field">
+          <div class="fb-label">Button Label</div>
+          <input class="fb-input" id="ed-actionLabel" value="${escHtml(node.data.actionLabel || '')}" placeholder="Click here">
+        </div>
+      `;
+                }
+
+                // ── Buttons (start / message / ai only) ──────────────────────────
+                const canHaveButtons = ['start', 'message', 'ai'].includes(node.type);
+                if (canHaveButtons) {
+                    html += `<div class="fb-divider"></div>`;
+                    html += `<div class="fb-label">Buttons <span style="font-weight:400;color:var(--text-3)">(max 10) · WhatsApp supports Reply, URL &amp; Phone</span></div>`;
+                    html += `<div class="fb-btn-list" id="ed-btn-list">`;
+                    (node.data.buttons || []).forEach((btn, i) => {
+                        const btype = btn.type || 'reply';
+                        html += `
+          <div class="fb-btn-row-edit" data-btn-idx="${i}" style="flex-direction:column;align-items:stretch;gap:4px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <svg class="fb-btn-drag" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"/></svg>
+              <select class="fb-btn-type-select" data-node="${node.id}" data-btn="${btn.id}"
+                style="font-size:.75rem;padding:2px 6px;border-radius:6px;background:var(--bg);border:1px solid var(--border);color:var(--text);cursor:pointer;outline:none;flex-shrink:0;">
+                <option value="reply" ${btype === 'reply' ? 'selected' : ''}>Reply</option>
+                <option value="url"   ${btype === 'url' ? 'selected' : ''}>URL</option>
+                <option value="phone" ${btype === 'phone' ? 'selected' : ''}>Phone</option>
+              </select>
+              <input value="${escHtml(btn.label)}" maxlength="20" placeholder="Label (max 20 chars)"
+                style="flex:1;min-width:0;background:transparent;border:none;color:var(--text);font-size:.82rem;font-family:inherit;outline:none;"
+                oninput="FB.updateButtonField('${node.id}','${btn.id}','label',this.value)"
+                onkeydown="if(event.key==='Enter')this.blur()">
+              <span style="font-size:.72rem;color:var(--text-3);white-space:nowrap;flex-shrink:0;">${btn.label.length}/20</span>
+              <button class="fb-btn-del" onclick="FB.deleteButton('${node.id}','${btn.id}')" title="Remove" style="flex-shrink:0;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg>
+              </button>
+            </div>
+            ${btype === 'url' ? `<input class="fb-btn-subfield" placeholder="URL → https://yourbooking.com" value="${escHtml(btn.url || '')}" oninput="FB.updateButtonField('${node.id}','${btn.id}','url',this.value)">` : ''}
+            ${btype === 'phone' ? `<input class="fb-btn-subfield" placeholder="Phone → +14155552671" value="${escHtml(btn.phone || '')}" oninput="FB.updateButtonField('${node.id}','${btn.id}','phone',this.value)">` : ''}
+            ${btype === 'reply' ? `<p style="font-size:.7rem;color:var(--text-3);margin:0;">Connect to next node by dragging the ● port on the canvas.</p>` : ''}
+          </div>
+        `;
+                    });
+                    html += `</div>`;
+                    if ((node.data.buttons || []).length < 10) {
+                        html += `<button class="fb-add-btn" onclick="FB.addButton('${node.id}')">+ Add Button</button>`;
+                    }
+                }
+
+                html += `<div style="height:24px;"></div>`;
+                content.innerHTML = html;
+
+                // Live-bind message textarea
+                const msgTa = document.getElementById('ed-msg');
+                if (msgTa) {
+                    msgTa.addEventListener('input', () => {
+                        node.data.message = msgTa.value;
+                        renderNodes(); renderEdges(); scheduleSave();
+                    });
+                }
+                // Image URL
+                const imgInp = document.getElementById('ed-imageUrl');
+                if (imgInp) {
+                    imgInp.addEventListener('input', () => {
+                        node.data.imageUrl = imgInp.value.trim();
+                        const prev = document.getElementById('ed-imgPreview');
+                        if (prev) { prev.src = node.data.imageUrl; }
+                        renderNodes(); scheduleSave();
+                    });
+                }
+                const urlInp = document.getElementById('ed-url');
+                if (urlInp) urlInp.addEventListener('input', () => { node.data.url = urlInp.value; scheduleSave(); });
+                const lblInp = document.getElementById('ed-actionLabel');
+                if (lblInp) lblInp.addEventListener('input', () => { node.data.actionLabel = lblInp.value; scheduleSave(); });
+
+                // Button type selects
+                document.querySelectorAll('.fb-btn-type-select').forEach(sel => {
+                    sel.addEventListener('change', () => {
+                        const nid = sel.dataset.node;
+                        const bid = sel.dataset.btn;
+                        const n2 = nodes.find(n => n.id === nid);
+                        if (!n2) return;
+                        const b2 = (n2.data.buttons || []).find(b => b.id === bid);
+                        if (b2) {
+                            b2.type = sel.value;
+                            // Remove edges for non-reply buttons
+                            if (sel.value !== 'reply') {
+                                edges = edges.filter(e => !(e.source_node === nid && e.button_id === bid));
+                            }
+                        }
+                        renderAll(); renderEditor(); scheduleSave();
+                    });
+                });
+            }
+
+            function escHtml(str) {
+                return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+
+            // ── Node/button mutation ──────────────────────────────────────────
+            function updateButtonField(nodeId, btnId, field, value) {
+                const node = nodes.find(n => n.id === nodeId);
+                if (!node) return;
+                const btn = (node.data.buttons || []).find(b => b.id === btnId);
+                if (btn) btn[field] = field === 'label' ? value.slice(0, 20) : value;
+                renderNodes(); renderEdges(); scheduleSave();
+            }
+
+            // keep old name for compat
+            function updateButtonLabel(nodeId, btnId, value) {
+                updateButtonField(nodeId, btnId, 'label', value);
+            }
+
+            // ── List row mutations ──────────────────────────────────────────────
+            function addListRow(nodeId) {
+                const node = nodes.find(n => n.id === nodeId);
+                if (!node || (node.data.rows || []).length >= 10) return;
+                if (!node.data.rows) node.data.rows = [];
+                node.data.rows.push({ id: newBtnId(), title: 'New option', description: '' });
+                renderAll(); renderEditor(); scheduleSave();
+            }
+
+            function deleteListRow(nodeId, rowId) {
+                const node = nodes.find(n => n.id === nodeId);
+                if (!node) return;
+                node.data.rows = (node.data.rows || []).filter(r => r.id !== rowId);
+                edges = edges.filter(e => !(e.source_node === nodeId && e.button_id === rowId));
+                renderAll(); renderEditor(); scheduleSave();
+            }
+
+            function updateListRow(nodeId, rowId, field, value) {
+                const node = nodes.find(n => n.id === nodeId);
+                if (!node) return;
+                const row = (node.data.rows || []).find(r => r.id === rowId);
+                if (row) row[field] = field === 'title' ? value.slice(0, 24) : value.slice(0, 72);
+                if (field === 'title') renderNodes();
+                scheduleSave();
+            }
+
+            // ── Condition mutations ──────────────────────────────────────────────
+            function addCondition(nodeId) {
+                const node = nodes.find(n => n.id === nodeId);
+                if (!node || (node.data.conditions || []).length >= 10) return;
+                // insert BEFORE the 'else' condition
+                const cnds = node.data.conditions || [];
+                const elseIdx = cnds.findIndex(c => c.operator === 'else');
+                const newCond = { id: newBtnId(), operator: 'contains', value: '' };
+                if (elseIdx >= 0) cnds.splice(elseIdx, 0, newCond);
+                else cnds.push(newCond);
+                renderAll(); renderEditor(); scheduleSave();
+            }
+
+            function deleteCondition(nodeId, condId) {
+                const node = nodes.find(n => n.id === nodeId);
+                if (!node) return;
+                node.data.conditions = (node.data.conditions || []).filter(c => c.id !== condId);
+                edges = edges.filter(e => !(e.source_node === nodeId && e.button_id === condId));
+                renderAll(); renderEditor(); scheduleSave();
+            }
+
+            function updateCondition(nodeId, condId, field, value) {
+                const node = nodes.find(n => n.id === nodeId);
+                if (!node) return;
+                const cond = (node.data.conditions || []).find(c => c.id === condId);
+                if (cond) cond[field] = value;
+                renderNodes(); scheduleSave();
+            }
+
+            function addButton(nodeId) {
+                const node = nodes.find(n => n.id === nodeId);
+                if (!node || (node.data.buttons || []).length >= 10) return;
+                if (!node.data.buttons) node.data.buttons = [];
+                node.data.buttons.push({ id: newBtnId(), label: 'New option', type: 'reply', url: '', phone: '' });
+                renderAll(); renderEditor(); scheduleSave();
+            }
+
+            function deleteButton(nodeId, btnId) {
+                const node = nodes.find(n => n.id === nodeId);
+                if (!node) return;
+                node.data.buttons = (node.data.buttons || []).filter(b => b.id !== btnId);
+                // Remove edges that used this button
+                edges = edges.filter(e => !(e.source_node === nodeId && e.button_id === btnId));
+                renderAll(); renderEditor(); scheduleSave();
+            }
+
+            function deleteNode(nodeId) {
+                if (nodes.find(n => n.id === nodeId)?.type === 'start') { showToast('Cannot delete the Start node', 'warn'); return; }
+                nodes = nodes.filter(n => n.id !== nodeId);
+                edges = edges.filter(e => e.source_node !== nodeId && e.target_node !== nodeId);
+                selectedNodeId = null;
+                renderAll(); renderEditor(); scheduleSave();
+            }
+
+            function deleteSelectedEdge() {
+                if (!selectedEdgeKey) return;
+                const [srcNode, btnId] = selectedEdgeKey.split('__');
+                edges = edges.filter(e => !(e.source_node === srcNode && e.button_id === btnId));
+                selectedEdgeKey = null;
+                renderAll(); renderEditor(); scheduleSave();
+            }
+
+            // ── Mouse events ──────────────────────────────────────────────────
+            function bindEvents() {
+                wrap.addEventListener('mousedown', onMouseDown);
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+                wrap.addEventListener('wheel', onWheel, { passive: false });
+
+                const resizerEl = document.getElementById('editorResizer');
+                const layoutEl = document.querySelector('.fb-layout');
+                let isResizingPanel = false;
+                if (resizerEl) {
+                    resizerEl.addEventListener('mousedown', e => {
+                        isResizingPanel = true;
+                        resizerEl.classList.add('active');
+                        document.body.style.cursor = 'col-resize';
+                        e.preventDefault();
+                    });
+                    document.addEventListener('mousemove', e => {
+                        if (!isResizingPanel) return;
+                        let targetW = document.body.clientWidth - e.clientX;
+                        if (targetW < 250) targetW = 250;
+                        if (targetW > 800) targetW = 800;
+                        layoutEl.style.gridTemplateColumns = `200px 1fr 4px ${targetW}px`;
+                    });
+                    document.addEventListener('mouseup', () => {
+                        if (isResizingPanel) {
+                            isResizingPanel = false;
+                            resizerEl.classList.remove('active');
+                            document.body.style.cursor = '';
+                        }
+                    });
+                }
+
+                // Click on empty canvas → deselect
+                wrap.addEventListener('click', e => {
+                    if (e.target === wrap || e.target === world || e.target === svgEl) deselectAll();
+                });
+
+                // Keyboard
+                window.addEventListener('keydown', e => {
+                    if (e.code === 'Space') { spaceDown = true; wrap.classList.add('pan-mode'); }
+                    if (e.key === 'Delete' || e.key === 'Backspace') {
+                        if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+                        if (selectedNodeId) deleteNode(selectedNodeId);
+                        else if (selectedEdgeKey) deleteSelectedEdge();
+                    }
+                    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); save(); }
+                });
+                window.addEventListener('keyup', e => {
+                    if (e.code === 'Space') { spaceDown = false; wrap.classList.remove('pan-mode'); }
+                });
+
+                // Palette drag-to-canvas (drag from palette, drop on canvas)
+                document.querySelectorAll('.fb-palette-node').forEach(el => {
+                    el.addEventListener('dragstart', e => {
+                        e.dataTransfer.setData('nodeType', el.dataset.type);
+                    });
+                });
+                wrap.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    const dropEl = document.getElementById('dropIndicator');
+                    const wpos = screenToWorld(e.clientX, e.clientY);
+                    dropEl.style.display = 'block';
+                    dropEl.style.left = (wpos.x * zoom + pan.x - 10) + 'px';
+                    dropEl.style.top = (wpos.y * zoom + pan.y - 10) + 'px';
+                });
+                wrap.addEventListener('dragleave', () => {
+                    document.getElementById('dropIndicator').style.display = 'none';
+                });
+                wrap.addEventListener('drop', e => {
+                    e.preventDefault();
+                    document.getElementById('dropIndicator').style.display = 'none';
+                    const type = e.dataTransfer.getData('nodeType');
+                    if (!type) return;
+                    const pos = screenToWorld(e.clientX, e.clientY);
+                    const node = makeNode(type, Math.round(pos.x - 140), Math.round(pos.y - 40));
+                    nodes.push(node);
+                    renderAll(); selectNode(node.id); scheduleSave();
+                });
+            }
+
+            function onMouseDown(e) {
+                if (e.button !== 0) return;
+
+                // Port out — start drawing edge
+                const portOut = e.target.closest('[data-port-out]');
+                if (portOut) {
+                    const nodeId = portOut.dataset.portOut;
+                    const btnId = portOut.dataset.btnId;
+                    const pos = getPortOutPos(nodeId, btnId);
+                    if (!pos) return;
+                    // Create ghost SVG path
+                    const ghost = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    ghost.setAttribute('class', 'fb-edge-ghost');
+                    svgEl.appendChild(ghost);
+                    drawing = { sourceNodeId: nodeId, buttonId: btnId, ghost, startPos: pos };
+                    e.preventDefault(); e.stopPropagation();
+                    return;
+                }
+
+                // Node drag
+                const dragHandle = e.target.closest('[data-node-drag]');
+                if (dragHandle) {
+                    const nodeId = dragHandle.dataset.nodeDrag;
+                    const node = nodes.find(n => n.id === nodeId);
+                    if (!node) return;
+                    dragging = { nodeId, startMouseX: e.clientX, startMouseY: e.clientY, origX: node.x, origY: node.y };
+                    selectNode(nodeId);
+                    e.preventDefault(); e.stopPropagation();
+                    return;
+                }
+
+                // Pan
+                if (spaceDown || e.target === wrap || e.target === world || e.target === svgEl) {
+                    panning = true;
+                    panStart = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+                    e.preventDefault();
+                }
+            }
+
+            function onMouseMove(e) {
+                if (drawing) {
+                    const pos = screenToWorld(e.clientX, e.clientY);
+                    const srcPos = getPortOutPos(drawing.sourceNodeId, drawing.buttonId);
+                    if (srcPos) {
+                        drawing.ghost.setAttribute('d', makeBezier(srcPos, pos));
+                    }
+                    // Highlight potential target
+                    document.querySelectorAll('.fb-port-in').forEach(p => p.classList.remove('accepting'));
+                    const hoveredPortIn = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-port-in]');
+                    if (hoveredPortIn) hoveredPortIn.classList.add('accepting');
+                    return;
+                }
+
+                if (dragging) {
+                    const node = nodes.find(n => n.id === dragging.nodeId);
+                    if (node) {
+                        node.x = dragging.origX + (e.clientX - dragging.startMouseX) / zoom;
+                        node.y = dragging.origY + (e.clientY - dragging.startMouseY) / zoom;
+                        // Find el and update directly for performance
+                        const el = world.querySelector(`[data-node-id="${node.id}"]`);
+                        if (el) { el.style.left = node.x + 'px'; el.style.top = node.y + 'px'; }
+                        renderEdges();
+                    }
+                    return;
+                }
+
+                if (panning && panStart) {
+                    pan.x = e.clientX - panStart.x;
+                    pan.y = e.clientY - panStart.y;
+                    applyTransform();
+                }
+            }
+
+            function onMouseUp(e) {
+                if (drawing) {
+                    const ghost = drawing.ghost;
+                    drawing.ghost.remove();
+
+                    // Check if released on an input port
+                    document.querySelectorAll('.fb-port-in').forEach(p => p.classList.remove('accepting'));
+                    const portIn = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-port-in]');
+                    if (portIn) {
+                        const targetNodeId = portIn.dataset.portIn;
+                        if (targetNodeId !== drawing.sourceNodeId) {
+                            // Remove existing edge for this button
+                            edges = edges.filter(ed => !(ed.source_node === drawing.sourceNodeId && ed.button_id === drawing.buttonId));
+                            edges.push({ source_node: drawing.sourceNodeId, button_id: drawing.buttonId, target_node: targetNodeId });
+                            scheduleSave();
+                        }
+                    }
+                    drawing = null;
+                    renderAll();
+                    return;
+                }
+
+                if (dragging) {
+                    scheduleSave();
+                    dragging = null;
+                }
+
+                if (panning) {
+                    panning = false;
+                    panStart = null;
+                }
+            }
+
+            function onWheel(e) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.9 : 1.11;
+                const rect = wrap.getBoundingClientRect();
+                const mx = e.clientX - rect.left;
+                const my = e.clientY - rect.top;
+                pan.x = mx - (mx - pan.x) * delta;
+                pan.y = my - (my - pan.y) * delta;
+                zoom = Math.min(2, Math.max(0.2, zoom * delta));
+                applyTransform();
+            }
+
+            // ── Zoom controls ──────────────────────────────────────────────────
+            function zoomReset() {
+                zoom = 1; pan = { x: 80, y: 80 };
+                applyTransform();
+            }
+
+            // ── Save / Load ───────────────────────────────────────────────────
+            function scheduleSave() {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(autoSave, 1500);
+                document.getElementById('saveBtn').textContent = '● Save';
+            }
+
+            async function autoSave() { await save(true); }
+
+            async function save(silent = false) {
+                const saveBtn = document.getElementById('saveBtn');
+                const payload = {
+                    flow_id: flowId,
+                    name: 'Main Flow',
+                    flow_data: { nodes, edges, ai_instructions: flowAiInstructions }
+                };
+                // Check payload size before sending
+                const payloadStr = JSON.stringify(payload);
+                const sizeKB = Math.round(payloadStr.length / 1024);
+                if (sizeKB > 5000) {
+                    showToast(`⚠️ Flow is too large (${sizeKB}KB). Try removing some nodes or shortening message text.`, 'error');
+                    if (saveBtn) saveBtn.textContent = '⚠ Too Large';
+                    return;
+                }
+                try {
+                    const res = await fetch(`/flow/api/${CHATBOT_ID}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: payloadStr
+                    });
+                    if (!res.ok) {
+                        // HTTP error (e.g. 500 from Supabase size limit)
+                        let errMsg = `Save failed (HTTP ${res.status})`;
+                        try {
+                            const errData = await res.json();
+                            if (errData.message) errMsg = errData.message;
+                        } catch(_) {}
+                        showToast('❌ ' + errMsg, 'error');
+                        if (saveBtn) saveBtn.textContent = '✗ Error';
+                        setTimeout(() => { if (saveBtn) saveBtn.textContent = 'Save'; }, 4000);
+                        return;
+                    }
+                    const r = await res.json();
+                    if (r.status === 'ok') {
+                        flowId = r.flow_id;
+                        if (saveBtn) saveBtn.textContent = '✓ Saved';
+                        if (!silent) showToast(`Flow saved! (${sizeKB}KB)`, 'success');
+                        setTimeout(() => { if (saveBtn) saveBtn.textContent = 'Save'; }, 2000);
+                    } else {
+                        showToast('❌ ' + (r.message || 'Save failed'), 'error');
+                        if (saveBtn) saveBtn.textContent = '✗ Error';
+                        setTimeout(() => { if (saveBtn) saveBtn.textContent = 'Save'; }, 4000);
+                    }
+                } catch (ex) {
+                    showToast('❌ Network error — check connection', 'error');
+                    if (saveBtn) saveBtn.textContent = '✗ Error';
+                    setTimeout(() => { if (saveBtn) saveBtn.textContent = 'Save'; }, 4000);
+                }
+            }
+
+            async function toggleActivate() {
+                await save(true);
+                const newActive = !isActive;
+                try {
+                    const res = await fetch(`/flow/api/${CHATBOT_ID}/activate`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ flow_id: flowId, active: newActive })
+                    });
+                    const r = await res.json();
+                    if (r.status === 'ok') {
+                        isActive = newActive;
+                        updateActiveUI();
+                        showToast(isActive ? '✅ Flow activated! Bot will use this flow on WhatsApp.' : '⏸ Flow deactivated.', 'success');
+                    }
+                } catch { }
+            }
+
+            function updateActiveUI() {
+                const badge = document.getElementById('activeStatus');
+                const btn = document.getElementById('activateBtn');
+                if (isActive) {
+                    badge.className = 'fb-active-badge on';
+                    badge.innerHTML = '<svg width="7" height="7" viewBox="0 0 7 7"><circle cx="3.5" cy="3.5" r="3.5" fill="currentColor"/></svg> Active';
+                    btn.textContent = '⏸ Deactivate';
+                    btn.className = 'fb-btn fb-btn-save';
+                } else {
+                    badge.className = 'fb-active-badge off';
+                    badge.innerHTML = '<svg width="7" height="7" viewBox="0 0 7 7"><circle cx="3.5" cy="3.5" r="3.5" fill="currentColor"/></svg> Inactive';
+                    btn.textContent = '▶ Activate Flow';
+                    btn.className = 'fb-btn fb-btn-primary';
+                }
+            }
+
+            // ── Toast ─────────────────────────────────────────────────────────
+            let toastT;
+            function showToast(msg, type = 'info') {
+                const t = document.getElementById('toast');
+                t.textContent = msg;
+                t.style.display = 'block';
+                t.style.borderColor = type === 'success' ? 'rgba(16,185,129,.4)' : type === 'error' ? 'rgba(239,68,68,.4)' : 'var(--border)';
+                clearTimeout(toastT);
+                toastT = setTimeout(() => { t.style.display = 'none'; }, 3000);
+            }
+
+            // ── Public API ────────────────────────────────────────────────────
+            return {
+                init,
+                zoomReset,
+                save: () => save(false),
+                toggleActivate,
+                deleteNode,
+                deleteButton,
+                addButton,
+                updateButtonLabel,
+                updateButtonField,
+                addListRow,
+                deleteListRow,
+                updateListRow,
+                addCondition,
+                deleteCondition,
+                updateCondition,
+                deleteSelectedEdge,
+                editorChange: renderEditor,
+            };
+        })();
+
+        document.addEventListener('DOMContentLoaded', FB.init);
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,2039 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Your favorite creator, now available 24/7. Paste any YouTube channel and talk to an AI trained on everything they've ever said — in their voice, their style, their knowledge.">
+    <title>YoppyChat — Your Favorite Creator. Now Available 24/7.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #ff9a56;
+            --secondary: #ff8c42;
+            --purple: #9333ea;
+            --purple-light: #a855f7;
+            --bg: #fdf8f3;
+            --text: #2a1f16;
+            --text-sub: #5a4a32;
+            --text-muted: #7d6847;
+            --neutral-100: #f8f1e8;
+            --neutral-200: #f0e6d6;
+            --neutral-300: #e6d5c1;
+            --card-bg: #ffffff;
+            --success: #4caf50;
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::selection {
+            background: rgba(255, 154, 86, 0.3);
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        img {
+            max-width: 100%;
+            display: block;
+        }
+
+        ul,
+        ol {
+            list-style: none;
+        }
+
+        /* ── Container ── */
+        .container {
+            max-width: 1140px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* ── Utility ── */
+        .gradient-text {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .gradient-text-purple {
+            background: linear-gradient(135deg, var(--purple-light), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 38px;
+            border-radius: 60px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #fff;
+            font-weight: 700;
+            font-size: 1rem;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 8px 32px rgba(255, 154, 86, 0.35);
+            transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 14px 44px rgba(255, 154, 86, 0.45);
+        }
+
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 38px;
+            border-radius: 60px;
+            background: var(--card-bg);
+            color: var(--text);
+            font-weight: 700;
+            font-size: 1rem;
+            border: 2px solid var(--neutral-300);
+            cursor: pointer;
+            transition: all 0.3s var(--ease);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-3px);
+        }
+
+        /* ── Reveal ── */
+        .reveal {
+            opacity: 0;
+            transform: translateY(36px);
+            transition: opacity 0.8s var(--ease), transform 0.8s var(--ease);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal-d1 {
+            transition-delay: 0.1s;
+        }
+
+        .reveal-d2 {
+            transition-delay: 0.2s;
+        }
+
+        .reveal-d3 {
+            transition-delay: 0.3s;
+        }
+
+        .reveal-d4 {
+            transition-delay: 0.4s;
+        }
+
+        /* ── Orbs ── */
+        @keyframes orbDrift {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            33% {
+                transform: translate(30px, -40px) scale(1.05);
+            }
+
+            66% {
+                transform: translate(-20px, 30px) scale(0.95);
+            }
+        }
+
+        .bg-orbs {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .bg-orbs .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(90px);
+            animation: orbDrift 14s ease-in-out infinite;
+        }
+
+        .bg-orbs .o1 {
+            width: 520px;
+            height: 520px;
+            background: rgba(255, 154, 86, 0.13);
+            top: -8%;
+            right: -6%;
+        }
+
+        .bg-orbs .o2 {
+            width: 420px;
+            height: 420px;
+            background: rgba(147, 51, 234, 0.08);
+            bottom: 10%;
+            left: -6%;
+            animation-delay: 5s;
+        }
+
+        .bg-orbs .o3 {
+            width: 320px;
+            height: 320px;
+            background: rgba(255, 140, 66, 0.1);
+            top: 45%;
+            left: 40%;
+            animation-delay: 9s;
+        }
+
+        /* ══════════════════ HEADER ══════════════════ */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 14px 0;
+            transition: all 0.4s var(--ease);
+        }
+
+        .header.scrolled {
+            background: rgba(253, 248, 243, 0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 1px 16px rgba(0, 0, 0, 0.05);
+            padding: 10px 0;
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-logo img {
+            height: 44px;
+            width: auto;
+        }
+
+        .header-nav {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+
+        .header-nav a {
+            font-weight: 500;
+            color: var(--text-sub);
+            font-size: 0.92rem;
+            transition: color 0.3s;
+            position: relative;
+        }
+
+        .header-nav a:hover {
+            color: var(--primary);
+        }
+
+        .header-nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: 2px;
+            transition: width 0.3s var(--ease);
+        }
+
+        .header-nav a:hover::after {
+            width: 100%;
+        }
+
+        .header-cta {
+            padding: 10px 26px;
+            border-radius: 60px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #fff;
+            font-weight: 600;
+            font-size: 0.88rem;
+            transition: all 0.3s var(--ease);
+            box-shadow: 0 4px 16px rgba(255, 154, 86, 0.3);
+        }
+
+        .header-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(255, 154, 86, 0.4);
+        }
+
+        .mobile-toggle {
+            display: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+        }
+
+        .mobile-toggle span {
+            display: block;
+            width: 22px;
+            height: 2px;
+            background: var(--text);
+            margin: 5px 0;
+            border-radius: 2px;
+            transition: 0.3s;
+        }
+
+        /* ══════════════════ HERO ══════════════════ */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 140px 24px 100px;
+            position: relative;
+        }
+
+        .hero-content {
+            max-width: 820px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 22px;
+            border-radius: 60px;
+            background: rgba(255, 154, 86, 0.08);
+            border: 1px solid rgba(255, 154, 86, 0.2);
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 36px;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.4rem, 5.5vw, 4.2rem);
+            font-weight: 900;
+            line-height: 1.12;
+            letter-spacing: -0.035em;
+            margin-bottom: 28px;
+            color: var(--text);
+        }
+
+        .hero h1 em {
+            font-style: normal;
+        }
+
+        .hero h1 .line-typed {
+            display: block;
+            margin-top: 6px;
+        }
+
+        .typed-cursor {
+            color: var(--primary);
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
+        }
+
+        .hero-subheadline {
+            font-size: clamp(1rem, 1.6vw, 1.2rem);
+            color: var(--text-sub);
+            max-width: 580px;
+            margin: 0 auto 20px;
+            font-weight: 500;
+            line-height: 1.7;
+        }
+
+        .hero-body {
+            font-size: clamp(0.9rem, 1.2vw, 1.02rem);
+            color: var(--text-muted);
+            max-width: 620px;
+            margin: 0 auto 40px;
+            line-height: 1.8;
+        }
+
+        .hero-body em {
+            font-style: italic;
+            color: var(--text-sub);
+        }
+
+        .hero-ctas {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+            margin-bottom: 48px;
+        }
+
+        .hero-trust {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .hero-trust .pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 60px;
+            background: var(--card-bg);
+            border: 1px solid var(--neutral-200);
+            font-size: 0.84rem;
+            font-weight: 600;
+            color: var(--text-sub);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+        }
+
+        .hero-trust .pill .arrow {
+            color: var(--primary);
+        }
+
+        /* ══════════════════ SECTION SHARED ══════════════════ */
+        .section {
+            padding: 120px 0;
+        }
+
+        .section-label {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 60px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: clamp(1.8rem, 3.8vw, 2.9rem);
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.025em;
+            margin-bottom: 20px;
+        }
+
+        .section-body {
+            font-size: 1.05rem;
+            color: var(--text-sub);
+            max-width: 600px;
+            line-height: 1.8;
+        }
+
+        .section-body.centered {
+            margin-left: auto;
+            margin-right: auto;
+            text-align: center;
+        }
+
+        /* ══════════════════ HOW IT WORKS ══════════════════ */
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 28px;
+            margin-top: 64px;
+        }
+
+        .step-card {
+            position: relative;
+            background: var(--card-bg);
+            border-radius: 24px;
+            padding: 44px 32px 36px;
+            border: 1px solid var(--neutral-200);
+            transition: all 0.4s var(--ease);
+        }
+
+        .step-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.07);
+            border-color: rgba(255, 154, 86, 0.3);
+        }
+
+        .step-num {
+            position: absolute;
+            top: -16px;
+            left: 28px;
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #fff;
+            font-weight: 900;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 20px rgba(255, 154, 86, 0.4);
+        }
+
+        .step-card h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .step-card p {
+            font-size: 0.92rem;
+            color: var(--text-sub);
+            line-height: 1.7;
+        }
+
+        /* ══════════════════ BENEFITS ══════════════════ */
+        .benefits-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+            margin-top: 0;
+        }
+
+        .benefit-block {
+            background: var(--card-bg);
+            border-radius: 28px;
+            padding: 48px 40px;
+            border: 1px solid var(--neutral-200);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.04);
+            transition: all 0.4s var(--ease);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .benefit-block:hover {
+            box-shadow: 0 16px 60px rgba(0, 0, 0, 0.07);
+        }
+
+        .benefit-block .glow {
+            position: absolute;
+            top: -60px;
+            right: -60px;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
+        }
+
+        .benefit-block h3 {
+            font-size: clamp(1.4rem, 2.5vw, 1.7rem);
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 16px;
+            letter-spacing: -0.02em;
+        }
+
+        .benefit-block .b-body {
+            font-size: 0.95rem;
+            color: var(--text-sub);
+            line-height: 1.8;
+            margin-bottom: 28px;
+        }
+
+        .benefit-list {
+            padding: 0;
+        }
+
+        .benefit-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 12px 0;
+            font-size: 0.92rem;
+            color: var(--text-sub);
+            line-height: 1.65;
+        }
+
+        .benefit-list li .arr {
+            color: var(--primary);
+            font-weight: 700;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .benefit-bottom {
+            margin-top: 28px;
+            padding-top: 24px;
+            border-top: 1px solid var(--neutral-200);
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .benefit-bottom .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        .benefit-callout {
+            margin-top: 28px;
+            padding: 20px 28px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(255, 154, 86, 0.06), rgba(255, 140, 66, 0.04));
+            border: 1px solid rgba(255, 154, 86, 0.15);
+            text-align: center;
+            font-weight: 800;
+            font-size: 1rem;
+            color: var(--text);
+        }
+
+        /* ══════════════════ INTEGRATIONS ══════════════════ */
+        .integrations-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            margin-top: 56px;
+        }
+
+        .int-card {
+            background: var(--card-bg);
+            border-radius: 22px;
+            padding: 36px 32px;
+            border: 1px solid var(--neutral-200);
+            transition: all 0.4s var(--ease);
+        }
+
+        .int-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 16px 50px rgba(0, 0, 0, 0.07);
+            border-color: rgba(255, 154, 86, 0.25);
+        }
+
+        .int-card .ic-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            margin-bottom: 18px;
+        }
+
+        .int-card h4 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .int-card .coming {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--purple);
+            background: rgba(147, 51, 234, 0.1);
+            padding: 3px 10px;
+            border-radius: 60px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        .int-card p {
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            line-height: 1.7;
+        }
+
+        .int-footer {
+            margin-top: 32px;
+            text-align: center;
+            font-size: 0.92rem;
+            color: var(--text-muted);
+        }
+
+        .int-footer em {
+            color: var(--primary);
+            font-style: normal;
+            font-weight: 600;
+        }
+
+        /* ══════════════════ TRUST / SECURITY ══════════════════ */
+        .trust-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-top: 56px;
+        }
+
+        .trust-card {
+            background: var(--card-bg);
+            border-radius: 22px;
+            padding: 36px 30px;
+            border: 1px solid var(--neutral-200);
+            transition: all 0.4s var(--ease);
+        }
+
+        .trust-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
+        }
+
+        .trust-card .tc-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 18px;
+        }
+
+        .trust-card h4 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .trust-card p {
+            font-size: 0.88rem;
+            color: var(--text-sub);
+            line-height: 1.7;
+        }
+
+        /* ══════════════════ PRICING ══════════════════ */
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-top: 56px;
+        }
+
+        .price-card {
+            background: var(--card-bg);
+            border-radius: 24px;
+            padding: 40px 30px;
+            border: 1px solid var(--neutral-200);
+            transition: all 0.4s var(--ease);
+            position: relative;
+        }
+
+        .price-card.featured {
+            border-color: var(--primary);
+            box-shadow: 0 20px 60px rgba(255, 154, 86, 0.12);
+            transform: scale(1.04);
+            z-index: 2;
+        }
+
+        .price-card.featured::before {
+            content: 'MOST POPULAR';
+            position: absolute;
+            top: -14px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 6px 20px;
+            border-radius: 60px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #fff;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            white-space: nowrap;
+        }
+
+        .price-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 16px 50px rgba(0, 0, 0, 0.08);
+        }
+
+        .price-card.featured:hover {
+            transform: scale(1.04) translateY(-6px);
+        }
+
+        .price-card .plan-name {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .price-card .plan-price {
+            font-size: 2.6rem;
+            font-weight: 900;
+            margin: 14px 0 2px;
+            letter-spacing: -0.03em;
+        }
+
+        .price-card .plan-period {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .price-card .plan-desc {
+            font-size: 0.88rem;
+            color: var(--text-sub);
+            margin-bottom: 24px;
+            font-style: italic;
+            line-height: 1.5;
+        }
+
+        .price-card ul {
+            margin-bottom: 32px;
+        }
+
+        .price-card li {
+            padding: 8px 0;
+            font-size: 0.88rem;
+            color: var(--text-sub);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .price-card li::before {
+            content: '→';
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .price-btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            border-radius: 14px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.95rem;
+            border: 2px solid var(--neutral-300);
+            background: transparent;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.3s var(--ease);
+        }
+
+        .price-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .price-card.featured .price-btn {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #fff;
+            border: none;
+            box-shadow: 0 6px 20px rgba(255, 154, 86, 0.3);
+        }
+
+        .price-card.featured .price-btn:hover {
+            box-shadow: 0 10px 30px rgba(255, 154, 86, 0.45);
+        }
+
+        .pricing-trust {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            justify-content: center;
+            margin-top: 40px;
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* ══════════════════ FAQ ══════════════════ */
+        .faq-list {
+            max-width: 720px;
+            margin: 56px auto 0;
+        }
+
+        .faq-item {
+            border-bottom: 1px solid var(--neutral-200);
+        }
+
+        .faq-q {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 24px 0;
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+            font-family: inherit;
+            font-size: 1.02rem;
+            font-weight: 700;
+            color: var(--text);
+            transition: color 0.3s;
+        }
+
+        .faq-q:hover {
+            color: var(--primary);
+        }
+
+        .faq-q .plus {
+            font-size: 1.4rem;
+            color: var(--text-muted);
+            transition: transform 0.3s var(--ease), color 0.3s;
+            flex-shrink: 0;
+            margin-left: 16px;
+        }
+
+        .faq-item.open .faq-q .plus {
+            transform: rotate(45deg);
+            color: var(--primary);
+        }
+
+        .faq-a {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s var(--ease), padding 0.4s var(--ease);
+        }
+
+        .faq-item.open .faq-a {
+            max-height: 300px;
+            padding-bottom: 24px;
+        }
+
+        .faq-a p {
+            font-size: 0.92rem;
+            color: var(--text-sub);
+            line-height: 1.8;
+        }
+
+        /* ══════════════════ FINAL CTA ══════════════════ */
+        .final-cta {
+            padding: 120px 0;
+            text-align: center;
+            position: relative;
+        }
+
+        .final-cta::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255, 154, 86, 0.05), rgba(147, 51, 234, 0.03));
+            pointer-events: none;
+        }
+
+        .final-cta h2 {
+            font-size: clamp(2rem, 4.5vw, 3.2rem);
+            font-weight: 900;
+            line-height: 1.15;
+            letter-spacing: -0.03em;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .final-cta .cta-body {
+            font-size: 1.05rem;
+            color: var(--text-sub);
+            max-width: 580px;
+            margin: 0 auto 40px;
+            line-height: 1.8;
+            position: relative;
+        }
+
+        .final-cta .cta-btns {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+            margin-bottom: 24px;
+            position: relative;
+        }
+
+        .final-cta .cta-note {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            position: relative;
+        }
+
+        /* ══════════════════ FOOTER ══════════════════ */
+        .footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--neutral-200);
+            text-align: center;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+
+        .footer-links a {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+
+        .footer p {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        /* ══════════════════ MOBILE MENU ══════════════════ */
+        .mobile-menu {
+            position: fixed;
+            inset: 0;
+            top: 72px;
+            background: rgba(255, 255, 255, 0.97);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 99;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 32px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s var(--ease);
+        }
+
+        .mobile-menu.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .mobile-menu a {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text);
+            transition: color 0.3s;
+        }
+
+        .mobile-menu a:hover {
+            color: var(--primary);
+        }
+
+        .mobile-menu .mm-cta {
+            padding: 14px 36px;
+            border-radius: 60px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #fff;
+            font-weight: 700;
+            box-shadow: 0 6px 20px rgba(255, 154, 86, 0.3);
+        }
+
+        /* ══════════════════ LOGIN MODAL ══════════════════ */
+        .login-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(6px);
+        }
+
+        .login-box {
+            background: #fff;
+            border-radius: 24px;
+            padding: 40px 32px;
+            max-width: 420px;
+            width: 90%;
+            position: relative;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.2);
+        }
+
+        .login-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 1.4rem;
+            transition: color 0.3s;
+        }
+
+        .login-close:hover {
+            color: var(--text);
+        }
+
+        .login-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            box-shadow: 0 8px 24px rgba(255, 154, 86, 0.3);
+        }
+
+        .login-box h3 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 6px;
+        }
+
+        .login-box .login-sub {
+            text-align: center;
+            color: var(--text-sub);
+            font-size: 0.92rem;
+            margin-bottom: 24px;
+        }
+
+        .google-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 14px;
+            border-radius: 14px;
+            border: 1px solid var(--neutral-300);
+            background: #fff;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text);
+            transition: all 0.3s;
+        }
+
+        .google-btn:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+        }
+
+        .login-box .login-legal {
+            text-align: center;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 20px;
+        }
+
+        .login-box .login-legal a {
+            color: var(--primary);
+        }
+
+        /* ══════════════════ DARK FOOTER ══════════════════ */
+        .footer-dark {
+            background: var(--text);
+            color: #fff;
+            padding: 64px 0 32px;
+            position: relative;
+        }
+
+        .footer-dark::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+            gap: 32px;
+            margin-bottom: 40px;
+        }
+
+        .footer-brand img {
+            height: 48px;
+            width: auto;
+            margin-bottom: 16px;
+        }
+
+        .footer-brand p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.88rem;
+            line-height: 1.7;
+            max-width: 280px;
+            margin-bottom: 20px;
+        }
+
+        .footer-socials {
+            display: flex;
+            gap: 10px;
+        }
+
+        .footer-socials a {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            transition: background 0.3s;
+        }
+
+        .footer-socials a:hover {
+            background: var(--primary);
+        }
+
+        .footer-col h4 {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.85);
+            margin-bottom: 16px;
+        }
+
+        .footer-col a {
+            display: block;
+            font-size: 0.82rem;
+            color: rgba(255, 255, 255, 0.5);
+            padding: 4px 0;
+            transition: color 0.3s;
+        }
+
+        .footer-col a:hover {
+            color: var(--primary);
+        }
+
+        .footer-bottom {
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding-top: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .footer-contact {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            font-size: 0.82rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .footer-copy {
+            font-size: 0.82rem;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* ══════════════════ ANIMATED CTA ══════════════════ */
+        @keyframes gradientShift {
+
+            0%,
+            100% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+        }
+
+        .cta-gradient {
+            background: linear-gradient(-45deg, #ff9a56, #ff8c42, #f97316, #fb923c);
+            background-size: 400% 400%;
+            animation: gradientShift 8s ease infinite;
+        }
+
+        .final-cta-v2 {
+            padding: 100px 0;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .final-cta-v2 h2 {
+            font-size: clamp(1.8rem, 4vw, 3rem);
+            font-weight: 900;
+            color: #fff;
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .final-cta-v2 .cta-body {
+            font-size: 1.05rem;
+            color: rgba(255, 255, 255, 0.9);
+            max-width: 560px;
+            margin: 0 auto 36px;
+            line-height: 1.8;
+            position: relative;
+        }
+
+        .final-cta-v2 .cta-btns {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            justify-content: center;
+            margin-bottom: 32px;
+            position: relative;
+        }
+
+        .final-cta-v2 .btn-white {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 38px;
+            border-radius: 60px;
+            background: #fff;
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 1rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s var(--ease);
+        }
+
+        .final-cta-v2 .btn-white:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 14px 44px rgba(0, 0, 0, 0.2);
+        }
+
+        .final-cta-v2 .btn-ghost {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 38px;
+            border-radius: 60px;
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            font-weight: 700;
+            font-size: 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s var(--ease);
+        }
+
+        .final-cta-v2 .btn-ghost:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-3px);
+        }
+
+        .final-cta-v2 .trust-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            justify-content: center;
+            font-size: 0.88rem;
+            color: rgba(255, 255, 255, 0.7);
+            position: relative;
+        }
+
+        /* ══════════════════ SCROLLBAR ══════════════════ */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--neutral-100);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--neutral-300);
+            border-radius: 9999px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+
+        /* ══════════════════ RESPONSIVE ══════════════════ */
+        @media (max-width: 1024px) {
+
+            .integrations-grid,
+            .trust-cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-nav {
+                display: none;
+            }
+
+            .mobile-toggle {
+                display: block;
+            }
+
+            .steps-grid,
+            .trust-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .benefits-split {
+                grid-template-columns: 1fr;
+            }
+
+            .integrations-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .pricing-grid {
+                grid-template-columns: 1fr;
+                max-width: 400px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .price-card.featured {
+                transform: none;
+            }
+
+            .price-card.featured:hover {
+                transform: translateY(-6px);
+            }
+
+            .hero {
+                padding-top: 120px;
+            }
+
+            .section {
+                padding: 80px 0;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="bg-orbs">
+        <div class="orb o1"></div>
+        <div class="orb o2"></div>
+        <div class="orb o3"></div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notification-container"></div>
+
+    <!-- Login Popup Modal -->
+    <div class="login-overlay" id="loginModal">
+        <div class="login-box">
+            <button class="login-close" onclick="closeLoginPopup()">&times;</button>
+            <div class="login-icon">
+                <svg width="28" height="28" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" viewBox="0 0 24 24">
+                    <path
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+            </div>
+            <h3>Welcome to YoppyChat</h3>
+            <p class="login-sub">Create an account or log in to continue</p>
+            <button class="google-btn" id="googleLoginBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        fill="#4285F4" />
+                    <path
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        fill="#34A853" />
+                    <path
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                        fill="#FBBC05" />
+                    <path
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                        fill="#EA4335" />
+                </svg>
+                Continue with Google
+            </button>
+            <p class="login-legal">By signing in, you agree to our <a href="{{ url_for('terms_landing') }}">Terms</a>
+                and <a href="{{ url_for('privacy_landing') }}">Privacy Policy</a></p>
+        </div>
+    </div>
+
+    <!-- ══════════════════ HEADER ══════════════════ -->
+    <header class="header" id="header">
+        <div class="container header-inner">
+            <a href="{{ url_for('home') }}" class="header-logo">
+                <img src="{{ url_for('static', filename='images/logo/primiry__logo.png') }}" alt="YoppyChat">
+            </a>
+            <nav class="header-nav">
+                <a href="#how-it-works">How It Works</a>
+                <a href="#for-creators">For Creators</a>
+                <a href="#pricing">Pricing</a>
+                <a href="#faq">FAQ</a>
+            </nav>
+            <a href="{{ url_for('channel') }}" class="header-cta">Start Free</a>
+            <button class="mobile-toggle" id="mobileToggle"
+                aria-label="Menu"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+
+    <!-- Mobile Menu Overlay -->
+    <div class="mobile-menu" id="mobileMenu">
+        <a href="#how-it-works" class="mm-link">How It Works</a>
+        <a href="#for-creators" class="mm-link">For Creators</a>
+        <a href="#pricing" class="mm-link">Pricing</a>
+        <a href="#faq" class="mm-link">FAQ</a>
+        <a href="{{ url_for('channel') }}" class="mm-cta">Try Free</a>
+    </div>
+
+    <!-- ══════════════════ HERO ══════════════════ -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">✦ Your creator. Anytime. Any question.</div>
+            <h1>
+                Your favorite creator.<span class="line-typed"><span class="gradient-text" id="typedText"></span><span
+                        class="typed-cursor">|</span></span>
+            </h1>
+            <p class="hero-subheadline">You've watched every video. You still have questions no one
+                answers.<br>YoppyChat changes that.</p>
+            <p class="hero-body">Paste any YouTube channel. In minutes, you're talking directly to an AI trained on
+                everything that creator has ever said — in their voice, their style, their knowledge. Not a chatbot.
+                <em>Them.</em>
+            </p>
+            <div class="hero-ctas">
+                <a href="{{ url_for('channel') }}" class="btn-primary">Try It Free <svg width="18" height="18"
+                        fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg></a>
+                <a href="#how-it-works" class="btn-secondary">See How It Works</a>
+            </div>
+            <div class="hero-trust">
+                <div class="pill"><span class="arrow">→</span> No credit card required</div>
+                <div class="pill"><span class="arrow">→</span> Ready in under 15 minutes</div>
+                <div class="pill"><span class="arrow">→</span> Works on Discord, Telegram & Web</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ══════════════════ HOW IT WORKS ══════════════════ -->
+    <section class="section" id="how-it-works">
+        <div class="container text-center">
+            <div class="reveal">
+                <span class="section-label" style="background:rgba(255,154,86,0.1);color:var(--primary);">It's
+                    Embarrassingly Simple</span>
+                <div class="section-title">Three steps.<br><span class="gradient-text">Zero technical knowledge
+                        required.</span></div>
+            </div>
+            <div class="steps-grid">
+                <div class="step-card reveal reveal-d1">
+                    <div class="step-num">1</div>
+                    <h3>Paste a YouTube URL.</h3>
+                    <p>Any channel. Thousands of videos. We handle all of it.</p>
+                </div>
+                <div class="step-card reveal reveal-d2">
+                    <div class="step-num">2</div>
+                    <h3>We train the AI.</h3>
+                    <p>Our system reads every transcript, learns the creator's voice, and builds their digital twin. In
+                        about 15 minutes.</p>
+                </div>
+                <div class="step-card reveal reveal-d3">
+                    <div class="step-num">3</div>
+                    <h3>Start talking.</h3>
+                    <p>Ask anything. Get answers in their voice, with links back to the exact video where they said it.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ══════════════════ BENEFITS ══════════════════ -->
+    <section class="section" id="benefits">
+        <div class="container">
+            <div class="benefits-split">
+
+                <!-- FOR FANS -->
+                <div class="benefit-block reveal">
+                    <div class="glow" style="background:rgba(255,154,86,0.15);"></div>
+                    <span class="section-label" style="background:rgba(255,154,86,0.1);color:var(--primary);">For Fans &
+                        Viewers</span>
+                    <h3>Stop searching.<br><span class="gradient-text">Start asking.</span></h3>
+                    <p class="b-body">You shouldn't have to scrub through 47 videos to find the answer you need. Ask it.
+                        Get it. In seconds. With a direct link to the source so you can go deeper if you want.</p>
+                    <ul class="benefit-list">
+                        <li><span class="arr">→</span> Answers in your creator's actual voice — not some generic AI</li>
+                        <li><span class="arr">→</span> Every response links to the exact video timestamp</li>
+                        <li><span class="arr">→</span> Available at 2 AM when the creator isn't</li>
+                        <li><span class="arr">→</span> Ask follow-ups. It remembers the conversation.</li>
+                    </ul>
+                    <div class="benefit-bottom"><span class="dot"></span> Thousands of fans are already using YoppyChat
+                        to go deeper into the creators they love.</div>
+                </div>
+
+                <!-- FOR CREATORS -->
+                <div class="benefit-block reveal reveal-d2" id="for-creators">
+                    <div class="glow" style="background:rgba(147,51,234,0.12);"></div>
+                    <span class="section-label" style="background:rgba(147,51,234,0.1);color:var(--purple);">For
+                        Creators</span>
+                    <h3>You created the knowledge.<br><span class="gradient-text-purple">You should own the
+                            relationship.</span></h3>
+                    <p class="b-body">YouTube owns your audience. Your DMs own your time. YoppyChat gives both of those
+                        back to you.</p>
+                    <ul class="benefit-list">
+                        <li><span class="arr" style="color:var(--purple);">→</span> Your AI answers the questions so you
+                            don't have to — over and over</li>
+                        <li><span class="arr" style="color:var(--purple);">→</span> Every answer links back to your
+                            video. More views. Better algorithm.</li>
+                        <li><span class="arr" style="color:var(--purple);">→</span> See exactly what your audience is
+                            asking. Your next 10 video ideas are already in there.</li>
+                        <li><span class="arr" style="color:var(--purple);">→</span> Earn 45% recurring revenue on every
+                            fan who subscribes through your page.</li>
+                    </ul>
+                    <div class="benefit-callout">⏱ You create once. Your AI works forever.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ══════════════════ INTEGRATIONS ══════════════════ -->
+    <section class="section" id="integrations">
+        <div class="container text-center">
+            <div class="reveal">
+                <span class="section-label" style="background:rgba(147,51,234,0.1);color:var(--purple);">Everywhere Your
+                    Fans Already Are</span>
+                <div class="section-title">Your AI.<br><span class="gradient-text-purple">Their platform.</span></div>
+                <p class="section-body centered">Don't make your fans come to you. Go to them.</p>
+            </div>
+            <div class="integrations-grid">
+                <div class="int-card reveal reveal-d1">
+                    <div class="ic-icon" style="background:rgba(88,101,242,0.1);">💬</div>
+                    <h4>Discord</h4>
+                    <p>Your community server, powered by you — even when you're offline. Deploy a fully branded bot that
+                        knows everything you've ever said.</p>
+                </div>
+                <div class="int-card reveal reveal-d2">
+                    <div class="ic-icon" style="background:rgba(0,136,204,0.1);">✈️</div>
+                    <h4>Telegram</h4>
+                    <p>DMs at scale. Your AI handles every one-on-one conversation simultaneously — in your voice, on
+                        their phone.</p>
+                </div>
+                <div class="int-card reveal reveal-d3">
+                    <div class="ic-icon" style="background:rgba(76,175,80,0.1);">🔌</div>
+                    <h4>Any Website</h4>
+                    <p>One line of code. A floating chat widget that feels like your product, not ours.</p>
+                </div>
+                <div class="int-card reveal reveal-d4">
+                    <div class="ic-icon" style="background:rgba(147,51,234,0.1);">🏛️</div>
+                    <h4>Whop Communities <span class="coming">Coming Soon</span></h4>
+                    <p>Make your paid community feel 10x more premium. AI-powered support, available to every member,
+                        24/7.</p>
+                </div>
+            </div>
+            <p class="int-footer reveal">More platforms coming. <em>Have one in mind? Tell us.</em></p>
+        </div>
+    </section>
+
+    <!-- ══════════════════ SECURITY / TRUST ══════════════════ -->
+    <section class="section" id="trust">
+        <div class="container text-center">
+            <div class="reveal">
+                <span class="section-label" style="background:rgba(76,175,80,0.1);color:var(--success);">Built to Be
+                    Trusted</span>
+                <div class="section-title">Your content.<br>Your audience.<br><span class="gradient-text">Your
+                        rules.</span></div>
+            </div>
+            <div class="trust-cards">
+                <div class="trust-card reveal reveal-d1">
+                    <div class="tc-icon" style="background:rgba(255,154,86,0.1);">🧠</div>
+                    <h4>Best-in-class AI</h4>
+                    <p>We use the same frontier models that power the products you already trust. Accurate, contextual,
+                        and stays within your knowledge domain.</p>
+                </div>
+                <div class="trust-card reveal reveal-d2">
+                    <div class="tc-icon" style="background:rgba(147,51,234,0.1);">🔒</div>
+                    <h4>Your data never leaves your hands</h4>
+                    <p>We don't train on your content. We don't sell it. It exists to serve your audience — and only
+                        your audience.</p>
+                </div>
+                <div class="trust-card reveal reveal-d3">
+                    <div class="tc-icon" style="background:rgba(76,175,80,0.1);">🤝</div>
+                    <h4>Built to help creators, not replace them</h4>
+                    <p>Your YouTube comments stay untouched. Your algorithm stays healthy. We only handle the overflow —
+                        the DMs, the Discord pings, the questions that eat your time and give you nothing back.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ══════════════════ PRICING ══════════════════ -->
+    <section class="section" id="pricing">
+        <div class="container text-center">
+            <div class="reveal">
+                <span class="section-label" style="background:rgba(147,51,234,0.1);color:var(--purple);">Pricing</span>
+                <div class="section-title">Simple, honest pricing.<br><span class="gradient-text-purple">Cancel whenever you want.</span></div>
+                <p class="section-body centered" style="margin-top:14px;">Now powered by WhatsApp, Messenger, Google Reviews &amp; more.</p>
+            </div>
+            <div class="pricing-grid">
+                <!-- Explorer -->
+                <div class="price-card reveal reveal-d1">
+                    <div class="plan-name">Explorer</div>
+                    <div class="plan-price">Free</div>
+                    <span class="plan-period">Forever</span>
+                    <p class="plan-desc">Try the magic. No credit card. No strings.</p>
+                    <ul>
+                        <li>20 AI Credits/month</li>
+                        <li>1 YouTube channel persona</li>
+                        <li>Public chat page</li>
+                        <li>Basic analytics</li>
+                        <li>Community support</li>
+                    </ul>
+                    <a href="{{ url_for('channel') }}" class="price-btn">Get Started Free</a>
+                </div>
+                <!-- Personal (featured) -->
+                <div class="price-card featured reveal reveal-d2">
+                    <div class="plan-name">Personal</div>
+                    <div class="plan-price gradient-text">&#x20B9;299</div>
+                    <span class="plan-period">/month</span>
+                    <p class="plan-desc">For fans &amp; creators who want unlimited power across every channel.</p>
+                    <ul>
+                        <li>310 AI Credits/month</li>
+                        <li>Unlimited YouTube channels</li>
+                        <li>WhatsApp &amp; Messenger bot</li>
+                        <li>Google Reviews dashboard</li>
+                        <li>YouTube Comments manager</li>
+                        <li>Flow Builder (visual automation)</li>
+                        <li>Priority AI responses</li>
+                        <li>Full conversation history</li>
+                        <li>Advanced analytics</li>
+                        <li>Email support</li>
+                    </ul>
+                    <button class="price-btn" onclick="buySubscription('personal', this)">Get Started</button>
+                </div>
+                <!-- Creator -->
+                <div class="price-card reveal reveal-d3">
+                    <div class="plan-name">Creator</div>
+                    <div class="plan-price">&#x20B9;2,799</div>
+                    <span class="plan-period">/month</span>
+                    <p class="plan-desc">For creators scaling AI across every platform and community.</p>
+                    <ul>
+                        <li>Everything in Personal, plus:</li>
+                        <li>10,000 AI Credits/month</li>
+                        <li>Discord &amp; Telegram deployment</li>
+                        <li>Website embed widget</li>
+                        <li>Multi-source AI (docs, URLs, PDFs)</li>
+                        <li>Marketplace listing &amp; transfers</li>
+                        <li>Custom branding &amp; white-label</li>
+                        <li>45% affiliate revenue share</li>
+                        <li>API access</li>
+                        <li>Priority support + onboarding call</li>
+                    </ul>
+                    <button class="price-btn" onclick="buySubscription('creator', this)">Become a Creator</button>
+                </div>
+            </div>
+            <div class="pricing-trust reveal">
+                <span>&#x2713; No contracts</span>
+                <span>&#x2713; Cancel anytime</span>
+                <span>&#x2713; 30-day money-back guarantee</span>
+                <span>&#x2713; Your AI stays live 30 days after cancellation</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ══════════════════ FAQ ══════════════════ -->
+    <section class="section" id="faq">
+        <div class="container text-center">
+            <div class="reveal">
+                <div class="section-title">You have questions.<br><span class="gradient-text"><em>(Ironically, so do
+                            your fans.)</em></span></div>
+            </div>
+            <div class="faq-list reveal">
+                <div class="faq-item">
+                    <button class="faq-q">Does this replace my YouTube channel? <span class="plus">+</span></button>
+                    <div class="faq-a">
+                        <p>No. It feeds it. Every answer we give links back to your video. Your channel grows. Your
+                            algorithm improves. We handle the overflow, you get the credit.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-q">Will my AI say things I've never actually said? <span
+                            class="plus">+</span></button>
+                    <div class="faq-a">
+                        <p>Never. Your AI only speaks from your content. If it doesn't know, it says so. No
+                            hallucinations, no invented opinions.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-q">How long does setup take? <span class="plus">+</span></button>
+                    <div class="faq-a">
+                        <p>Paste your YouTube URL. Wait about 15 minutes. You're live.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-q">What happens if I cancel? <span class="plus">+</span></button>
+                    <div class="faq-a">
+                        <p>Your AI stays up for 30 days. No sudden disappearing act on your community.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-q">I'm a fan, not a creator. Can I use this? <span class="plus">+</span></button>
+                    <div class="faq-a">
+                        <p>Absolutely. If your favorite creator is on YoppyChat, you can talk to their AI right now —
+                            for free.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ══════════════════ FINAL CTA ══════════════════ -->
+    <section class="final-cta-v2 cta-gradient">
+        <div class="container reveal" style="position:relative;z-index:2;">
+            <h2>YouTube built their empire<br>on your content.<br><br>Build yours on your knowledge.</h2>
+            <p class="cta-body">Creators who own the relationship with their audience will always outlast the ones who
+                rent space on someone else's platform. Your knowledge has value. It's time to act like it.</p>
+            <div class="cta-btns">
+                <a href="{{ url_for('channel') }}" class="btn-white">Start Free Today <svg width="18" height="18"
+                        fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg></a>
+                <a href="#how-it-works" class="btn-ghost">See a Live Demo</a>
+            </div>
+            <div class="trust-row">
+                <span>✓ No Credit Card Required</span>
+                <span>✓ Setup in 15 Minutes</span>
+                <span>✓ Cancel Anytime</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ══════════════════ FOOTER ══════════════════ -->
+    <footer class="footer-dark">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <img src="{{ url_for('static', filename='images/logo/primiry_logo_dark.png') }}" alt="YoppyChat">
+                    <p>Your conversations—and your impact—keep going long after the video ends.</p>
+                    <div class="footer-socials">
+                        <a href="#" aria-label="Twitter"><svg width="18" height="18" fill="currentColor"
+                                viewBox="0 0 24 24">
+                                <path
+                                    d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z" />
+                            </svg></a>
+                        <a href="#" aria-label="Instagram"><svg width="18" height="18" fill="currentColor"
+                                viewBox="0 0 24 24">
+                                <path
+                                    d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+                            </svg></a>
+                        <a href="#" aria-label="YouTube"><svg width="18" height="18" fill="currentColor"
+                                viewBox="0 0 24 24">
+                                <path
+                                    d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                            </svg></a>
+                        <a href="#" aria-label="LinkedIn"><svg width="18" height="18" fill="currentColor"
+                                viewBox="0 0 24 24">
+                                <path
+                                    d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                            </svg></a>
+                    </div>
+                </div>
+                <div class="footer-col">
+                    <h4>Product</h4>
+                    <a href="#how-it-works">How It Works</a>
+                    <a href="#benefits">Benefits</a>
+                    <a href="#pricing">Pricing</a>
+                    <a href="#faq">FAQ</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Company</h4>
+                    <a href="#">About Us</a>
+                    <a href="#">Blog</a>
+                    <a href="#">Careers</a>
+                    <a href="#">Press Kit</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Legal</h4>
+                    <a href="{{ url_for('privacy_landing') }}">Privacy Policy</a>
+                    <a href="{{ url_for('terms_landing') }}">Terms of Service</a>
+                    <a href="#">Refund Policy</a>
+                    <a href="#">Cookie Policy</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Support</h4>
+                    <a href="#">Help Center</a>
+                    <a href="#">Contact Us</a>
+                    <a href="#">Status</a>
+                    <a href="#">Feedback</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="footer-contact">
+                    <span>📧 hello@yoppychat.com</span>
+                    <span>📞 +91-8081495964</span>
+                    <span>📍 Kanpur, India</span>
+                </div>
+                <p class="footer-copy">© 2024–2026 YoppyChat. All rights reserved. Made with <span
+                        style="color:var(--primary);">♥</span> for creators everywhere.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+    <!-- Core UI — runs first, cannot fail -->
+    <script>
+        (function () {
+            // Header scroll
+            var header = document.getElementById('header');
+            if (header) window.addEventListener('scroll', function () { header.classList.toggle('scrolled', window.scrollY > 40); });
+
+            // Reveal on scroll — MUST RUN
+            var obs = new IntersectionObserver(function (entries) {
+                entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+            }, { threshold: 0.12 });
+            document.querySelectorAll('.reveal').forEach(function (el) { obs.observe(el); });
+
+            // Mobile menu
+            var mt = document.getElementById('mobileToggle');
+            var mm = document.getElementById('mobileMenu');
+            if (mt && mm) {
+                mt.addEventListener('click', function () { mm.classList.toggle('open'); });
+                document.querySelectorAll('.mm-link').forEach(function (l) { l.addEventListener('click', function () { mm.classList.remove('open'); }); });
+            }
+
+            // Typing effect
+            var typed = document.getElementById('typedText');
+            if (typed) {
+                var phrases = ['Now available 24/7.', 'Answering your questions.', 'In their own voice.', 'Powered by their knowledge.'];
+                var pi = 0, ci = 0, del = false;
+                function tick() {
+                    var w = phrases[pi];
+                    typed.textContent = w.substring(0, ci);
+                    if (!del) { ci++; if (ci > w.length) { setTimeout(function () { del = true; tick(); }, 2400); return; } }
+                    else { ci--; if (ci < 0) { ci = 0; del = false; pi = (pi + 1) % phrases.length; } }
+                    setTimeout(tick, del ? 28 : 60);
+                }
+                tick();
+            }
+
+            // FAQ accordion
+            document.querySelectorAll('.faq-q').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var item = btn.parentElement;
+                    var wasOpen = item.classList.contains('open');
+                    document.querySelectorAll('.faq-item.open').forEach(function (i) { i.classList.remove('open'); });
+                    if (!wasOpen) item.classList.add('open');
+                });
+            });
+        })();
+    </script>
+
+    <!-- Payment & Auth — wrapped so failures don't break UI -->
+    <script>
+        try {
+            var IS_USER_LOGGED_IN = {{ 'true' if session.get('user') else 'false'
+        }};
+
+        window.showNotification = function (message, type) {
+            type = type || 'info';
+            var c = document.getElementById('notification-container');
+            if (!c) return;
+            var n = document.createElement('div');
+            n.style.cssText = 'position:fixed;top:20px;right:20px;z-index:300;padding:14px 24px;border-radius:14px;color:#fff;font-weight:600;font-size:0.9rem;box-shadow:0 8px 32px rgba(0,0,0,0.15);transform:translateX(120%);transition:transform 0.4s cubic-bezier(0.16,1,0.3,1);background:' + (type === 'error' ? '#ef4444' : '#4caf50') + ';';
+            n.textContent = message;
+            c.appendChild(n);
+            requestAnimationFrame(function () { n.style.transform = 'translateX(0)'; });
+            setTimeout(function () { n.style.transform = 'translateX(120%)'; setTimeout(function () { n.remove(); }, 500); }, 4000);
+        };
+
+        window.showLoginPopup = function () {
+            document.getElementById('loginModal').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        };
+        window.closeLoginPopup = function () {
+            document.getElementById('loginModal').style.display = 'none';
+            document.body.style.overflow = '';
+        };
+
+        window.buySubscription = function (plan, btn) {
+            if (!IS_USER_LOGGED_IN) { window.showLoginPopup(); return; }
+            var orig = btn.textContent;
+            btn.textContent = 'Processing...';
+            btn.disabled = true;
+            fetch('/create-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: plan }) })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.error) { window.showNotification(data.error, 'error'); btn.textContent = orig; btn.disabled = false; return; }
+                    var options = {
+                        key: data.key, amount: data.amount, currency: data.currency, name: 'YoppyChat', description: plan + ' Plan',
+                        order_id: data.order_id,
+                        handler: function (response) {
+                            response.plan = plan;
+                            fetch('/verify-payment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(response) })
+                                .then(function (r) { return r.json(); })
+                                .then(function (d) { if (d.success) { window.showNotification('Payment successful!'); setTimeout(function () { window.location.reload(); }, 1500); } else { window.showNotification(d.error || 'Verification failed', 'error'); } });
+                        },
+                        prefill: { email: data.email || '' },
+                        theme: { color: '#ff9a56' }
+                    };
+                    new Razorpay(options).open();
+                    btn.textContent = orig; btn.disabled = false;
+                })
+                .catch(function () { window.showNotification('Something went wrong', 'error'); btn.textContent = orig; btn.disabled = false; });
+        };
+        } catch (e) { console.warn('Payment/auth init skipped:', e); }
+    </script>
+</body>
+
+</html>
