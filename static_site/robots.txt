@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /_private/
+Disallow: /admin/
+Disallow: /api/
+
+Sitemap: https://yoppychat.com/sitemap.xml

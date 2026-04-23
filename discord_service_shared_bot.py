@@ -41,8 +41,8 @@ async def channel_autocomplete(interaction: discord.Interaction, current: str) -
         return []
     choices = [
         app_commands.Choice(name=ch['channel_name'], value=str(ch['id']))
-        for ch in user_channels 
-        if current.lower() in ch['channel_name'].lower() and ch.get('channel_name')
+        for ch in user_channels
+        if ch.get('channel_name') and current.lower() in ch['channel_name'].lower()
     ]
     return choices[:25]
 
@@ -126,7 +126,9 @@ class SharedYoppyBot(commands.Bot):
                     channel_data=channel_data,
                     user_id=owner_user_id,
                     access_token=None,
-                    conversation_id=conversation_id
+                    conversation_id=conversation_id,
+                    active_community_id=None,
+                    integration_source='discord'
                 )
 
                 for chunk in stream:
@@ -136,6 +138,10 @@ class SharedYoppyBot(commands.Bot):
                             break
                         try:
                             data = json.loads(data_str)
+                            if data.get('error') == 'QUERY_LIMIT_REACHED':
+                                log.warning(f"Credit limit reached for discord server {server_id}. Message: {data.get('message')}")
+                                full_answer = "LIMIT_REACHED"
+                                break
                             if data.get('answer'):
                                 full_answer += data['answer']
                             if data.get('sources'):
@@ -150,6 +156,9 @@ class SharedYoppyBot(commands.Bot):
                     self.history_cache[conversation_id].append({'question': question, 'answer': full_answer})
                     self.history_cache[conversation_id] = self.history_cache[conversation_id][-20:]
                     log.info(f"Updated in-memory cache for {conversation_id}. Cache size: {len(self.history_cache[conversation_id])}")
+
+                if full_answer == "LIMIT_REACHED":
+                    return
 
                 if not full_answer:
                     full_answer = "I couldn't find an answer to that in the channel's videos."

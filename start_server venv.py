@@ -46,7 +46,7 @@ def start_web_server(python_executable):
     else:
         print("--- Linux/macOS detected. Starting Gunicorn server. ---")
         gunicorn_executable = os.path.join("venv", 'bin', 'gunicorn')
-        server_cmd = [gunicorn_executable, '--workers', '4', '--bind', '0.0.0.0:5000', 'app:app']
+        server_cmd = [gunicorn_executable, '--config', 'gunicorn.conf.py', 'app:app']
 
     print(f"--- Starting Web Server ---")
     server_process = subprocess.Popen(server_cmd)

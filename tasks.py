@@ -11,17 +11,22 @@ from utils.youtube_utils import (
     get_transcripts_from_urls,    # <-- Use the targeted function for syncing
     youtube_api
 )
+from utils.discord_utils import update_bot_profile
+import asyncio
 from utils.embed_utils import create_and_store_embeddings
 from utils.supabase_client import get_supabase_admin_client
 from utils.telegram_utils import send_message, create_channel_keyboard
 from utils.config_utils import load_config
-from utils.qa_utils import answer_question_stream, extract_topics_from_text,generate_channel_summary
+from utils.qa_utils import answer_question_stream, extract_topics_from_text, generate_channel_summary, extract_speaking_style, extract_creator_soul
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import logging
 from utils.history_utils import save_chat_history
-from utils.history_utils import get_chat_history_for_service
+from utils.history_utils import get_chat_history_for_service, append_service_history
 from utils import db_utils
+from flask import Flask, render_template
+from flask_mail import Message
+from extensions import mail
 logger = logging.getLogger(__name__)
 
 # Load environment variables from .env if present
@@ -45,7 +50,6 @@ except Exception as e:
     redis_client = None
     print(f"Could not connect to Redis for progress updates: {e}. Progress feature will be disabled.")
 
-
 # --- Helper function ---
 def update_task_progress(task_id, status, progress, message):
     """Updates the progress of a task in Redis."""
@@ -56,15 +60,39 @@ def update_task_progress(task_id, status, progress, message):
 
 
 # --- REFACTORED process_channel_task ---
+def create_task_app():
+    """
+    Creates a minimal Flask app instance for the background task context.
+    This allows tasks to use functions like render_template().
+    """
+    task_app = Flask(__name__)
+    # Load necessary config for mail and templates from environment variables
+    task_app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
+    task_app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+    task_app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
+    task_app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+    task_app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+    task_app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
+    
+    # Initialize the mail extension with this temporary app
+    mail.init_app(task_app)
+    return task_app
+
+
 @huey.task(context=True)
 def process_channel_task(channel_id, task=None):
     """
-    [REFACTORED] Background task for a NEW channel using the intelligent fetcher.
+    [MODIFIED] The email sending logic is now isolated and reliably retrieves
+    the sender from the app config to prevent errors.
     """
     task_id = task.id if task else None
     supabase_admin = get_supabase_admin_client()
-    logger.info(f"Clearing any previous data for channel_id: {channel_id}")
-    supabase_admin.table('embeddings').delete().eq('channel_id', channel_id).execute()
+    # FIXED: Only clear YouTube embeddings, not WhatsApp/Website embeddings
+    # Use metadata filter to only delete YouTube-type embeddings
+    logger.info(f"Clearing previous YouTube data for channel_id: {channel_id}")
+    # Delete embeddings that are YouTube type (video_id pattern) or have no source_id (legacy)
+    supabase_admin.table('embeddings').delete().eq('channel_id', channel_id).is_('source_id', 'null').execute()
+    
     try:
         update_task_progress(task_id, 'processing', 5, 'Fetching channel details...')
         channel_resp = supabase_admin.table('channels').select('channel_url, creator_id').eq('id', channel_id).single().execute()
@@ -79,27 +107,77 @@ def process_channel_task(channel_id, task=None):
         supabase_admin.table('channels').update({'status': 'processing'}).eq('id', channel_id).execute()
         
         update_task_progress(task_id, 'processing', 10, 'Scanning for long-form videos...')
-        # --- THIS IS THE CORRECTED LOGIC ---
-        transcripts, thumbnail, subs = get_transcripts_from_channel(
-            youtube_api, 
-            channel_url, 
-            target_video_count=300 # Target this many long-form videos
-        )
+        
+        # Define a callback to update progress during the long-running transcription process
+        def progress_callback(msg):
+            pct = 10
+            if "Scanning" in msg:
+                 pct = 10 
+            elif "Downloading" in msg:
+                 try:
+                     parts = msg.split(':')[1].strip().split(' videos')[0].split('/')
+                     current = int(parts[0])
+                     total = int(parts[1])
+                     pct = 10 + int((current / total) * 65)
+                 except:
+                     pct = 30 
+            update_task_progress(task_id, 'processing', pct, msg)
+
+        # --- Determine whether the user submitted a single video or a full channel ---
+        from utils.youtube_utils import is_youtube_video_url as _is_video_url
+        _is_single_video = _is_video_url(channel_url)
+
+        if _is_single_video:
+            # Single video URL: just fetch that one video's transcript
+            print(f"--- [TASK] Detected single video URL — processing only this video: {channel_url} ---")
+            update_task_progress(task_id, 'processing', 20, 'Fetching transcript for the video...')
+            transcripts = get_transcripts_from_urls(youtube_api, [channel_url])
+            thumbnail = ''
+            subs = 0
+            skipped_videos = []
+        else:
+            # Channel URL: fetch the 10 latest long-form videos only
+            print(f"--- [TASK] Detected channel URL — fetching up to 10 latest videos from: {channel_url} ---")
+            transcripts, thumbnail, subs, skipped_videos = get_transcripts_from_channel(
+                youtube_api,
+                channel_url,
+                target_video_count=10,
+                progress_callback=progress_callback
+            )
+        
         if not transcripts:
-            raise ValueError("Could not find any long-form videos with transcripts.")
-        # --- END OF CORRECTION ---
+            # Check if we found long-form videos but couldn't get transcripts (rate limiting or no captions)
+            if skipped_videos:
+                raise ValueError(f"Found {len(skipped_videos)} long-form videos but could not fetch any transcripts. This may be due to YouTube rate limiting or videos without captions. Please try again in a few minutes.")
+            else:
+                raise ValueError("Could not find any long-form videos with transcripts on this channel.")
 
         update_task_progress(task_id, 'processing', 75, 'Building AI knowledge base...')
+        create_and_store_embeddings(transcripts, None, user_id_who_submitted, channel_id)
         
-        # --- START: THE FIX ---
-        # Pass the user_id_who_submitted to the embedding function.
-        # The second argument (_unused_config) is kept as a placeholder.
-        create_and_store_embeddings(transcripts, None, user_id_who_submitted)
-        # --- END: THE FIX ---
-        
-        text_sample = " ".join([t['transcript'] for t in transcripts[:5]])[:10000]
-        update_task_progress(task_id, 'processing', 90, 'Identifying topics...')
+        # --- Stratified text sample for soul/style extraction ---
+        # The old approach (transcripts[:5][:10000]) could profile just one video.
+        # This approach samples the OPENING of up to 30 videos across the full set,
+        # then shuffles so the LLM sees the creator's voice across different topics.
+        # Opening chunks are the most personality-dense (intros, catchphrases, energy).
+        _sample_pool = list(transcripts)
+        import random as _random
+        if len(_sample_pool) > 30:
+            _sample_pool = _random.sample(_sample_pool, 30)
+        _random.shuffle(_sample_pool)
+        _text_parts = [
+            f"=== {t.get('title', 'Video')} ===\n{t['transcript'][:1500]}"
+            for t in _sample_pool
+        ]
+        text_sample = "\n".join(_text_parts)[:80000]
+        logger.info(f"[SOUL_EXTRACTION] Sampling {len(_sample_pool)} videos → {len(text_sample):,} chars for soul/style extraction")
+
+        update_task_progress(task_id, 'processing', 85, 'Analyzing personality and speaking style...')
         topics = extract_topics_from_text(text_sample)
+        speaking_style = extract_speaking_style(text_sample)
+        
+        update_task_progress(task_id, 'processing', 90, 'Extracting creator identity and values...')
+        creator_soul = extract_creator_soul(text_sample)
         
         update_task_progress(task_id, 'processing', 95, 'Finalizing...')
         summary = generate_channel_summary(text_sample)
@@ -116,19 +194,85 @@ def process_channel_task(channel_id, task=None):
             'videos': video_data,
             'subscriber_count': subs,
             'topics': topics,
+            'speaking_style': speaking_style,
+            'creator_soul': creator_soul,
             'summary': summary,
             'status': 'ready'
         }).eq('id', channel_id).execute()
+
+        # --- SEO: Generate keyword-backed metadata in a separate background task ---
+        try:
+            generate_seo_metadata_task(channel_id, channel_name)
+            logger.info(f"[SEO] Queued SEO metadata generation for channel '{channel_name}' (id={channel_id})")
+        except Exception as seo_queue_err:
+            logger.warning(f"[SEO] Failed to queue SEO task for channel {channel_id}: {seo_queue_err}")
+
+        # Update associated youtube data_source if it exists (for multi-source bots)
+        supabase_admin.table('data_sources').update({
+            'status': 'ready',
+            'progress': 100
+        }).eq('chatbot_id', channel_id).eq('source_type', 'youtube').execute()
+
+        # Update parent chatbot readiness (same as WhatsApp/Website sources)
+        try:
+            from utils.multi_source_tasks import update_chatbot_readiness
+            update_chatbot_readiness(channel_id)
+        except Exception as readiness_err:
+            logger.warning(f"update_chatbot_readiness failed for channel {channel_id}: {readiness_err}")
+
+        # --- START: ISOLATED AND CORRECTED EMAIL HANDLING ---
+        try:
+            creator_profile_resp = supabase_admin.table('profiles').select('email, full_name').eq('id', user_id_who_submitted).single().execute()
+            creator_profile = creator_profile_resp.data
+            
+            if creator_profile and creator_profile.get('email'):
+                app_base_url = os.environ.get('APP_BASE_URL', 'http://localhost:5000')
+                persona_link = f"{app_base_url}/c/{channel_name}"
+                
+                task_app = create_task_app()
+                
+                with task_app.app_context():
+                    # Retrieve the sender from the current app context's config
+                    email_sender = task_app.config.get('MAIL_DEFAULT_SENDER')
+                    if not email_sender:
+                        raise ValueError("MAIL_DEFAULT_SENDER is not configured in the task app context.")
+
+                    msg_body = render_template(
+                        'email/processing_complete.html',
+                        creator_name=creator_profile.get('full_name', 'Creator'),
+                        channel_name=channel_name,
+                        persona_link=persona_link,
+                        processed_count=len(transcripts),
+                        skipped_count=len(skipped_videos),
+                        skipped_videos=skipped_videos
+                    )
+                    msg = Message(
+                        subject=f"🚀 Your AI Persona for '{channel_name}' is Ready!",
+                        sender=email_sender, # Use the retrieved sender
+                        recipients=[creator_profile['email']],
+                        html=msg_body
+                    )
+                    mail.send(msg)
+                    logging.info(f"Sent processing completion email to {creator_profile['email']}")
+        except Exception as email_error:
+            # If the email fails, we log it as a warning but DO NOT fail the whole task.
+            logging.warning(f"Email notification failed for channel ID {channel_id}: {email_error}", exc_info=True)
+        # --- END: ISOLATED AND CORRECTED EMAIL HANDLING ---
 
         update_task_progress(task_id, 'complete', 100, f"Success! The AI for '{channel_name}' is ready.")
         return f"Successfully processed {channel_name}"
 
     except Exception as e:
+        # This block will now only catch critical processing errors.
         logging.error(f"Task failed for channel ID {channel_id}: {e}", exc_info=True)
         supabase_admin.table('channels').update({'status': 'failed'}).eq('id', channel_id).execute()
+        # Also fail the associated data source
+        supabase_admin.table('data_sources').update({
+            'status': 'failed',
+            'error_message': str(e)
+        }).eq('chatbot_id', channel_id).eq('source_type', 'youtube').execute()
         update_task_progress(task_id, 'failed', 0, str(e))
         raise e
-
 
 # --- REFACTORED sync_channel_task ---
 @huey.task(context=True)
@@ -143,7 +287,7 @@ def sync_channel_task(channel_id, task=None):
         print(f"--- [SYNC TASK STARTED] Syncing channel_id: {channel_id} ---")
         update_task_progress(task_id, 'syncing', 5, 'Checking for new content...')
 
-        channel_resp = supabase_admin.table('channels').select('channel_url, videos, creator_id').eq('id', channel_id).single().execute()
+        channel_resp = supabase_admin.table('channels').select('channel_url, videos, creator_id, speaking_style, creator_soul').eq('id', channel_id).single().execute()
         if not channel_resp.data:
             raise ValueError("Channel not found.")
         
@@ -158,32 +302,75 @@ def sync_channel_task(channel_id, task=None):
         # We must first find ALL recent videos and then determine which ones are new.
         # Note: 'extract_channel_videos' is no longer in youtube_utils, so we replicate its core logic here.
         
-        # 1. Get the uploads playlist ID
-        match = re.search(r'(?:channel/|c/|@|user/)([^/?\s]+)', channel_url)
-        if not match: raise ValueError("Could not parse channel identifier.")
-        search_resp = youtube_api.search().list(q=match.group(1), type='channel', part='id', maxResults=1).execute()
-        if not search_resp.get('items'): raise ValueError("Channel not found via search.")
-        yt_channel_id = search_resp['items'][0]['id']['channelId']
-        channel_details = youtube_api.channels().list(part="contentDetails", id=yt_channel_id).execute()
-        uploads_id = channel_details['items'][0]['contentDetails']['relatedPlaylists']['uploads']
+        try:
+            # 1. Get the uploads playlist ID
+            match = re.search(r'(?:channel/|c/|@|user/)([^/?\s]+)', channel_url)
+            if not match: raise ValueError("Could not parse channel identifier.")
+            search_resp = youtube_api.search().list(q=match.group(1), type='channel', part='id', maxResults=1).execute()
+            if not search_resp.get('items'): raise ValueError("Channel not found via search.")
+            yt_channel_id = search_resp['items'][0]['id']['channelId']
+            channel_details = youtube_api.channels().list(part="contentDetails", id=yt_channel_id).execute()
+            uploads_id = channel_details['items'][0]['contentDetails']['relatedPlaylists']['uploads']
 
-        # 2. Get recent video IDs from the playlist
-        latest_video_ids = []
-        next_page_token = None
-        # We scan up to 250 recent videos to check for new ones
-        for _ in range(8): # 5 pages * 50 results = 250 videos
-            playlist_resp = youtube_api.playlistItems().list(
-                part="contentDetails", playlistId=uploads_id, maxResults=50, pageToken=next_page_token
-            ).execute()
-            latest_video_ids.extend([item['contentDetails']['videoId'] for item in playlist_resp.get('items', [])])
-            next_page_token = playlist_resp.get('nextPageToken')
-            if not next_page_token:
-                break
-        
-        new_video_ids = [vid for vid in latest_video_ids if vid not in existing_videos]
+            # 2. Get recent video IDs from the playlist
+            latest_video_ids = []
+            next_page_token = None
+            # We scan up to 250 recent videos to check for new ones
+            for _ in range(10): # 5 pages * 50 results = 250 videos
+                playlist_resp = youtube_api.playlistItems().list(
+                    part="contentDetails", playlistId=uploads_id, maxResults=50, pageToken=next_page_token
+                ).execute()
+                latest_video_ids.extend([item['contentDetails']['videoId'] for item in playlist_resp.get('items', [])])
+                next_page_token = playlist_resp.get('nextPageToken')
+                if not next_page_token:
+                    break
+            
+            new_video_ids = [vid for vid in latest_video_ids if vid not in existing_videos]
+            print(f"Found {len(new_video_ids)} new videos to check.")
+
+        except Exception as yt_error:
+            print(f"Warning: YouTube API check failed ({yt_error}). Proceeding to check for metadata updates only.")
+            new_video_ids = []
 
         if not new_video_ids:
-            print("No new videos to process.")
+            print("No new videos to process. Checking if metadata needs refresh...")
+            
+            # --- START: METADATA REFRESH LOGIC ---
+            # Even if no new videos, check if we need to backfill speaking_style or creator_soul
+            current_style = channel_resp.data.get('speaking_style')
+            current_soul = channel_resp.data.get('creator_soul')
+            needs_backfill = not current_style or not current_soul
+            if needs_backfill:
+                update_task_progress(task_id, 'syncing', 50, 'Analyzing personality and speaking style...')
+                print("Backfilling speaking style / creator soul for existing channel...")
+                
+                # Fetch a sample of text from existing embeddings
+                # We grab up to 20 random chunks to form a decent sample
+                embeddings_resp = supabase_admin.table('embeddings').select('metadata').eq('channel_id', channel_id).limit(20).execute()
+                
+                if embeddings_resp.data:
+                     text_sample = " ".join([row['metadata'].get('chunk_text', '') for row in embeddings_resp.data])
+                     
+                     update_fields = {}
+                     if not current_style:
+                         new_style = extract_speaking_style(text_sample)
+                         if new_style:
+                             update_fields['speaking_style'] = new_style
+                             print("Successfully backfilled speaking style.")
+                     
+                     if not current_soul:
+                         new_soul = extract_creator_soul(text_sample)
+                         if new_soul:
+                             update_fields['creator_soul'] = new_soul
+                             print("Successfully backfilled creator soul.")
+                     
+                     if update_fields:
+                         supabase_admin.table('channels').update(update_fields).eq('id', channel_id).execute()
+                         update_task_progress(task_id, 'complete', 100, 'Channel synced and persona profile updated!')
+                         return "Channel synced and persona profile updated."
+            # --- END: METADATA REFRESH LOGIC ---
+
+            print("Channel is already up-to-date.")
             update_task_progress(task_id, 'complete', 100, 'Channel is already up-to-date.')
             return "Channel is already up-to-date."
 
@@ -200,7 +387,7 @@ def sync_channel_task(channel_id, task=None):
             return "No new long-form content to add."
         
         update_task_progress(task_id, 'syncing', 70, 'Updating the AI knowledge base...')
-        create_and_store_embeddings(new_transcripts, None, user_id)
+        create_and_store_embeddings(new_transcripts, None, user_id, channel_id)
         
         update_task_progress(task_id, 'syncing', 95, 'Finalizing...')
         new_video_data = [
@@ -223,7 +410,7 @@ def sync_channel_task(channel_id, task=None):
 
 # (The rest of the file: consume_answer_stream, process_private_message, etc. remains unchanged)
 
-def consume_answer_stream(question, config, channel_data, video_ids, user_id, access_token):
+def consume_answer_stream(question, config, channel_data, video_ids, user_id, access_token, conversation_id=None):
     """
     This is the corrected helper function that now includes chat history.
     """
@@ -232,7 +419,7 @@ def consume_answer_stream(question, config, channel_data, video_ids, user_id, ac
 
     # --- THIS IS THE FIX ---
     # 1. Determine the channel name for history lookup
-    channel_name_for_history = channel_data.get('channel_name', 'general') if channel_data else 'general'
+    channel_name_for_history = conversation_id or (channel_data.get('channel_name', 'general') if channel_data else 'general')
     
     # 2. Fetch the last 5 messages for context
     history = get_chat_history_for_service(user_id, channel_name_for_history, limit=5)
@@ -261,7 +448,9 @@ def consume_answer_stream(question, config, channel_data, video_ids, user_id, ac
         channel_data=channel_data,
         video_ids=video_ids,
         user_id=user_id,
-        access_token=access_token
+        access_token=access_token,
+        integration_source='telegram',
+        conversation_id=conversation_id
     )
 
     for chunk in stream:
@@ -271,6 +460,10 @@ def consume_answer_stream(question, config, channel_data, video_ids, user_id, ac
                 break
             try:
                 data = json.loads(data_str)
+                if data.get('error') == 'QUERY_LIMIT_REACHED':
+                    log.warning(f"Credit limit reached for telegram chat {conversation_id}. Message: {data.get('message')}")
+                    full_answer = "LIMIT_REACHED"
+                    break
                 if data.get('answer'):
                     full_answer += data['answer']
                 if data.get('sources'):
@@ -370,7 +563,10 @@ def process_private_message(message: dict):
                 video_ids = {v['video_id'] for v in channel_data.get('videos', [])}
 
         config = load_config()
-        full_answer, sources = consume_answer_stream(text, config, channel_data, video_ids, user_id, access_token=None)
+        full_answer, sources = consume_answer_stream(text, config, channel_data, video_ids, user_id, access_token=None, conversation_id=f"telegram_private_{chat_id}")
+
+        if full_answer == "LIMIT_REACHED":
+            return
 
         if not full_answer:
             full_answer = "I couldn't find an answer to your question."
@@ -456,8 +652,11 @@ def process_group_message(message: dict):
         question = text.replace(bot_username, "").strip()
         video_ids = {v['video_id'] for v in channel_data.get('videos', [])}
 
-        # We now pass 'access_token=None' as the last argument.
-        full_answer, sources = consume_answer_stream(question, config, channel_data, video_ids, owner_user_id, access_token=None)
+        # We now pass 'access_token=None' as the last argument, and a unique conversation_id.
+        full_answer, sources = consume_answer_stream(question, config, channel_data, video_ids, owner_user_id, access_token=None, conversation_id=f"telegram_group_{chat_id}")
+
+        if full_answer == "LIMIT_REACHED":
+            return
 
         if not full_answer:
             full_answer = "I couldn't find an answer to your question in the video transcripts."
@@ -508,13 +707,11 @@ def delete_channel_task(channel_id: int, user_id: str):
         print(f"--- [DELETE TASK STARTED] Unlinking Channel ID: {channel_id} from User ID: {user_id} ---")
         supabase_admin = get_supabase_admin_client()
 
-        # --- FIX: Decrement user's personal channel count if it's a personal channel ---
-        # We must do this BEFORE unlinking, while we can still easily check the channel's status.
+        # Decrement user's personal channel count if it's a personal channel
         channel_details_resp = supabase_admin.table('channels').select('is_shared').eq('id', channel_id).single().execute()
         if channel_details_resp.data and not channel_details_resp.data.get('is_shared'):
             print(f"Channel {channel_id} is a personal channel. Decrementing count for user {user_id}.")
             supabase_admin.rpc('decrement_channel_count', {'p_user_id': user_id}).execute()
-        # --- END FIX ---
 
         # Step 1: Unlink the user from the channel.
         supabase_admin.table('user_channels').delete().match({
@@ -532,23 +729,14 @@ def delete_channel_task(channel_id: int, user_id: str):
         if other_users_response.count == 0:
             print(f"Channel {channel_id} is orphaned. Deleting all associated data.")
 
-            # Step 3: Get the channel details to find its associated videos.
-            channel_details_response = supabase_admin.table('channels').select('videos').eq('id', channel_id).single().execute()
-            
-            if channel_details_response.data and channel_details_response.data.get('videos'):
-                video_ids = [v['video_id'] for v in channel_details_response.data['videos']]
-                
-                # Step 4: Delete all embeddings linked to those videos.
-                if video_ids:
-                    print(f"Found {len(video_ids)} videos. Deleting associated embeddings...")
-                    supabase_admin.table('embeddings').delete().in_('video_id', video_ids).execute()
-                    print(f"Deleted embeddings for videos: {video_ids}")
+            # Step 3: Delete embeddings in batches to prevent timeouts.
+            _delete_embeddings_in_batches(channel_id)
 
-            # Step 5: Finally, delete the master channel record.
+            # Step 4: Finally, delete the master channel record.
             supabase_admin.table('channels').delete().eq('id', channel_id).execute()
             print(f"Deleted master record for channel {channel_id}.")
             print(f"--- [DELETE TASK SUCCESS] Permanently deleted channel {channel_id}. ---")
-        
+
         else:
             print(f"--- [DELETE TASK SUCCESS] Channel {channel_id} is still in use by {other_users_response.count} other users. ---")
 
@@ -563,13 +751,13 @@ def delete_channel_task(channel_id: int, user_id: str):
 
     
 @huey.task()
-def post_answer_processing_task(user_id, channel_name, question, answer, sources):
+def post_answer_processing_task(user_id, channel_name, question, answer, sources, integration_source='web'):
     """
     Handles saving chat history after an answer is streamed.
     Query deduction is now handled synchronously before the stream starts.
     """
     try:
-        logger.info(f"TASK: Saving chat history for user {user_id}")
+        logger.info(f"TASK: Saving chat history for user {user_id} via {integration_source}")
         admin_supabase = get_supabase_admin_client()
         save_chat_history(
             supabase_client=admin_supabase,
@@ -577,7 +765,141 @@ def post_answer_processing_task(user_id, channel_name, question, answer, sources
             channel_name=channel_name,
             question=question,
             answer=answer,
-            sources=sources
+            sources=sources,
+            integration_source=integration_source
         )
+        # Write-through: keep in-process cache in sync so the next message
+        # in this conversation reads from cache, not DB.
+        append_service_history(user_id, channel_name, question, answer)
     except Exception as e:
         logger.error(f"Error in post-answer processing for user {user_id}: {e}", exc_info=True)
+
+@huey.task()
+def update_bot_profile_task(bot_token: str, channel_url: str):
+    """
+    Background task to update a Discord bot's name and avatar to match
+    the linked YouTube channel.
+    """
+    try:
+        logger.info(f"--- [TASK STARTED] Updating profile for bot using token: {bot_token[:5]}... ---")
+        
+        # The update_bot_profile function is async, so we need to run it in an event loop.
+        success, message = asyncio.run(update_bot_profile(bot_token, channel_url))
+        
+        if success:
+            logger.info(f"--- [TASK SUCCESS] Bot profile updated: {message} ---")
+        else:
+            logger.error(f"--- [TASK FAILED] Bot profile update failed: {message} ---")
+            
+    except Exception as e:
+        logger.error(f"--- [TASK FAILED] Critical error in update_bot_profile_task: {e}", exc_info=True)
+
+
+def _delete_embeddings_in_batches(channel_id: int, batch_size: int = 500):
+    """Helper function to delete embeddings in batches to avoid timeouts."""
+    supabase_admin = get_supabase_admin_client()
+    while True:
+        # Find a batch of embeddings to delete
+        ids_to_delete_res = supabase_admin.table('embeddings') \
+            .select('id') \
+            .eq('channel_id', channel_id) \
+            .limit(batch_size) \
+            .execute()
+        
+        if not ids_to_delete_res.data:
+            print("No more embeddings to delete.")
+            break # Exit the loop if no embeddings are found
+
+        ids = [item['id'] for item in ids_to_delete_res.data]
+        print(f"Deleting batch of {len(ids)} embeddings for channel {channel_id}...")
+        
+        # Delete the batch of embeddings by their primary keys
+        supabase_admin.table('embeddings').delete().in_('id', ids).execute()
+        
+        if len(ids) < batch_size:
+            print("Finished deleting all embeddings.")
+            break # Exit if the last batch was smaller than the batch size
+
+@huey.task()
+def owner_delete_channel_task(channel_id: int):
+    """
+    Background task for an OWNER to PERMANENTLY DELETE a channel and all
+    associated data (links, embeddings, etc.) for ALL users.
+    """
+    try:
+        print(f"--- [OWNER DELETE TASK STARTED] Permanently deleting Channel ID: {channel_id} ---")
+        supabase_admin = get_supabase_admin_client()
+
+        # Step 1: Explicitly unlink all users from the channel.
+        print(f"Unlinking all users from channel {channel_id}...")
+        supabase_admin.table('user_channels').delete().eq('channel_id', channel_id).execute()
+        print("All users unlinked.")
+
+        # Step 2: Delete embeddings in batches to prevent timeouts.
+        _delete_embeddings_in_batches(channel_id)
+
+        # Step 3: Finally, delete the master channel record.
+        print(f"Deleting master record for channel {channel_id}...")
+        supabase_admin.table('channels').delete().eq('id', channel_id).execute()
+        print("Channel record deleted.")
+
+        print(f"--- [OWNER DELETE TASK SUCCESS] Successfully deleted channel {channel_id} and all associated data. ---")
+
+    except Exception as e:
+        if isinstance(e, APIError):
+            error_message = e.message
+        else:
+            error_message = str(e)
+
+        print(f"--- [OWNER DELETE TASK FAILED] Error for channel {channel_id}: {error_message} ---")
+        logger.error(f"Owner delete task failed for channel {channel_id}: {e}", exc_info=True)
+        raise
+
+
+
+# --- MULTI-SOURCE TASK REGISTRATION ---
+# Import multi-source tasks to register them with Huey
+from tasks_multi_source import (
+    process_whatsapp_source_task,
+    process_website_source_task
+)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SEO METADATA GENERATION TASK
+# ──────────────────────────────────────────────────────────────────────────────
+@huey.task()
+def generate_seo_metadata_task(channel_id: int, channel_name: str):
+    """
+    Background task that:
+      1. Queries Google Autocomplete for real search terms around this creator.
+      2. Feeds those keywords to GPT-4o-mini to produce an optimised Title,
+         Meta Description, and H1 for the creator's /c/<channel_name> page.
+      3. Saves the results directly to the channels row in Supabase.
+
+    Runs silently — any failure is logged as a warning, never surfaces to the user.
+    """
+    try:
+        logger.info(f"[SEO TASK] Starting SEO metadata generation for '{channel_name}' (id={channel_id})")
+
+        from utils.seo_utils import generate_seo_metadata
+        seo_data = generate_seo_metadata(channel_name)
+
+        supabase_admin = get_supabase_admin_client()
+        supabase_admin.table('channels').update({
+            'seo_title':            seo_data.get('seo_title'),
+            'seo_meta_description': seo_data.get('seo_meta_description'),
+            'seo_h1':               seo_data.get('seo_h1'),
+        }).eq('id', channel_id).execute()
+
+        logger.info(
+            f"[SEO TASK] Done for '{channel_name}'. "
+            f"Title: {seo_data.get('seo_title', '')[:60]!r}"
+        )
+
+    except Exception as e:
+        # SEO generation is non-critical — log and swallow.
+        logger.warning(
+            f"[SEO TASK] Failed for channel_id={channel_id} name={channel_name!r}: {e}",
+            exc_info=True
+        )
