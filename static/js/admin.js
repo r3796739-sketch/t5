@@ -1,17 +1,123 @@
+/**
+ * Show notification toast message
+ * @param {string} message - The message to display
+ * @param {string} type - Type: 'success', 'error', 'info', 'warning'
+ */
+function showNotification(message, type = 'info') {
+    // Check if notification container exists
+    let container = document.getElementById('notification-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'notification-container';
+        container.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            max-width: 400px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        `;
+        document.body.appendChild(container);
+    }
+
+    // Create notification element
+    const notification = document.createElement('div');
+    const bgColor = {
+        success: '#dcfce7',
+        error: '#fee2e2',
+        warning: '#fef3c7',
+        info: '#dbeafe'
+    }[type] || '#dbeafe';
+
+    const borderColor = {
+        success: '#86efac',
+        error: '#fca5a5',
+        warning: '#fcd34d',
+        info: '#93c5fd'
+    }[type] || '#93c5fd';
+
+    const textColor = {
+        success: '#15803d',
+        error: '#991b1b',
+        warning: '#b45309',
+        info: '#1e40af'
+    }[type] || '#1e40af';
+
+    notification.style.cssText = `
+        background: ${bgColor};
+        border: 1px solid ${borderColor};
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        color: ${textColor};
+        font-weight: 500;
+        font-size: 0.9rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        animation: slideIn 0.3s ease-out;
+    `;
+    notification.textContent = message;
+    container.appendChild(notification);
+
+    // Add animation
+    if (!document.getElementById('notification-styles')) {
+        const style = document.createElement('style');
+        style.id = 'notification-styles';
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            @keyframes slideOut {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-in forwards';
+        setTimeout(() => notification.remove(), 300);
+    }, 4000);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // --- START: NEW Action Menu Logic ---
     // Close menus if user clicks outside
     window.addEventListener('click', function(e) {
-        document.querySelectorAll('.action-menu.show').forEach(function(menu) {
+        document.querySelectorAll('.action-menu').forEach(function(menu) {
             // If the click is outside the menu's parent card-actions, close it
-            if (!menu.closest('.card-actions').contains(e.target)) {
-                menu.classList.remove('show');
+            const cardActions = menu.closest('.card-actions');
+            if (cardActions && !cardActions.contains(e.target)) {
+                menu.style.display = 'none';
             }
         });
     });
     // --- END: NEW Action Menu Logic ---
 
-
+    const payoutSearchForm = document.getElementById('payoutSearchForm');
+    if (payoutSearchForm) {
+        payoutSearchForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const searchInput = document.getElementById('payoutSearchInput');
+            const query = searchInput.value.trim();
+            // Reload the page with the search query as a URL parameter
+            window.location.href = `/admin/dashboard?q=${encodeURIComponent(query)}`;
+        });
+    }
     const createPlanForm = document.getElementById('createPlanForm');
     if (createPlanForm) {
         createPlanForm.addEventListener('submit', function(e) {
@@ -42,13 +148,14 @@ document.addEventListener('DOMContentLoaded', function() {
 function toggleActionMenu(button) {
     const menu = button.nextElementSibling;
     // Close all other open menus first
-    document.querySelectorAll('.action-menu.show').forEach(function(openMenu) {
-        if (openMenu !== menu) {
-            openMenu.classList.remove('show');
+    document.querySelectorAll('.action-menu').forEach(function(openMenu) {
+        if (openMenu !== menu && openMenu.style.display !== 'none') {
+            openMenu.style.display = 'none';
         }
     });
     // Then toggle the current one
-    menu.classList.toggle('show');
+    const isHidden = menu.style.display === 'none' || !menu.style.display;
+    menu.style.display = isHidden ? 'block' : 'none';
 }
 // --- END: NEW Function ---
 

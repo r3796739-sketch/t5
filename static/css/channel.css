@@ -191,6 +191,7 @@
     align-items: center;
     gap: 1rem;
 }
+
 /* --- END: NEW STYLES --- */
 
 /* Processing card specific styles */
@@ -224,8 +225,13 @@
 }
 
 @keyframes shimmer {
-    0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
-    100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+    0% {
+        transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+
+    100% {
+        transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
 }
 
 .channel-card-spinner {
@@ -240,8 +246,13 @@
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 .processing-details {
@@ -289,8 +300,13 @@
 }
 
 @keyframes progress-shine {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
+    0% {
+        transform: translateX(-100%);
+    }
+
+    100% {
+        transform: translateX(100%);
+    }
 }
 
 .progress-text {
@@ -325,7 +341,8 @@
         width: 100%;
     }
 
-    .processing-title, .progress-text {
+    .processing-title,
+    .progress-text {
         text-align: center;
     }
 }
@@ -346,5 +363,12 @@
     .process-btn {
         padding: 0.875rem 1.5rem;
         font-size: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .hero-content {
+        margin: 0 auto;
+        margin-top: 10%;
     }
 }

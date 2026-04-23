@@ -110,7 +110,22 @@ tbody tr:last-child td { border-bottom: none; }
 .modal-content .btn-primary {
     width: 100%;
     margin-top: 1rem;
+    background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
     padding: 14px;
     font-size: 1rem;
     font-weight: 600;
+}
+.login-popup-close-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 5px;
+}
+.btn.btn-primary{
+     background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
 }
