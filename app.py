@@ -995,7 +995,9 @@ def creator_submit():
     """
     if request.method == 'GET':
         prefilled_url = request.args.get('channel_url', '')
-        return render_template('creator-submit.html', prefilled_channel_url=prefilled_url)
+        if prefilled_url:
+            return redirect(url_for('channel', channel_url=prefilled_url))
+        return redirect(url_for('channel'))
 
     # POST handling (JSON)
     try:
